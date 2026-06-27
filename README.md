@@ -4,6 +4,20 @@
 
 A Memos-compatible, Cloudflare-native personal knowledge management system.
 
+[![GitHub stars](https://img.shields.io/github/stars/realchendahuang/FlareMo?style=social)](https://github.com/realchendahuang/FlareMo)
+[![GitHub forks](https://img.shields.io/github/forks/realchendahuang/FlareMo?style=social)](https://github.com/realchendahuang/FlareMo)
+[![GitHub last commit](https://img.shields.io/github/last-commit/realchendahuang/FlareMo)](https://github.com/realchendahuang/FlareMo/commits)
+[![GitHub repo size](https://img.shields.io/github/repo-size/realchendahuang/FlareMo)](https://github.com/realchendahuang/FlareMo)
+[![GitHub issues](https://img.shields.io/github/issues/realchendahuang/FlareMo)](https://github.com/realchendahuang/FlareMo/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/realchendahuang/FlareMo)](https://github.com/realchendahuang/FlareMo/pulls)
+[![GitHub contributors](https://img.shields.io/github/contributors/realchendahuang/FlareMo)](https://github.com/realchendahuang/FlareMo/graphs/contributors)
+[![license](https://img.shields.io/github/license/realchendahuang/FlareMo)](./LICENSE)
+[![Made by 大黄](https://img.shields.io/badge/made%20by-大黄-blue)](https://github.com/realchendahuang)
+[![Powered by Cloudflare](https://img.shields.io/badge/powered%20by-Cloudflare-F38020?logo=cloudflare&logoColor=white)](https://www.cloudflare.com/)
+[![Memos compatible](https://img.shields.io/badge/Memos-compatible-0466c1?logo=data:image/svg+xml;base64,&labelColor=grey)](https://github.com/usememos/memos)
+[![Build in Public](https://img.shields.io/badge/build-public-FF1B6B)](https://github.com/realchendahuang/FlareMo)
+[![status](https://img.shields.io/badge/status-early-orange)](https://github.com/realchendahuang/FlareMo)
+
 ---
 
 ## 初心
@@ -170,6 +184,19 @@ FlareMo 学习自:
   附件、引用与编辑器交互参考。
 - [XuYouo/MeowNocode](https://github.com/XuYouo/MeowNocode):轻量
   Cloudflare D1 笔记应用参考。
+
+## Star History
+
+本项目一天一起造,公开建造。Star 增长曲线会出现在这里:
+
+[![Star History Chart](https://api.star-history.com/svg?repos=realchendahuang/FlareMo&type=Date)](https://star-history.com/#realchendahuang/FlareMo&Date)
+
+<a href="https://star-history.com/#realchendahuang/FlareMo&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=realchendahuang/FlareMo&type=Date&theme=dark">
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=realchendahuang/FlareMo&type=Date">
+  </picture>
+</a>
 
 ## Build in Public
 
