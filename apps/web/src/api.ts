@@ -150,20 +150,28 @@ export async function uploadAttachment(input: { file: File; memo?: string }) {
 }
 
 export async function listMemoAttachments(memo: string) {
-  return apiRequest<ListAttachmentsResponse>(`/api/v1/memos/${encodeURIComponent(memo)}/attachments`);
+  return apiRequest<ListAttachmentsResponse>(
+    `/api/v1/memos/${encodeURIComponent(memo)}/attachments`,
+  );
 }
 
 export async function bindMemoAttachments(memo: string, attachments: string[]) {
-  return apiRequest<ListAttachmentsResponse>(`/api/v1/memos/${encodeURIComponent(memo)}/attachments`, {
-    method: "PATCH",
-    body: JSON.stringify({ attachments }),
-  });
+  return apiRequest<ListAttachmentsResponse>(
+    `/api/v1/memos/${encodeURIComponent(memo)}/attachments`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ attachments }),
+    },
+  );
 }
 
 export async function deleteAttachment(id: string) {
-  return apiRequest<{ ok: true }>(`/api/v1/attachments/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+  return apiRequest<{ ok: true }>(
+    `/api/v1/attachments/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function createShare(memo: string) {
@@ -174,7 +182,9 @@ export async function createShare(memo: string) {
 }
 
 export async function getPublicShare(token: string) {
-  return apiRequest<PublicShare>(`/api/public/shares/${encodeURIComponent(token)}`);
+  return apiRequest<PublicShare>(
+    `/api/public/shares/${encodeURIComponent(token)}`,
+  );
 }
 
 export async function exportData() {

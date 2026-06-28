@@ -1,6 +1,6 @@
 {
   "name": "flaremo",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -10,6 +10,9 @@
     "dev:worker": "pnpm --filter @flaremo/worker dev",
     "build": "pnpm -r build",
     "check": "pnpm -r check",
+    "lint": "biome check AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md README.en.md ROADMAP.md SECURITY.md SUPPORT.md llms.txt package.json tsconfig.json tsconfig.base.json vitest.config.ts playwright.config.ts drizzle.config.ts wrangler.jsonc .github docs scripts apps packages tests",
+    "format": "pnpm lint --write",
+    "format:check": "biome ci AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md README.en.md ROADMAP.md SECURITY.md SUPPORT.md llms.txt package.json tsconfig.json tsconfig.base.json vitest.config.ts playwright.config.ts drizzle.config.ts wrangler.jsonc .github docs scripts apps packages tests",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:e2e": "playwright test",

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseAttachmentsResourceName, parseMemosResourceName, parseSharesResourceName } from "./adapter";
+import {
+  parseAttachmentsResourceName,
+  parseMemosResourceName,
+  parseSharesResourceName,
+} from "./adapter";
 
 describe("Memos resource names", () => {
   it("accepts bare memo ids and full memo resource names", () => {
@@ -9,7 +13,9 @@ describe("Memos resource names", () => {
 
   it("accepts bare attachment ids and full attachment resource names", () => {
     expect(parseAttachmentsResourceName("file")).toBe("attachments/file");
-    expect(parseAttachmentsResourceName("attachments/file")).toBe("attachments/file");
+    expect(parseAttachmentsResourceName("attachments/file")).toBe(
+      "attachments/file",
+    );
   });
 
   it("accepts bare share ids and full share resource names", () => {

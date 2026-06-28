@@ -12,6 +12,9 @@ FlareMo 是 Cloudflare 原生的个人知识管理系统，提供 Memos 兼容 A
 - 发版: ./docs/release.md
 - 维护: ./docs/maintenance.md
 - Memos 兼容矩阵: ./docs/memos-compatibility.md
+- Memos 生态兼容记录: ./docs/memos-ecosystem.md
+- English README: ./README.en.md
+- English deploy docs: ./docs/en/deploy.md
 - 路线: ./ROADMAP.md
 - Agent 指南: ./AGENTS.md
 
@@ -28,6 +31,7 @@ FlareMo 是 Cloudflare 原生的个人知识管理系统，提供 Memos 兼容 A
 ## 质量门禁
 
 ```bash
+pnpm format:check
 pnpm verify
 pnpm deploy:dry-run
 pnpm backup:drill

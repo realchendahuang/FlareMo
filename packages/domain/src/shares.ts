@@ -6,7 +6,12 @@ import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId, createToken, parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
 
-export async function createMemoShare(db: FlareMoDb, user: UserRow, memoId: string, input: CreateShareInput = {}) {
+export async function createMemoShare(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+  input: CreateShareInput = {},
+) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   await getMemoById(db, user, normalizedMemoId);
   const expiresAt = input.expires_at ?? null;
@@ -28,11 +33,18 @@ export async function createMemoShare(db: FlareMoDb, user: UserRow, memoId: stri
   return getShareByIdOrToken(db, user, row.id);
 }
 
-export async function getShareByIdOrToken(db: FlareMoDb, user: UserRow, idOrToken: string) {
+export async function getShareByIdOrToken(
+  db: FlareMoDb,
+  user: UserRow,
+  idOrToken: string,
+) {
   const row = await db.query.shares.findFirst({
     where: and(
       eq(shares.userId, user.id),
-      or(eq(shares.id, parseResourceName(idOrToken, "shares")), eq(shares.token, idOrToken)),
+      or(
+        eq(shares.id, parseResourceName(idOrToken, "shares")),
+        eq(shares.token, idOrToken),
+      ),
     ),
   });
 
@@ -66,7 +78,11 @@ export async function getPublicShareByToken(db: FlareMoDb, token: string) {
 
   const [memo, user, attachmentRows] = await Promise.all([
     db.query.memos.findFirst({
-      where: and(eq(memos.id, share.memoId), eq(memos.userId, share.userId), eq(memos.status, "normal")),
+      where: and(
+        eq(memos.id, share.memoId),
+        eq(memos.userId, share.userId),
+        eq(memos.status, "normal"),
+      ),
     }),
     db.query.users.findFirst({
       where: eq(users.id, share.userId),
@@ -74,7 +90,13 @@ export async function getPublicShareByToken(db: FlareMoDb, token: string) {
     db
       .select()
       .from(attachments)
-      .where(and(eq(attachments.memoId, share.memoId), eq(attachments.userId, share.userId), isNull(attachments.deletedAt))),
+      .where(
+        and(
+          eq(attachments.memoId, share.memoId),
+          eq(attachments.userId, share.userId),
+          isNull(attachments.deletedAt),
+        ),
+      ),
   ]);
 
   if (!memo || !user) {

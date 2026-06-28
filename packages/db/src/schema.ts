@@ -1,4 +1,11 @@
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable(
   "users",
@@ -7,7 +14,9 @@ export const users = sqliteTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     avatarUrl: text("avatar_url"),
-    role: text("role", { enum: ["owner", "member"] }).notNull().default("owner"),
+    role: text("role", { enum: ["owner", "member"] })
+      .notNull()
+      .default("owner"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -22,17 +31,30 @@ export const memos = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
-    visibility: text("visibility", { enum: ["private", "protected", "public"] }).notNull().default("private"),
-    status: text("status", { enum: ["normal", "archived", "trashed", "deleted"] }).notNull().default("normal"),
+    visibility: text("visibility", { enum: ["private", "protected", "public"] })
+      .notNull()
+      .default("private"),
+    status: text("status", {
+      enum: ["normal", "archived", "trashed", "deleted"],
+    })
+      .notNull()
+      .default("normal"),
     pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
     source: text("source").notNull().default("web"),
-    payload: text("payload", { mode: "json" }).$type<MemoPayload>().notNull().default({}),
+    payload: text("payload", { mode: "json" })
+      .$type<MemoPayload>()
+      .notNull()
+      .default({}),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
   },
   (table) => [
-    index("memos_user_status_created_idx").on(table.userId, table.status, table.createdAt),
+    index("memos_user_status_created_idx").on(
+      table.userId,
+      table.status,
+      table.createdAt,
+    ),
     index("memos_user_updated_idx").on(table.userId, table.updatedAt),
     index("memos_visibility_idx").on(table.visibility),
   ],
@@ -47,10 +69,14 @@ export const memoRelations = sqliteTable(
     relatedMemoId: text("related_memo_id")
       .notNull()
       .references(() => memos.id, { onDelete: "cascade" }),
-    type: text("type", { enum: ["reference", "comment"] }).notNull().default("reference"),
+    type: text("type", { enum: ["reference", "comment"] })
+      .notNull()
+      .default("reference"),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.memoId, table.relatedMemoId, table.type] })],
+  (table) => [
+    primaryKey({ columns: [table.memoId, table.relatedMemoId, table.type] }),
+  ],
 );
 
 export const attachments = sqliteTable(
@@ -60,12 +86,17 @@ export const attachments = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    memoId: text("memo_id").references(() => memos.id, { onDelete: "set null" }),
+    memoId: text("memo_id").references(() => memos.id, {
+      onDelete: "set null",
+    }),
     r2Key: text("r2_key").notNull(),
     filename: text("filename").notNull(),
     contentType: text("content_type"),
     size: integer("size").notNull().default(0),
-    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
+    payload: text("payload", { mode: "json" })
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
@@ -90,7 +121,10 @@ export const shares = sqliteTable(
     expiresAt: text("expires_at"),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [uniqueIndex("shares_token_idx").on(table.token), index("shares_memo_idx").on(table.memoId)],
+  (table) => [
+    uniqueIndex("shares_token_idx").on(table.token),
+    index("shares_memo_idx").on(table.memoId),
+  ],
 );
 
 export const settings = sqliteTable(

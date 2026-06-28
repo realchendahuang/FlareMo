@@ -5,10 +5,19 @@ import type { HonoBindings } from "./context";
 
 export function jsonError(c: Context<HonoBindings>, error: unknown) {
   if (error instanceof DomainError) {
-    return c.json({ error: { message: error.message } }, toContentfulStatus(error.status));
+    return c.json(
+      { error: { message: error.message } },
+      toContentfulStatus(error.status),
+    );
   }
 
-  console.error(JSON.stringify({ level: "error", message: "Unhandled request error", error: serializeError(error) }));
+  console.error(
+    JSON.stringify({
+      level: "error",
+      message: "Unhandled request error",
+      error: serializeError(error),
+    }),
+  );
   return c.json({ error: { message: "Internal server error" } }, 500);
 }
 

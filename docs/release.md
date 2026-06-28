@@ -47,7 +47,7 @@ pnpm deploy
 确认版本号后运行：
 
 ```bash
-pnpm release v0.1.1
+pnpm release vX.Y.Z
 ```
 
 发布脚本会检查工作树、确认 `HEAD` 已经推到 `origin/main`、提取 `CHANGELOG.md` 中对应版本的 release notes、执行 `pnpm verify` 和 `pnpm deploy:dry-run`，然后创建 tag 和 GitHub Release。

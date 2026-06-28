@@ -27,13 +27,27 @@ describe("FlareMo Worker API", () => {
     env = {
       DB: db,
       ATTACHMENTS: r2,
-      ASSETS: { fetch: async () => new Response("asset", { status: 200 }) } as Fetcher,
+      ASSETS: {
+        fetch: async () => new Response("asset", { status: 200 }),
+      } as Fetcher,
       FLAREMO_SINGLE_USER_EMAIL: "owner@example.com",
       FLAREMO_SINGLE_USER_NAME: "Owner",
     };
 
-    const migration = await readFile(resolve(import.meta.dirname, "../../../migrations/0000_illegal_inhumans.sql"), "utf8");
-    const cleanup = await readFile(resolve(import.meta.dirname, "../../../migrations/0001_familiar_morph.sql"), "utf8");
+    const migration = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0000_illegal_inhumans.sql",
+      ),
+      "utf8",
+    );
+    const cleanup = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0001_familiar_morph.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
   });
@@ -57,10 +71,14 @@ describe("FlareMo Worker API", () => {
 
     expect(created.name).toMatch(/^memos\//);
 
-    const byTag = await json(await fetchApp("http://flaremo.test/api/v1/memos?tag=idea"));
+    const byTag = await json(
+      await fetchApp("http://flaremo.test/api/v1/memos?tag=idea"),
+    );
     expect(byTag.memos).toHaveLength(1);
 
-    const openapi = await json(await fetchApp("http://flaremo.test/openapi.json"));
+    const openapi = await json(
+      await fetchApp("http://flaremo.test/openapi.json"),
+    );
     expect(openapi.paths["/api/v1/memos"]).toBeTruthy();
 
     const mcpTools = await json(
@@ -70,7 +88,9 @@ describe("FlareMo Worker API", () => {
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
       }),
     );
-    expect(mcpTools.result.tools.map((tool: { name: string }) => tool.name)).toContain("create_memo");
+    expect(
+      mcpTools.result.tools.map((tool: { name: string }) => tool.name),
+    ).toContain("create_memo");
 
     const trashed = await json(
       await fetchApp(`http://flaremo.test/api/v1/${created.name}`, {
@@ -87,9 +107,15 @@ describe("FlareMo Worker API", () => {
     await new Promise((resolve) => setTimeout(resolve, 2));
     await createMemo("page third");
 
-    const firstPage = await json(await fetchApp("http://flaremo.test/api/v1/memos?page_size=2&order_by=created_at asc"));
+    const firstPage = await json(
+      await fetchApp(
+        "http://flaremo.test/api/v1/memos?page_size=2&order_by=created_at asc",
+      ),
+    );
     expect(firstPage.memos).toHaveLength(2);
-    expect(firstPage.memos.map((memo: { content: string }) => memo.content)).toEqual(["page first", "page second"]);
+    expect(
+      firstPage.memos.map((memo: { content: string }) => memo.content),
+    ).toEqual(["page first", "page second"]);
     expect(firstPage.next_page_token).toBeTruthy();
 
     const secondPage = await json(
@@ -97,7 +123,9 @@ describe("FlareMo Worker API", () => {
         `http://flaremo.test/api/v1/memos?page_size=2&order_by=created_at asc&page_token=${encodeURIComponent(firstPage.next_page_token)}`,
       ),
     );
-    expect(secondPage.memos.map((memo: { content: string }) => memo.content)).toEqual(["page third"]);
+    expect(
+      secondPage.memos.map((memo: { content: string }) => memo.content),
+    ).toEqual(["page third"]);
     expect(secondPage.next_page_token).toBeUndefined();
   });
 
@@ -106,7 +134,10 @@ describe("FlareMo Worker API", () => {
 
     const formData = new FormData();
     formData.set("memo", memo.name);
-    formData.set("file", new File(["hello attachment"], "hello.txt", { type: "text/plain" }));
+    formData.set(
+      "file",
+      new File(["hello attachment"], "hello.txt", { type: "text/plain" }),
+    );
     const attachment = await json(
       await fetchApp("http://flaremo.test/api/v1/attachments", {
         method: "POST",
@@ -115,10 +146,14 @@ describe("FlareMo Worker API", () => {
     );
     expect(attachment.name).toMatch(/^attachments\//);
 
-    const bound = await json(await fetchApp(`http://flaremo.test/api/v1/${memo.name}/attachments`));
+    const bound = await json(
+      await fetchApp(`http://flaremo.test/api/v1/${memo.name}/attachments`),
+    );
     expect(bound.attachments).toHaveLength(1);
 
-    const blob = await fetchApp(`http://flaremo.test/api/v1/${attachment.name}/blob`);
+    const blob = await fetchApp(
+      `http://flaremo.test/api/v1/${attachment.name}/blob`,
+    );
     expect(await blob.text()).toBe("hello attachment");
 
     const deleted = await json(
@@ -137,7 +172,9 @@ describe("FlareMo Worker API", () => {
       await fetchApp(`http://flaremo.test/api/v1/${first.name}/relations`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ relations: [{ related_memo: second.name, type: "reference" }] }),
+        body: JSON.stringify({
+          relations: [{ related_memo: second.name, type: "reference" }],
+        }),
       }),
     );
     expect(relations.relations).toHaveLength(1);
@@ -151,7 +188,9 @@ describe("FlareMo Worker API", () => {
     );
     expect(share.token).toBeTruthy();
 
-    const bundle = await json(await fetchApp("http://flaremo.test/api/v1/export"));
+    const bundle = await json(
+      await fetchApp("http://flaremo.test/api/v1/export"),
+    );
     expect(bundle.memos.length).toBeGreaterThanOrEqual(2);
 
     const result = await json(
@@ -168,8 +207,11 @@ describe("FlareMo Worker API", () => {
     const memo = await createMemo("shareable memo #public");
     const formData = new FormData();
     formData.set("memo", memo.name);
-    formData.set("file", new File(["shared attachment"], "shared.txt", { type: "text/plain" }));
-    const attachment = await json(
+    formData.set(
+      "file",
+      new File(["shared attachment"], "shared.txt", { type: "text/plain" }),
+    );
+    await json(
       await fetchApp("http://flaremo.test/api/v1/attachments", {
         method: "POST",
         body: formData,
@@ -184,19 +226,28 @@ describe("FlareMo Worker API", () => {
       }),
     );
 
-    const publicShare = await json(await fetchApp(`http://flaremo.test/api/public/shares/${share.token}`));
+    const publicShare = await json(
+      await fetchApp(`http://flaremo.test/api/public/shares/${share.token}`),
+    );
     expect(publicShare.memo.content).toBe("shareable memo #public");
     expect(publicShare.share.token).toBeUndefined();
-    expect(publicShare.attachments[0].download_url).toContain(`/api/public/shares/${share.token}/attachments/`);
+    expect(publicShare.attachments[0].download_url).toContain(
+      `/api/public/shares/${share.token}/attachments/`,
+    );
 
-    const blob = await fetchApp(`http://flaremo.test${publicShare.attachments[0].download_url}`);
+    const blob = await fetchApp(
+      `http://flaremo.test${publicShare.attachments[0].download_url}`,
+    );
     expect(blob.ok).toBe(true);
     expect(await blob.text()).toBe("shared attachment");
 
     const otherMemo = await createMemo("not shared");
     const otherFormData = new FormData();
     otherFormData.set("memo", otherMemo.name);
-    otherFormData.set("file", new File(["not shared"], "private.txt", { type: "text/plain" }));
+    otherFormData.set(
+      "file",
+      new File(["not shared"], "private.txt", { type: "text/plain" }),
+    );
     const otherAttachment = await json(
       await fetchApp("http://flaremo.test/api/v1/attachments", {
         method: "POST",
@@ -215,7 +266,9 @@ describe("FlareMo Worker API", () => {
         body: JSON.stringify({ status: "archived" }),
       }),
     );
-    const archivedShare = await fetchApp(`http://flaremo.test/api/public/shares/${share.token}`);
+    const archivedShare = await fetchApp(
+      `http://flaremo.test/api/public/shares/${share.token}`,
+    );
     expect(archivedShare.status).toBe(404);
   });
 });
@@ -234,9 +287,9 @@ async function createMemo(content: string) {
   );
 }
 
-async function json(response: Response) {
+async function json<T = Record<string, unknown>>(response: Response) {
   expect(response.ok).toBe(true);
-  return response.json() as Promise<any>;
+  return response.json() as Promise<T>;
 }
 
 async function applyMigration(db: D1Database, sql: string) {

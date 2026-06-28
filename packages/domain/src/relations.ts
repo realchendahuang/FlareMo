@@ -5,7 +5,11 @@ import { eq, or } from "drizzle-orm";
 import { parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
 
-export async function listMemoRelations(db: FlareMoDb, user: UserRow, memoId: string) {
+export async function listMemoRelations(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   await getMemoById(db, user, normalizedMemoId);
   return db
@@ -43,7 +47,9 @@ export async function replaceMemoRelations(
     });
   }
 
-  await db.delete(memoRelations).where(eq(memoRelations.memoId, normalizedMemoId));
+  await db
+    .delete(memoRelations)
+    .where(eq(memoRelations.memoId, normalizedMemoId));
   if (rows.length > 0) {
     await db.insert(memoRelations).values(rows);
   }
@@ -51,9 +57,17 @@ export async function replaceMemoRelations(
   return listMemoRelations(db, user, normalizedMemoId);
 }
 
-export async function deleteMemoRelationsForMemo(db: FlareMoDb, memoId: string) {
+export async function deleteMemoRelationsForMemo(
+  db: FlareMoDb,
+  memoId: string,
+) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   await db
     .delete(memoRelations)
-    .where(or(eq(memoRelations.memoId, normalizedMemoId), eq(memoRelations.relatedMemoId, normalizedMemoId)));
+    .where(
+      or(
+        eq(memoRelations.memoId, normalizedMemoId),
+        eq(memoRelations.relatedMemoId, normalizedMemoId),
+      ),
+    );
 }

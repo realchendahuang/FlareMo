@@ -1,11 +1,15 @@
 import {
-  createMemoSchema,
-  listMemosQuerySchema,
   type CreateMemoInput,
+  createMemoSchema,
   type ListMemosQuery,
+  listMemosQuerySchema,
 } from "@flaremo/contracts";
 import { createMemo, getMemoById, listMemos } from "@flaremo/domain";
-import { memoToDto, memosToListResponse, parseMemosResourceName } from "@flaremo/memos";
+import {
+  memosToListResponse,
+  memoToDto,
+  parseMemosResourceName,
+} from "@flaremo/memos";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -63,7 +67,10 @@ mcpApi.post("/mcp", async (c) => {
                   page_size: { type: "integer", minimum: 1, maximum: 100 },
                   q: { type: "string" },
                   tag: { type: "string" },
-                  state: { type: "string", enum: ["normal", "archived", "trashed", "deleted"] },
+                  state: {
+                    type: "string",
+                    enum: ["normal", "archived", "trashed", "deleted"],
+                  },
                 },
               },
             },
@@ -75,7 +82,10 @@ mcpApi.post("/mcp", async (c) => {
                 required: ["content"],
                 properties: {
                   content: { type: "string" },
-                  visibility: { type: "string", enum: ["private", "protected", "public"] },
+                  visibility: {
+                    type: "string",
+                    enum: ["private", "protected", "public"],
+                  },
                   source: { type: "string" },
                 },
               },
@@ -141,7 +151,11 @@ mcpApi.post("/mcp", async (c) => {
   }
 });
 
-async function callTool(c: Context<HonoBindings>, name: string, args: Record<string, unknown>) {
+async function callTool(
+  c: Context<HonoBindings>,
+  name: string,
+  args: Record<string, unknown>,
+) {
   const { db, user } = await getRequestContext(c);
 
   if (name === "list_memos") {
@@ -151,20 +165,31 @@ async function callTool(c: Context<HonoBindings>, name: string, args: Record<str
   }
 
   if (name === "search_memos") {
-    const query = listMemosQuerySchema.parse({ ...args, q: args.q, page_size: args.page_size ?? 30 }) as ListMemosQuery;
+    const query = listMemosQuerySchema.parse({
+      ...args,
+      q: args.q,
+      page_size: args.page_size ?? 30,
+    }) as ListMemosQuery;
     const result = await listMemos(db, user, query);
     return memosToListResponse({ ...result, user });
   }
 
   if (name === "create_memo") {
-    const input = createMemoSchema.parse({ ...args, source: args.source ?? "mcp" }) as CreateMemoInput;
+    const input = createMemoSchema.parse({
+      ...args,
+      source: args.source ?? "mcp",
+    }) as CreateMemoInput;
     const memo = await createMemo(db, user, input);
     return memoToDto(memo, user);
   }
 
   if (name === "get_memo") {
     const input = z.object({ name: z.string() }).parse(args);
-    const memo = await getMemoById(db, user, parseMemosResourceName(input.name));
+    const memo = await getMemoById(
+      db,
+      user,
+      parseMemosResourceName(input.name),
+    );
     return memoToDto(memo, user);
   }
 

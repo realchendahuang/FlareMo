@@ -10,9 +10,17 @@ pnpm migrate:local
 pnpm dev
 ```
 
+推荐 Node.js 22+ 和仓库声明的 pnpm 版本：
+
+```bash
+corepack enable
+pnpm install
+```
+
 ## 提交前
 
 ```bash
+pnpm format:check
 pnpm verify
 ```
 
@@ -23,6 +31,12 @@ pnpm deploy:dry-run
 ```
 
 项目不使用 GitHub Actions 作为 CI。PR 作者需要在本地跑完门禁，并在 PR 里写明结果。
+
+如需自动修复格式：
+
+```bash
+pnpm format
+```
 
 ## PR 要求
 
@@ -52,3 +66,17 @@ Bug report 请包含：
 - 相关日志或截图。
 
 Memos 兼容问题请说明客户端、请求路径、请求体和返回体。
+
+## 分支和发布
+
+- `main` 永远代表可发布状态。
+- 功能开发使用 `feat/*` 或 `codex/*` 分支。
+- 每个 release 必须有 Git tag、GitHub Release、`CHANGELOG.md` 条目和升级说明。
+- 维护者发布前执行 `pnpm verify`、`pnpm deploy:dry-run` 和 `pnpm backup:drill`。
+
+## 社区和支持
+
+- 支持入口见 `SUPPORT.md`。
+- 安全问题见 `SECURITY.md`。
+- 社区行为准则见 `CODE_OF_CONDUCT.md`。
+- 第三方 Memos 客户端兼容记录见 `docs/memos-ecosystem.md`。

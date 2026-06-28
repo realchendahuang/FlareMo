@@ -7,8 +7,15 @@
 提交和发布前执行：
 
 ```bash
+pnpm format:check
 pnpm verify
 pnpm deploy:dry-run
+```
+
+`pnpm format:check` 会执行 Biome 格式和 lint 检查，不修改文件。自动修复格式使用：
+
+```bash
+pnpm format
 ```
 
 `pnpm verify` 会执行：

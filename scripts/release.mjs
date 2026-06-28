@@ -1,7 +1,7 @@
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 
 const version = process.argv[2];
 
@@ -13,20 +13,28 @@ if (!version || !/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
 const releaseSection = extractChangelogSection(version);
 const status = run("git", ["status", "--short"], { capture: true });
 if (status.stdout.trim()) {
-  console.error("Working tree is not clean. Commit or stash changes before release.");
+  console.error(
+    "Working tree is not clean. Commit or stash changes before release.",
+  );
   console.error(status.stdout);
   process.exit(1);
 }
 
 run("git", ["fetch", "origin", "main", "--tags"]);
 const head = run("git", ["rev-parse", "HEAD"], { capture: true }).stdout.trim();
-const upstream = run("git", ["rev-parse", "origin/main"], { capture: true }).stdout.trim();
+const upstream = run("git", ["rev-parse", "origin/main"], {
+  capture: true,
+}).stdout.trim();
 if (head !== upstream) {
-  console.error(`HEAD (${head}) does not match origin/main (${upstream}). Push main before release.`);
+  console.error(
+    `HEAD (${head}) does not match origin/main (${upstream}). Push main before release.`,
+  );
   process.exit(1);
 }
 
-const existingTag = run("git", ["tag", "--list", version], { capture: true }).stdout.trim();
+const existingTag = run("git", ["tag", "--list", version], {
+  capture: true,
+}).stdout.trim();
 if (existingTag) {
   console.error(`${version} already exists locally.`);
   process.exit(1);
@@ -42,7 +50,15 @@ writeFileSync(notesFile, releaseSection);
 try {
   run("git", ["tag", version]);
   run("git", ["push", "origin", version]);
-  run("gh", ["release", "create", version, "--title", version, "--notes-file", notesFile]);
+  run("gh", [
+    "release",
+    "create",
+    version,
+    "--title",
+    version,
+    "--notes-file",
+    notesFile,
+  ]);
 } finally {
   rmSync(notesDir, { recursive: true, force: true });
 }

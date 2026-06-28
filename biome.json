@@ -1,7 +1,43 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
   "files": {
-    "includes": ["**", "!Temp/**", "!node_modules/**", "!dist/**", "!apps/web/src/components/ui/**"]
+    "includes": [
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "CODE_OF_CONDUCT.md",
+      "CONTRIBUTING.md",
+      "README.md",
+      "README.en.md",
+      "ROADMAP.md",
+      "SECURITY.md",
+      "SUPPORT.md",
+      "llms.txt",
+      "package.json",
+      "tsconfig*.json",
+      "vitest.config.ts",
+      "playwright.config.ts",
+      "drizzle.config.ts",
+      "wrangler.jsonc",
+      ".github/**/*.md",
+      ".github/**/*.yml",
+      "docs/**/*.md",
+      "scripts/**/*.mjs",
+      "apps/**/*.ts",
+      "apps/**/*.tsx",
+      "apps/**/*.json",
+      "packages/**/*.ts",
+      "packages/**/*.json",
+      "tests/**/*.ts",
+      "!apps/worker/src/worker-configuration.d.ts",
+      "!apps/web/src/components/ui",
+      "!**/dist",
+      "!**/*.tsbuildinfo"
+    ]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "formatter": {
     "enabled": true,
@@ -11,7 +47,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "error"
       }

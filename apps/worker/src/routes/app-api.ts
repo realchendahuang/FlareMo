@@ -1,6 +1,16 @@
-import { createMemoSchema, listMemosQuerySchema, updateMemoSchema } from "@flaremo/contracts";
-import { createMemo, hardDeleteMemo, listMemos, moveMemoToTrash, updateMemo } from "@flaremo/domain";
-import { memoToDto, memosToListResponse } from "@flaremo/memos";
+import {
+  createMemoSchema,
+  listMemosQuerySchema,
+  updateMemoSchema,
+} from "@flaremo/contracts";
+import {
+  createMemo,
+  hardDeleteMemo,
+  listMemos,
+  moveMemoToTrash,
+  updateMemo,
+} from "@flaremo/domain";
+import { memosToListResponse, memoToDto } from "@flaremo/memos";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../context";
@@ -33,7 +43,12 @@ appApi.post("/memos", zValidator("json", createMemoSchema), async (c) => {
 appApi.patch("/memos/:id", zValidator("json", updateMemoSchema), async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
-    const memo = await updateMemo(db, user, `memos/${c.req.param("id")}`, c.req.valid("json"));
+    const memo = await updateMemo(
+      db,
+      user,
+      `memos/${c.req.param("id")}`,
+      c.req.valid("json"),
+    );
     return c.json(memoToDto(memo, user));
   } catch (error) {
     return jsonError(c, error);

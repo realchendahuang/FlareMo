@@ -31,8 +31,8 @@ import {
 import {
   attachmentToDto,
   memoRelationToDto,
-  memoToDto,
   memosToListResponse,
+  memoToDto,
   parseAttachmentsResourceName,
   parseMemosResourceName,
   shareToDto,
@@ -67,22 +67,35 @@ memosApi.post("/memos", zValidator("json", createMemoSchema), async (c) => {
 memosApi.get("/memos/:id", async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
-    const memo = await getMemoById(db, user, parseMemosResourceName(c.req.param("id")));
+    const memo = await getMemoById(
+      db,
+      user,
+      parseMemosResourceName(c.req.param("id")),
+    );
     return c.json(memoToDto(memo, user));
   } catch (error) {
     return jsonError(c, error);
   }
 });
 
-memosApi.patch("/memos/:id", zValidator("json", updateMemoSchema), async (c) => {
-  try {
-    const { db, user } = await getRequestContext(c);
-    const memo = await updateMemo(db, user, parseMemosResourceName(c.req.param("id")), c.req.valid("json"));
-    return c.json(memoToDto(memo, user));
-  } catch (error) {
-    return jsonError(c, error);
-  }
-});
+memosApi.patch(
+  "/memos/:id",
+  zValidator("json", updateMemoSchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const memo = await updateMemo(
+        db,
+        user,
+        parseMemosResourceName(c.req.param("id")),
+        c.req.valid("json"),
+      );
+      return c.json(memoToDto(memo, user));
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 memosApi.delete("/memos/:id", async (c) => {
   try {
@@ -102,21 +115,10 @@ memosApi.delete("/memos/:id", async (c) => {
 memosApi.get("/memos/:id/attachments", async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
-    const attachments = await listMemoAttachments(db, user, parseMemosResourceName(c.req.param("id")));
-    return c.json({ attachments: attachments.map(attachmentToDto) });
-  } catch (error) {
-    return jsonError(c, error);
-  }
-});
-
-memosApi.patch("/memos/:id/attachments", zValidator("json", bindMemoAttachmentsSchema), async (c) => {
-  try {
-    const { db, user } = await getRequestContext(c);
-    const attachments = await bindMemoAttachments(
+    const attachments = await listMemoAttachments(
       db,
       user,
       parseMemosResourceName(c.req.param("id")),
-      c.req.valid("json").attachments,
     );
     return c.json({ attachments: attachments.map(attachmentToDto) });
   } catch (error) {
@@ -124,35 +126,76 @@ memosApi.patch("/memos/:id/attachments", zValidator("json", bindMemoAttachmentsS
   }
 });
 
+memosApi.patch(
+  "/memos/:id/attachments",
+  zValidator("json", bindMemoAttachmentsSchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const attachments = await bindMemoAttachments(
+        db,
+        user,
+        parseMemosResourceName(c.req.param("id")),
+        c.req.valid("json").attachments,
+      );
+      return c.json({ attachments: attachments.map(attachmentToDto) });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
 memosApi.get("/memos/:id/relations", async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
-    const relations = await listMemoRelations(db, user, parseMemosResourceName(c.req.param("id")));
+    const relations = await listMemoRelations(
+      db,
+      user,
+      parseMemosResourceName(c.req.param("id")),
+    );
     return c.json({ relations: relations.map(memoRelationToDto) });
   } catch (error) {
     return jsonError(c, error);
   }
 });
 
-memosApi.patch("/memos/:id/relations", zValidator("json", patchMemoRelationsSchema), async (c) => {
-  try {
-    const { db, user } = await getRequestContext(c);
-    const relations = await replaceMemoRelations(db, user, parseMemosResourceName(c.req.param("id")), c.req.valid("json"));
-    return c.json({ relations: relations.map(memoRelationToDto) });
-  } catch (error) {
-    return jsonError(c, error);
-  }
-});
+memosApi.patch(
+  "/memos/:id/relations",
+  zValidator("json", patchMemoRelationsSchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const relations = await replaceMemoRelations(
+        db,
+        user,
+        parseMemosResourceName(c.req.param("id")),
+        c.req.valid("json"),
+      );
+      return c.json({ relations: relations.map(memoRelationToDto) });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
-memosApi.post("/memos/:id/shares", zValidator("json", createShareSchema), async (c) => {
-  try {
-    const { db, user } = await getRequestContext(c);
-    const share = await createMemoShare(db, user, parseMemosResourceName(c.req.param("id")), c.req.valid("json"));
-    return c.json(shareToDto(share), 201);
-  } catch (error) {
-    return jsonError(c, error);
-  }
-});
+memosApi.post(
+  "/memos/:id/shares",
+  zValidator("json", createShareSchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const share = await createMemoShare(
+        db,
+        user,
+        parseMemosResourceName(c.req.param("id")),
+        c.req.valid("json"),
+      );
+      return c.json(shareToDto(share), 201);
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 memosApi.get("/shares/:share_id", async (c) => {
   try {
@@ -164,19 +207,23 @@ memosApi.get("/shares/:share_id", async (c) => {
   }
 });
 
-memosApi.get("/attachments", zValidator("query", listAttachmentsQuerySchema), async (c) => {
-  try {
-    const { db, user } = await getRequestContext(c);
-    const query = c.req.valid("query");
-    const attachments = await listAttachments(db, user, {
-      memoId: query.memo,
-      pageSize: query.page_size,
-    });
-    return c.json({ attachments: attachments.map(attachmentToDto) });
-  } catch (error) {
-    return jsonError(c, error);
-  }
-});
+memosApi.get(
+  "/attachments",
+  zValidator("query", listAttachmentsQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const query = c.req.valid("query");
+      const attachments = await listAttachments(db, user, {
+        memoId: query.memo,
+        pageSize: query.page_size,
+      });
+      return c.json({ attachments: attachments.map(attachmentToDto) });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 memosApi.post("/attachments", async (c) => {
   try {
@@ -212,7 +259,11 @@ memosApi.post("/attachments", async (c) => {
 memosApi.get("/attachments/:id", async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
-    const attachment = await getAttachmentById(db, user, parseAttachmentsResourceName(c.req.param("id")));
+    const attachment = await getAttachmentById(
+      db,
+      user,
+      parseAttachmentsResourceName(c.req.param("id")),
+    );
     return c.json(attachmentToDto(attachment));
   } catch (error) {
     return jsonError(c, error);
@@ -222,13 +273,20 @@ memosApi.get("/attachments/:id", async (c) => {
 memosApi.get("/attachments/:id/blob", async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
-    const attachment = await getAttachmentById(db, user, parseAttachmentsResourceName(c.req.param("id")));
+    const attachment = await getAttachmentById(
+      db,
+      user,
+      parseAttachmentsResourceName(c.req.param("id")),
+    );
     const object = await c.env.ATTACHMENTS.get(attachment.r2Key);
     if (!object) {
       return c.json({ error: { message: "Attachment object not found" } }, 404);
     }
     const headers = new Headers();
-    headers.set("content-type", attachment.contentType ?? "application/octet-stream");
+    headers.set(
+      "content-type",
+      attachment.contentType ?? "application/octet-stream",
+    );
     headers.set("etag", object.httpEtag);
     headers.set("content-disposition", contentDisposition(attachment.filename));
     return new Response(object.body, { headers });
@@ -240,7 +298,11 @@ memosApi.get("/attachments/:id/blob", async (c) => {
 memosApi.delete("/attachments/:id", async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
-    const attachment = await softDeleteAttachment(db, user, parseAttachmentsResourceName(c.req.param("id")));
+    const attachment = await softDeleteAttachment(
+      db,
+      user,
+      parseAttachmentsResourceName(c.req.param("id")),
+    );
     await c.env.ATTACHMENTS.delete(attachment.r2Key);
     return c.json({ ok: true });
   } catch (error) {
@@ -281,23 +343,38 @@ memosApi.post("/import", zValidator("json", importBundleSchema), async (c) => {
       if (!attachment.data_base64) {
         continue;
       }
-      const objectKey = createAttachmentObjectKey(user.id, attachment.filename, "imports");
-      await c.env.ATTACHMENTS.put(objectKey, base64ToUint8Array(attachment.data_base64), {
-        httpMetadata: {
-          contentType: attachment.content_type ?? "application/octet-stream",
+      const objectKey = createAttachmentObjectKey(
+        user.id,
+        attachment.filename,
+        "imports",
+      );
+      await c.env.ATTACHMENTS.put(
+        objectKey,
+        base64ToUint8Array(attachment.data_base64),
+        {
+          httpMetadata: {
+            contentType: attachment.content_type ?? "application/octet-stream",
+          },
         },
-      });
+      );
       r2Keys.set(attachment.name, objectKey);
     }
-    const result = await importData(db, user, bundle, { attachmentR2Keys: r2Keys });
+    const result = await importData(db, user, bundle, {
+      attachmentR2Keys: r2Keys,
+    });
     return c.json(result);
   } catch (error) {
     return jsonError(c, error);
   }
 });
 
-function createAttachmentObjectKey(userId: string, filename: string, namespace = "attachments") {
-  const safeFilename = filename.replaceAll(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "attachment";
+function createAttachmentObjectKey(
+  userId: string,
+  filename: string,
+  namespace = "attachments",
+) {
+  const safeFilename =
+    filename.replaceAll(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "attachment";
   return `${namespace}/${userId}/${crypto.randomUUID()}/${safeFilename}`;
 }
 

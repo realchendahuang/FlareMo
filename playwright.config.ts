@@ -19,7 +19,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev --host 127.0.0.1",
+    command: "pnpm migrate:local && pnpm dev --host 127.0.0.1",
     url: "http://127.0.0.1:8787",
     timeout: 120_000,
     reuseExistingServer: true,

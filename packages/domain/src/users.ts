@@ -7,7 +7,10 @@ export type SingleUserConfig = {
   name: string;
 };
 
-export async function ensureSingleUser(db: FlareMoDb, config: SingleUserConfig): Promise<UserRow> {
+export async function ensureSingleUser(
+  db: FlareMoDb,
+  config: SingleUserConfig,
+): Promise<UserRow> {
   const id = "users/owner";
   const now = new Date().toISOString();
   const existing = await db.query.users.findFirst({

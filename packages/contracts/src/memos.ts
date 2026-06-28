@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 export const memoVisibilitySchema = z.enum(["private", "protected", "public"]);
-export const memoStatusSchema = z.enum(["normal", "archived", "trashed", "deleted"]);
+export const memoStatusSchema = z.enum([
+  "normal",
+  "archived",
+  "trashed",
+  "deleted",
+]);
 export const memoRelationTypeSchema = z.enum(["reference", "comment"]);
 
 export const memoPropertySchema = z
@@ -38,7 +43,10 @@ export const updateMemoSchema = z
     pinned: z.boolean().optional(),
     payload: memoPayloadSchema.optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, "At least one field must be updated.");
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    "At least one field must be updated.",
+  );
 
 export const listMemosQuerySchema = z.object({
   page_size: z.coerce.number().int().min(1).max(100).default(30),
@@ -137,13 +145,24 @@ export const publicShareDtoSchema = z.object({
   attachments: z.array(attachmentDtoSchema),
 });
 
-export const exportAttachmentSchema = attachmentDtoSchema.omit({ download_url: true }).extend({
-  data_base64: z.string().optional(),
-});
+export const exportAttachmentSchema = attachmentDtoSchema
+  .omit({ download_url: true })
+  .extend({
+    data_base64: z.string().optional(),
+  });
 
 export const importBundleSchema = z.object({
   version: z.literal(1).default(1),
-  memos: z.array(memoDtoSchema.pick({ name: true, content: true, visibility: true, state: true, pinned: true, payload: true })),
+  memos: z.array(
+    memoDtoSchema.pick({
+      name: true,
+      content: true,
+      visibility: true,
+      state: true,
+      pinned: true,
+      payload: true,
+    }),
+  ),
   attachments: z.array(exportAttachmentSchema).default([]),
   relations: z.array(memoRelationDtoSchema).default([]),
   shares: z.array(shareDtoSchema).default([]),
@@ -164,7 +183,9 @@ export type MemoDto = z.infer<typeof memoDtoSchema>;
 export type ListMemosResponse = z.infer<typeof listMemosResponseSchema>;
 export type AttachmentDto = z.infer<typeof attachmentDtoSchema>;
 export type ListAttachmentsQuery = z.infer<typeof listAttachmentsQuerySchema>;
-export type BindMemoAttachmentsInput = z.infer<typeof bindMemoAttachmentsSchema>;
+export type BindMemoAttachmentsInput = z.infer<
+  typeof bindMemoAttachmentsSchema
+>;
 export type MemoRelationDto = z.infer<typeof memoRelationDtoSchema>;
 export type PatchMemoRelationsInput = z.infer<typeof patchMemoRelationsSchema>;
 export type ShareDto = z.infer<typeof shareDtoSchema>;

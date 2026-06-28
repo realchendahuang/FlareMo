@@ -1,9 +1,15 @@
+import { InboxIcon } from "lucide-react";
 import type { Attachment, Memo, MemoVisibility, Share } from "@/api";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { MemoCard } from "./memo-card";
-import { InboxIcon } from "lucide-react";
 
 type MemoListProps = {
   hasError?: boolean;
@@ -14,7 +20,10 @@ type MemoListProps = {
   onArchive: (id: string) => void;
   onPin: (id: string, pinned: boolean) => void;
   onShare: (id: string) => void;
-  onUpdate: (id: string, input: { content: string; visibility: MemoVisibility }) => void;
+  onUpdate: (
+    id: string,
+    input: { content: string; visibility: MemoVisibility },
+  ) => void;
   onTrash: (id: string) => void;
   onRestore: (id: string) => void;
   onHardDelete: (id: string) => void;
@@ -92,12 +101,17 @@ function MemoListItem({
   onTrash,
   onRestore,
   onHardDelete,
-}: Omit<MemoListProps, "isLoading" | "memos" | "attachmentsByMemo" | "sharesByMemo"> & {
+}: Omit<
+  MemoListProps,
+  "isLoading" | "memos" | "attachmentsByMemo" | "sharesByMemo"
+> & {
   memo: Memo;
   attachments: Attachment[];
   share?: Share;
 }) {
-  const shareUrl = share ? `${globalThis.location.origin}/share/${share.token}` : undefined;
+  const shareUrl = share
+    ? `${globalThis.location.origin}/share/${share.token}`
+    : undefined;
   return (
     <MemoCard
       attachments={attachments}

@@ -1,10 +1,10 @@
+import { ArchiveIcon, HashIcon, InboxIcon, Trash2Icon } from "lucide-react";
+import type { ReactNode } from "react";
 import type { Memo } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/i18n";
 import { extractTags } from "@/lib/memo";
 import { cn } from "@/lib/utils";
-import { ArchiveIcon, HashIcon, InboxIcon, Trash2Icon } from "lucide-react";
-import type { ReactNode } from "react";
 
 export type ExplorerView = "all" | "archived" | "trashed";
 
@@ -37,9 +37,24 @@ export function FlareMoExplorer({
   const stats = getStats(memos);
   const activity = getActivity(memos);
   const navItems = [
-    { count: memoCount, icon: InboxIcon, label: t("view.timeline"), view: "all" as const },
-    { count: archivedCount, icon: ArchiveIcon, label: t("view.archive"), view: "archived" as const },
-    { count: trashedCount, icon: Trash2Icon, label: t("view.trash"), view: "trashed" as const },
+    {
+      count: memoCount,
+      icon: InboxIcon,
+      label: t("view.timeline"),
+      view: "all" as const,
+    },
+    {
+      count: archivedCount,
+      icon: ArchiveIcon,
+      label: t("view.archive"),
+      view: "archived" as const,
+    },
+    {
+      count: trashedCount,
+      icon: Trash2Icon,
+      label: t("view.trash"),
+      view: "trashed" as const,
+    },
   ];
 
   return (
@@ -49,7 +64,9 @@ export function FlareMoExplorer({
           <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground text-xs font-semibold text-background">
             F
           </div>
-          <div className="truncate font-heading text-sm font-semibold">FlareMo</div>
+          <div className="truncate font-heading text-sm font-semibold">
+            FlareMo
+          </div>
         </div>
       </header>
 
@@ -63,14 +80,20 @@ export function FlareMoExplorer({
         <div className="grid grid-cols-12 gap-1">
           {activity.map((day) => (
             <div
-              aria-label={t("explorer.heatmapDay", { count: day.count, date: day.date })}
+              aria-label={t("explorer.heatmapDay", {
+                count: day.count,
+                date: day.date,
+              })}
               className={cn(
                 "aspect-square rounded-[3px] motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
                 heatmapColor(day.count),
               )}
               key={day.date}
               role="img"
-              title={t("explorer.heatmapDay", { count: day.count, date: day.date })}
+              title={t("explorer.heatmapDay", {
+                count: day.count,
+                date: day.date,
+              })}
             />
           ))}
         </div>
@@ -96,13 +119,17 @@ export function FlareMoExplorer({
           >
             <item.icon />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            <span className="text-xs tabular-nums opacity-70">{item.count}</span>
+            <span className="text-xs tabular-nums opacity-70">
+              {item.count}
+            </span>
           </button>
         ))}
       </nav>
 
       <section className="mt-5 flex flex-col gap-2 px-1">
-        <div className="text-xs text-muted-foreground">{t("explorer.tags")}</div>
+        <div className="text-xs text-muted-foreground">
+          {t("explorer.tags")}
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {tags.length > 0 ? (
             tags.map((tag) => {
@@ -122,12 +149,18 @@ export function FlareMoExplorer({
                 >
                   <HashIcon />
                   <span className="truncate">{tag}</span>
-                  {count > 1 && <Badge variant={active ? "secondary" : "outline"}>{count}</Badge>}
+                  {count > 1 && (
+                    <Badge variant={active ? "secondary" : "outline"}>
+                      {count}
+                    </Badge>
+                  )}
                 </button>
               );
             })
           ) : (
-            <div className="text-xs text-muted-foreground">{t("explorer.noTags")}</div>
+            <div className="text-xs text-muted-foreground">
+              {t("explorer.noTags")}
+            </div>
           )}
         </div>
       </section>
@@ -139,7 +172,9 @@ export function FlareMoExplorer({
 function StatCell({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <div className="font-heading text-2xl font-semibold leading-none tabular-nums text-muted-foreground">{value}</div>
+      <div className="font-heading text-2xl font-semibold leading-none tabular-nums text-muted-foreground">
+        {value}
+      </div>
       <div className="mt-1 text-xs text-muted-foreground">{label}</div>
     </div>
   );

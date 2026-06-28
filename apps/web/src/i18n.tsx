@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 export type Locale = "zh-CN" | "en-US";
 
@@ -160,8 +167,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [locale]);
 
   const value = useMemo<I18nContextValue>(() => {
-    const t = (key: TranslationKey, params?: TranslationParams) => interpolate(messages[locale][key], params);
-    const toggleLocale = () => setLocale((current) => (current === "zh-CN" ? "en-US" : "zh-CN"));
+    const t = (key: TranslationKey, params?: TranslationParams) =>
+      interpolate(messages[locale][key], params);
+    const toggleLocale = () =>
+      setLocale((current) => (current === "zh-CN" ? "en-US" : "zh-CN"));
     return { locale, setLocale, toggleLocale, t };
   }, [locale]);
 
@@ -192,5 +201,7 @@ function interpolate(template: string, params?: TranslationParams) {
   if (!params) {
     return template;
   }
-  return template.replace(/\{(\w+)\}/g, (match, key) => String(params[key] ?? match));
+  return template.replace(/\{(\w+)\}/g, (match, key) =>
+    String(params[key] ?? match),
+  );
 }

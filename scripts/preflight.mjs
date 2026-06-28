@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
 const commands = [
+  ["pnpm", ["format:check"]],
   ["pnpm", ["check"]],
   ["pnpm", ["test"]],
   ["pnpm", ["build"]],
@@ -25,7 +26,9 @@ function run(command, args) {
         return;
       }
 
-      reject(new Error(`${command} ${args.join(" ")} failed with exit code ${code}`));
+      reject(
+        new Error(`${command} ${args.join(" ")} failed with exit code ${code}`),
+      );
     });
   });
 }

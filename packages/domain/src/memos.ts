@@ -1,4 +1,8 @@
-import type { CreateMemoInput, ListMemosQuery, UpdateMemoInput } from "@flaremo/contracts";
+import type {
+  CreateMemoInput,
+  ListMemosQuery,
+  UpdateMemoInput,
+} from "@flaremo/contracts";
 import type { FlareMoDb, MemoPayload, MemoRow, UserRow } from "@flaremo/db";
 import { memos } from "@flaremo/db";
 import { and, desc, eq, gt, inArray, like, lt, sql } from "drizzle-orm";
@@ -10,7 +14,11 @@ export type MemoListResult = {
   nextPageToken?: string;
 };
 
-export async function createMemo(db: FlareMoDb, user: UserRow, input: CreateMemoInput): Promise<MemoRow> {
+export async function createMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  input: CreateMemoInput,
+): Promise<MemoRow> {
   const now = new Date().toISOString();
   const row = {
     id: createResourceId("memos"),
@@ -31,10 +39,18 @@ export async function createMemo(db: FlareMoDb, user: UserRow, input: CreateMemo
   return created;
 }
 
-export async function listMemos(db: FlareMoDb, user: UserRow, query: ListMemosQuery): Promise<MemoListResult> {
+export async function listMemos(
+  db: FlareMoDb,
+  user: UserRow,
+  query: ListMemosQuery,
+): Promise<MemoListResult> {
   const pageSize = query.page_size;
-  const cursor = query.page_token ? decodePageToken(query.page_token) : undefined;
-  const direction = query.order_by.toLowerCase().includes("asc") ? "asc" : "desc";
+  const cursor = query.page_token
+    ? decodePageToken(query.page_token)
+    : undefined;
+  const direction = query.order_by.toLowerCase().includes("asc")
+    ? "asc"
+    : "desc";
   const orderColumn = memos.createdAt;
   const filters = [eq(memos.userId, user.id)];
 
@@ -49,11 +65,20 @@ export async function listMemos(db: FlareMoDb, user: UserRow, query: ListMemosQu
   }
 
   if (query.tag) {
-    filters.push(like(sql<string>`json_extract(${memos.payload}, '$.tags')`, `%${escapeLike(query.tag)}%`));
+    filters.push(
+      like(
+        sql<string>`json_extract(${memos.payload}, '$.tags')`,
+        `%${escapeLike(query.tag)}%`,
+      ),
+    );
   }
 
   if (cursor) {
-    filters.push(direction === "asc" ? gt(orderColumn, cursor.createdAt) : lt(orderColumn, cursor.createdAt));
+    filters.push(
+      direction === "asc"
+        ? gt(orderColumn, cursor.createdAt)
+        : lt(orderColumn, cursor.createdAt),
+    );
   }
 
   const rows = await db
@@ -68,7 +93,9 @@ export async function listMemos(db: FlareMoDb, user: UserRow, query: ListMemosQu
 
   return {
     memos: page,
-    nextPageToken: next ? encodePageToken({ createdAt: next.createdAt, id: next.id }) : undefined,
+    nextPageToken: next
+      ? encodePageToken({ createdAt: next.createdAt, id: next.id })
+      : undefined,
   };
 }
 
@@ -96,7 +123,12 @@ export async function getMemoById(
   return row;
 }
 
-export async function updateMemo(db: FlareMoDb, user: UserRow, id: string, input: UpdateMemoInput): Promise<MemoRow> {
+export async function updateMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  id: string,
+  input: UpdateMemoInput,
+): Promise<MemoRow> {
   await getMemoById(db, user, id, { includeDeleted: true });
   const now = new Date().toISOString();
   const status = input.status;
@@ -105,23 +137,40 @@ export async function updateMemo(db: FlareMoDb, user: UserRow, id: string, input
     ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
     ...(status !== undefined ? { status } : {}),
     ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
-    ...(input.payload !== undefined ? { payload: normalizeMemoPayload(input.payload) } : {}),
+    ...(input.payload !== undefined
+      ? { payload: normalizeMemoPayload(input.payload) }
+      : {}),
     updatedAt: now,
     ...(status === "trashed" || status === "deleted" ? { deletedAt: now } : {}),
-    ...(status === "normal" || status === "archived" ? { deletedAt: null } : {}),
+    ...(status === "normal" || status === "archived"
+      ? { deletedAt: null }
+      : {}),
   };
 
-  await db.update(memos).set(patch).where(and(eq(memos.id, id), eq(memos.userId, user.id)));
+  await db
+    .update(memos)
+    .set(patch)
+    .where(and(eq(memos.id, id), eq(memos.userId, user.id)));
   return getMemoById(db, user, id, { includeDeleted: true });
 }
 
-export async function moveMemoToTrash(db: FlareMoDb, user: UserRow, id: string): Promise<MemoRow> {
+export async function moveMemoToTrash(
+  db: FlareMoDb,
+  user: UserRow,
+  id: string,
+): Promise<MemoRow> {
   return updateMemo(db, user, id, { status: "trashed" });
 }
 
-export async function hardDeleteMemo(db: FlareMoDb, user: UserRow, id: string): Promise<void> {
+export async function hardDeleteMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  id: string,
+): Promise<void> {
   await getMemoById(db, user, id, { includeDeleted: true });
-  await db.delete(memos).where(and(eq(memos.id, id), eq(memos.userId, user.id)));
+  await db
+    .delete(memos)
+    .where(and(eq(memos.id, id), eq(memos.userId, user.id)));
 }
 
 function normalizeMemoPayload(payload: unknown): MemoPayload {
@@ -135,9 +184,14 @@ function encodePageToken(value: { createdAt: string; id: string }) {
   return btoa(JSON.stringify(value));
 }
 
-function decodePageToken(token: string): { createdAt: string; id: string } | undefined {
+function decodePageToken(
+  token: string,
+): { createdAt: string; id: string } | undefined {
   try {
-    const parsed = JSON.parse(atob(token)) as { createdAt?: unknown; id?: unknown };
+    const parsed = JSON.parse(atob(token)) as {
+      createdAt?: unknown;
+      id?: unknown;
+    };
     if (typeof parsed.createdAt === "string" && typeof parsed.id === "string") {
       return { createdAt: parsed.createdAt, id: parsed.id };
     }

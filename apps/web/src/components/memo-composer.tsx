@@ -1,15 +1,33 @@
+import {
+  HashIcon,
+  ImageIcon,
+  ListIcon,
+  Loader2Icon,
+  PaperclipIcon,
+  SendIcon,
+  XIcon,
+} from "lucide-react";
+import {
+  type ChangeEvent,
+  type Dispatch,
+  type SetStateAction,
+  useState,
+} from "react";
 import type { MemoVisibility } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 import { extractTags } from "@/lib/memo";
-import { HashIcon, ImageIcon, ListIcon, Loader2Icon, PaperclipIcon, SendIcon, XIcon } from "lucide-react";
-import { useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 
 type MemoComposerProps = {
   isPending: boolean;
-  onSubmit: (input: { content: string; visibility: MemoVisibility; tags: string[]; files: File[] }) => void;
+  onSubmit: (input: {
+    content: string;
+    visibility: MemoVisibility;
+    tags: string[];
+    files: File[];
+  }) => void;
 };
 
 export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
@@ -19,7 +37,10 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
   const tags = extractTags(content);
   const canSubmit = content.trim() || files.length > 0;
   const appendText = (value: string) => {
-    setContent((current) => `${current}${current && !current.endsWith("\n") ? " " : ""}${value}`);
+    setContent(
+      (current) =>
+        `${current}${current && !current.endsWith("\n") ? " " : ""}${value}`,
+    );
   };
   const submit = () => {
     if (!canSubmit) {
@@ -60,7 +81,9 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
                 size="icon-xs"
                 type="button"
                 variant="ghost"
-                onClick={() => setFiles((current) => current.filter((item) => item !== file))}
+                onClick={() =>
+                  setFiles((current) => current.filter((item) => item !== file))
+                }
               >
                 <XIcon />
               </Button>
@@ -70,23 +93,53 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
       )}
       <div className="flex h-10 items-center justify-between gap-2 rounded-b-xl bg-card px-3 pb-1">
         <div className="flex min-w-0 items-center gap-1">
-          <Button aria-label={t("composer.addTag")} size="icon-sm" type="button" variant="ghost" onClick={() => appendText("#")}>
+          <Button
+            aria-label={t("composer.addTag")}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+            onClick={() => appendText("#")}
+          >
             <HashIcon />
           </Button>
           <Button asChild size="icon-sm" variant="ghost">
-            <label aria-label={t("composer.addAttachment")}>
+            <label
+              aria-label={t("composer.addAttachment")}
+              htmlFor="flaremo-attachment-input"
+            >
               <ImageIcon />
-              <Input className="hidden" multiple type="file" onChange={(event) => addFiles(event, setFiles)} />
+              <Input
+                className="hidden"
+                id="flaremo-attachment-input"
+                multiple
+                type="file"
+                onChange={(event) => addFiles(event, setFiles)}
+              />
             </label>
           </Button>
           <div className="hidden h-4 w-px bg-border sm:block" />
-          <Button aria-label={t("composer.bulletList")} size="icon-sm" type="button" variant="ghost" onClick={() => appendText("- ")}>
+          <Button
+            aria-label={t("composer.bulletList")}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+            onClick={() => appendText("- ")}
+          >
             <ListIcon />
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Button className="size-8 rounded-lg px-0" disabled={isPending || !canSubmit} size="icon-sm" onClick={submit}>
-            {isPending ? <Loader2Icon data-icon="inline-start" /> : <SendIcon data-icon="inline-start" />}
+          <Button
+            className="size-8 rounded-lg px-0"
+            disabled={isPending || !canSubmit}
+            size="icon-sm"
+            onClick={submit}
+          >
+            {isPending ? (
+              <Loader2Icon data-icon="inline-start" />
+            ) : (
+              <SendIcon data-icon="inline-start" />
+            )}
             <span className="sr-only">{t("common.save")}</span>
           </Button>
         </div>
@@ -95,7 +148,10 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
   );
 }
 
-function addFiles(event: ChangeEvent<HTMLInputElement>, setFiles: Dispatch<SetStateAction<File[]>>) {
+function addFiles(
+  event: ChangeEvent<HTMLInputElement>,
+  setFiles: Dispatch<SetStateAction<File[]>>,
+) {
   setFiles(Array.from(event.target.files ?? []));
   event.target.value = "";
 }

@@ -4,13 +4,18 @@ import { attachments, memoRelations, memos, shares } from "@flaremo/db";
 import { eq } from "drizzle-orm";
 import { createResourceId, parseResourceName } from "./ids";
 
-export async function exportData(db: FlareMoDb, user: UserRow): Promise<ImportBundle> {
-  const [memoRows, attachmentRows, relationRows, shareRows] = await Promise.all([
-    db.select().from(memos).where(eq(memos.userId, user.id)),
-    db.select().from(attachments).where(eq(attachments.userId, user.id)),
-    db.select().from(memoRelations),
-    db.select().from(shares).where(eq(shares.userId, user.id)),
-  ]);
+export async function exportData(
+  db: FlareMoDb,
+  user: UserRow,
+): Promise<ImportBundle> {
+  const [memoRows, attachmentRows, relationRows, shareRows] = await Promise.all(
+    [
+      db.select().from(memos).where(eq(memos.userId, user.id)),
+      db.select().from(attachments).where(eq(attachments.userId, user.id)),
+      db.select().from(memoRelations),
+      db.select().from(shares).where(eq(shares.userId, user.id)),
+    ],
+  );
 
   const memoIds = new Set(memoRows.map((memo) => memo.id));
   return {
@@ -83,13 +88,16 @@ export async function importData(
       payload: normalizeMemoPayload(memo.payload),
       createdAt: now,
       updatedAt: now,
-      deletedAt: memo.state === "deleted" || memo.state === "trashed" ? now : null,
+      deletedAt:
+        memo.state === "deleted" || memo.state === "trashed" ? now : null,
     });
     importedMemos += 1;
   }
 
   for (const attachment of bundle.attachments) {
-    const mappedMemoId = attachment.memo ? memoIdMap.get(attachment.memo) ?? null : null;
+    const mappedMemoId = attachment.memo
+      ? (memoIdMap.get(attachment.memo) ?? null)
+      : null;
     const payload = {
       ...(attachment.payload ?? {}),
       ...(attachment.data_base64 ? {} : { imported_without_binary: true }),
@@ -98,7 +106,9 @@ export async function importData(
       id: createResourceId("attachments"),
       userId: user.id,
       memoId: mappedMemoId,
-      r2Key: options.attachmentR2Keys?.get(attachment.name) ?? `imports/${user.id}/missing/${crypto.randomUUID()}`,
+      r2Key:
+        options.attachmentR2Keys?.get(attachment.name) ??
+        `imports/${user.id}/missing/${crypto.randomUUID()}`,
       filename: attachment.filename,
       contentType: attachment.content_type,
       size: attachment.size,

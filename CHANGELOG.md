@@ -2,6 +2,36 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.1.4
+
+开源项目成熟度补强版本。这个版本不改变部署架构，重点是补齐公开协作、双语入口、工程门禁、Memos 生态兼容记录和 GitHub 仓库治理。
+
+### 已包含
+
+- 增加 `CODE_OF_CONDUCT.md`、`SUPPORT.md` 和 `CODEOWNERS`，补齐社区治理和支持入口。
+- 增加 `README.en.md`、`docs/en/deploy.md`、`docs/en/agent-deploy.md` 和 `docs/en/memos-compatibility.md`，提供最小英文入口。
+- 增加 `docs/memos-ecosystem.md`，公开记录 Memos 第三方客户端、脚本和 MCP 工具的兼容验证状态。
+- 根目录增加 `pnpm lint`、`pnpm format`、`pnpm format:check`，并把 `pnpm format:check` 纳入 `pnpm verify`。
+- Playwright E2E 扩大到创建/搜索、编辑/分享、归档/恢复、回收站/恢复/彻底删除和移动端导航。
+- Playwright 本地 webServer 启动前自动执行 `pnpm migrate:local`，避免 E2E 依赖本机残留 D1 schema。
+- Memos-compatible contract test 增加 OpenAPI 版本断言和公开分享附件隔离测试。
+- OpenAPI 版本同步到 `0.1.4`。
+- GitHub 仓库启用 main/tag rulesets、Dependabot security updates、vulnerability alerts、secret scanning 和 push protection。
+
+### 约束
+
+- 不新增 Cloudflare 资源。
+- 不新增 D1 migration。
+- 不改变 Memos 兼容 API 路径。
+- 不引入 GitHub Actions。
+- 生产访问边界仍是 Cloudflare Access。
+
+### 升级说明
+
+- 代码部署不需要额外 Cloudflare 操作。
+- 自托管升级按常规流程执行 `pnpm verify`、`pnpm deploy:dry-run` 和 `pnpm deploy`。
+- 如果本地 E2E 曾依赖旧的 `.wrangler` 状态，现在会在测试启动前自动应用本地 D1 migrations。
+
 ## v0.1.3
 
 Deploy Button 文档修正版本。这个版本不改变运行时代码，只把实测得到的 Cloudflare Git provider 前置条件写进 README 和部署文档。

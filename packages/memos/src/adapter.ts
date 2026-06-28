@@ -1,5 +1,17 @@
-import type { AttachmentDto, ListMemosResponse, MemoDto, MemoRelationDto, ShareDto } from "@flaremo/contracts";
-import type { AttachmentRow, MemoPayload, MemoRow, ShareRow, UserRow } from "@flaremo/db";
+import type {
+  AttachmentDto,
+  ListMemosResponse,
+  MemoDto,
+  MemoRelationDto,
+  ShareDto,
+} from "@flaremo/contracts";
+import type {
+  AttachmentRow,
+  MemoPayload,
+  MemoRow,
+  ShareRow,
+  UserRow,
+} from "@flaremo/db";
 
 type MemoRelationRow = {
   memoId: string;
@@ -59,7 +71,11 @@ export function shareToDto(share: ShareRow): ShareDto {
   };
 }
 
-export function memosToListResponse(input: { memos: MemoRow[]; user: UserRow; nextPageToken?: string }): ListMemosResponse {
+export function memosToListResponse(input: {
+  memos: MemoRow[];
+  user: UserRow;
+  nextPageToken?: string;
+}): ListMemosResponse {
   return {
     memos: input.memos.map((memo) => memoToDto(memo, input.user)),
     ...(input.nextPageToken ? { next_page_token: input.nextPageToken } : {}),
@@ -78,7 +94,10 @@ export function parseSharesResourceName(name: string) {
   return parseResourceName(name, "shares");
 }
 
-function parseResourceName(name: string, prefix: "attachments" | "memos" | "shares") {
+function parseResourceName(
+  name: string,
+  prefix: "attachments" | "memos" | "shares",
+) {
   if (name.startsWith(`${prefix}/`)) {
     return name;
   }

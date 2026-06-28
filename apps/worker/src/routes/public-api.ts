@@ -35,7 +35,11 @@ publicApi.get("/shares/:token/attachments/:id/blob", async (c) => {
   try {
     const db = createDb(c.env.DB);
     const share = await getPublicShareByToken(db, c.req.param("token"));
-    const attachment = await getAttachmentById(db, share.user, c.req.param("id"));
+    const attachment = await getAttachmentById(
+      db,
+      share.user,
+      c.req.param("id"),
+    );
     if (attachment.memoId !== share.memo.id) {
       return c.json({ error: { message: "Attachment not found" } }, 404);
     }
@@ -46,7 +50,10 @@ publicApi.get("/shares/:token/attachments/:id/blob", async (c) => {
     }
 
     const headers = new Headers();
-    headers.set("content-type", attachment.contentType ?? "application/octet-stream");
+    headers.set(
+      "content-type",
+      attachment.contentType ?? "application/octet-stream",
+    );
     headers.set("etag", object.httpEtag);
     headers.set("content-disposition", contentDisposition(attachment.filename));
     return new Response(object.body, { headers });

@@ -1,6 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 
 const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
 const backupDir = resolve("backups", `drill-${stamp}`);
@@ -15,7 +15,17 @@ mkdirSync(backupDir, { recursive: true });
 const steps = [];
 
 step("export local D1 dump", () =>
-  run("pnpm", ["exec", "wrangler", "d1", "export", "DB", "--local", "--output", d1Dump, "--skip-confirmation"]),
+  run("pnpm", [
+    "exec",
+    "wrangler",
+    "d1",
+    "export",
+    "DB",
+    "--local",
+    "--output",
+    d1Dump,
+    "--skip-confirmation",
+  ]),
 );
 
 step("export local D1 data", () =>
@@ -45,13 +55,24 @@ step("verify D1 dump exists", () => {
 
 step("prepare ordered D1 data restore file", () => {
   const dataDump = readFileSync(d1DataDump, "utf8");
-  const orderedTables = ["users", "memos", "attachments", "memo_relations", "settings", "shares"];
+  const orderedTables = [
+    "users",
+    "memos",
+    "attachments",
+    "memo_relations",
+    "settings",
+    "shares",
+  ];
   const lines = ["PRAGMA defer_foreign_keys=TRUE;"];
 
   for (const table of orderedTables) {
     const tableInserts = dataDump
       .split("\n")
-      .filter((line) => line.startsWith(`INSERT INTO "${table}" `) || line.startsWith(`INSERT INTO \`${table}\` `));
+      .filter(
+        (line) =>
+          line.startsWith(`INSERT INTO "${table}" `) ||
+          line.startsWith(`INSERT INTO \`${table}\` `),
+      );
     lines.push(...tableInserts);
   }
 
@@ -59,7 +80,17 @@ step("prepare ordered D1 data restore file", () => {
 });
 
 step("create isolated restore schema from migrations", () =>
-  run("pnpm", ["exec", "wrangler", "d1", "migrations", "apply", "DB", "--local", "--persist-to", restorePersistDir]),
+  run("pnpm", [
+    "exec",
+    "wrangler",
+    "d1",
+    "migrations",
+    "apply",
+    "DB",
+    "--local",
+    "--persist-to",
+    restorePersistDir,
+  ]),
 );
 
 step("restore D1 data into isolated local database", () =>
@@ -93,9 +124,21 @@ step("verify restored D1 schema", () =>
   ]),
 );
 
-step("list remote D1 migrations", () => run("pnpm", ["exec", "wrangler", "d1", "migrations", "list", "DB", "--remote"]));
+step("list remote D1 migrations", () =>
+  run("pnpm", [
+    "exec",
+    "wrangler",
+    "d1",
+    "migrations",
+    "list",
+    "DB",
+    "--remote",
+  ]),
+);
 step("verify R2 bucket exists", () => {
-  const result = run("pnpm", ["exec", "wrangler", "r2", "bucket", "list"], { capture: true });
+  const result = run("pnpm", ["exec", "wrangler", "r2", "bucket", "list"], {
+    capture: true,
+  });
   if (!result.stdout.includes("flaremo-attachments")) {
     throw new Error("R2 bucket flaremo-attachments was not found.");
   }
@@ -135,7 +178,10 @@ function step(name, fn) {
     steps.push(`${name}: ok`);
   } catch (error) {
     steps.push(`${name}: failed`);
-    writeFileSync(report, `# FlareMo Backup Drill\n\nFailed step: ${name}\n\n${String(error)}\n`);
+    writeFileSync(
+      report,
+      `# FlareMo Backup Drill\n\nFailed step: ${name}\n\n${String(error)}\n`,
+    );
     throw error;
   }
 }
@@ -152,7 +198,9 @@ function run(command, args, options = {}) {
       process.stderr.write(result.stderr);
       process.stdout.write(result.stdout);
     }
-    throw new Error(`${command} ${args.join(" ")} failed with exit code ${result.status}`);
+    throw new Error(
+      `${command} ${args.join(" ")} failed with exit code ${result.status}`,
+    );
   }
 
   if (options.capture && result.stderr) {

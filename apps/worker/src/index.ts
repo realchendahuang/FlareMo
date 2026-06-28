@@ -13,7 +13,11 @@ app.use(
   "/api/*",
   cors({
     origin: "*",
-    allowHeaders: ["content-type", "cf-access-client-id", "cf-access-client-secret"],
+    allowHeaders: [
+      "content-type",
+      "cf-access-client-id",
+      "cf-access-client-secret",
+    ],
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   }),
 );

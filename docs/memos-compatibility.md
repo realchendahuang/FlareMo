@@ -2,6 +2,8 @@
 
 FlareMo 兼容 Memos 生态，但不复制 Memos 服务端实现。兼容目标是常用客户端、脚本、导入导出、OpenAPI 和 MCP 能在 FlareMo 上工作。
 
+第三方客户端和工具的实测情况见 [memos-ecosystem.md](./memos-ecosystem.md)。本文件只描述 FlareMo 自身承诺的 API 子集。
+
 ## 已支持
 
 | 能力 | 状态 | 说明 |

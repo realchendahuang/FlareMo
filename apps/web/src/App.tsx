@@ -1,3 +1,21 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from "@tanstack/react-router";
+import {
+  DownloadIcon,
+  FileIcon,
+  LanguagesIcon,
+  MenuIcon,
+  SearchIcon,
+  UploadIcon,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   ApiError,
   bindMemoAttachments,
@@ -9,10 +27,10 @@ import {
   importData,
   listMemoAttachments,
   listMemos,
+  type Share,
   trashMemo,
   updateMemo,
   uploadAttachment,
-  type Share,
 } from "@/api";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
 import type { MemoView as ViewMode } from "@/components/flaremo-sidebar";
@@ -20,16 +38,16 @@ import { MemoComposer } from "@/components/memo-composer";
 import { MemoList } from "@/components/memo-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useI18n, type TranslationKey } from "@/i18n";
+import { type TranslationKey, useI18n } from "@/i18n";
 import { extractTags, formatMemoTime, getAllTags } from "@/lib/memo";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from "@tanstack/react-router";
-import { DownloadIcon, FileIcon, LanguagesIcon, MenuIcon, SearchIcon, UploadIcon } from "lucide-react";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
 
 function FlareMoApp() {
   const { t, toggleLocale } = useI18n();
@@ -37,7 +55,9 @@ function FlareMoApp() {
   const [view, setView] = useState<ViewMode>("all");
   const [activeTag, setActiveTag] = useState<string | undefined>();
   const [query, setQuery] = useState("");
-  const [sharesByMemo, setSharesByMemo] = useState<Map<string, Share>>(new Map());
+  const [sharesByMemo, setSharesByMemo] = useState<Map<string, Share>>(
+    new Map(),
+  );
 
   const normalMemosQuery = useQuery({
     queryKey: ["memos", "normal"],
@@ -58,7 +78,10 @@ function FlareMoApp() {
   const normalMemos = normalMemosQuery.data?.memos ?? [];
   const archivedMemos = archivedMemosQuery.data?.memos ?? [];
   const trashedMemos = trashedMemosQuery.data?.memos ?? [];
-  const visibleMemos = useMemo(() => [...normalMemos, ...archivedMemos], [normalMemos, archivedMemos]);
+  const visibleMemos = useMemo(
+    () => [...normalMemos, ...archivedMemos],
+    [normalMemos, archivedMemos],
+  );
   const attachmentKey = visibleMemos.map((memo) => memo.name).join(",");
   const attachmentsQuery = useQuery({
     enabled: visibleMemos.length > 0,
@@ -66,16 +89,27 @@ function FlareMoApp() {
     retry: false,
     queryFn: async () => {
       const entries = await Promise.all(
-        visibleMemos.map(async (memo) => [memo.name, (await listMemoAttachments(memo.name)).attachments] as const),
+        visibleMemos.map(
+          async (memo) =>
+            [
+              memo.name,
+              (await listMemoAttachments(memo.name)).attachments,
+            ] as const,
+        ),
       );
       return new Map(entries);
     },
   });
 
-  const invalidateMemos = () => queryClient.invalidateQueries({ queryKey: ["memos"] });
-  const invalidateAttachments = () => queryClient.invalidateQueries({ queryKey: ["attachments"] });
+  const invalidateMemos = () =>
+    queryClient.invalidateQueries({ queryKey: ["memos"] });
+  const invalidateAttachments = () =>
+    queryClient.invalidateQueries({ queryKey: ["attachments"] });
   const handleMutationError = (error: Error) => {
-    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    if (
+      error instanceof ApiError &&
+      (error.status === 401 || error.status === 403)
+    ) {
       toast.error(t("toast.accessRequired"));
       return;
     }
@@ -96,7 +130,11 @@ function FlareMoApp() {
         source: "web",
       });
       if (input.files.length > 0) {
-        const attachments = await Promise.all(input.files.map((file) => uploadAttachment({ file, memo: memo.name })));
+        const attachments = await Promise.all(
+          input.files.map((file) =>
+            uploadAttachment({ file, memo: memo.name }),
+          ),
+        );
         await bindMemoAttachments(
           memo.name,
           attachments.map((attachment) => attachment.name),
@@ -131,7 +169,13 @@ function FlareMoApp() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateMemo>[1] }) => updateMemo(id, input),
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: Parameters<typeof updateMemo>[1];
+    }) => updateMemo(id, input),
     onSuccess: () => {
       toast.success(t("toast.updated"));
       void invalidateMemos();
@@ -169,12 +213,21 @@ function FlareMoApp() {
   });
 
   const allTags = useMemo(() => getAllTags(normalMemos), [normalMemos]);
-  const sourceMemos = view === "trashed" ? trashedMemos : view === "archived" ? archivedMemos : normalMemos;
+  const sourceMemos =
+    view === "trashed"
+      ? trashedMemos
+      : view === "archived"
+        ? archivedMemos
+        : normalMemos;
   const filteredMemos = useMemo(
     () =>
       sourceMemos.filter((memo) => {
-        const textMatch = query.trim() ? memo.content.toLowerCase().includes(query.trim().toLowerCase()) : true;
-        const tagMatch = activeTag ? (memo.payload.tags ?? []).includes(activeTag) : true;
+        const textMatch = query.trim()
+          ? memo.content.toLowerCase().includes(query.trim().toLowerCase())
+          : true;
+        const tagMatch = activeTag
+          ? (memo.payload.tags ?? []).includes(activeTag)
+          : true;
         return textMatch && tagMatch;
       }),
     [activeTag, query, sourceMemos],
@@ -203,7 +256,9 @@ function FlareMoApp() {
             variant="ghost"
             onClick={async () => {
               const bundle = await exportData();
-              const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+              const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+                type: "application/json",
+              });
               const url = URL.createObjectURL(blob);
               const anchor = document.createElement("a");
               anchor.href = url;
@@ -215,11 +270,15 @@ function FlareMoApp() {
             <DownloadIcon />
           </Button>
           <Button asChild size="icon-sm" variant="ghost">
-            <label aria-label={t("common.import")}>
+            <label
+              aria-label={t("common.import")}
+              htmlFor="flaremo-import-file"
+            >
               <UploadIcon />
               <Input
                 accept="application/json"
                 className="hidden"
+                id="flaremo-import-file"
                 type="file"
                 onChange={async (event) => {
                   const file = event.target.files?.[0];
@@ -246,24 +305,37 @@ function FlareMoApp() {
     <TooltipProvider>
       <div className="h-svh overflow-hidden bg-background">
         <div className="mx-auto flex h-full w-full max-w-[950px]">
-          <div className="no-scrollbar hidden h-full w-[312px] shrink-0 overflow-y-auto border-r bg-background lg:block">{appShell}</div>
+          <div className="no-scrollbar hidden h-full w-[312px] shrink-0 overflow-y-auto border-r bg-background lg:block">
+            {appShell}
+          </div>
           <div className="flex h-full min-w-0 flex-1 flex-col">
             <header className="z-20 shrink-0 bg-background/95 backdrop-blur">
               <div className="flex h-14 items-center gap-2 px-5 lg:px-3">
                 <Sheet>
                   <SheetTrigger asChild>
-                    <Button aria-label={t("sidebar.toggle")} className="lg:hidden" size="icon-sm" variant="ghost">
+                    <Button
+                      aria-label={t("sidebar.toggle")}
+                      className="lg:hidden"
+                      size="icon-sm"
+                      variant="ghost"
+                    >
                       <MenuIcon />
                     </Button>
                   </SheetTrigger>
                   <SheetContent className="w-[312px] p-0" side="left">
-                    <SheetTitle className="sr-only">{t("sidebar.title")}</SheetTitle>
+                    <SheetTitle className="sr-only">
+                      {t("sidebar.title")}
+                    </SheetTitle>
                     {appShell}
                   </SheetContent>
                 </Sheet>
                 <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="hidden text-muted-foreground sm:inline">/</span>
-                  <div className="truncate px-1.5 py-1 text-sm font-semibold">{viewTitle(view, t)}</div>
+                  <span className="hidden text-muted-foreground sm:inline">
+                    /
+                  </span>
+                  <div className="truncate px-1.5 py-1 text-sm font-semibold">
+                    {viewTitle(view, t)}
+                  </div>
                   {activeTag && (
                     <button
                       className="truncate rounded-md px-1.5 py-1 text-sm text-muted-foreground motion-safe:transition-colors hover:bg-muted"
@@ -336,16 +408,34 @@ function FlareMoApp() {
                 )}
                 <MemoList
                   attachmentsByMemo={attachmentsQuery.data ?? new Map()}
-                  hasError={normalMemosQuery.isError || archivedMemosQuery.isError || trashedMemosQuery.isError}
-                  isLoading={normalMemosQuery.isLoading || archivedMemosQuery.isLoading || trashedMemosQuery.isLoading}
+                  hasError={
+                    normalMemosQuery.isError ||
+                    archivedMemosQuery.isError ||
+                    trashedMemosQuery.isError
+                  }
+                  isLoading={
+                    normalMemosQuery.isLoading ||
+                    archivedMemosQuery.isLoading ||
+                    trashedMemosQuery.isLoading
+                  }
                   memos={filteredMemos}
                   sharesByMemo={sharesByMemo}
                   onArchive={(id) => {
-                    const memo = visibleMemos.find((item) => item.name === id || item.id === id);
-                    updateMutation.mutate({ id, input: { status: memo?.state === "archived" ? "normal" : "archived" } });
+                    const memo = visibleMemos.find(
+                      (item) => item.name === id || item.id === id,
+                    );
+                    updateMutation.mutate({
+                      id,
+                      input: {
+                        status:
+                          memo?.state === "archived" ? "normal" : "archived",
+                      },
+                    });
                   }}
                   onHardDelete={(id) => hardDeleteMutation.mutate(id)}
-                  onPin={(id, pinned) => updateMutation.mutate({ id, input: { pinned } })}
+                  onPin={(id, pinned) =>
+                    updateMutation.mutate({ id, input: { pinned } })
+                  }
                   onRestore={(id) => restoreMutation.mutate(id)}
                   onShare={(id) => shareMutation.mutate(id)}
                   onTrash={(id) => trashMutation.mutate(id)}
@@ -390,25 +480,44 @@ function PublicSharePage() {
     queryFn: () => getPublicShare(token),
   });
   const share = shareQuery.data;
-  const tags = share ? share.memo.payload.tags ?? extractTags(share.memo.content) : [];
+  const tags = share
+    ? (share.memo.payload.tags ?? extractTags(share.memo.content))
+    : [];
 
   return (
     <div className="min-h-svh bg-background px-4 py-6">
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-4">
         <header className="border-b pb-4">
           <div className="font-heading text-lg font-semibold">FlareMo</div>
-          <div className="text-sm text-muted-foreground">{t("share.title")}</div>
+          <div className="text-sm text-muted-foreground">
+            {t("share.title")}
+          </div>
         </header>
-        {shareQuery.isLoading && <div className="rounded-md border p-6 text-sm text-muted-foreground">{t("common.loading")}</div>}
-        {shareQuery.isError && <div className="rounded-md border p-6 text-sm text-muted-foreground">{t("share.unavailable")}</div>}
+        {shareQuery.isLoading && (
+          <div className="rounded-md border p-6 text-sm text-muted-foreground">
+            {t("common.loading")}
+          </div>
+        )}
+        {shareQuery.isError && (
+          <div className="rounded-md border p-6 text-sm text-muted-foreground">
+            {t("share.unavailable")}
+          </div>
+        )}
         {share && (
           <article className="rounded-md border bg-card p-5 shadow-sm">
-            <div className="mb-4 text-sm text-muted-foreground">{formatMemoTime(share.memo.display_time, locale)}</div>
-            <div className="whitespace-pre-wrap text-base leading-7">{share.memo.content}</div>
+            <div className="mb-4 text-sm text-muted-foreground">
+              {formatMemoTime(share.memo.display_time, locale)}
+            </div>
+            <div className="whitespace-pre-wrap text-base leading-7">
+              {share.memo.content}
+            </div>
             {tags.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {tags.map((tag) => (
-                  <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground" key={tag}>
+                  <span
+                    className="rounded-md border px-2 py-1 text-xs text-muted-foreground"
+                    key={tag}
+                  >
                     #{tag}
                   </span>
                 ))}
@@ -423,7 +532,9 @@ function PublicSharePage() {
                     key={attachment.name}
                   >
                     <FileIcon />
-                    <span className="min-w-0 flex-1 truncate">{attachment.filename}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {attachment.filename}
+                    </span>
                   </a>
                 ))}
               </div>

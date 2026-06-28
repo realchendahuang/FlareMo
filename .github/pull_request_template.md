@@ -17,6 +17,7 @@
 请写明本地执行结果：
 
 ```bash
+pnpm format:check
 pnpm verify
 pnpm deploy:dry-run
 ```

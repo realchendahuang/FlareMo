@@ -1,4 +1,4 @@
-import { z, toJSONSchema } from "zod";
+import { toJSONSchema, z } from "zod";
 import {
   attachmentDtoSchema,
   bindMemoAttachmentsSchema,
@@ -7,14 +7,16 @@ import {
   importBundleSchema,
   importResultSchema,
   listAttachmentsResponseSchema,
-  listMemosResponseSchema,
   listMemoRelationsResponseSchema,
+  listMemosResponseSchema,
   memoDtoSchema,
   patchMemoRelationsSchema,
   publicShareDtoSchema,
   shareDtoSchema,
   updateMemoSchema,
 } from "./memos";
+
+export const FLAREMO_API_VERSION = "0.1.4";
 
 type JsonSchema = Record<string, unknown>;
 
@@ -82,7 +84,8 @@ const memoNameParam = {
   in: "path",
   required: true,
   schema: { type: "string" },
-  description: "Memo id or resource name. Both {id} and memos/{id} are accepted.",
+  description:
+    "Memo id or resource name. Both {id} and memos/{id} are accepted.",
 };
 
 const attachmentNameParam = {
@@ -90,7 +93,8 @@ const attachmentNameParam = {
   in: "path",
   required: true,
   schema: { type: "string" },
-  description: "Attachment id or resource name. Both {id} and attachments/{id} are accepted.",
+  description:
+    "Attachment id or resource name. Both {id} and attachments/{id} are accepted.",
 };
 
 const shareTokenParam = {
@@ -101,10 +105,21 @@ const shareTokenParam = {
 };
 
 const listMemoParams = [
-  { name: "page_size", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } },
+  {
+    name: "page_size",
+    in: "query",
+    schema: { type: "integer", minimum: 1, maximum: 100 },
+  },
   { name: "page_token", in: "query", schema: { type: "string" } },
   { name: "order_by", in: "query", schema: { type: "string" } },
-  { name: "state", in: "query", schema: { type: "string", enum: ["normal", "archived", "trashed", "deleted"] } },
+  {
+    name: "state",
+    in: "query",
+    schema: {
+      type: "string",
+      enum: ["normal", "archived", "trashed", "deleted"],
+    },
+  },
   { name: "q", in: "query", schema: { type: "string" } },
   { name: "tag", in: "query", schema: { type: "string" } },
   { name: "include_deleted", in: "query", schema: { type: "boolean" } },
@@ -112,16 +127,24 @@ const listMemoParams = [
 
 const schemas = {
   Attachment: toJSONSchema(attachmentDtoSchema) as JsonSchema,
-  BindMemoAttachmentsRequest: toJSONSchema(bindMemoAttachmentsSchema) as JsonSchema,
+  BindMemoAttachmentsRequest: toJSONSchema(
+    bindMemoAttachmentsSchema,
+  ) as JsonSchema,
   CreateMemoRequest: toJSONSchema(createMemoSchema) as JsonSchema,
   CreateShareRequest: toJSONSchema(createShareSchema) as JsonSchema,
   ImportBundle: toJSONSchema(importBundleSchema) as JsonSchema,
   ImportResult: toJSONSchema(importResultSchema) as JsonSchema,
-  ListAttachmentsResponse: toJSONSchema(listAttachmentsResponseSchema) as JsonSchema,
-  ListMemoRelationsResponse: toJSONSchema(listMemoRelationsResponseSchema) as JsonSchema,
+  ListAttachmentsResponse: toJSONSchema(
+    listAttachmentsResponseSchema,
+  ) as JsonSchema,
+  ListMemoRelationsResponse: toJSONSchema(
+    listMemoRelationsResponseSchema,
+  ) as JsonSchema,
   ListMemosResponse: toJSONSchema(listMemosResponseSchema) as JsonSchema,
   Memo: toJSONSchema(memoDtoSchema) as JsonSchema,
-  PatchMemoRelationsRequest: toJSONSchema(patchMemoRelationsSchema) as JsonSchema,
+  PatchMemoRelationsRequest: toJSONSchema(
+    patchMemoRelationsSchema,
+  ) as JsonSchema,
   PublicShare: toJSONSchema(publicShareDtoSchema) as JsonSchema,
   Share: toJSONSchema(shareDtoSchema) as JsonSchema,
   UpdateMemoRequest: toJSONSchema(updateMemoSchema) as JsonSchema,
@@ -134,7 +157,7 @@ export function createOpenApiDocument() {
     openapi: "3.1.0",
     info: {
       title: "FlareMo Memos-compatible API",
-      version: "0.1.0",
+      version: FLAREMO_API_VERSION,
       description:
         "Memos-compatible API for a Cloudflare-native personal knowledge management system. Production access is handled by Cloudflare Access.",
     },
@@ -154,7 +177,9 @@ export function createOpenApiDocument() {
           summary: "List memos",
           tags: ["Memos"],
           parameters: listMemoParams,
-          responses: { "200": jsonResponse("Memo list.", schemas.ListMemosResponse) },
+          responses: {
+            "200": jsonResponse("Memo list.", schemas.ListMemosResponse),
+          },
         }),
         post: operation({
           operationId: "createMemo",
@@ -184,8 +209,16 @@ export function createOpenApiDocument() {
           operationId: "deleteMemo",
           summary: "Move a memo to trash or hard-delete it",
           tags: ["Memos"],
-          parameters: [memoNameParam, { name: "hard", in: "query", schema: { type: "boolean" } }],
-          responses: { "200": jsonResponse("Deleted memo or delete result.", toJSONSchema(z.unknown()) as JsonSchema) },
+          parameters: [
+            memoNameParam,
+            { name: "hard", in: "query", schema: { type: "boolean" } },
+          ],
+          responses: {
+            "200": jsonResponse(
+              "Deleted memo or delete result.",
+              toJSONSchema(z.unknown()) as JsonSchema,
+            ),
+          },
         }),
       },
       "/api/v1/memos/{id}/attachments": {
@@ -194,7 +227,12 @@ export function createOpenApiDocument() {
           summary: "List memo attachments",
           tags: ["Attachments"],
           parameters: [memoNameParam],
-          responses: { "200": jsonResponse("Memo attachments.", schemas.ListAttachmentsResponse) },
+          responses: {
+            "200": jsonResponse(
+              "Memo attachments.",
+              schemas.ListAttachmentsResponse,
+            ),
+          },
         }),
         patch: operation({
           operationId: "setMemoAttachments",
@@ -202,7 +240,12 @@ export function createOpenApiDocument() {
           tags: ["Attachments"],
           parameters: [memoNameParam],
           requestBody: jsonRequest(schemas.BindMemoAttachmentsRequest),
-          responses: { "200": jsonResponse("Bound attachments.", schemas.ListAttachmentsResponse) },
+          responses: {
+            "200": jsonResponse(
+              "Bound attachments.",
+              schemas.ListAttachmentsResponse,
+            ),
+          },
         }),
       },
       "/api/v1/memos/{id}/relations": {
@@ -211,7 +254,12 @@ export function createOpenApiDocument() {
           summary: "List memo relations",
           tags: ["Relations"],
           parameters: [memoNameParam],
-          responses: { "200": jsonResponse("Memo relations.", schemas.ListMemoRelationsResponse) },
+          responses: {
+            "200": jsonResponse(
+              "Memo relations.",
+              schemas.ListMemoRelationsResponse,
+            ),
+          },
         }),
         patch: operation({
           operationId: "setMemoRelations",
@@ -219,7 +267,12 @@ export function createOpenApiDocument() {
           tags: ["Relations"],
           parameters: [memoNameParam],
           requestBody: jsonRequest(schemas.PatchMemoRelationsRequest),
-          responses: { "200": jsonResponse("Memo relations.", schemas.ListMemoRelationsResponse) },
+          responses: {
+            "200": jsonResponse(
+              "Memo relations.",
+              schemas.ListMemoRelationsResponse,
+            ),
+          },
         }),
       },
       "/api/v1/memos/{id}/shares": {
@@ -246,8 +299,17 @@ export function createOpenApiDocument() {
           operationId: "getPublicShare",
           summary: "Get public share content by token",
           tags: ["Shares"],
-          parameters: [{ name: "token", in: "path", required: true, schema: { type: "string" } }],
-          responses: { "200": jsonResponse("Public share content.", schemas.PublicShare) },
+          parameters: [
+            {
+              name: "token",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "200": jsonResponse("Public share content.", schemas.PublicShare),
+          },
         }),
       },
       "/api/v1/attachments": {
@@ -257,9 +319,18 @@ export function createOpenApiDocument() {
           tags: ["Attachments"],
           parameters: [
             { name: "memo", in: "query", schema: { type: "string" } },
-            { name: "page_size", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } },
+            {
+              name: "page_size",
+              in: "query",
+              schema: { type: "integer", minimum: 1, maximum: 100 },
+            },
           ],
-          responses: { "200": jsonResponse("Attachments.", schemas.ListAttachmentsResponse) },
+          responses: {
+            "200": jsonResponse(
+              "Attachments.",
+              schemas.ListAttachmentsResponse,
+            ),
+          },
         }),
         post: operation({
           operationId: "uploadAttachment",
@@ -282,7 +353,12 @@ export function createOpenApiDocument() {
           summary: "Delete an attachment",
           tags: ["Attachments"],
           parameters: [attachmentNameParam],
-          responses: { "200": jsonResponse("Delete result.", toJSONSchema(z.object({ ok: z.literal(true) })) as JsonSchema) },
+          responses: {
+            "200": jsonResponse(
+              "Delete result.",
+              toJSONSchema(z.object({ ok: z.literal(true) })) as JsonSchema,
+            ),
+          },
         }),
       },
       "/api/v1/attachments/{id}/blob": {
@@ -299,7 +375,9 @@ export function createOpenApiDocument() {
           operationId: "exportData",
           summary: "Export FlareMo data",
           tags: ["ImportExport"],
-          responses: { "200": jsonResponse("Export bundle.", schemas.ImportBundle) },
+          responses: {
+            "200": jsonResponse("Export bundle.", schemas.ImportBundle),
+          },
         }),
       },
       "/api/v1/import": {
@@ -308,7 +386,9 @@ export function createOpenApiDocument() {
           summary: "Import FlareMo data",
           tags: ["ImportExport"],
           requestBody: jsonRequest(schemas.ImportBundle),
-          responses: { "200": jsonResponse("Import result.", schemas.ImportResult) },
+          responses: {
+            "200": jsonResponse("Import result.", schemas.ImportResult),
+          },
         }),
       },
       "/api/v1/mcp": {
@@ -316,9 +396,14 @@ export function createOpenApiDocument() {
           operationId: "mcpJsonRpc",
           summary: "MCP JSON-RPC endpoint",
           tags: ["MCP"],
-          requestBody: jsonRequest(toJSONSchema(z.record(z.string(), z.unknown())) as JsonSchema),
+          requestBody: jsonRequest(
+            toJSONSchema(z.record(z.string(), z.unknown())) as JsonSchema,
+          ),
           responses: {
-            "200": jsonResponse("JSON-RPC response.", toJSONSchema(z.record(z.string(), z.unknown())) as JsonSchema),
+            "200": jsonResponse(
+              "JSON-RPC response.",
+              toJSONSchema(z.record(z.string(), z.unknown())) as JsonSchema,
+            ),
           },
         }),
       },
@@ -328,7 +413,10 @@ export function createOpenApiDocument() {
           summary: "Get OpenAPI document",
           tags: ["ImportExport"],
           responses: {
-            "200": jsonResponse("OpenAPI document.", toJSONSchema(z.record(z.string(), z.unknown())) as JsonSchema),
+            "200": jsonResponse(
+              "OpenAPI document.",
+              toJSONSchema(z.record(z.string(), z.unknown())) as JsonSchema,
+            ),
           },
         }),
       },
