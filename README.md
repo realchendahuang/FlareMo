@@ -266,7 +266,7 @@ FlareMo 当前已经具备：
 - Deploy to Cloudflare 按钮。
 - Agent 部署 runbook、发版规则、兼容矩阵和开源协作文件。
 
-后续方向见 [ROADMAP.md](./ROADMAP.md)。
+后续方向见 [ROADMAP.md](./ROADMAP.md)。语义搜索的实现边界见 [docs/semantic-search.md](./docs/semantic-search.md)。
 
 ## 工程化
 
