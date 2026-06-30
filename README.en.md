@@ -16,6 +16,8 @@
   <img src="./docs/assets/flaremo-mobile.png" alt="FlareMo mobile timeline" width="220">
 </p>
 
+The screenshots show the current backend-backed timeline, editor, filtering, and mobile navigation. Features that are not implemented yet, such as AI review, semantic search, and messaging-app capture, are not exposed as placeholder UI.
+
 ## What It Does
 
 - Quick memo capture with tags and attachments.
@@ -64,6 +66,15 @@ pnpm deploy
 ```
 
 Full deployment docs: [docs/en/deploy.md](./docs/en/deploy.md).
+
+### Pre-deployment Checklist
+
+- Wrangler is logged in to the target Cloudflare account: `pnpm exec wrangler whoami`.
+- `wrangler.jsonc` uses `DB` as the D1 binding and contains the target D1 `database_id`.
+- `wrangler.jsonc` uses `ATTACHMENTS` as the R2 binding, and the target bucket exists.
+- Remote D1 migrations will be applied after the first deploy: `pnpm migrate:remote`.
+- Cloudflare Access policies are planned for human access, Service Tokens, and public share bypass routes.
+- The release gate has passed: `pnpm verify` and `pnpm deploy:dry-run`.
 
 ## Auth Boundary
 
