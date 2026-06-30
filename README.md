@@ -16,6 +16,8 @@
   <img src="./docs/assets/flaremo-mobile.png" alt="FlareMo mobile timeline" width="220">
 </p>
 
+截图展示的是当前已接上后端的时间线、编辑、筛选和移动端导航体验；未实现的 AI 回顾、语义搜索、微信输入等能力不会出现在界面里。
+
 ---
 
 ## 为什么做这个项目
@@ -126,6 +128,15 @@ pnpm deploy
 ```
 
 完整部署说明见 [docs/deploy.md](./docs/deploy.md)。英文部署说明见 [docs/en/deploy.md](./docs/en/deploy.md)。Deploy Button 的实测记录见 [docs/deploy-button-test.md](./docs/deploy-button-test.md)。
+
+**部署前检查清单**
+
+- Wrangler 已登录目标 Cloudflare 账号：`pnpm exec wrangler whoami`。
+- `wrangler.jsonc` 里的 D1 binding 是 `DB`，并已填入目标 D1 的 `database_id`。
+- `wrangler.jsonc` 里的 R2 binding 是 `ATTACHMENTS`，目标 bucket 已创建。
+- 远端 D1 migrations 会在首次部署后执行：`pnpm migrate:remote`。
+- Cloudflare Access application 已规划好人类访问、Service Token 和公开分享 bypass。
+- 发布前已跑：`pnpm verify` 和 `pnpm deploy:dry-run`。
 
 ---
 
