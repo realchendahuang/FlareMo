@@ -56,3 +56,5 @@ Every expanded compatibility promise needs tests for:
 - MCP tool calls.
 
 For real clients, use [../memos-ecosystem.md](../memos-ecosystem.md). A client that cannot send Cloudflare Access Service Token headers may be API-compatible but still unusable against a protected production FlareMo instance.
+
+Third-party clients must only be marked as supported after a real FlareMo connection test. Untested clients stay in the candidate matrix as untested.

@@ -114,6 +114,7 @@ Current docs:
 
 - [Memos compatibility matrix](./docs/en/memos-compatibility.md)
 - [Memos ecosystem matrix](./docs/memos-ecosystem.md)
+- [Semantic search architecture](./docs/semantic-search.md)
 - [OpenAPI](./packages/contracts/src/openapi.ts)
 
 The important auth detail is Cloudflare Access. A third-party Memos client must be able to send these headers to talk to a protected production FlareMo instance:
