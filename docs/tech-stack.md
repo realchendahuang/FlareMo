@@ -98,6 +98,8 @@ R2 用来存不应该塞进关系型行里的数据：
 
 语义搜索返回结果后，FlareMo 必须回 D1 读取权威 memo 数据。
 
+语义搜索的完整边界见 [semantic-search.md](./semantic-search.md)。
+
 KV 不属于核心数据库栈。
 
 Workers KV 适合高读、最终一致的数据，比如缓存、feature flags 和低风险配置。它不能存 canonical notes、权限、分享状态、强一致 session 或 Memos 兼容业务数据。
