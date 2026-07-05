@@ -9,9 +9,11 @@ test-results/
 playwright-report/
 backups/
 
-# pi coding agent local state
+# agent local state (pi, claude, codex, cursor)
 .pi/
-.claude/skills/open-knowledge
+.claude/
+.codex/
+.cursor/
 .ok
 
 # local instance config (real database_id); use wrangler.jsonc.example as template
@@ -23,7 +25,8 @@ backups/
 __MACOSX/
 .AppleDouble
 .LSOverride
-Icon[]
+Icon[
+]
 
 # Resource forks
 ._*
@@ -44,7 +47,8 @@ Icon[]
 .file
 .disk_label*
 lost+found
-.HFS+ Private Directory Data[]
+.HFS+ Private Directory Data[
+]
 
 # Directories potentially created on remote AFP share
 .AppleDB
