@@ -1,0 +1,75 @@
+# weekly-post — post P01's starred-repo batch to FlareMo as PROTECTED memos.
+#
+# Runs every Sun 14:00 UTC (2h after P01's 12:00 UTC harvest), or on dispatch.
+# Gated to the real owner so forks/clones stay dormant.
+# Reads MaksimZinovev/private-feed-source/data/queue.json (read-only cross-repo
+# checkout) and posts every unposted entry to FlareMo; commits posted.json back
+# to THIS repo for dedupe/audit. queue.json is never written.
+#
+# Plan: plans/P02-private-feed-weekly-post.md
+# Docs:  .github/workflows/README.md
+name: weekly-post
+
+on:
+  schedule:
+    - cron: "0 14 * * 0" # Sun 14:00 UTC (2h after P01 harvest)
+  workflow_dispatch:
+
+# Per-repo group; independent of P01's same-named group in private-feed-source.
+concurrency:
+  group: feed-state
+  cancel-in-progress: false
+
+# Dormant in any fork/clone owned by a different user.
+# Auto GITHUB_TOKEN needs contents:write to commit posted.json back.
+permissions:
+  contents: write
+
+jobs:
+  post:
+    if: github.repository_owner == 'MaksimZinovev'
+    runs-on: ubuntu-latest
+    env:
+      FLAREMO_URL: ${{ secrets.FLAREMO_URL }}
+      FLAREMO_ACCESS_CLIENT_ID: ${{ secrets.FLAREMO_ACCESS_CLIENT_ID }}
+      FLAREMO_ACCESS_CLIENT_SECRET: ${{ secrets.FLAREMO_ACCESS_CLIENT_SECRET }}
+    steps:
+      # 1. Checkout flaremo (this repo): scripts/post.sh + data/posted.json.
+      #    Persists GITHUB_TOKEN so the later git push of posted.json works.
+      - name: Checkout flaremo
+        uses: actions/checkout@v4
+
+      # 2. Read-only cross-repo checkout of the P01 harvest repo. The PAT is
+      #    contents:read-only on MaksimZinovev/private-feed-source; we never
+      #    push to it, so do not persist its credentials.
+      - name: Checkout private-feed-source (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: MaksimZinovev/private-feed-source
+          token: ${{ secrets.PRIVATE_FEED_SOURCE_PAT }}
+          path: private-feed-source
+          persist-credentials: false
+
+      # 3. Post every unposted queue entry. post.sh exits 1 on any non-2xx,
+      #    which fails this step (and skips the commit step via if: success()).
+      - name: Post queue entries to FlareMo
+        env:
+          QUEUE_FILE: private-feed-source/data/queue.json
+          POSTED_FILE: data/posted.json
+        run: ./scripts/post.sh
+
+      # 4. Commit posted.json back to flaremo only if it changed.
+      - name: Commit posted.json if changed
+        if: success()
+        run: |
+          git add data/posted.json
+          if git diff --staged --quiet; then
+            echo "posted.json unchanged; nothing to commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email \
+              "41898282+github-actions[bot]@users.noreply.github.com"
+            count=$(jq 'length' data/posted.json)
+            git commit -m "chore(feed): appended $count posted entries"
+            git push
+          fi
