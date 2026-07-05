@@ -21,6 +21,8 @@ Capture an idea/sketch into FlareMo. The user's input (`$@`) is a raw idea; dist
    ```
 4. Report the created memo's id and confirm.
 
+Keep the memo content to 215 lines max by default; if the input is longer, ask the user whether to split, summarize, or truncate before creating.
+
 Never create before the user confirms. If `FLAREMO_URL`, `FLAREMO_ACCESS_CLIENT_ID`, or `FLAREMO_ACCESS_CLIENT_SECRET` are missing, stop and tell the user. Don't fabricate next steps not in the input.
 
 Task: $@
