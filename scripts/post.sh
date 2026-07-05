@@ -74,9 +74,13 @@ for entry_json in "${entries[@]}"; do
 		-H "content-type: application/json" \
 		-H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
 		-H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
-		--data "$(jq -n --arg content "$memo_text" '{content: $content, visibility: "protected"}')")
+		--data "$(jq -n --arg content "$memo_text" '{content: $content, visibility: "protected"}')") || http_code="000"
 
-	# Success is any 2xx (CreateMemo returns 201, not just 200).
+	# Success is any 2xx (CreateMemo returns 201, not just 200). On curl
+	# connection failure (e.g. FlareMo unreachable) curl exits non-zero; without
+	# the || fallback, set -e would abort the script with curl's exit code and
+	# skip the structured FAIL message below. http_code=000 falls through to
+	# the non-2xx branch and exits 1 cleanly.
 	if [[ "$http_code" =~ ^2 ]]; then
 		memo_name=$(jq -r '.name' "$res_file")
 		posted_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
