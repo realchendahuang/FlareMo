@@ -32,6 +32,22 @@ Every protected request needs both headers:
 
 Without them, FlareMo returns 302 → Cloudflare Access login. With them, `/api/v1/*` returns JSON.
 
+## Debugging auth failures
+
+A 302 (not 2xx) means CF-Access rejected the request. Decode the redirect's `meta` JWT to find out *why* — the `service_token_status` field tells you if the token was even recognized:
+
+```bash
+loc=$(curl -sS -D - -o /dev/null "$FLAREMO_URL/api/v1/memos" \
+  -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" | grep -i '^location:')
+echo "$loc" | grep -oE 'meta=[^&]+' | sed 's/^meta=//' | cut -d. -f2 | base64 -d 2>/dev/null \
+  | jq '{service_token_status,auth_status,is_warp,is_gateway}'
+```
+
+- `service_token_status: false` + `auth_status: "NONE"` → token is **not attached to a Service Auth policy** on the FlareMo app. Real and bogus tokens behave identically in this case. Fix: [setup-guide 05b](../../docs/setup-guide/05b-access-service-token.md) step 5 — attach the `Service auth API clients` policy to the FlareMo app.
+- `service_token_status: true` but still 302 → wrong/revoked token values; rotate in Zero Trust → Service Auth → Service Tokens.
+- 302 with `is_warp: true` / `is_gateway: true` → request egressed through WARP/Gateway instead of the token path; check network.
+
 ## Wrapper script
 
 Use `scripts/flaremo_curl.sh` to avoid retyping the headers:
