@@ -78,7 +78,7 @@ match:
   has_alternative: '(alternative|instead of|rather than|compared to|over:|vs[.])'
 ```
 
-Weekly-post workflow in `flaremo`, gated by `if: github.repository_owner == 'MaksimZinovev'` so clones/forks stay dormant. Cron Sun 14:00 UTC, 2h after P01's harvest, so this week's `queue.json` is ready. It checks out `private-feed-source` cross-repo read-only (one read-only PAT), reads `queue.json`, posts EVERY unposted entry to FlareMo `/api/v1/memos` with the two CF-Access headers and `{content, visibility:"PROTECTED"}`, and appends each returned `name` to `posted.json` (committed locally). `queue.json` is untouched (P01 overwrites it weekly) — zero cross-repo writes. An alternative is a daily one-per-day drip — rejected because it couples posting to daily cadence and leaves a busy week's queue undrained; the weekly batch matches the harvest cadence.
+Weekly-post workflow in `flaremo`, gated by `if: github.repository_owner == 'MaksimZinovev'` so clones/forks stay dormant. Cron Sun 14:00 UTC, 2h after P01's harvest, so this week's `queue.json` is ready. It checks out `private-feed-source` cross-repo read-only (one read-only PAT), reads `queue.json`, posts EVERY unposted entry to FlareMo `/api/v1/memos` with the two CF-Access headers and `{content, visibility:"protected"}`, and appends each returned `name` to `posted.json` (committed locally). `queue.json` is untouched (P01 overwrites it weekly) — zero cross-repo writes. An alternative is a daily one-per-day drip — rejected because it couples posting to daily cadence and leaves a busy week's queue undrained; the weekly batch matches the harvest cadence.
 
 ## Out of Scope
 
@@ -113,13 +113,13 @@ match:
 
 - [ ] Run the gating live curl — `POST /api/v1/memos` with the two CF-Access headers and a test body (Source: Evidence Pack Claim 1, Claim 2)
   - Confidence: 0.9
-  - Details: `curl -sS -X POST "$FLAREMO_URL/api/v1/memos" -H "content-type: application/json" -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" --data '{"content":"POC test — safe to delete","visibility":"PROTECTED"}' | jq .` Confirm HTTP 200 and inspect `creator`. If `creator` is not your FlareMo user, STOP — the rest depends on the Service Token mapping to the right account. Delete the test memo afterward.
+  - Details: `curl -sS -X POST "$FLAREMO_URL/api/v1/memos" -H "content-type: application/json" -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" --data '{"content":"POC test — safe to delete","visibility":"protected"}' | jq .` Confirm HTTP 2xx (201 Created) and inspect `creator`. If `creator` is not your FlareMo user, STOP — the rest depends on the Service Token mapping to the right account. Delete the test memo afterward.
 - [ ] Seed `data/posted.json` as `[]` in `flaremo` (Source: this plan)
   - Confidence: 1.0
   - Details: `mkdir -p data && echo '[]' > data/posted.json`. Non-sensitive (memo names + repo ids already in public memos); committed state.
 - [ ] Write `scripts/post.sh` (in `flaremo`) — post every unposted queue entry, record in posted (Source: Evidence Pack Claim 1, Claim 2)
   - Confidence: 0.85
-  - Details: Reads `queue.json` from `$QUEUE_FILE` and `posted.json` from `$POSTED_FILE`. If queue empty, `exit 0`. Build the posted-id set from posted.json (dedup id = numeric GitHub repo `id` per P01's state contract; `posted.id` == `queue.id`; posted.json entry = queue entry + `{memo_name, posted_at}`, e.g. `{"id":12345678,"full_name":"owner/repo",...,"memo_name":"memos/123","posted_at":"2026-07-07T14:05:00Z"}`). For each queue entry whose `id` is NOT in the posted set: format the "Detailed" memo body (`⭐ [full_name](html_url)` + description + `**Lang:** … · **Stars:** … · **Starred at:** …` + `Topics: #topic1 #topic2`); `POST $FLAREMO_URL/api/v1/memos` with the two CF-Access headers and `{"content": "...", "visibility": "PROTECTED"}`; on HTTP 200, capture `name` and append the entry to `posted.json` with `posted_at` + `memo_name`; on non-200, print the body to stderr and `exit 1` (stop the batch — already-posted entries stay recorded, unposted ones stay in queue for the next run). Do NOT modify `queue.json` (P01 merges/refreshes it weekly).
+  - Details: Reads `queue.json` from `$QUEUE_FILE` and `posted.json` from `$POSTED_FILE`. If queue empty, `exit 0`. Build the posted-id set from posted.json (dedup id = numeric GitHub repo `id` per P01's state contract; `posted.id` == `queue.id`; posted.json entry = queue entry + `{memo_name, posted_at}`, e.g. `{"id":12345678,"full_name":"owner/repo",...,"memo_name":"memos/<uuid>","posted_at":"2026-07-07T14:05:00Z"}`). For each queue entry whose `id` is NOT in the posted set: format the "Detailed" memo body (`⭐ [full_name](html_url)` + description + `**Lang:** … · **Stars:** … · **Starred at:** …` + `Topics: #topic1 #topic2`); `POST $FLAREMO_URL/api/v1/memos` with the two CF-Access headers and `{"content": "...", "visibility": "protected"}`; on 2xx (201), capture `name` and append the entry to `posted.json` with `posted_at` + `memo_name`; on non-2xx, print the body to stderr and `exit 1` (stop the batch — already-posted entries stay recorded, unposted ones stay in queue for the next run). Do NOT modify `queue.json` (P01 merges/refreshes it weekly).
 - [ ] Write `.github/workflows/weekly-post.yml` in `flaremo` — weekly cron + owner gate + read-only cross-repo checkout + local posted write (Source: Evidence Pack Claim 3, Claim 4)
   - Confidence: 0.9
   - Details: `on: schedule: - cron: "0 14 * * 0"` (Sun 14:00 UTC, 2h after P01 harvest) plus `workflow_dispatch`. Job-level `if: github.repository_owner == 'MaksimZinovev'`. `permissions: contents: write` (local posted.json commit; auto `GITHUB_TOKEN`). `concurrency: { group: feed-state, cancel-in-progress: false }`. Job env: `FLAREMO_URL`, `FLAREMO_ACCESS_CLIENT_ID`, `FLAREMO_ACCESS_CLIENT_SECRET`, `PRIVATE_FEED_SOURCE_PAT` (read-only) from secrets. Steps: (1) read-only checkout of `MaksimZinovev/private-feed-source` into a subpath via `actions/checkout` with `repository:` + `token: ${{ secrets.PRIVATE_FEED_SOURCE_PAT }}`; (2) run `scripts/post.sh` with `QUEUE_FILE=<checkout>/data/queue.json` and `POSTED_FILE=data/posted.json`; (3) `git add data/posted.json`/`commit`/`push` to flaremo only if `post.sh` exited 0 and `posted.json` changed. `queue.json` is never written.
@@ -173,10 +173,10 @@ match:
   has_confidence: 'Confidence:'
 ```
 
-- Claim: `POST /api/v1/memos` is the REST endpoint; the body IS the `Memo` object (`body: "memo"`), with `content` (markdown) and `visibility` (`PRIVATE`/`PROTECTED`/`PUBLIC`); the response is the created `Memo` with `name` (`memos/{id}`) and `creator` (`users/{user}`, OUTPUT_ONLY).
+- Claim: `POST /api/v1/memos` is the REST endpoint; the body IS the `Memo` object (`body: "memo"`), with `content` (markdown) and `visibility` (`PRIVATE`/`PROTECTED`/`PUBLIC` in the proto enum — **but FlareMo's REST/Zod layer accepts lowercase strings `private`/`protected`/`public`**); the response is the created `Memo` with `name` (`memos/{id}`, where `{id}` is a UUID) and `creator` (`users/{user}`, OUTPUT_ONLY).
   Source: `proto/api/v1/memo_service.proto:18-26` (http annotation), `:149-158` (Visibility enum), `:293-300` (CreateMemoRequest), Memo `name`/`creator` fields
   Confidence: 0.95
-  Implication: post.sh builds `{"content": "...", "visibility": "PROTECTED"}` and reads `name` + `creator` from each 200 response; `creator` answers which user owns it.
+  Implication: post.sh builds `{"content": "...", "visibility": "protected"}` and reads `name` + `creator` from each 2xx (201) response; `creator` answers which user owns it.
 - Claim: FlareMo sits behind Cloudflare Access; machine clients authenticate with exactly two headers (`CF-Access-Client-Id`, `CF-Access-Client-Secret`) via a Service Auth policy. No FlareMo application token is involved.
   Source: `flaremo/docs/deploy.md:130-132, 178-180, 236`; `flaremo/faq/does-the-agent-have-access.md`
   Confidence: 0.9
@@ -228,9 +228,9 @@ curl -sS -o /tmp/memo-res.json -w "%{http_code}\n" -X POST "$FLAREMO_URL/api/v1/
   -H "content-type: application/json" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
   -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
-  --data '{"content":"POC test — safe to delete","visibility":"PROTECTED"}'
+  --data '{"content":"POC test — safe to delete","visibility":"protected"}'
 jq '.name, .creator' /tmp/memo-res.json
-# Expected: 200, and /tmp/memo-res.json contains "name":"memos/..." and "creator":"users/<your-flaremo-user>"
+# Expected: 201, and /tmp/memo-res.json contains "name":"memos/<uuid>" and "creator":"users/<your-flaremo-user>"
 ```
 
 ```bash
@@ -238,8 +238,8 @@ jq '.name, .creator' /tmp/memo-res.json
 curl -sS -o /dev/null -w "%{http_code}\n" -X POST "$FLAREMO_URL/api/v1/memos" \
   -H "content-type: application/json" \
   -H "CF-Access-Client-Id: bogus" -H "CF-Access-Client-Secret: bogus" \
-  --data '{"content":"should fail","visibility":"PROTECTED"}'
-# Expected: 403 or 401 — NOT 200. A 200 means Service Auth is misconfigured and the endpoint is open.
+  --data '{"content":"should fail","visibility":"protected"}'
+# Expected: 302 (redirect to Cloudflare Access login) — NOT 2xx. A 2xx means Service Auth is misconfigured and the endpoint is open.
 ```
 
 ```bash
@@ -295,6 +295,18 @@ gh workflow run weekly-post.yml -R MaksimZinovev/flaremo && \
   test "$(jq 'length' ~/repos/flaremo/data/posted.json)" -ge 1 && echo "post-ok"
 # Expected: post-ok — run succeeds; posted.json gains ≥1 entry; signed-in FlareMo shows the memos PROTECTED; incognito cannot read them
 ```
+
+## Corrections applied during implementation
+
+Captured 2026-07-05 while executing the plan (merged in PR #2):
+
+1. **visibility lowercase**: the REST/Zod layer accepts `private|protected|public` (lowercase strings), not the proto enum's uppercase `PRIVATE/PROTECTED/PUBLIC`. Corrected in every code/curl body above. Evidence Pack Claim 1 updated with a parenthetical note.
+2. **success = 2xx, not 200**: `POST /api/v1/memos` returns **201 Created** on success. post.sh treats any 2xx as success; the failure branch is `non-2xx → exit 1` (not `non-200`). Corrected in Step 3, Claim 1 Implication, and Tests 1/2.
+3. **memo `name` is `memos/<uuid>`**, not `memos/<numeric>` (e.g. `memos/a139dcb8-…`). Corrected in Step 3's example.
+4. **Step 6 ↔ Step 7 reorder**: GitHub Actions only registers/dispatches workflows present on the **default branch**. Test 9 (dispatch) therefore requires the PR to have merged to `main` first — the plan's original ordering (dispatch before merge) is impossible. Reordered in execution: PR merged, then dispatched from `main`.
+5. **CF-Access Service Token must be attached to a Service Auth policy on the FlareMo app** (setup-guide 05b step 5). Symptom: live curl returns 302 with `service_token_status:false` in the redirect's `meta` JWT. Diagnostic captured in `skills/flaremo-api/SKILL.md` → "Debugging auth failures".
+6. **post.sh curl-connection-failure `set -e` bug**: without `|| http_code="000"`, a connection failure aborted the script with curl's exit code (7) before the structured `exit 1` path. Fixed in `4c12057`.
+7. **`actions/checkout@v4` → `@v5`**: v4 targets Node 20 (deprecated on Actions runners); bumped to v5 (Node 24) in this follow-up PR.
 
 ## Bottom Line
 

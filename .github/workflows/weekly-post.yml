@@ -37,13 +37,13 @@ jobs:
       # 1. Checkout flaremo (this repo): scripts/post.sh + data/posted.json.
       #    Persists GITHUB_TOKEN so the later git push of posted.json works.
       - name: Checkout flaremo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # 2. Read-only cross-repo checkout of the P01 harvest repo. The PAT is
       #    contents:read-only on MaksimZinovev/private-feed-source; we never
       #    push to it, so do not persist its credentials.
       - name: Checkout private-feed-source (read-only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MaksimZinovev/private-feed-source
           token: ${{ secrets.PRIVATE_FEED_SOURCE_PAT }}
