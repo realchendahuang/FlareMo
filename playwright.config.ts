@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
@@ -7,10 +8,10 @@ export default defineConfig({
     timeout: 10_000,
   },
   fullyParallel: false,
-  reporter: [["list"]],
+  reporter: [["list"], ["html", { open: "on-failure" }]],
   use: {
     baseURL: "http://127.0.0.1:8787",
-    trace: "retain-on-failure",
+    trace: process.env.CI ? "retain-on-failure" : "on",
   },
   projects: [
     {

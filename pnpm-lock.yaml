@@ -17,6 +17,9 @@ importers:
       '@playwright/test':
         specifier: ^1.61.1
         version: 1.61.1
+      '@types/node':
+        specifier: ^24
+        version: 24.13.2
       drizzle-kit:
         specifier: ^0.31.8
         version: 0.31.10
