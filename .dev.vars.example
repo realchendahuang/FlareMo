@@ -1,0 +1,17 @@
+# FlareMo P02 — local secrets template for the weekly-post gating curl.
+# Copy to `.dev.vars` (gitignored via `.dev.vars*`) and fill in real values.
+# Source: plans/P02-private-feed-weekly-post.md (Step 1 hard gate + Step 5 repo secrets)
+
+# Production FlareMo URL (no trailing slash)
+FLAREMO_URL="https://flaremo.mkznve.workers.dev"
+
+# Cloudflare Access Service Token (Zero Trust → Access → Service Tokens)
+# Policy action must be "Service Auth"; applies to flaremo.mkznve.workers.dev
+# The three FLAREMO_* values rotate together (one Service Token).
+FLAREMO_ACCESS_CLIENT_ID=""
+FLAREMO_ACCESS_CLIENT_SECRET=""
+
+# Fine-grained PAT with contents:read-only on MaksimZinovev/private-feed-source
+# Only needed by the GitHub Actions workflow (cross-repo checkout), not the local gate curl.
+# Separate rotation from the FLAREMO_* Service Token.
+PRIVATE_FEED_SOURCE_PAT=""
