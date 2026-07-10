@@ -27,7 +27,7 @@ type MemoComposerProps = {
     visibility: MemoVisibility;
     tags: string[];
     files: File[];
-  }) => void;
+  }) => Promise<void>;
 };
 
 export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
@@ -35,24 +35,34 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const tags = extractTags(content);
-  const canSubmit = content.trim() || files.length > 0;
+  const canSubmit = Boolean(content.trim() || files.length > 0);
   const appendText = (value: string) => {
     setContent(
       (current) =>
         `${current}${current && !current.endsWith("\n") ? " " : ""}${value}`,
     );
   };
-  const submit = () => {
+  const submit = async () => {
     if (!canSubmit) {
       return;
     }
-    onSubmit({ content, visibility: "private", tags, files });
-    setContent("");
-    setFiles([]);
+    try {
+      await onSubmit({ content, visibility: "private", tags, files });
+      setContent("");
+      setFiles([]);
+    } catch {
+      // The mutation owns user-facing error feedback; keep the draft intact.
+    }
   };
 
   return (
-    <section className="group relative flex w-full flex-col rounded-xl border border-border bg-card shadow-sm motion-safe:animate-[flaremo-rise_180ms_ease-out_both] motion-safe:transition-[border-color,box-shadow,transform] motion-safe:duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30 focus-within:motion-safe:-translate-y-px">
+    <form
+      className="group relative flex w-full flex-col rounded-xl border border-border bg-card shadow-sm motion-safe:animate-[flaremo-rise_180ms_ease-out_both] motion-safe:transition-[border-color,box-shadow,transform] motion-safe:duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30 focus-within:motion-safe:-translate-y-px"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
       <Textarea
         aria-label={t("composer.ariaLabel")}
         className="min-h-32 resize-none rounded-t-xl border-0 px-4 pt-4 pb-2 text-[15px] leading-7 shadow-none focus-visible:ring-0"
@@ -63,7 +73,7 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
         onKeyDown={(event) => {
           if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
             event.preventDefault();
-            submit();
+            void submit();
           }
         }}
       />
@@ -133,7 +143,7 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
             className="size-8 rounded-lg px-0"
             disabled={isPending || !canSubmit}
             size="icon-sm"
-            onClick={submit}
+            type="submit"
           >
             {isPending ? (
               <Loader2Icon data-icon="inline-start" />
@@ -144,7 +154,7 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
           </Button>
         </div>
       </div>
-    </section>
+    </form>
   );
 }
 

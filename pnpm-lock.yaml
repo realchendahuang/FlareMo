@@ -35,6 +35,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@flaremo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@fontsource-variable/geist':
         specifier: ^5.2.9
         version: 5.2.9

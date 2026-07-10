@@ -1,11 +1,14 @@
 import {
   createMemoSchema,
   listMemosQuerySchema,
+  memoStatsQuerySchema,
   updateMemoSchema,
 } from "@flaremo/contracts";
 import {
   createMemo,
+  getMemoStats,
   hardDeleteMemo,
+  listAttachmentsForMemos,
   listMemos,
   moveMemoToTrash,
   updateMemo,
@@ -24,7 +27,28 @@ appApi.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
     const result = await listMemos(db, user, c.req.valid("query"));
-    return c.json(memosToListResponse({ ...result, user }));
+    const attachments = await listAttachmentsForMemos(
+      db,
+      user,
+      result.memos.map((memo) => memo.id),
+    );
+    const attachmentsByMemo = new Map<string, (typeof attachments)[number][]>();
+    for (const attachment of attachments) {
+      if (!attachment.memoId) continue;
+      const current = attachmentsByMemo.get(attachment.memoId) ?? [];
+      current.push(attachment);
+      attachmentsByMemo.set(attachment.memoId, current);
+    }
+    return c.json(memosToListResponse({ ...result, attachmentsByMemo, user }));
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+appApi.get("/stats", zValidator("query", memoStatsQuerySchema), async (c) => {
+  try {
+    const { db, user } = await getRequestContext(c);
+    return c.json(await getMemoStats(db, user, c.req.valid("query")));
   } catch (error) {
     return jsonError(c, error);
   }

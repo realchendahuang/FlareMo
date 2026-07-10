@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { FLAREMO_API_VERSION } from "@flaremo/contracts";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
@@ -155,7 +156,7 @@ describe("Memos-compatible API contract", () => {
     const openapi = await json(
       await fetchApp("http://flaremo.test/openapi.json"),
     );
-    expect(openapi.info.version).toBe("0.1.4");
+    expect(openapi.info.version).toBe(FLAREMO_API_VERSION);
     const paths = Object.keys(openapi.paths);
     expect(paths).toEqual(
       expect.arrayContaining([

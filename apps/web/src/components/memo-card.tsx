@@ -4,6 +4,7 @@ import {
   DownloadIcon,
   Edit3Icon,
   Globe2Icon,
+  Loader2Icon,
   LockIcon,
   MoreHorizontalIcon,
   PinIcon,
@@ -14,6 +15,16 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { Attachment, Memo, MemoState, MemoVisibility, Share } from "@/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,10 +56,10 @@ type MemoCardProps = {
   onUpdate: (
     id: string,
     input: { content: string; visibility: MemoVisibility },
-  ) => void;
+  ) => Promise<void>;
   onTrash: (id: string) => void;
   onRestore: (id: string) => void;
-  onHardDelete: (id: string) => void;
+  onHardDelete: (id: string) => Promise<void>;
   share?: Share;
   shareUrl?: string;
 };
@@ -71,6 +82,8 @@ export function MemoCard({
   const tags = memo.payload.tags ?? extractTags(memo.content);
   const isTrashed = memo.state === "trashed";
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [draftContent, setDraftContent] = useState(memo.content);
   const [draftVisibility, setDraftVisibility] = useState<MemoVisibility>(
     memo.visibility,
@@ -79,16 +92,12 @@ export function MemoCard({
   return (
     <article
       className={cn(
-        "group relative flex w-full flex-col gap-2 rounded-lg bg-background px-1 py-4 text-card-foreground motion-safe:animate-[flaremo-rise_180ms_ease-out_both] motion-safe:transition-[background-color,transform] motion-safe:duration-150 hover:bg-card motion-safe:hover:-translate-y-px",
+        "group relative flex w-full flex-col gap-2 rounded-lg bg-background px-1 py-4 text-card-foreground [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:animate-[flaremo-rise_180ms_ease-out_both] motion-safe:transition-[background-color,transform] motion-safe:duration-150 hover:bg-card motion-safe:hover:-translate-y-px",
         memo.pinned && "border-l-2 border-l-primary pl-3",
       )}
     >
       <div className="flex w-full items-center justify-between gap-2">
-        <button
-          className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          type="button"
-          onClick={() => onArchive(id)}
-        >
+        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
           {memo.pinned ? (
             <PinIcon className="text-primary" />
           ) : (
@@ -97,7 +106,7 @@ export function MemoCard({
           <span className="truncate">
             {formatMemoTime(memo.display_time, locale)}
           </span>
-        </button>
+        </div>
         <div className="flex shrink-0 items-center gap-1">
           {memo.visibility !== "private" && (
             <VisibilityBadge visibility={memo.visibility} />
@@ -116,13 +125,28 @@ export function MemoCard({
             <DropdownMenuContent align="end">
               <DropdownMenuGroup>
                 {isTrashed ? (
-                  <DropdownMenuItem onClick={() => onRestore(id)}>
-                    <RotateCcwIcon />
-                    {t("memo.restore")}
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => onRestore(id)}>
+                      <RotateCcwIcon />
+                      {t("memo.restore")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setIsDeleteDialogOpen(true)}
+                    >
+                      <Trash2Icon />
+                      {t("memo.deleteForever")}
+                    </DropdownMenuItem>
+                  </>
                 ) : (
                   <>
-                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDraftContent(memo.content);
+                        setDraftVisibility(memo.visibility);
+                        setIsEditing(true);
+                      }}
+                    >
                       <Edit3Icon />
                       {t("common.edit")}
                     </DropdownMenuItem>
@@ -146,13 +170,6 @@ export function MemoCard({
                     </DropdownMenuItem>
                   </>
                 )}
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => onHardDelete(id)}
-                >
-                  <Trash2Icon />
-                  {t("memo.deleteForever")}
-                </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -192,9 +209,7 @@ export function MemoCard({
           </div>
         )}
       </div>
-      {(tags.length > 0 ||
-        memo.visibility !== "private" ||
-        memo.state !== "normal") && (
+      {(tags.length > 0 || memo.state !== "normal") && (
         <footer className="flex flex-wrap items-center justify-between gap-2 pt-2">
           <div className="flex flex-wrap gap-2">
             {tags.map((tag) => (
@@ -210,9 +225,6 @@ export function MemoCard({
           <div className="ml-auto flex items-center gap-2">
             {memo.state !== "normal" && (
               <Badge variant="outline">{stateLabel(memo.state, t)}</Badge>
-            )}
-            {memo.visibility === "private" && (
-              <VisibilityBadge visibility={memo.visibility} />
             )}
           </div>
         </footer>
@@ -248,20 +260,57 @@ export function MemoCard({
           </ToggleGroup>
           <DialogFooter>
             <Button
-              disabled={!draftContent.trim()}
-              onClick={() => {
-                onUpdate(id, {
-                  content: draftContent,
-                  visibility: draftVisibility,
-                });
-                setIsEditing(false);
+              disabled={isSaving || !draftContent.trim()}
+              onClick={async () => {
+                setIsSaving(true);
+                try {
+                  await onUpdate(id, {
+                    content: draftContent,
+                    visibility: draftVisibility,
+                  });
+                  setIsEditing(false);
+                } catch {
+                  // The mutation displays the error and the dialog stays open.
+                } finally {
+                  setIsSaving(false);
+                }
               }}
             >
+              {isSaving && (
+                <Loader2Icon
+                  className="animate-spin"
+                  data-icon="inline-start"
+                />
+              )}
               {t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("memo.deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("memo.deleteConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="ghost">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => void onHardDelete(id)}
+            >
+              {t("memo.deleteForever")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </article>
   );
 }

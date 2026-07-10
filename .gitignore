@@ -3,6 +3,7 @@ node_modules/
 dist/
 .wrangler/
 .wrangler-screenshots/
+.wrangler-e2e/
 .dev.vars*
 *.tsbuildinfo
 test-results/

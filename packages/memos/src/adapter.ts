@@ -72,12 +72,22 @@ export function shareToDto(share: ShareRow): ShareDto {
 }
 
 export function memosToListResponse(input: {
+  attachmentsByMemo?: ReadonlyMap<string, AttachmentRow[]>;
   memos: MemoRow[];
   user: UserRow;
   nextPageToken?: string;
 }): ListMemosResponse {
   return {
-    memos: input.memos.map((memo) => memoToDto(memo, input.user)),
+    memos: input.memos.map((memo) => ({
+      ...memoToDto(memo, input.user),
+      ...(input.attachmentsByMemo
+        ? {
+            attachments: (input.attachmentsByMemo.get(memo.id) ?? []).map(
+              attachmentToDto,
+            ),
+          }
+        : {}),
+    })),
     ...(input.nextPageToken ? { next_page_token: input.nextPageToken } : {}),
   };
 }

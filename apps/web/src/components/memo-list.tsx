@@ -1,7 +1,9 @@
-import { InboxIcon } from "lucide-react";
+import { CircleAlertIcon, InboxIcon, Loader2Icon } from "lucide-react";
 import type { Attachment, Memo, MemoVisibility, Share } from "@/api";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -12,7 +14,9 @@ import { useI18n } from "@/i18n";
 import { MemoCard } from "./memo-card";
 
 type MemoListProps = {
-  hasError?: boolean;
+  hasError: boolean;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
   isLoading: boolean;
   memos: Memo[];
   attachmentsByMemo: Map<string, Attachment[]>;
@@ -23,15 +27,19 @@ type MemoListProps = {
   onUpdate: (
     id: string,
     input: { content: string; visibility: MemoVisibility },
-  ) => void;
+  ) => Promise<void>;
   onTrash: (id: string) => void;
   onRestore: (id: string) => void;
-  onHardDelete: (id: string) => void;
+  onHardDelete: (id: string) => Promise<void>;
+  onLoadMore: () => void;
+  onRetry: () => void;
 };
 
 export function MemoList({
   isLoading,
   hasError,
+  hasNextPage,
+  isFetchingNextPage,
   memos,
   attachmentsByMemo,
   sharesByMemo,
@@ -42,6 +50,8 @@ export function MemoList({
   onTrash,
   onRestore,
   onHardDelete,
+  onLoadMore,
+  onRetry,
 }: MemoListProps) {
   const { t } = useI18n();
 
@@ -52,6 +62,25 @@ export function MemoList({
         <Skeleton className="h-16 rounded-lg" />
         <Skeleton className="h-24 rounded-lg" />
       </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <Empty className="min-h-64 text-muted-foreground motion-safe:animate-[flaremo-rise_180ms_ease-out_both]">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <CircleAlertIcon />
+          </EmptyMedia>
+          <EmptyTitle>{t("list.errorTitle")}</EmptyTitle>
+          <EmptyDescription>{t("list.errorDescription")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button size="sm" variant="outline" onClick={onRetry}>
+            {t("common.retry")}
+          </Button>
+        </EmptyContent>
+      </Empty>
     );
   }
 
@@ -70,23 +99,40 @@ export function MemoList({
   }
 
   return (
-    <div className="flex flex-col divide-y motion-safe:animate-[flaremo-fade_160ms_ease-out_both]">
-      {memos.map((memo) => (
-        <MemoListItem
-          attachments={attachmentsByMemo.get(memo.name) ?? []}
-          key={memo.name}
-          memo={memo}
-          share={sharesByMemo.get(memo.name)}
-          onArchive={onArchive}
-          onHardDelete={onHardDelete}
-          onPin={onPin}
-          onRestore={onRestore}
-          onShare={onShare}
-          onTrash={onTrash}
-          onUpdate={onUpdate}
-        />
-      ))}
-    </div>
+    <>
+      <div className="flex flex-col divide-y motion-safe:animate-[flaremo-fade_160ms_ease-out_both]">
+        {memos.map((memo) => (
+          <MemoListItem
+            attachments={attachmentsByMemo.get(memo.name) ?? []}
+            key={memo.name}
+            memo={memo}
+            share={sharesByMemo.get(memo.name)}
+            onArchive={onArchive}
+            onHardDelete={onHardDelete}
+            onPin={onPin}
+            onRestore={onRestore}
+            onShare={onShare}
+            onTrash={onTrash}
+            onUpdate={onUpdate}
+          />
+        ))}
+      </div>
+      {hasNextPage && (
+        <div className="flex justify-center py-5">
+          <Button
+            disabled={isFetchingNextPage}
+            size="sm"
+            variant="outline"
+            onClick={onLoadMore}
+          >
+            {isFetchingNextPage && (
+              <Loader2Icon className="animate-spin" data-icon="inline-start" />
+            )}
+            {isFetchingNextPage ? t("list.loadingMore") : t("list.loadMore")}
+          </Button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -103,7 +149,15 @@ function MemoListItem({
   onHardDelete,
 }: Omit<
   MemoListProps,
-  "isLoading" | "memos" | "attachmentsByMemo" | "sharesByMemo"
+  | "isLoading"
+  | "hasError"
+  | "hasNextPage"
+  | "isFetchingNextPage"
+  | "memos"
+  | "attachmentsByMemo"
+  | "sharesByMemo"
+  | "onLoadMore"
+  | "onRetry"
 > & {
   memo: Memo;
   attachments: Attachment[];

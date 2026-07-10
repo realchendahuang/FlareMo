@@ -19,7 +19,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm migrate:local && pnpm dev --host 127.0.0.1",
+    command: "node ./scripts/e2e-server.mjs",
     url: "http://127.0.0.1:8787",
     timeout: 120_000,
     reuseExistingServer: true,

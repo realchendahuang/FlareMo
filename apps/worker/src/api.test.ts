@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { ListMemosResponse, MemoStatsResponse } from "@flaremo/contracts";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
@@ -127,6 +128,74 @@ describe("FlareMo Worker API", () => {
       secondPage.memos.map((memo: { content: string }) => memo.content),
     ).toEqual(["page third"]);
     expect(secondPage.next_page_token).toBeUndefined();
+  });
+
+  it("returns app memos with inline attachments and accurate stats", async () => {
+    const memo = await json<{ name: string }>(
+      await fetchApp("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "frontend hardening #exact",
+          payload: { tags: ["exact"] },
+        }),
+      }),
+    );
+    await json(
+      await fetchApp("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "similar tag #exactly",
+          payload: { tags: ["exactly"] },
+        }),
+      }),
+    );
+
+    const formData = new FormData();
+    formData.set("memo", memo.name);
+    formData.set(
+      "file",
+      new File(["inline attachment"], "inline.txt", { type: "text/plain" }),
+    );
+    await json(
+      await fetchApp("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    const list = await json<ListMemosResponse>(
+      await fetchApp(
+        "http://flaremo.test/api/app/memos?state=normal&tag=exact&page_size=30",
+      ),
+    );
+    expect(list.memos).toHaveLength(1);
+    expect(list.memos[0].attachments).toHaveLength(1);
+    expect(list.memos[0].attachments[0].filename).toBe("inline.txt");
+
+    const stats = await json<MemoStatsResponse>(
+      await fetchApp(
+        "http://flaremo.test/api/app/stats?time_zone=Asia%2FShanghai",
+      ),
+    );
+    expect(stats.counts).toEqual({
+      normal: 2,
+      archived: 0,
+      trashed: 0,
+      total: 2,
+    });
+    expect(stats.tags).toEqual([
+      { name: "exact", count: 1 },
+      { name: "exactly", count: 1 },
+    ]);
+    expect(stats.activity).toHaveLength(84);
+    expect(
+      stats.activity.reduce(
+        (total: number, day: { count: number }) => total + day.count,
+        0,
+      ),
+    ).toBe(2);
   });
 
   it("uploads, binds, downloads, and deletes attachments through R2 and D1", async () => {
