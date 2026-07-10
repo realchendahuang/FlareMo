@@ -10,6 +10,7 @@ import {
   hardDeleteMemo,
   listAttachmentsForMemos,
   listMemos,
+  markMemoAttachmentsDeleting,
   moveMemoToTrash,
   updateMemo,
 } from "@flaremo/domain";
@@ -18,6 +19,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../context";
 import { jsonError } from "../http";
+import { buildMemoContext } from "../memo-context";
 
 export const appApi = new Hono<HonoBindings>();
 
@@ -54,6 +56,17 @@ appApi.get("/stats", zValidator("query", memoStatsQuerySchema), async (c) => {
   }
 });
 
+appApi.get("/memos/:id", async (c) => {
+  try {
+    const context = await getRequestContext(c);
+    return c.json(
+      await buildMemoContext(context, `memos/${c.req.param("id")}`),
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
 appApi.post("/memos", zValidator("json", createMemoSchema), async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
@@ -84,6 +97,13 @@ appApi.delete("/memos/:id", async (c) => {
     const { db, user } = await getRequestContext(c);
     const id = `memos/${c.req.param("id")}`;
     if (c.req.query("hard") === "true") {
+      const attachments = await markMemoAttachmentsDeleting(db, user, id);
+      const objectKeys = attachments
+        .filter((attachment) => attachment.state !== "missing")
+        .map((attachment) => attachment.r2Key);
+      if (objectKeys.length > 0) {
+        await c.env.ATTACHMENTS.delete(objectKeys);
+      }
       await hardDeleteMemo(db, user, id);
       return c.json({ ok: true });
     }

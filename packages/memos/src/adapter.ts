@@ -3,11 +3,13 @@ import type {
   ListMemosResponse,
   MemoDto,
   MemoRelationDto,
+  MemoRevisionDto,
   ShareDto,
 } from "@flaremo/contracts";
 import type {
   AttachmentRow,
   MemoPayload,
+  MemoRevisionRow,
   MemoRow,
   ShareRow,
   UserRow,
@@ -44,10 +46,13 @@ export function attachmentToDto(attachment: AttachmentRow): AttachmentDto {
     filename: attachment.filename,
     content_type: attachment.contentType,
     size: attachment.size,
+    state: attachment.state,
+    etag: attachment.etag,
     payload: attachment.payload ?? {},
     create_time: attachment.createdAt,
     update_time: attachment.updatedAt,
     download_url: `/api/v1/${attachment.id}/blob`,
+    preview_url: `/api/v1/${attachment.id}/blob?disposition=inline`,
   };
 }
 
@@ -68,6 +73,20 @@ export function shareToDto(share: ShareRow): ShareDto {
     token: share.token,
     expires_at: share.expiresAt,
     create_time: share.createdAt,
+    update_time: share.updatedAt,
+    revoked_at: share.revokedAt,
+  };
+}
+
+export function memoRevisionToDto(revision: MemoRevisionRow): MemoRevisionDto {
+  return {
+    name: revision.id,
+    id: revision.id.replace(/^revisions\//, ""),
+    memo: revision.memoId,
+    content: revision.content,
+    visibility: revision.visibility,
+    payload: revision.payload,
+    create_time: revision.createdAt,
   };
 }
 

@@ -15,3 +15,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
 
   return { db, user };
 }
+
+export type ReturnTypeOfRequestContext = Awaited<
+  ReturnType<typeof getRequestContext>
+>;

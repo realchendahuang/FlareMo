@@ -1,6 +1,6 @@
 {
   "name": "flaremo",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -44,12 +44,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
-    "@cloudflare/workers-types": "^4.20260627.1",
+    "@cloudflare/workers-types": "5.20260708.1",
     "@playwright/test": "^1.61.1",
     "drizzle-kit": "^0.31.8",
-    "miniflare": "^4.20260625.0",
+    "miniflare": "^4.20260708.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.0",
-    "wrangler": "^4.105.0"
+    "wrangler": "^4.110.0"
   }
 }

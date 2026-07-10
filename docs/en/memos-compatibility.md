@@ -18,14 +18,19 @@ FlareMo is Memos-compatible, not a Memos server fork. The goal is to reuse commo
 | state filter | Supported | `normal`, `archived`, `trashed`. |
 | pagination | Supported | `page_size`, `page_token`. |
 | ordering | Supported | `order_by` subset. |
+| full-text search | Supported | `q` uses D1 FTS5 and safely falls back to substring matching when needed. |
 | upload attachment | Supported | `POST /api/v1/attachments`. |
 | bind memo attachments | Supported | `PATCH /api/v1/{name=memos/*}/attachments`. |
 | download attachment | Supported | `GET /api/v1/{name=attachments/*}/blob`. |
+| range / inline preview | Supported | Single byte ranges, ETag, and controlled inline disposition. |
 | memo relations | Supported | `GET/PATCH /api/v1/{name=memos/*}/relations`. |
-| share | Supported | `POST /api/v1/{parent=memos/*}/shares`. |
+| relation context / backlinks | Supported | `GET /api/v1/memos/{id}/relation-context`. |
+| full memo context | Supported | `GET /api/v1/memos/{id}/context`. |
+| revisions | Supported | List and restore memo revisions. |
+| share | Supported | List/create memo shares and revoke them with `DELETE /api/v1/shares/{share_id}`. |
 | public share read | Supported | `GET /api/public/shares/{token}`. |
 | export | Supported | `GET /api/v1/export`. |
-| import | Supported | `POST /api/v1/import`. |
+| import | Supported | `POST /api/v1/import` with `duplicate`, `skip`, or `overwrite`. |
 | OpenAPI | Supported | `GET /openapi.json`. |
 | MCP | Supported | `POST /api/v1/mcp`. |
 

@@ -151,6 +151,73 @@
   }
 }
 
+@layer components {
+  .memo-markdown {
+    @apply text-foreground;
+  }
+
+  .memo-markdown > * + * {
+    @apply mt-3;
+  }
+
+  .memo-markdown h1 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  .memo-markdown h2 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+
+  .memo-markdown h3 {
+    @apply text-lg font-semibold;
+  }
+
+  .memo-markdown ul {
+    @apply list-disc pl-6;
+  }
+
+  .memo-markdown ol {
+    @apply list-decimal pl-6;
+  }
+
+  .memo-markdown li + li {
+    @apply mt-1;
+  }
+
+  .memo-markdown a {
+    @apply text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary;
+  }
+
+  .memo-markdown blockquote {
+    @apply border-l-2 pl-4 text-muted-foreground;
+  }
+
+  .memo-markdown code {
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm;
+  }
+
+  .memo-markdown pre {
+    @apply overflow-x-auto rounded-lg bg-muted p-4;
+  }
+
+  .memo-markdown pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .memo-markdown table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .memo-markdown th,
+  .memo-markdown td {
+    @apply border px-3 py-2 text-left;
+  }
+
+  .memo-markdown input[type="checkbox"] {
+    @apply mr-2 align-middle;
+  }
+}
+
 @keyframes flaremo-rise {
   from {
     opacity: 0;

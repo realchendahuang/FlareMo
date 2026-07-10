@@ -9,7 +9,7 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:8787",
+    baseURL: "http://127.0.0.1:18787",
     trace: "retain-on-failure",
   },
   projects: [
@@ -20,8 +20,9 @@ export default defineConfig({
   ],
   webServer: {
     command: "node ./scripts/e2e-server.mjs",
-    url: "http://127.0.0.1:8787",
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
+    url: "http://127.0.0.1:18787",
     timeout: 120_000,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
   },
 });

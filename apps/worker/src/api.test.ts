@@ -13,7 +13,7 @@ describe("FlareMo Worker API", () => {
     mf = new Miniflare({
       script: "export default { fetch() { return new Response('ok') } }",
       modules: true,
-      compatibilityDate: "2026-06-27",
+      compatibilityDate: "2026-07-10",
       compatibilityFlags: ["nodejs_compat"],
       d1Databases: {
         DB: "flaremo-test",
@@ -49,8 +49,16 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const v020 = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0002_wooden_professor_monster.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
+    await applyMigration(db, v020);
   });
 
   afterEach(async () => {
@@ -99,6 +107,15 @@ describe("FlareMo Worker API", () => {
       }),
     );
     expect(trashed.state).toBe("trashed");
+  });
+
+  it("initializes the single owner idempotently under concurrent requests", async () => {
+    const [memosResponse, statsResponse] = await Promise.all([
+      fetchApp("http://flaremo.test/api/app/memos"),
+      fetchApp("http://flaremo.test/api/app/stats?time_zone=UTC"),
+    ]);
+    expect(memosResponse.status).toBe(200);
+    expect(statsResponse.status).toBe(200);
   });
 
   it("paginates memos with page tokens", async () => {
@@ -270,6 +287,133 @@ describe("FlareMo Worker API", () => {
       }),
     );
     expect(result.imported_memos).toBeGreaterThanOrEqual(2);
+  });
+
+  it("searches content and exposes revisions, backlinks, and share lifecycle", async () => {
+    const original = await createMemo("needle-lantern original #history");
+    const backlink = await createMemo("memo linking to the original");
+
+    const search = await json(
+      await fetchApp("http://flaremo.test/api/v1/memos?q=needle-lantern"),
+    );
+    expect(search.memos.map((memo: { name: string }) => memo.name)).toEqual([
+      original.name,
+    ]);
+
+    await json(
+      await fetchApp(`http://flaremo.test/api/v1/${backlink.name}/relations`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          relations: [{ related_memo: original.name, type: "reference" }],
+        }),
+      }),
+    );
+    await json(
+      await fetchApp(`http://flaremo.test/api/v1/${original.name}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: "updated content" }),
+      }),
+    );
+
+    const context = await json(
+      await fetchApp(
+        `http://flaremo.test/api/app/memos/${encodeURIComponent(original.id)}`,
+      ),
+    );
+    expect(context.memo.content).toBe("updated content");
+    expect(context.backlinks[0].memo.name).toBe(backlink.name);
+    expect(context.revisions[0].content).toBe(
+      "needle-lantern original #history",
+    );
+
+    const restored = await json(
+      await fetchApp(
+        `http://flaremo.test/api/v1/${original.name}/revisions/restore`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ revision: context.revisions[0].name }),
+        },
+      ),
+    );
+    expect(restored.content).toBe("needle-lantern original #history");
+
+    const share = await json(
+      await fetchApp(`http://flaremo.test/api/v1/${original.name}/shares`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+    );
+    const shares = await json(
+      await fetchApp(`http://flaremo.test/api/v1/${original.name}/shares`),
+    );
+    expect(shares.shares).toHaveLength(1);
+    const revoked = await json(
+      await fetchApp(`http://flaremo.test/api/v1/shares/${share.id}`, {
+        method: "DELETE",
+      }),
+    );
+    expect(revoked.revoked_at).toEqual(expect.any(String));
+    expect(
+      await fetchApp(`http://flaremo.test/api/public/shares/${share.token}`),
+    ).toMatchObject({ status: 404 });
+  });
+
+  it("supports byte ranges, hard-delete cleanup, and scheduled orphan cleanup", async () => {
+    const memo = await createMemo("attachment lifecycle");
+    const formData = new FormData();
+    formData.set("memo", memo.name);
+    formData.set(
+      "file",
+      new File(["0123456789"], "range.txt", { type: "text/plain" }),
+    );
+    const attachment = await json(
+      await fetchApp("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    const partial = await fetchApp(
+      `http://flaremo.test/api/v1/${attachment.name}/blob?disposition=inline`,
+      { headers: { range: "bytes=2-5" } },
+    );
+    expect(partial.status).toBe(206);
+    expect(partial.headers.get("content-range")).toBe("bytes 2-5/10");
+    expect(await partial.text()).toBe("2345");
+
+    await json(
+      await fetchApp(`http://flaremo.test/api/app/memos/${memo.id}?hard=true`, {
+        method: "DELETE",
+      }),
+    );
+    expect(
+      await fetchApp(`http://flaremo.test/api/v1/${attachment.name}`),
+    ).toMatchObject({ status: 404 });
+
+    const orphanData = new FormData();
+    orphanData.set(
+      "file",
+      new File(["orphan"], "orphan.txt", { type: "text/plain" }),
+    );
+    const orphan = await json(
+      await fetchApp("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        body: orphanData,
+      }),
+    );
+    await app.scheduled(
+      {
+        scheduledTime: Date.now() + 2 * 24 * 60 * 60 * 1_000,
+      } as ScheduledController,
+      env,
+    );
+    expect(
+      await fetchApp(`http://flaremo.test/api/v1/${orphan.name}`),
+    ).toMatchObject({ status: 404 });
   });
 
   it("serves public share content and attachments by token only", async () => {

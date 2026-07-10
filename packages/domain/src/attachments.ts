@@ -1,6 +1,6 @@
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { attachments } from "@flaremo/db";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
@@ -11,6 +11,8 @@ export type CreateAttachmentMetadataInput = {
   contentType?: string | null;
   size: number;
   r2Key: string;
+  state?: "ready" | "deleting" | "missing";
+  etag?: string | null;
   payload?: Record<string, unknown>;
 };
 
@@ -41,6 +43,8 @@ export async function createAttachmentMetadata(
     filename: input.filename,
     contentType: input.contentType ?? null,
     size: input.size,
+    state: input.state ?? "ready",
+    etag: input.etag ?? null,
     payload: input.payload ?? {},
     createdAt: now,
     updatedAt: now,
@@ -59,6 +63,7 @@ export async function listAttachments(
   const filters = [
     eq(attachments.userId, user.id),
     isNull(attachments.deletedAt),
+    eq(attachments.state, "ready"),
   ];
   if (input.memoId) {
     filters.push(
@@ -84,6 +89,48 @@ export async function listMemoAttachments(
   return listAttachments(db, user, { memoId: normalizedMemoId, pageSize: 100 });
 }
 
+export async function listAllMemoAttachments(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+) {
+  const normalizedMemoId = parseResourceName(memoId, "memos");
+  await getMemoById(db, user, normalizedMemoId, { includeDeleted: true });
+  return db
+    .select()
+    .from(attachments)
+    .where(
+      and(
+        eq(attachments.userId, user.id),
+        eq(attachments.memoId, normalizedMemoId),
+        isNull(attachments.deletedAt),
+      ),
+    );
+}
+
+export async function markMemoAttachmentsDeleting(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+) {
+  const rows = await listAllMemoAttachments(db, user, memoId);
+  if (rows.length === 0) return rows;
+  const now = new Date().toISOString();
+  await db
+    .update(attachments)
+    .set({ state: "deleting", updatedAt: now })
+    .where(
+      and(
+        eq(attachments.userId, user.id),
+        inArray(
+          attachments.id,
+          rows.map((attachment) => attachment.id),
+        ),
+      ),
+    );
+  return rows;
+}
+
 export async function listAttachmentsForMemos(
   db: FlareMoDb,
   user: UserRow,
@@ -101,6 +148,7 @@ export async function listAttachmentsForMemos(
         eq(attachments.userId, user.id),
         inArray(attachments.memoId, memoIds),
         isNull(attachments.deletedAt),
+        eq(attachments.state, "ready"),
       ),
     )
     .orderBy(desc(attachments.createdAt));
@@ -110,13 +158,16 @@ export async function getAttachmentById(
   db: FlareMoDb,
   user: UserRow,
   id: string,
+  options: { includeUnavailable?: boolean } = {},
 ) {
+  const filters = [
+    eq(attachments.id, parseResourceName(id, "attachments")),
+    eq(attachments.userId, user.id),
+    isNull(attachments.deletedAt),
+  ];
+  if (!options.includeUnavailable) filters.push(eq(attachments.state, "ready"));
   const row = await db.query.attachments.findFirst({
-    where: and(
-      eq(attachments.id, parseResourceName(id, "attachments")),
-      eq(attachments.userId, user.id),
-      isNull(attachments.deletedAt),
-    ),
+    where: and(...filters),
   });
 
   if (!row) {
@@ -148,6 +199,7 @@ export async function bindMemoAttachments(
           eq(attachments.userId, user.id),
           inArray(attachments.id, ids),
           isNull(attachments.deletedAt),
+          eq(attachments.state, "ready"),
         ),
       );
     const existingIds = new Set(existing.map((attachment) => attachment.id));
@@ -193,4 +245,67 @@ export async function softDeleteAttachment(
       and(eq(attachments.id, attachment.id), eq(attachments.userId, user.id)),
     );
   return attachment;
+}
+
+export async function markAttachmentDeleting(
+  db: FlareMoDb,
+  user: UserRow,
+  id: string,
+) {
+  const attachment = await getAttachmentById(db, user, id, {
+    includeUnavailable: true,
+  });
+  const now = new Date().toISOString();
+  await db
+    .update(attachments)
+    .set({ state: "deleting", updatedAt: now })
+    .where(
+      and(eq(attachments.id, attachment.id), eq(attachments.userId, user.id)),
+    );
+  return { ...attachment, state: "deleting" as const, updatedAt: now };
+}
+
+export async function finalizeAttachmentDelete(
+  db: FlareMoDb,
+  user: UserRow,
+  id: string,
+) {
+  const attachment = await getAttachmentById(db, user, id, {
+    includeUnavailable: true,
+  });
+  const now = new Date().toISOString();
+  await db
+    .update(attachments)
+    .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
+    .where(
+      and(eq(attachments.id, attachment.id), eq(attachments.userId, user.id)),
+    );
+  return attachment;
+}
+
+export async function listAttachmentCleanupCandidates(
+  db: FlareMoDb,
+  cutoff: string,
+) {
+  return db
+    .select()
+    .from(attachments)
+    .where(
+      and(
+        isNull(attachments.deletedAt),
+        or(
+          eq(attachments.state, "deleting"),
+          and(isNull(attachments.memoId), lt(attachments.createdAt, cutoff)),
+        ),
+      ),
+    )
+    .limit(100);
+}
+
+export async function finalizeAttachmentCleanup(db: FlareMoDb, id: string) {
+  const now = new Date().toISOString();
+  await db
+    .update(attachments)
+    .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
+    .where(eq(attachments.id, parseResourceName(id, "attachments")));
 }

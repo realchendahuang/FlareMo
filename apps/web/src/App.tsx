@@ -1,4 +1,8 @@
+import type { ListMemosResponse } from "@flaremo/contracts";
 import {
+  type InfiniteData,
+  type QueryClient,
+  type QueryKey,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -10,16 +14,17 @@ import {
   createRouter,
   Outlet,
   RouterProvider,
+  useNavigate,
+  useRouter,
 } from "@tanstack/react-router";
 import {
   DownloadIcon,
-  FileIcon,
   LanguagesIcon,
   MenuIcon,
   SearchIcon,
   UploadIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ApiError,
@@ -29,7 +34,6 @@ import {
   deleteAttachment,
   exportData,
   getMemoStats,
-  getPublicShare,
   hardDeleteMemo,
   importData,
   listMemos,
@@ -58,7 +62,17 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { type TranslationKey, useI18n } from "@/i18n";
-import { extractTags, formatMemoTime } from "@/lib/memo";
+
+const MemoDetailPage = lazy(() =>
+  import("@/pages/memo-detail-page").then((module) => ({
+    default: module.MemoDetailPage,
+  })),
+);
+const PublicSharePage = lazy(() =>
+  import("@/pages/public-share-page").then((module) => ({
+    default: module.PublicSharePage,
+  })),
+);
 
 const PAGE_SIZE = 30;
 const EMPTY_STATS: MemoStatsResponse = {
@@ -71,9 +85,26 @@ const EMPTY_STATS: MemoStatsResponse = {
 function FlareMoApp() {
   const { t, toggleLocale } = useI18n();
   const queryClient = useQueryClient();
-  const [view, setView] = useState<ViewMode>("all");
-  const [activeTag, setActiveTag] = useState<string | undefined>();
-  const [query, setQuery] = useState("");
+  const navigate = useNavigate({ from: "/" });
+  const search = indexRoute.useSearch();
+  const view = search.view ?? "all";
+  const activeTag = search.tag;
+  const query = search.q ?? "";
+  const setView = (nextView: ViewMode) =>
+    void navigate({
+      replace: true,
+      search: (current) => ({ ...current, view: nextView }),
+    });
+  const setActiveTag = (tag: string | undefined) =>
+    void navigate({
+      replace: true,
+      search: (current) => ({ ...current, tag }),
+    });
+  const setQuery = (q: string) =>
+    void navigate({
+      replace: true,
+      search: (current) => ({ ...current, q: q || undefined }),
+    });
   const [sharesByMemo, setSharesByMemo] = useState<Map<string, Share>>(
     new Map(),
   );
@@ -153,20 +184,30 @@ function FlareMoApp() {
 
   const trashMutation = useMutation({
     mutationFn: trashMemo,
+    onMutate: (id) =>
+      optimisticallyPatchMemo(queryClient, id, { state: "trashed" }),
     onSuccess: () => {
       toast.success(t("toast.movedToTrash"));
-      void invalidateWorkspace();
     },
-    onError: handleMutationError,
+    onError: (error, _id, snapshot) => {
+      restoreMemoSnapshot(queryClient, snapshot);
+      handleMutationError(error);
+    },
+    onSettled: () => void invalidateWorkspace(),
   });
 
   const restoreMutation = useMutation({
     mutationFn: (id: string) => updateMemo(id, { status: "normal" }),
+    onMutate: (id) =>
+      optimisticallyPatchMemo(queryClient, id, { state: "normal" }),
     onSuccess: () => {
       toast.success(t("toast.restored"));
-      void invalidateWorkspace();
     },
-    onError: handleMutationError,
+    onError: (error, _id, snapshot) => {
+      restoreMemoSnapshot(queryClient, snapshot);
+      handleMutationError(error);
+    },
+    onSettled: () => void invalidateWorkspace(),
   });
 
   const updateMutation = useMutation({
@@ -177,20 +218,29 @@ function FlareMoApp() {
       id: string;
       input: Parameters<typeof updateMemo>[1];
     }) => updateMemo(id, input),
+    onMutate: ({ id, input }) =>
+      optimisticallyPatchMemo(queryClient, id, memoPatchFromUpdate(input)),
     onSuccess: () => {
       toast.success(t("toast.updated"));
-      void invalidateWorkspace();
     },
-    onError: handleMutationError,
+    onError: (error, _variables, snapshot) => {
+      restoreMemoSnapshot(queryClient, snapshot);
+      handleMutationError(error);
+    },
+    onSettled: () => void invalidateWorkspace(),
   });
 
   const hardDeleteMutation = useMutation({
     mutationFn: hardDeleteMemo,
+    onMutate: (id) => optimisticallyPatchMemo(queryClient, id, null),
     onSuccess: () => {
       toast.success(t("toast.deleted"));
-      void invalidateWorkspace();
     },
-    onError: handleMutationError,
+    onError: (error, _id, snapshot) => {
+      restoreMemoSnapshot(queryClient, snapshot);
+      handleMutationError(error);
+    },
+    onSettled: () => void invalidateWorkspace(),
   });
 
   const shareMutation = useMutation({
@@ -289,152 +339,149 @@ function FlareMoApp() {
   );
 
   return (
-    <TooltipProvider>
-      <div className="h-svh overflow-hidden bg-background">
-        <div className="mx-auto flex h-full w-full max-w-[950px]">
-          <div className="no-scrollbar hidden h-full w-[312px] shrink-0 overflow-y-auto border-r bg-background lg:block">
-            {renderExplorer("flaremo-import-file-desktop")}
-          </div>
-          <div className="flex h-full min-w-0 flex-1 flex-col">
-            <header className="z-20 shrink-0 bg-background/95 backdrop-blur">
-              <div className="flex h-14 items-center gap-2 px-5 lg:px-3">
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <Button
-                      aria-label={t("sidebar.toggle")}
-                      className="lg:hidden"
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <MenuIcon />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent
-                    className="w-[312px] overflow-hidden p-0"
-                    side="left"
+    <div className="h-svh overflow-hidden bg-background">
+      <div className="mx-auto flex h-full w-full max-w-[950px]">
+        <div className="no-scrollbar hidden h-full w-[312px] shrink-0 overflow-y-auto border-r bg-background lg:block">
+          {renderExplorer("flaremo-import-file-desktop")}
+        </div>
+        <div className="flex h-full min-w-0 flex-1 flex-col">
+          <header className="z-20 shrink-0 bg-background/95 backdrop-blur">
+            <div className="flex h-14 items-center gap-2 px-5 lg:px-3">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    aria-label={t("sidebar.toggle")}
+                    className="lg:hidden"
+                    size="icon-sm"
+                    variant="ghost"
                   >
-                    <SheetTitle className="sr-only">
-                      {t("sidebar.title")}
-                    </SheetTitle>
-                    <div
-                      className="no-scrollbar h-full overflow-y-auto overscroll-contain"
-                      data-testid="mobile-sidebar-scroll"
-                    >
-                      {renderExplorer("flaremo-import-file-mobile")}
-                    </div>
-                  </SheetContent>
-                </Sheet>
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="hidden text-muted-foreground sm:inline">
-                    /
-                  </span>
-                  <div className="truncate px-1.5 py-1 text-sm font-semibold">
-                    {viewTitle(view, t)}
+                    <MenuIcon />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent
+                  className="w-[312px] overflow-hidden p-0"
+                  side="left"
+                >
+                  <SheetTitle className="sr-only">
+                    {t("sidebar.title")}
+                  </SheetTitle>
+                  <div
+                    className="no-scrollbar h-full overflow-y-auto overscroll-contain"
+                    data-testid="mobile-sidebar-scroll"
+                  >
+                    {renderExplorer("flaremo-import-file-mobile")}
                   </div>
+                </SheetContent>
+              </Sheet>
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="hidden text-muted-foreground sm:inline">
+                  /
+                </span>
+                <div className="truncate px-1.5 py-1 text-sm font-semibold">
+                  {viewTitle(view, t)}
+                </div>
+                {activeTag && (
+                  <button
+                    className="truncate rounded-md px-1.5 py-1 text-sm text-muted-foreground motion-safe:transition-colors hover:bg-muted"
+                    type="button"
+                    onClick={() => setActiveTag(undefined)}
+                  >
+                    #{activeTag}
+                  </button>
+                )}
+              </div>
+              <SearchBox
+                className="hidden w-[243px] md:block"
+                query={query}
+                setQuery={setQuery}
+                t={t}
+              />
+            </div>
+          </header>
+          <main className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pb-8 lg:px-3">
+            <SearchBox
+              className="mb-3 md:hidden motion-safe:animate-[flaremo-rise_160ms_ease-out_both]"
+              query={query}
+              setQuery={setQuery}
+              t={t}
+            />
+            <div className="flex flex-col gap-3">
+              {view === "all" && (
+                <MemoComposer
+                  isPending={createMutation.isPending}
+                  onSubmit={async ({ content, visibility, tags, files }) => {
+                    await createMutation.mutateAsync({
+                      content,
+                      visibility,
+                      tags,
+                      files,
+                    });
+                  }}
+                />
+              )}
+              {(activeTag || query.trim()) && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground motion-safe:animate-[flaremo-rise_140ms_ease-out_both]">
                   {activeTag && (
                     <button
-                      className="truncate rounded-md px-1.5 py-1 text-sm text-muted-foreground motion-safe:transition-colors hover:bg-muted"
+                      className="rounded-md bg-muted px-2 py-1 motion-safe:transition-colors hover:text-foreground"
                       type="button"
                       onClick={() => setActiveTag(undefined)}
                     >
                       #{activeTag}
                     </button>
                   )}
-                </div>
-                <SearchBox
-                  className="hidden w-[243px] md:block"
-                  query={query}
-                  setQuery={setQuery}
-                  t={t}
-                />
-              </div>
-            </header>
-            <main className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pb-8 lg:px-3">
-              <SearchBox
-                className="mb-3 md:hidden motion-safe:animate-[flaremo-rise_160ms_ease-out_both]"
-                query={query}
-                setQuery={setQuery}
-                t={t}
-              />
-              <div className="flex flex-col gap-3">
-                {view === "all" && (
-                  <MemoComposer
-                    isPending={createMutation.isPending}
-                    onSubmit={async ({ content, visibility, tags, files }) => {
-                      await createMutation.mutateAsync({
-                        content,
-                        visibility,
-                        tags,
-                        files,
-                      });
+                  <button
+                    className="rounded-md px-2 py-1 motion-safe:transition-colors hover:bg-muted hover:text-foreground"
+                    type="button"
+                    onClick={() => {
+                      setActiveTag(undefined);
+                      setQuery("");
                     }}
-                  />
-                )}
-                {(activeTag || query.trim()) && (
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground motion-safe:animate-[flaremo-rise_140ms_ease-out_both]">
-                    {activeTag && (
-                      <button
-                        className="rounded-md bg-muted px-2 py-1 motion-safe:transition-colors hover:text-foreground"
-                        type="button"
-                        onClick={() => setActiveTag(undefined)}
-                      >
-                        #{activeTag}
-                      </button>
-                    )}
-                    <button
-                      className="rounded-md px-2 py-1 motion-safe:transition-colors hover:bg-muted hover:text-foreground"
-                      type="button"
-                      onClick={() => {
-                        setActiveTag(undefined);
-                        setQuery("");
-                      }}
-                    >
-                      {t("common.clearFilters")}
-                    </button>
-                  </div>
-                )}
-                <MemoList
-                  attachmentsByMemo={attachmentsByMemo}
-                  hasError={memosQuery.isError}
-                  hasNextPage={Boolean(memosQuery.hasNextPage)}
-                  isFetchingNextPage={memosQuery.isFetchingNextPage}
-                  isLoading={memosQuery.isLoading}
-                  memos={memos}
-                  sharesByMemo={sharesByMemo}
-                  onArchive={(id) => {
-                    const memo = memos.find(
-                      (item) => item.name === id || item.id === id,
-                    );
-                    updateMutation.mutate({
-                      id,
-                      input: {
-                        status:
-                          memo?.state === "archived" ? "normal" : "archived",
-                      },
-                    });
-                  }}
-                  onHardDelete={async (id) => {
-                    await hardDeleteMutation.mutateAsync(id);
-                  }}
-                  onLoadMore={() => void memosQuery.fetchNextPage()}
-                  onPin={(id, pinned) =>
-                    updateMutation.mutate({ id, input: { pinned } })
-                  }
-                  onRestore={(id) => restoreMutation.mutate(id)}
-                  onRetry={() => void memosQuery.refetch()}
-                  onShare={(id) => shareMutation.mutate(id)}
-                  onTrash={(id) => trashMutation.mutate(id)}
-                  onUpdate={async (id, input) => {
-                    await updateMutation.mutateAsync({ id, input });
-                  }}
-                />
-              </div>
-            </main>
-          </div>
+                  >
+                    {t("common.clearFilters")}
+                  </button>
+                </div>
+              )}
+              <MemoList
+                attachmentsByMemo={attachmentsByMemo}
+                hasError={memosQuery.isError}
+                hasNextPage={Boolean(memosQuery.hasNextPage)}
+                isFetchingNextPage={memosQuery.isFetchingNextPage}
+                isLoading={memosQuery.isLoading}
+                memos={memos}
+                sharesByMemo={sharesByMemo}
+                onArchive={(id) => {
+                  const memo = memos.find(
+                    (item) => item.name === id || item.id === id,
+                  );
+                  updateMutation.mutate({
+                    id,
+                    input: {
+                      status:
+                        memo?.state === "archived" ? "normal" : "archived",
+                    },
+                  });
+                }}
+                onHardDelete={async (id) => {
+                  await hardDeleteMutation.mutateAsync(id);
+                }}
+                onLoadMore={() => void memosQuery.fetchNextPage()}
+                onPin={(id, pinned) =>
+                  updateMutation.mutate({ id, input: { pinned } })
+                }
+                onRestore={(id) => restoreMutation.mutate(id)}
+                onRetry={() => void memosQuery.refetch()}
+                onShare={(id) => shareMutation.mutate(id)}
+                onTrash={(id) => trashMutation.mutate(id)}
+                onUpdate={async (id, input) => {
+                  await updateMutation.mutateAsync({ id, input });
+                }}
+              />
+            </div>
+          </main>
         </div>
       </div>
-      <Toaster />
-    </TooltipProvider>
+    </div>
   );
 }
 
@@ -521,6 +568,67 @@ function toError(error: unknown) {
   return error instanceof Error ? error : new Error(String(error));
 }
 
+type MemoSnapshot = Array<
+  [QueryKey, InfiniteData<ListMemosResponse> | undefined]
+>;
+
+async function optimisticallyPatchMemo(
+  queryClient: QueryClient,
+  id: string,
+  patch: Partial<Memo> | null,
+): Promise<MemoSnapshot> {
+  await queryClient.cancelQueries({ queryKey: ["memos"] });
+  const snapshots = queryClient.getQueriesData<InfiniteData<ListMemosResponse>>(
+    {
+      queryKey: ["memos"],
+    },
+  );
+
+  for (const [queryKey, data] of snapshots) {
+    if (!data) continue;
+    const view = queryKey[1] as ViewMode | undefined;
+    queryClient.setQueryData<InfiniteData<ListMemosResponse>>(queryKey, {
+      ...data,
+      pages: data.pages.map((page) => ({
+        ...page,
+        memos: page.memos.flatMap((memo) => {
+          if (memo.id !== id && memo.name !== id) return [memo];
+          if (!patch) return [];
+          const next = {
+            ...memo,
+            ...patch,
+            update_time: new Date().toISOString(),
+          };
+          return view && next.state !== viewToMemoState(view) ? [] : [next];
+        }),
+      })),
+    });
+  }
+
+  return snapshots;
+}
+
+function restoreMemoSnapshot(
+  queryClient: QueryClient,
+  snapshot: MemoSnapshot | undefined,
+) {
+  for (const [queryKey, data] of snapshot ?? []) {
+    queryClient.setQueryData(queryKey, data);
+  }
+}
+
+function memoPatchFromUpdate(
+  input: Parameters<typeof updateMemo>[1],
+): Partial<Memo> {
+  return {
+    ...(input.content !== undefined ? { content: input.content } : {}),
+    ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
+    ...(input.status !== undefined ? { state: input.status } : {}),
+    ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
+    ...(input.payload !== undefined ? { payload: input.payload } : {}),
+  };
+}
+
 function viewToMemoState(view: ViewMode): MemoState {
   if (view === "archived") return "archived";
   if (view === "trashed") return "trashed";
@@ -540,96 +648,83 @@ function viewTitle(view: ViewMode, t: (key: TranslationKey) => string) {
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
+  errorComponent: RouteErrorPage,
 });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   component: FlareMoApp,
+  validateSearch: (search: Record<string, unknown>) => ({
+    view: isViewMode(search.view) ? search.view : undefined,
+    q: typeof search.q === "string" && search.q ? search.q : undefined,
+    tag: typeof search.tag === "string" && search.tag ? search.tag : undefined,
+  }),
 });
 
-function PublicSharePage() {
-  const { locale, t } = useI18n();
+function PublicShareRoutePage() {
   const { token } = shareRoute.useParams();
-  const shareQuery = useQuery({
-    queryKey: ["public-share", token],
-    queryFn: () => getPublicShare(token),
-  });
-  const share = shareQuery.data;
-  const tags = share
-    ? (share.memo.payload.tags ?? extractTags(share.memo.content))
-    : [];
-
   return (
-    <div className="min-h-svh bg-background px-4 py-6">
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-        <header className="border-b pb-4">
-          <div className="font-heading text-lg font-semibold">FlareMo</div>
-          <div className="text-sm text-muted-foreground">
-            {t("share.title")}
-          </div>
-        </header>
-        {shareQuery.isLoading && (
-          <div className="rounded-md border p-6 text-sm text-muted-foreground">
-            {t("common.loading")}
-          </div>
-        )}
-        {shareQuery.isError && (
-          <div className="rounded-md border p-6 text-sm text-muted-foreground">
-            {t("share.unavailable")}
-          </div>
-        )}
-        {share && (
-          <article className="rounded-md border bg-card p-5 shadow-sm">
-            <div className="mb-4 text-sm text-muted-foreground">
-              {formatMemoTime(share.memo.display_time, locale)}
-            </div>
-            <div className="whitespace-pre-wrap text-base leading-7">
-              {share.memo.content}
-            </div>
-            {tags.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <span
-                    className="rounded-md border px-2 py-1 text-xs text-muted-foreground"
-                    key={tag}
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-            {share.attachments.length > 0 && (
-              <div className="mt-5 flex flex-col gap-2">
-                {share.attachments.map((attachment) => (
-                  <a
-                    className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
-                    href={attachment.download_url}
-                    key={attachment.name}
-                  >
-                    <FileIcon />
-                    <span className="min-w-0 flex-1 truncate">
-                      {attachment.filename}
-                    </span>
-                  </a>
-                ))}
-              </div>
-            )}
-          </article>
-        )}
-      </main>
-    </div>
+    <Suspense fallback={<RouteLoading />}>
+      <PublicSharePage token={token} />
+    </Suspense>
   );
 }
 
 const shareRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/share/$token",
-  component: PublicSharePage,
+  component: PublicShareRoutePage,
 });
 
+function MemoDetailRoutePage() {
+  const { memoId } = memoRoute.useParams();
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <MemoDetailPage memoId={memoId} />
+    </Suspense>
+  );
+}
+
+const memoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/memo/$memoId",
+  component: MemoDetailRoutePage,
+});
+
+function RouteErrorPage({ error }: { error: Error }) {
+  const { t } = useI18n();
+  const router = useRouter();
+  return (
+    <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col items-center justify-center gap-4 px-5 text-center">
+      <div>
+        <h1 className="text-lg font-semibold">{t("list.errorTitle")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
+      </div>
+      <Button onClick={() => void router.invalidate()}>
+        {t("common.retry")}
+      </Button>
+    </main>
+  );
+}
+
+function RouteLoading() {
+  const { t } = useI18n();
+  return (
+    <main className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">
+      {t("common.loading")}
+    </main>
+  );
+}
+
+function isViewMode(value: unknown): value is ViewMode {
+  return value === "all" || value === "archived" || value === "trashed";
+}
+
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, shareRoute]),
+  defaultPreload: "intent",
+  routeTree: rootRoute.addChildren([indexRoute, memoRoute, shareRoute]),
+  scrollRestoration: true,
 });
 
 declare module "@tanstack/react-router" {
@@ -639,5 +734,10 @@ declare module "@tanstack/react-router" {
 }
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <TooltipProvider>
+      <RouterProvider router={router} />
+      <Toaster />
+    </TooltipProvider>
+  );
 }
