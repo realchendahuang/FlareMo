@@ -2,6 +2,45 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.2.0
+
+完整知识管理与数据可靠性版本。这个版本把搜索、附件、分享、关系、历史版本、导入导出和前端详情页一起补齐，并继续保持 Workers + D1 + R2 + Cloudflare Access 的原生架构。
+
+### 已包含
+
+- 增加 D1 FTS5 全文索引、规范化 `memo_tags` 表、稳定置顶游标分页和 SQL 聚合统计；不适合 FTS 查询语法的输入自动回退到安全模糊匹配。
+- 增加 `memo_revisions`，编辑时保存旧版本，并提供版本列表与恢复接口。
+- 增加 memo 上下文接口，一次返回附件、有效分享、正向关系、反向链接和历史版本；App 侧使用 D1 batch 收敛查询。
+- 分享支持复用、列出和撤销；公开分享继续校验 token、过期时间和 memo 状态，不暴露私有附件。
+- R2 附件增加 25 MiB 限制、ETag、Range、内联预览、安全 Content-Disposition、上传补偿、硬删除清理和每日孤儿清理 Cron。
+- 导入导出升级为 v2，保留时间、来源和关联数据，支持 `duplicate`、`skip`、`overwrite` 冲突策略，并清理被替换或未使用的 R2 对象。
+- 前端增加 Markdown/GFM、安全外链、图片与音频预览、独立 memo 详情路由、关系与反向链接、历史恢复和分享生命周期管理。
+- 搜索、标签和视图状态进入 URL；编辑、归档、恢复和删除使用带回滚的 TanStack Query 乐观缓存更新。
+- OpenAPI、MCP serverInfo、所有 workspace package 版本统一到 `0.2.0`；TypeScript 统一为 5.9，并更新 Workers types、Wrangler 和 Miniflare。
+- Worker 集成测试覆盖全文检索、历史恢复、反向链接、分享撤销、Range、硬删除和计划清理；E2E server 增加强制退出兜底。
+
+### Cloudflare 与数据库影响
+
+- 新增 migration `0002_wooden_professor_monster.sql`：创建 `memo_tags`、`memo_revisions`、FTS5 虚拟表与触发器，并给附件、分享和反向链接补索引及生命周期字段。
+- `wrangler.jsonc` 新增每天 `03:17 UTC` 的 Cron Trigger，用于清理超过 24 小时未绑定或处于删除中的附件。
+- 不新增 D1、R2、KV、Vectorize 或 Workers AI 资源；D1 仍是唯一事实源，R2 仍只保存对象。
+- 生产访问边界仍是 Cloudflare Access；不新增应用内 Bearer token 登录。
+
+### 升级说明
+
+```bash
+pnpm install
+pnpm verify
+pnpm deploy:dry-run
+pnpm migrate:remote
+pnpm deploy
+```
+
+- 必须先完成远端 migration，再让新 Worker 接受写请求。
+- 部署后检查 Cron Trigger 已创建，并抽查全文搜索、附件 Range/预览、公开分享和历史恢复。
+- 大于 32 MiB 的内联导出会返回 `413`；请使用元数据导出并单独备份 R2。
+- 本版本不包含 Vectorize 语义搜索、AI 回顾或平台专用聊天机器人。
+
 ## v0.1.5
 
 前端性能、交互可靠性和移动端可用性优化版本。这个版本把列表查询、统计和附件元数据收敛为服务端分页合同，同时补齐失败恢复、危险操作确认和响应式验收。

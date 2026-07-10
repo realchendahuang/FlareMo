@@ -1,13 +1,14 @@
 import type {
   CreateMemoInput,
   ListMemosQuery,
+  MemoOrderBy,
   MemoStatsQuery,
   MemoStatsResponse,
   UpdateMemoInput,
 } from "@flaremo/contracts";
 import type { FlareMoDb, MemoPayload, MemoRow, UserRow } from "@flaremo/db";
-import { memos } from "@flaremo/db";
-import { and, asc, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
+import { attachments, memoRevisions, memos, memoTags } from "@flaremo/db";
+import { and, asc, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
 
@@ -16,12 +17,22 @@ export type MemoListResult = {
   nextPageToken?: string;
 };
 
+type MemoCursor = {
+  id: string;
+  orderBy: MemoOrderBy;
+  pinned: boolean;
+  sortValue: string;
+};
+
 export async function createMemo(
   db: FlareMoDb,
   user: UserRow,
   input: CreateMemoInput,
 ): Promise<MemoRow> {
   const now = new Date().toISOString();
+  const payload = normalizeMemoPayload(input.payload);
+  const tags = normalizeMemoTags(payload.tags ?? extractTags(input.content));
+  payload.tags = tags;
   const row = {
     id: createResourceId("memos"),
     userId: user.id,
@@ -30,15 +41,29 @@ export async function createMemo(
     status: "normal" as const,
     pinned: false,
     source: input.source,
-    payload: normalizeMemoPayload(input.payload),
+    payload,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
   };
 
-  await db.insert(memos).values(row);
-  const created = await getMemoById(db, user, row.id, { includeDeleted: true });
-  return created;
+  const insertMemo = db.insert(memos).values(row);
+  if (tags.length > 0) {
+    await db.batch([
+      insertMemo,
+      db.insert(memoTags).values(
+        tags.map((tag) => ({
+          memoId: row.id,
+          userId: user.id,
+          tag,
+          createdAt: now,
+        })),
+      ),
+    ]);
+  } else {
+    await insertMemo;
+  }
+  return getMemoById(db, user, row.id, { includeDeleted: true });
 }
 
 export async function listMemos(
@@ -46,14 +71,13 @@ export async function listMemos(
   user: UserRow,
   query: ListMemosQuery,
 ): Promise<MemoListResult> {
-  const pageSize = query.page_size;
   const cursor = query.page_token
-    ? decodePageToken(query.page_token)
+    ? decodePageToken(query.page_token, query.order_by)
     : undefined;
-  const direction = query.order_by.toLowerCase().includes("asc")
-    ? "asc"
-    : "desc";
-  const orderColumn = memos.createdAt;
+  const direction = query.order_by.endsWith(" asc") ? "asc" : "desc";
+  const orderColumn = query.order_by.startsWith("updated_at")
+    ? memos.updatedAt
+    : memos.createdAt;
   const filters = [eq(memos.userId, user.id)];
 
   if (query.state) {
@@ -63,32 +87,46 @@ export async function listMemos(
   }
 
   if (query.q) {
+    const ftsQuery = buildFtsQuery(query.q);
     filters.push(
-      sql`${memos.content} LIKE ${`%${escapeLike(query.q)}%`} ESCAPE '\\'`,
+      ftsQuery
+        ? sql`${memos.id} IN (
+            SELECT memo_id FROM memos_fts WHERE memos_fts MATCH ${ftsQuery}
+          )`
+        : sql`${memos.content} LIKE ${`%${escapeLike(query.q)}%`} ESCAPE '\\'`,
     );
   }
 
   if (query.tag) {
+    const tag = normalizeMemoTags([query.tag])[0];
+    if (!tag) {
+      return { memos: [] };
+    }
     filters.push(
       sql`EXISTS (
-        SELECT 1
-        FROM json_each(${memos.payload}, '$.tags')
-        WHERE json_each.value = ${query.tag}
+        SELECT 1 FROM ${memoTags}
+        WHERE ${memoTags.memoId} = ${memos.id}
+          AND ${memoTags.userId} = ${user.id}
+          AND ${memoTags.tag} = ${tag}
       )`,
     );
   }
 
   if (cursor) {
-    const cursorFilter =
+    const sortFilter =
       direction === "asc"
         ? or(
-            gt(orderColumn, cursor.createdAt),
-            and(eq(orderColumn, cursor.createdAt), gt(memos.id, cursor.id)),
+            gt(orderColumn, cursor.sortValue),
+            and(eq(orderColumn, cursor.sortValue), gt(memos.id, cursor.id)),
           )
         : or(
-            lt(orderColumn, cursor.createdAt),
-            and(eq(orderColumn, cursor.createdAt), lt(memos.id, cursor.id)),
+            lt(orderColumn, cursor.sortValue),
+            and(eq(orderColumn, cursor.sortValue), lt(memos.id, cursor.id)),
           );
+    const cursorFilter = or(
+      sql`${memos.pinned} < ${cursor.pinned ? 1 : 0}`,
+      and(eq(memos.pinned, cursor.pinned), sortFilter),
+    );
     if (cursorFilter) filters.push(cursorFilter);
   }
 
@@ -97,18 +135,26 @@ export async function listMemos(
     .from(memos)
     .where(and(...filters.filter(Boolean)))
     .orderBy(
+      desc(memos.pinned),
       direction === "asc" ? asc(orderColumn) : desc(orderColumn),
       direction === "asc" ? asc(memos.id) : desc(memos.id),
     )
-    .limit(pageSize + 1);
+    .limit(query.page_size + 1);
 
-  const page = rows.slice(0, pageSize);
-  const next = rows.length > pageSize ? page.at(-1) : undefined;
+  const page = rows.slice(0, query.page_size);
+  const next = rows.length > query.page_size ? page.at(-1) : undefined;
 
   return {
     memos: page,
     nextPageToken: next
-      ? encodePageToken({ createdAt: next.createdAt, id: next.id })
+      ? encodePageToken({
+          id: next.id,
+          orderBy: query.order_by,
+          pinned: next.pinned,
+          sortValue: query.order_by.startsWith("updated_at")
+            ? next.updatedAt
+            : next.createdAt,
+        })
       : undefined,
   };
 }
@@ -119,48 +165,87 @@ export async function getMemoStats(
   query: MemoStatsQuery,
 ): Promise<MemoStatsResponse> {
   const dateKeyFormatter = createDateKeyFormatter(query.time_zone);
-  const rows = await db
-    .select({
-      content: memos.content,
-      createdAt: memos.createdAt,
-      payload: memos.payload,
-      status: memos.status,
-    })
-    .from(memos)
-    .where(eq(memos.userId, user.id));
+  const todayKey = dateKeyFormatter(new Date());
+  const recentCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
-  const counts = { normal: 0, archived: 0, trashed: 0, total: 0 };
-  const activeDays = new Set<string>();
+  const [countRow, tagRows, activeDayRows, recentRows] = await Promise.all([
+    db
+      .select({
+        normal:
+          sql<number>`SUM(CASE WHEN ${memos.status} = 'normal' THEN 1 ELSE 0 END)`.mapWith(
+            Number,
+          ),
+        archived:
+          sql<number>`SUM(CASE WHEN ${memos.status} = 'archived' THEN 1 ELSE 0 END)`.mapWith(
+            Number,
+          ),
+        trashed:
+          sql<number>`SUM(CASE WHEN ${memos.status} = 'trashed' THEN 1 ELSE 0 END)`.mapWith(
+            Number,
+          ),
+        total:
+          sql<number>`SUM(CASE WHEN ${memos.status} IN ('normal', 'archived') THEN 1 ELSE 0 END)`.mapWith(
+            Number,
+          ),
+      })
+      .from(memos)
+      .where(eq(memos.userId, user.id))
+      .get(),
+    db
+      .select({
+        name: memoTags.tag,
+        count: sql<number>`COUNT(*)`.mapWith(Number),
+      })
+      .from(memoTags)
+      .innerJoin(memos, eq(memoTags.memoId, memos.id))
+      .where(
+        and(
+          eq(memoTags.userId, user.id),
+          inArray(memos.status, ["normal", "archived"]),
+        ),
+      )
+      .groupBy(memoTags.tag)
+      .orderBy(asc(memoTags.tag)),
+    db
+      .select({ day: sql<string>`substr(${memos.createdAt}, 1, 10)` })
+      .from(memos)
+      .where(
+        and(
+          eq(memos.userId, user.id),
+          inArray(memos.status, ["normal", "archived"]),
+        ),
+      )
+      .groupBy(sql`substr(${memos.createdAt}, 1, 10)`),
+    db
+      .select({ createdAt: memos.createdAt })
+      .from(memos)
+      .where(
+        and(
+          eq(memos.userId, user.id),
+          inArray(memos.status, ["normal", "archived"]),
+          gte(memos.createdAt, recentCutoff.toISOString()),
+        ),
+      ),
+  ]);
+
   const activityCounts = new Map<string, number>();
-  const tagCounts = new Map<string, number>();
-
-  for (const row of rows) {
-    if (row.status === "normal") counts.normal += 1;
-    if (row.status === "archived") counts.archived += 1;
-    if (row.status === "trashed") counts.trashed += 1;
-    if (row.status !== "normal" && row.status !== "archived") continue;
-
-    counts.total += 1;
+  for (const row of recentRows) {
     const date = new Date(row.createdAt);
-    if (!Number.isNaN(date.getTime())) {
-      const key = dateKeyFormatter(date);
-      activeDays.add(key);
-      activityCounts.set(key, (activityCounts.get(key) ?? 0) + 1);
-    }
-
-    const tags = row.payload.tags ?? extractTags(row.content);
-    for (const tag of new Set(tags)) {
-      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
-    }
+    if (Number.isNaN(date.getTime())) continue;
+    const key = dateKeyFormatter(date);
+    activityCounts.set(key, (activityCounts.get(key) ?? 0) + 1);
   }
 
   return {
-    counts,
-    active_days: activeDays.size,
-    tags: [...tagCounts]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    activity: buildActivity(dateKeyFormatter(new Date()), activityCounts),
+    counts: {
+      normal: countRow?.normal ?? 0,
+      archived: countRow?.archived ?? 0,
+      trashed: countRow?.trashed ?? 0,
+      total: countRow?.total ?? 0,
+    },
+    active_days: activeDayRows.length,
+    tags: tagRows,
+    activity: buildActivity(todayKey, activityCounts),
   };
 }
 
@@ -194,17 +279,31 @@ export async function updateMemo(
   id: string,
   input: UpdateMemoInput,
 ): Promise<MemoRow> {
-  await getMemoById(db, user, id, { includeDeleted: true });
+  const existing = await getMemoById(db, user, id, { includeDeleted: true });
   const now = new Date().toISOString();
   const status = input.status;
+  const metadataChanged =
+    input.content !== undefined || input.payload !== undefined;
+  const nextContent = input.content ?? existing.content;
+  const nextPayload =
+    input.payload !== undefined
+      ? normalizeMemoPayload(input.payload)
+      : normalizeMemoPayload(existing.payload);
+  const tags = metadataChanged
+    ? normalizeMemoTags(nextPayload.tags ?? extractTags(nextContent))
+    : [];
+  if (metadataChanged) nextPayload.tags = tags;
+
+  const shouldCreateRevision =
+    input.content !== undefined ||
+    input.visibility !== undefined ||
+    input.payload !== undefined;
   const patch = {
     ...(input.content !== undefined ? { content: input.content } : {}),
     ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
     ...(status !== undefined ? { status } : {}),
     ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
-    ...(input.payload !== undefined
-      ? { payload: normalizeMemoPayload(input.payload) }
-      : {}),
+    ...(metadataChanged ? { payload: nextPayload } : {}),
     updatedAt: now,
     ...(status === "trashed" || status === "deleted" ? { deletedAt: now } : {}),
     ...(status === "normal" || status === "archived"
@@ -212,10 +311,44 @@ export async function updateMemo(
       : {}),
   };
 
-  await db
+  const updateStatement = db
     .update(memos)
     .set(patch)
     .where(and(eq(memos.id, id), eq(memos.userId, user.id)));
+  const revisionStatement = db.insert(memoRevisions).values({
+    id: createResourceId("revisions"),
+    memoId: existing.id,
+    userId: user.id,
+    content: existing.content,
+    visibility: existing.visibility,
+    payload: existing.payload,
+    createdAt: now,
+  });
+  const deleteTagsStatement = db
+    .delete(memoTags)
+    .where(and(eq(memoTags.memoId, id), eq(memoTags.userId, user.id)));
+  if (metadataChanged && tags.length > 0 && shouldCreateRevision) {
+    await db.batch([
+      revisionStatement,
+      updateStatement,
+      deleteTagsStatement,
+      db.insert(memoTags).values(
+        tags.map((tag) => ({
+          memoId: id,
+          userId: user.id,
+          tag,
+          createdAt: now,
+        })),
+      ),
+    ]);
+  } else if (metadataChanged && shouldCreateRevision) {
+    await db.batch([revisionStatement, updateStatement, deleteTagsStatement]);
+  } else if (shouldCreateRevision) {
+    await db.batch([revisionStatement, updateStatement]);
+  } else {
+    await updateStatement;
+  }
+
   return getMemoById(db, user, id, { includeDeleted: true });
 }
 
@@ -233,37 +366,60 @@ export async function hardDeleteMemo(
   id: string,
 ): Promise<void> {
   await getMemoById(db, user, id, { includeDeleted: true });
-  await db
-    .delete(memos)
-    .where(and(eq(memos.id, id), eq(memos.userId, user.id)));
+  await db.batch([
+    db
+      .delete(attachments)
+      .where(and(eq(attachments.memoId, id), eq(attachments.userId, user.id))),
+    db.delete(memos).where(and(eq(memos.id, id), eq(memos.userId, user.id))),
+  ]);
 }
 
-function normalizeMemoPayload(payload: unknown): MemoPayload {
+export function normalizeMemoPayload(payload: unknown): MemoPayload {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return {};
   }
-  return payload as MemoPayload;
+  return { ...(payload as MemoPayload) };
 }
 
-function encodePageToken(value: { createdAt: string; id: string }) {
+export function normalizeMemoTags(values: string[]) {
+  const tags = new Set<string>();
+  for (const value of values) {
+    const tag = value.trim().replace(/^#/, "").toLocaleLowerCase();
+    if (tag && tag.length <= 100) tags.add(tag);
+  }
+  return [...tags].sort((a, b) => a.localeCompare(b));
+}
+
+function encodePageToken(value: MemoCursor) {
   return btoa(JSON.stringify(value));
 }
 
-function decodePageToken(
-  token: string,
-): { createdAt: string; id: string } | undefined {
+function decodePageToken(token: string, orderBy: MemoOrderBy): MemoCursor {
   try {
-    const parsed = JSON.parse(atob(token)) as {
-      createdAt?: unknown;
-      id?: unknown;
-    };
-    if (typeof parsed.createdAt === "string" && typeof parsed.id === "string") {
-      return { createdAt: parsed.createdAt, id: parsed.id };
+    const parsed = JSON.parse(atob(token)) as Partial<MemoCursor>;
+    if (
+      typeof parsed.sortValue === "string" &&
+      typeof parsed.id === "string" &&
+      typeof parsed.pinned === "boolean" &&
+      parsed.orderBy === orderBy
+    ) {
+      return parsed as MemoCursor;
     }
-    return undefined;
   } catch {
+    // The validation error below gives callers one stable failure shape.
+  }
+  throw new ValidationError("Invalid page token");
+}
+
+function buildFtsQuery(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || !/^[\p{Script=Latin}\p{N}\s_-]+$/u.test(trimmed)) {
     return undefined;
   }
+  const terms = trimmed.match(/[\p{L}\p{N}_-]+/gu) ?? [];
+  return terms.length > 0
+    ? terms.map((term) => `"${term.replaceAll('"', '""')}"*`).join(" AND ")
+    : undefined;
 }
 
 function escapeLike(value: string) {

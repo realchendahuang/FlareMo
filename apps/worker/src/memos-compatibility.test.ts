@@ -13,7 +13,7 @@ describe("Memos-compatible API contract", () => {
     mf = new Miniflare({
       script: "export default { fetch() { return new Response('ok') } }",
       modules: true,
-      compatibilityDate: "2026-06-27",
+      compatibilityDate: "2026-07-10",
       compatibilityFlags: ["nodejs_compat"],
       d1Databases: {
         DB: "flaremo-memos-compat-test",
@@ -51,6 +51,16 @@ describe("Memos-compatible API contract", () => {
         resolve(
           import.meta.dirname,
           "../../../migrations/0001_familiar_morph.sql",
+        ),
+        "utf8",
+      ),
+    );
+    await applyMigration(
+      db,
+      await readFile(
+        resolve(
+          import.meta.dirname,
+          "../../../migrations/0002_wooden_professor_monster.sql",
         ),
         "utf8",
       ),
@@ -150,6 +160,34 @@ describe("Memos-compatible API contract", () => {
     );
     expect(imported.imported_memos).toBeGreaterThanOrEqual(1);
     expect(imported.imported_attachments).toBeGreaterThanOrEqual(1);
+
+    const objectsAfterDuplicate = await env.ATTACHMENTS.list();
+    const skipped = await json(
+      await fetchApp("http://flaremo.test/api/v1/import?conflict=skip", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(bundle),
+      }),
+    );
+    expect(skipped.imported_memos).toBe(0);
+    expect(skipped.skipped_memos).toBeGreaterThanOrEqual(1);
+    expect(skipped.imported_attachments).toBe(0);
+    expect((await env.ATTACHMENTS.list()).objects).toHaveLength(
+      objectsAfterDuplicate.objects.length,
+    );
+
+    const overwritten = await json(
+      await fetchApp("http://flaremo.test/api/v1/import?conflict=overwrite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(bundle),
+      }),
+    );
+    expect(overwritten.overwritten_memos).toBeGreaterThanOrEqual(1);
+    expect(overwritten.imported_attachments).toBeGreaterThanOrEqual(1);
+    expect((await env.ATTACHMENTS.list()).objects).toHaveLength(
+      objectsAfterDuplicate.objects.length,
+    );
   });
 
   it("documents every supported public path in OpenAPI", async () => {
@@ -163,10 +201,15 @@ describe("Memos-compatible API contract", () => {
         "/api/v1/memos",
         "/api/v1/memos/{id}",
         "/api/v1/memos/{id}/attachments",
+        "/api/v1/memos/{id}/context",
+        "/api/v1/memos/{id}/relation-context",
         "/api/v1/memos/{id}/relations",
+        "/api/v1/memos/{id}/revisions",
+        "/api/v1/memos/{id}/revisions/restore",
         "/api/v1/memos/{id}/shares",
         "/api/v1/shares/{share_id}",
         "/api/public/shares/{token}",
+        "/api/public/shares/{token}/attachments/{id}/blob",
         "/api/v1/attachments",
         "/api/v1/attachments/{id}",
         "/api/v1/attachments/{id}/blob",

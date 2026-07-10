@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 
 const persistDir = ".wrangler-e2e";
+const port = "18787";
 const isWindows = process.platform === "win32";
 
 rmSync(persistDir, { recursive: true, force: true });
@@ -29,34 +30,45 @@ const server = spawn(
     "--local",
     "--host",
     "127.0.0.1",
+    "--port",
+    port,
     "--persist-to",
     persistDir,
     "--log-level",
     "error",
   ],
   {
-    detached: !isWindows,
     shell: isWindows,
     stdio: "inherit",
   },
 );
 
 let shuttingDown = false;
+let forceStopTimer;
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    stopServer(signal);
+    stopServer("SIGTERM");
+    forceStopTimer = setTimeout(() => stopServer("SIGKILL"), 5_000);
+    forceStopTimer.unref();
   });
 }
 
 server.on("exit", (code) => {
+  if (forceStopTimer) clearTimeout(forceStopTimer);
   rmSync(persistDir, { recursive: true, force: true });
-  process.exit(code ?? 0);
+  process.exit(shuttingDown ? 0 : (code ?? 1));
+});
+
+server.on("error", (error) => {
+  console.error(error);
+  rmSync(persistDir, { recursive: true, force: true });
+  process.exit(1);
 });
 
 function stopServer(signal) {
-  if (server.exitCode !== null) return;
+  if (server.exitCode !== null || server.signalCode !== null) return;
   if (isWindows) {
     server.kill(signal);
     return;

@@ -31,6 +31,6 @@ export async function ensureSingleUser(
     updatedAt: now,
   };
 
-  await db.insert(users).values(row);
-  return row;
+  await db.insert(users).values(row).onConflictDoNothing({ target: users.id });
+  return (await db.query.users.findFirst({ where: eq(users.id, id) })) ?? row;
 }

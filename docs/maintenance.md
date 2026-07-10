@@ -50,14 +50,33 @@ pnpm verify
 
 生成的 SQL migration 必须提交。
 
+`v0.2.0` 起 Worker 每天 `03:17 UTC` 运行附件清理任务：删除超过 24 小时仍未绑定 memo 的对象，以及处于 `deleting` 状态的重试项。手动验证 scheduled handler：
+
+```bash
+pnpm dev:worker -- --test-scheduled
+curl http://127.0.0.1:8787/__scheduled
+```
+
+清理只处理 D1 已记录的附件元数据，不扫描或删除未知 R2 key。
+
 ## 备份
 
 FlareMo 的主数据在 D1，附件在 R2。备份必须同时覆盖两者。
 
-D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL dump，并把 dump 存到可信位置。
+D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL dump，并把 dump 存到可信位置。`memos_fts` 是可由 `memos` 重建的 FTS5 虚拟索引；Wrangler 不支持整库导出包含虚拟表的数据库，因此导出时只选择下面的持久业务表，不导出 FTS shadow tables：
 
 ```bash
-pnpm exec wrangler d1 export DB --remote --output ./backups/flaremo.sql --skip-confirmation
+pnpm exec wrangler d1 export DB --remote \
+  --table users \
+  --table memos \
+  --table attachments \
+  --table memo_relations \
+  --table settings \
+  --table shares \
+  --table memo_tags \
+  --table memo_revisions \
+  --output ./backups/flaremo.sql \
+  --skip-confirmation
 ```
 
 R2 备份建议使用 S3 兼容工具同步 bucket：
@@ -74,7 +93,7 @@ rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments
 
 1. 创建新的 D1 database 和 R2 bucket。
 2. 对新的 D1 database 执行 FlareMo migrations。
-3. 恢复 D1 数据。`pnpm backup:drill` 会生成按外键依赖排序的数据恢复文件，可作为恢复流程参考。
+3. 恢复 D1 数据。`pnpm backup:drill` 会生成按外键依赖排序的数据恢复文件，可作为恢复流程参考；插入 `memos` 时 migration 创建的 trigger 会重建 `memos_fts`。
 4. 恢复 R2 对象。
 5. 更新 `wrangler.jsonc` 的 D1 `database_id` 和 R2 bucket name。
 6. 执行 `pnpm deploy:dry-run`。
@@ -91,7 +110,7 @@ D1 migration 不等于备份。破坏性 migration 发布前必须先做 D1 dump
 pnpm backup:drill
 ```
 
-它会导出本地 D1 SQL dump、生成按表依赖排序的数据恢复文件、用 migrations 在隔离目录创建恢复 schema、导入数据、查询恢复后的 schema、检查远端 migration 状态、确认 `flaremo-attachments` R2 bucket 存在，并在 `backups/` 下生成演练报告。`backups/` 是本地输出目录，不提交到 Git。
+它会导出本地 D1 持久业务表（跳过可重建的 FTS5 虚拟索引）、生成按表依赖排序的数据恢复文件、用 migrations 在隔离目录创建恢复 schema、导入数据、验证业务表与重建后的 FTS 索引、检查远端 migration 状态、确认 `flaremo-attachments` R2 bucket 存在，并在 `backups/` 下生成演练报告。`backups/` 是本地输出目录，不提交到 Git。
 
 ## 线上排障
 

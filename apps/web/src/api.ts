@@ -3,6 +3,7 @@ import type {
   CreateMemoInput,
   ImportResult,
   ListMemosResponse,
+  MemoContextResponse,
   MemoDto,
   MemoState,
   MemoStatsResponse,
@@ -17,6 +18,7 @@ export type Memo = MemoDto;
 export type MemoPayload = MemoDto["payload"];
 export type Share = ShareDto;
 export type PublicShare = PublicShareDto;
+export type MemoContext = MemoContextResponse;
 export type { MemoState, MemoStatsResponse, MemoVisibility };
 
 export type CreateMemoRequest = CreateMemoInput;
@@ -129,6 +131,41 @@ export async function createShare(memo: string) {
   return apiRequest<Share>(`/api/v1/memos/${encodeURIComponent(memo)}/shares`, {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+export async function getMemoContext(id: string) {
+  return apiRequest<MemoContext>(`/api/app/memos/${encodeURIComponent(id)}`);
+}
+
+export async function revokeShare(id: string) {
+  return apiRequest<Share>(`/api/v1/shares/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function restoreMemoRevision(memo: string, revision: string) {
+  return apiRequest<Memo>(
+    `/api/v1/memos/${encodeURIComponent(memo)}/revisions/restore`,
+    {
+      method: "POST",
+      body: JSON.stringify({ revision }),
+    },
+  );
+}
+
+export async function replaceMemoRelations(
+  memo: string,
+  relations: Array<{
+    related_memo: string;
+    type: "reference" | "comment";
+  }>,
+) {
+  return apiRequest<{
+    relations: MemoContext["relations"][number]["relation"][];
+  }>(`/api/v1/memos/${encodeURIComponent(memo)}/relations`, {
+    method: "PATCH",
+    body: JSON.stringify({ relations }),
   });
 }
 

@@ -21,10 +21,11 @@ The screenshots show the current backend-backed timeline, editor, filtering, and
 ## What It Does
 
 - Quick memo capture with tags and attachments.
-- Timeline, archive, trash, search, tag filtering, and activity heatmap.
-- R2-backed attachments.
-- Public share links.
-- Memos-style import and export.
+- Timeline, archive, trash, D1 FTS5 search, tag filtering, and activity heatmap.
+- Markdown/GFM with image and audio attachment previews.
+- Memo detail pages with relations, backlinks, and revision restore.
+- Revocable public share links.
+- Memos-style import and export with conflict strategies.
 - Memos-compatible `/api/v1` memo, attachment, relation, share, import/export, OpenAPI, and MCP subset.
 - Chinese and English interface.
 
