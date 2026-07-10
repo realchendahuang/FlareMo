@@ -1,92 +1,38 @@
-export type MemoVisibility = "private" | "protected" | "public";
-export type MemoState = "normal" | "archived" | "trashed" | "deleted";
+import type {
+  AttachmentDto,
+  CreateMemoInput,
+  ImportResult,
+  ListMemosResponse,
+  MemoDto,
+  MemoState,
+  MemoStatsResponse,
+  MemoVisibility,
+  PublicShareDto,
+  ShareDto,
+  UpdateMemoInput,
+} from "@flaremo/contracts";
 
-export type MemoPayload = {
-  tags?: string[];
-  property?: {
-    title?: string;
-    has_link?: boolean;
-    has_task_list?: boolean;
-    has_code?: boolean;
-    has_incomplete_tasks?: boolean;
-  };
-  location?: unknown;
-  client_id?: string;
-  [key: string]: unknown;
-};
+export type Attachment = AttachmentDto;
+export type Memo = MemoDto;
+export type MemoPayload = MemoDto["payload"];
+export type Share = ShareDto;
+export type PublicShare = PublicShareDto;
+export type { MemoState, MemoStatsResponse, MemoVisibility };
 
-export type Memo = {
-  name: string;
-  id: string;
-  content: string;
-  visibility: MemoVisibility;
-  state: MemoState;
-  pinned: boolean;
-  payload: MemoPayload;
-  create_time: string;
-  update_time: string;
-  display_time: string;
-  creator: string;
-  attachments?: Attachment[];
-};
-
-export type Attachment = {
-  name: string;
-  id: string;
-  memo: string | null;
-  filename: string;
-  content_type: string | null;
-  size: number;
-  payload: Record<string, unknown>;
-  create_time: string;
-  update_time: string;
-  download_url: string;
-};
-
-export type Share = {
-  name: string;
-  id: string;
-  memo: string;
-  token: string;
-  expires_at: string | null;
-  create_time: string;
-};
-
-export type PublicShare = {
-  share: Omit<Share, "token">;
-  memo: Memo;
-  attachments: Attachment[];
-};
-
-export type ListMemosResponse = {
-  memos: Memo[];
-  next_page_token?: string;
-};
-
-export type ListAttachmentsResponse = {
-  attachments: Attachment[];
-};
-
-export type CreateMemoRequest = {
-  content: string;
-  visibility?: MemoVisibility;
-  payload?: MemoPayload;
-  source?: string;
-};
-
-export type UpdateMemoRequest = Partial<{
-  content: string;
-  visibility: MemoVisibility;
-  status: MemoState;
-  pinned: boolean;
-  payload: MemoPayload;
-}>;
+export type CreateMemoRequest = CreateMemoInput;
+export type UpdateMemoRequest = UpdateMemoInput;
 
 export type ListMemoParams = {
   state?: MemoState;
   q?: string;
   tag?: string;
   include_deleted?: boolean;
+  page_size?: number;
+  page_token?: string;
+};
+
+export type ListAttachmentsResponse = {
+  attachments: Attachment[];
 };
 
 export class ApiError extends Error {
@@ -101,14 +47,20 @@ export class ApiError extends Error {
 
 export async function listMemos(params: ListMemoParams = {}) {
   const query = new URLSearchParams();
-  query.set("page_size", "50");
+  query.set("page_size", String(params.page_size ?? 30));
   query.set("order_by", "created_at desc");
   if (params.state) query.set("state", params.state);
   if (params.q) query.set("q", params.q);
   if (params.tag) query.set("tag", params.tag);
   if (params.include_deleted) query.set("include_deleted", "true");
+  if (params.page_token) query.set("page_token", params.page_token);
 
   return apiRequest<ListMemosResponse>(`/api/app/memos?${query.toString()}`);
+}
+
+export async function getMemoStats(timeZone: string) {
+  const query = new URLSearchParams({ time_zone: timeZone });
+  return apiRequest<MemoStatsResponse>(`/api/app/stats?${query.toString()}`);
 }
 
 export async function createMemo(input: CreateMemoRequest) {
@@ -119,22 +71,23 @@ export async function createMemo(input: CreateMemoRequest) {
 }
 
 export async function updateMemo(id: string, input: UpdateMemoRequest) {
-  return apiRequest<Memo>(`/api/app/memos/${id}`, {
+  return apiRequest<Memo>(`/api/app/memos/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
 }
 
 export async function trashMemo(id: string) {
-  return apiRequest<Memo>(`/api/app/memos/${id}`, {
+  return apiRequest<Memo>(`/api/app/memos/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 }
 
 export async function hardDeleteMemo(id: string) {
-  return apiRequest<{ ok: true }>(`/api/app/memos/${id}?hard=true`, {
-    method: "DELETE",
-  });
+  return apiRequest<{ ok: true }>(
+    `/api/app/memos/${encodeURIComponent(id)}?hard=true`,
+    { method: "DELETE" },
+  );
 }
 
 export async function uploadAttachment(input: { file: File; memo?: string }) {
@@ -168,9 +121,7 @@ export async function bindMemoAttachments(memo: string, attachments: string[]) {
 export async function deleteAttachment(id: string) {
   return apiRequest<{ ok: true }>(
     `/api/v1/attachments/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-    },
+    { method: "DELETE" },
   );
 }
 
@@ -192,12 +143,7 @@ export async function exportData() {
 }
 
 export async function importData(bundle: unknown) {
-  return apiRequest<{
-    imported_memos: number;
-    imported_attachments: number;
-    imported_relations: number;
-    imported_shares: number;
-  }>("/api/v1/import", {
+  return apiRequest<ImportResult>("/api/v1/import", {
     method: "POST",
     body: JSON.stringify(bundle),
   });
@@ -209,11 +155,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}) {
     headers.set("content-type", "application/json");
   }
 
-  const response = await fetch(path, {
-    ...init,
-    headers,
-  });
-
+  const response = await fetch(path, { ...init, headers });
   const contentType = response.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");
 

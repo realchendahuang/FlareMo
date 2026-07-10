@@ -84,6 +84,28 @@ export async function listMemoAttachments(
   return listAttachments(db, user, { memoId: normalizedMemoId, pageSize: 100 });
 }
 
+export async function listAttachmentsForMemos(
+  db: FlareMoDb,
+  user: UserRow,
+  memoIds: string[],
+) {
+  if (memoIds.length === 0) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(attachments)
+    .where(
+      and(
+        eq(attachments.userId, user.id),
+        inArray(attachments.memoId, memoIds),
+        isNull(attachments.deletedAt),
+      ),
+    )
+    .orderBy(desc(attachments.createdAt));
+}
+
 export async function getAttachmentById(
   db: FlareMoDb,
   user: UserRow,

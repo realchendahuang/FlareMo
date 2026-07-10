@@ -58,6 +58,10 @@ export const listMemosQuerySchema = z.object({
   include_deleted: z.coerce.boolean().default(false),
 });
 
+export const memoStatsQuerySchema = z.object({
+  time_zone: z.string().trim().min(1).max(100).default("UTC"),
+});
+
 export const attachmentDtoSchema = z.object({
   name: z.string(),
   id: z.string(),
@@ -89,6 +93,28 @@ export const memoDtoSchema = z.object({
 export const listMemosResponseSchema = z.object({
   memos: z.array(memoDtoSchema),
   next_page_token: z.string().optional(),
+});
+
+export const memoStatsResponseSchema = z.object({
+  counts: z.object({
+    normal: z.number().int().nonnegative(),
+    archived: z.number().int().nonnegative(),
+    trashed: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+  }),
+  active_days: z.number().int().nonnegative(),
+  tags: z.array(
+    z.object({
+      name: z.string(),
+      count: z.number().int().positive(),
+    }),
+  ),
+  activity: z.array(
+    z.object({
+      date: z.string(),
+      count: z.number().int().nonnegative(),
+    }),
+  ),
 });
 
 export const listAttachmentsQuerySchema = z.object({
@@ -179,8 +205,12 @@ export const importResultSchema = z.object({
 export type CreateMemoInput = z.infer<typeof createMemoSchema>;
 export type UpdateMemoInput = z.infer<typeof updateMemoSchema>;
 export type ListMemosQuery = z.infer<typeof listMemosQuerySchema>;
+export type MemoStatsQuery = z.infer<typeof memoStatsQuerySchema>;
+export type MemoVisibility = z.infer<typeof memoVisibilitySchema>;
+export type MemoState = z.infer<typeof memoStatusSchema>;
 export type MemoDto = z.infer<typeof memoDtoSchema>;
 export type ListMemosResponse = z.infer<typeof listMemosResponseSchema>;
+export type MemoStatsResponse = z.infer<typeof memoStatsResponseSchema>;
 export type AttachmentDto = z.infer<typeof attachmentDtoSchema>;
 export type ListAttachmentsQuery = z.infer<typeof listAttachmentsQuerySchema>;
 export type BindMemoAttachmentsInput = z.infer<
