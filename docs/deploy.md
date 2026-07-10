@@ -12,14 +12,25 @@ FlareMo 部署到 Cloudflare Workers。Worker 同时承载前端静态资源和 
 
 如果 Cloudflare Dashboard 还没有连接 GitHub 或 GitLab provider，创建页会先提示 `Connect a Git account to continue.`。这是 Cloudflare Workers Builds 的 Git 集成前置条件。
 
+如果已有 GitHub 连接已经过期，Cloudflare 会在设置仓库时返回类似：
+
+```text
+HTTP 400
+Your GitHub authorization has expired. Please reauthorize your GitHub connection by reinstalling the Cloudflare GitHub App.
+```
+
+这时在 `Git 帐户` 下拉里选择 `新建 GitHub 连接`，或按 Cloudflare 提示重新安装 Cloudflare GitHub App。GitHub 可能要求 sudo/passkey、GitHub Mobile、authenticator app 或邮箱验证码；这是 GitHub 账号侧的安全验证，不是 FlareMo 代码问题。
+
 一键部署完成后还要做两件事：
 
 - 在 Cloudflare Access 里保护 Worker 域名或自定义域名。
-- 对远端 D1 执行 migrations。
+- 对远端 D1 执行 migrations。Deploy Button 会创建或连接 D1 资源，但不会替你确认 FlareMo schema 已迁移完成。
 
 ```bash
 pnpm migrate:remote
 ```
+
+运行迁移前，先确认当前仓库的 `wrangler.jsonc` 指向 Deploy Button 生成的 D1 database，而不是你已有的生产库。测试 Deploy Button 时尤其不要把本地 `wrangler.jsonc` 里的生产 `database_id` 当成新建测试库。
 
 ## 手动部署
 
