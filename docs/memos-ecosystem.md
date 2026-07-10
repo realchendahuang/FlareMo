@@ -26,10 +26,10 @@ CF-Access-Client-Secret
 
 | 工具 / 路径 | 类型 | 测试版本 | 请求路径 | 是否需要 Access Service Token | 当前状态 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- |
-| curl / HTTP script | 通用脚本 | FlareMo `0.1.4` | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 覆盖 memo CRUD、分页、附件、分享、export/import。 |
-| OpenAPI consumers | API schema 工具 | FlareMo `0.1.4` | `/openapi.json` | 生产 Access 后面需要 | 可用 | `apps/worker/src/memos-compatibility.test.ts` 断言公开路径写入 OpenAPI。 |
-| FlareMo MCP endpoint | MCP 客户端 | FlareMo `0.1.4` | `/api/v1/mcp` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 调用 `tools/list` 并断言 `create_memo`。 |
-| Public share reader | 浏览器 / curl | FlareMo `0.1.4` | `/share/*`、`/api/public/shares/*` | 不需要，需 Access bypass | 可用 | `apps/worker/src/api.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 public share token 隔离。 |
+| curl / HTTP script | 通用脚本 | FlareMo `0.1.5` | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 覆盖 memo CRUD、分页、附件、分享、export/import。 |
+| OpenAPI consumers | API schema 工具 | FlareMo `0.1.5` | `/openapi.json` | 生产 Access 后面需要 | 可用 | `apps/worker/src/memos-compatibility.test.ts` 断言公开路径写入 OpenAPI。 |
+| FlareMo MCP endpoint | MCP 客户端 | FlareMo `0.1.5` | `/api/v1/mcp` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 调用 `tools/list` 并断言 `create_memo`。 |
+| Public share reader | 浏览器 / curl | FlareMo `0.1.5` | `/share/*`、`/api/public/shares/*` | 不需要，需 Access bypass | 可用 | `apps/worker/src/api.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 public share token 隔离。 |
 
 ## 第三方客户端待测矩阵
 

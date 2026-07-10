@@ -18,6 +18,50 @@ test("creates a memo and filters it by tag", async ({ page }) => {
   await expect(page.getByText(content)).toBeVisible();
 });
 
+test("loads memo attachments without per-memo request waterfalls", async ({
+  page,
+}) => {
+  let attachmentListRequests = 0;
+  page.on("request", (request) => {
+    if (/\/api\/v1\/memos\/[^/]+\/attachments/.test(request.url())) {
+      attachmentListRequests += 1;
+    }
+  });
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("textbox", { name: /new note|新笔记/i }),
+  ).toBeVisible();
+  await page.waitForLoadState("networkidle");
+
+  expect(attachmentListRequests).toBe(0);
+});
+
+test("keeps a composer draft when saving fails", async ({ page }) => {
+  const content = `Resilient draft #draft${Date.now()}`;
+  await page.route("**/api/app/memos", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { message: "temporary create failure" },
+        }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/");
+  const composer = page.getByRole("textbox", { name: /new note|新笔记/i });
+  await composer.fill(content);
+  await page.getByRole("button", { name: /save|保存/i }).click();
+
+  await expect(page.getByText("temporary create failure")).toBeVisible();
+  await expect(composer).toHaveValue(content);
+});
+
 test("edits and shares a memo", async ({ page }) => {
   const stamp = Date.now();
   const content = `Lifecycle memo #life${stamp}`;
@@ -104,13 +148,51 @@ test("trashes, restores, and hard-deletes a memo", async ({ page }) => {
 
   const finalCard = page.locator("article").filter({ hasText: content });
   await finalCard.getByRole("button", { name: /actions|操作/i }).click();
+  await page.getByRole("menuitem", { name: /trash|回收站/i }).click();
+  await page
+    .getByRole("navigation", { name: /navigation|导航/i })
+    .getByRole("button", { name: /trash|回收站/i })
+    .click();
+  const deleteCard = page.locator("article").filter({ hasText: content });
+  await deleteCard.getByRole("button", { name: /actions|操作/i }).click();
   await page
     .getByRole("menuitem", { name: /delete forever|彻底删除/i })
+    .click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation).toBeVisible();
+  await confirmation
+    .getByRole("button", { name: /delete forever|彻底删除/i })
     .click();
   await expect(page.getByText(content)).not.toBeVisible();
 });
 
+test("loads notes beyond the first page", async ({ page }) => {
+  const marker = `page${Date.now()}`;
+  for (let index = 0; index < 32; index += 1) {
+    const response = await page.request.post("/api/app/memos", {
+      data: { content: `${marker}-${index}` },
+    });
+    expect(response.ok()).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 2));
+  }
+
+  await page.goto("/");
+  await expect(page.getByText(`${marker}-0`, { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: /load more|加载更多/i }).click();
+  await expect(page.getByText(`${marker}-0`, { exact: true })).toBeVisible();
+});
+
 test("keeps the mobile navigation usable", async ({ page }) => {
+  for (let index = 0; index < 18; index += 1) {
+    const response = await page.request.post("/api/app/memos", {
+      data: {
+        content: `Mobile overflow ${index} #mobile${index}`,
+        payload: { tags: [`mobile${index}`] },
+      },
+    });
+    expect(response.ok()).toBe(true);
+  }
+
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
@@ -126,5 +208,19 @@ test("keeps the mobile navigation usable", async ({ page }) => {
   });
   await expect(
     navigation.getByRole("button", { name: /archive|归档/i }),
+  ).toBeVisible();
+  const scroller = page.getByTestId("mobile-sidebar-scroll");
+  const geometry = await scroller.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    overflowY: getComputedStyle(element).overflowY,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(geometry.overflowY).toBe("auto");
+  expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+  await scroller.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: /export|导出/i }),
   ).toBeVisible();
 });
