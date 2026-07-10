@@ -1,4 +1,9 @@
 import { createOpenApiDocument } from "@flaremo/contracts";
+import { createDb } from "@flaremo/db";
+import {
+  finalizeAttachmentCleanup,
+  listAttachmentCleanupCandidates,
+} from "@flaremo/domain";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { HonoBindings } from "./context";
@@ -37,4 +42,30 @@ app.notFound((c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
-export default app;
+const handler = {
+  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
+    app.fetch(request, env, ctx),
+  async scheduled(controller: ScheduledController, env: Env) {
+    const db = createDb(env.DB);
+    const cutoff = new Date(
+      controller.scheduledTime - 24 * 60 * 60 * 1_000,
+    ).toISOString();
+    const candidates = await listAttachmentCleanupCandidates(db, cutoff);
+    const objectKeys = candidates.map((attachment) => attachment.r2Key);
+    if (objectKeys.length > 0) {
+      await env.ATTACHMENTS.delete(objectKeys);
+    }
+    for (const attachment of candidates) {
+      await finalizeAttachmentCleanup(db, attachment.id);
+    }
+    console.log(
+      JSON.stringify({
+        message: "attachment cleanup complete",
+        count: candidates.length,
+        scheduledTime: controller.scheduledTime,
+      }),
+    );
+  },
+} satisfies ExportedHandler<Env>;
+
+export default handler;

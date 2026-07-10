@@ -1,7 +1,7 @@
+import { Link } from "@tanstack/react-router";
 import {
   ArchiveIcon,
   CircleIcon,
-  DownloadIcon,
   Edit3Icon,
   Globe2Icon,
   Loader2Icon,
@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { Attachment, Memo, MemoState, MemoVisibility, Share } from "@/api";
+import { AttachmentGallery } from "@/components/attachment-gallery";
+import { LazyMemoContent } from "@/components/lazy-memo-content";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,7 +99,11 @@ export function MemoCard({
       )}
     >
       <div className="flex w-full items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
+        <Link
+          className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          params={{ memoId: memo.id }}
+          to="/memo/$memoId"
+        >
           {memo.pinned ? (
             <PinIcon className="text-primary" />
           ) : (
@@ -106,7 +112,7 @@ export function MemoCard({
           <span className="truncate">
             {formatMemoTime(memo.display_time, locale)}
           </span>
-        </div>
+        </Link>
         <div className="flex shrink-0 items-center gap-1">
           {memo.visibility !== "private" && (
             <VisibilityBadge visibility={memo.visibility} />
@@ -176,26 +182,10 @@ export function MemoCard({
         </div>
       </div>
       <div>
-        <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">
-          {memo.content}
-        </div>
+        <LazyMemoContent content={memo.content} />
         {attachments.length > 0 && (
-          <div className="mt-3 flex flex-col gap-2">
-            {attachments.map((attachment) => (
-              <a
-                className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground motion-safe:transition-[color,background-color] hover:text-foreground"
-                href={attachment.download_url}
-                key={attachment.name}
-              >
-                <DownloadIcon />
-                <span className="min-w-0 flex-1 truncate">
-                  {attachment.filename}
-                </span>
-                <span className="shrink-0 text-xs">
-                  {formatBytes(attachment.size)}
-                </span>
-              </a>
-            ))}
+          <div className="mt-3">
+            <AttachmentGallery attachments={attachments} />
           </div>
         )}
         {share && (
@@ -317,16 +307,6 @@ export function MemoCard({
 
 export function nextArchiveState(memo: Memo): MemoState {
   return memo.state === "archived" ? "normal" : "archived";
-}
-
-function formatBytes(size: number) {
-  if (size < 1024) {
-    return `${size} B`;
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function VisibilityBadge({ visibility }: { visibility: MemoVisibility }) {

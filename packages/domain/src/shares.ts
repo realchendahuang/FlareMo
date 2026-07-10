@@ -19,6 +19,23 @@ export async function createMemoShare(
     throw new ValidationError("Share expiry must be in the future");
   }
 
+  const existing = await db
+    .select()
+    .from(shares)
+    .where(
+      and(
+        eq(shares.userId, user.id),
+        eq(shares.memoId, normalizedMemoId),
+        isNull(shares.revokedAt),
+      ),
+    );
+  const reusable = existing.find(
+    (share) =>
+      share.expiresAt === expiresAt &&
+      (!share.expiresAt || new Date(share.expiresAt).getTime() > Date.now()),
+  );
+  if (reusable) return reusable;
+
   const now = new Date().toISOString();
   const row = {
     id: createResourceId("shares"),
@@ -27,6 +44,8 @@ export async function createMemoShare(
     token: createToken(),
     expiresAt,
     createdAt: now,
+    updatedAt: now,
+    revokedAt: null,
   };
 
   await db.insert(shares).values(row);
@@ -41,6 +60,7 @@ export async function getShareByIdOrToken(
   const row = await db.query.shares.findFirst({
     where: and(
       eq(shares.userId, user.id),
+      isNull(shares.revokedAt),
       or(
         eq(shares.id, parseResourceName(idOrToken, "shares")),
         eq(shares.token, idOrToken),
@@ -63,9 +83,46 @@ export async function listShares(db: FlareMoDb, user: UserRow) {
   return db.select().from(shares).where(eq(shares.userId, user.id));
 }
 
+export async function listMemoShares(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+  options: { includeRevoked?: boolean } = {},
+) {
+  const normalizedMemoId = parseResourceName(memoId, "memos");
+  await getMemoById(db, user, normalizedMemoId, { includeDeleted: true });
+  const filters = [
+    eq(shares.userId, user.id),
+    eq(shares.memoId, normalizedMemoId),
+  ];
+  if (!options.includeRevoked) filters.push(isNull(shares.revokedAt));
+  const rows = await db
+    .select()
+    .from(shares)
+    .where(and(...filters));
+  return rows.filter(
+    (share) =>
+      !share.expiresAt || new Date(share.expiresAt).getTime() > Date.now(),
+  );
+}
+
+export async function revokeMemoShare(
+  db: FlareMoDb,
+  user: UserRow,
+  idOrToken: string,
+) {
+  const share = await getShareByIdOrToken(db, user, idOrToken);
+  const now = new Date().toISOString();
+  await db
+    .update(shares)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(and(eq(shares.id, share.id), eq(shares.userId, user.id)));
+  return { ...share, revokedAt: now, updatedAt: now };
+}
+
 export async function getPublicShareByToken(db: FlareMoDb, token: string) {
   const share = await db.query.shares.findFirst({
-    where: eq(shares.token, token),
+    where: and(eq(shares.token, token), isNull(shares.revokedAt)),
   });
 
   if (!share) {
@@ -95,6 +152,7 @@ export async function getPublicShareByToken(db: FlareMoDb, token: string) {
           eq(attachments.memoId, share.memoId),
           eq(attachments.userId, share.userId),
           isNull(attachments.deletedAt),
+          eq(attachments.state, "ready"),
         ),
       ),
   ]);

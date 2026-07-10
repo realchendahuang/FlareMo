@@ -18,6 +18,61 @@ test("creates a memo and filters it by tag", async ({ page }) => {
   await expect(page.getByText(content)).toBeVisible();
 });
 
+test("keeps filters in the URL and opens a Markdown memo detail", async ({
+  page,
+}) => {
+  const marker = `markdown${Date.now()}`;
+  const response = await page.request.post("/api/app/memos", {
+    data: {
+      content: `# Markdown detail\n\n**${marker}**\n\n- [x] rendered`,
+    },
+  });
+  expect(response.ok()).toBe(true);
+
+  await page.goto("/");
+  await page.getByRole("textbox", { name: /search|搜索/i }).fill(marker);
+  await expect(page).toHaveURL(new RegExp(`q=${marker}`));
+  const card = page.locator("article").filter({ hasText: marker });
+  await expect(card.locator("strong")).toHaveText(marker);
+  await card.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/memo\/[^/]+$/);
+  await expect(
+    page.getByRole("heading", { name: "Markdown detail" }),
+  ).toBeVisible();
+  await expect(page.getByRole("checkbox")).toBeChecked();
+});
+
+test("restores a memo revision without reloading the detail page", async ({
+  page,
+}) => {
+  const marker = Date.now();
+  const original = `Original revision ${marker}`;
+  const updated = `Updated revision ${marker}`;
+  const createResponse = await page.request.post("/api/app/memos", {
+    data: { content: original },
+  });
+  expect(createResponse.ok()).toBe(true);
+  const created = (await createResponse.json()) as { name: string };
+  const memoId = created.name.split("/").at(-1);
+  expect(memoId).toBeTruthy();
+
+  const updateResponse = await page.request.patch(`/api/app/memos/${memoId}`, {
+    data: { content: updated },
+  });
+  expect(updateResponse.ok()).toBe(true);
+
+  await page.goto(`/memo/${memoId}`);
+  await page.getByRole("tab", { name: /history|历史/i }).click();
+  await page
+    .getByRole("button", { name: /restore|恢复此版本/i })
+    .first()
+    .click();
+  await page.getByRole("tab", { name: /content|内容/i }).click();
+
+  await expect(page.getByText(original, { exact: true })).toBeVisible();
+  await expect(page.getByText(updated, { exact: true })).toHaveCount(0);
+});
+
 test("loads memo attachments without per-memo request waterfalls", async ({
   page,
 }) => {

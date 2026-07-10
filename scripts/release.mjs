@@ -6,7 +6,7 @@ import { join } from "node:path";
 const version = process.argv[2];
 
 if (!version || !/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
-  console.error("Usage: pnpm release v0.1.1");
+  console.error("Usage: pnpm release v0.2.0");
   process.exit(1);
 }
 

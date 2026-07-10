@@ -1,6 +1,7 @@
 import {
   type CreateMemoInput,
   createMemoSchema,
+  FLAREMO_API_VERSION,
   type ListMemosQuery,
   listMemosQuerySchema,
 } from "@flaremo/contracts";
@@ -46,7 +47,7 @@ mcpApi.post("/mcp", async (c) => {
           },
           serverInfo: {
             name: "FlareMo",
-            version: "0.1.0",
+            version: FLAREMO_API_VERSION,
           },
         },
       });

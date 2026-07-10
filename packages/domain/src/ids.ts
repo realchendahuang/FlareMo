@@ -1,10 +1,12 @@
-export function createResourceId(prefix: "attachments" | "memos" | "shares") {
+export function createResourceId(
+  prefix: "attachments" | "memos" | "revisions" | "shares",
+) {
   return `${prefix}/${crypto.randomUUID()}`;
 }
 
 export function parseResourceName(
   name: string,
-  prefix: "attachments" | "memos" | "shares",
+  prefix: "attachments" | "memos" | "revisions" | "shares",
 ) {
   if (name.startsWith(`${prefix}/`)) {
     return name;
