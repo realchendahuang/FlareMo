@@ -2,6 +2,32 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.2.1
+
+开发工具链安全补丁。这个版本把已经合并到 `main` 的依赖修复纳入正式发布，不改变 v0.2.0 的生产功能、数据模型或 Cloudflare 资源。
+
+### 已修复
+
+- 使用 pnpm parent-scoped override，将 `drizzle-kit` 旧加载器链中的传递依赖从受影响的 `esbuild@0.18.20` 固定到已修复的 `0.25.12`。
+- 重新生成 lockfile，移除旧 esbuild 及其平台二进制包；GitHub Dependabot 未解决告警恢复为 0。
+- 放宽 Miniflare hook 和 Playwright 本地服务器/单测试超时，避免低性能或多任务开发机上的发布门禁被环境启动速度误判为回归。
+- root、Web、Worker、contracts、db、domain、memos、OpenAPI 和 MCP 版本统一到 `0.2.1`。
+
+### Cloudflare、数据库与兼容影响
+
+- 不新增 D1 migration，不改变 D1、R2、Access、Cron 或 Worker 运行逻辑。
+- 不改变 `/api/app/*`、Memos-compatible `/api/v1/*`、OpenAPI 或 MCP 的行为合同。
+- 生产部署可以直接覆盖 v0.2.0，无需调整资源绑定或执行数据库迁移。
+
+### 升级说明
+
+```bash
+pnpm install
+pnpm verify
+pnpm deploy:dry-run
+pnpm deploy
+```
+
 ## v0.2.0
 
 完整知识管理与数据可靠性版本。这个版本把搜索、附件、分享、关系、历史版本、导入导出和前端详情页一起补齐，并继续保持 Workers + D1 + R2 + Cloudflare Access 的原生架构。
