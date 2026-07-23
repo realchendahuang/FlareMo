@@ -17,6 +17,7 @@ import {
   createMemoShare,
   exportData,
   finalizeAttachmentDelete,
+  getAttachmentByClientId,
   getAttachmentById,
   getMemoById,
   getShareByIdOrToken,
@@ -31,6 +32,7 @@ import {
   markAttachmentDeleting,
   markMemoAttachmentsDeleting,
   moveMemoToTrash,
+  normalizeAttachmentClientId,
   replaceMemoRelations,
   restoreMemoRevision,
   revokeMemoShare,
@@ -339,6 +341,7 @@ memosApi.post("/attachments", async (c) => {
     const formData = await c.req.formData();
     const file = formData.get("file");
     const memo = formData.get("memo");
+    const clientId = normalizeAttachmentClientId(formData.get("client_id"));
     if (!(file instanceof File)) {
       return c.json({ error: { message: "file is required" } }, 400);
     }
@@ -347,6 +350,11 @@ memosApi.post("/attachments", async (c) => {
         { error: { message: "Attachment exceeds the 25 MiB limit" } },
         413,
       );
+    }
+
+    if (clientId) {
+      const existing = await getAttachmentByClientId(db, user, clientId);
+      if (existing) return c.json(attachmentToDto(existing));
     }
 
     const objectKey = createAttachmentObjectKey(user.id, file.name);
@@ -363,8 +371,15 @@ memosApi.post("/attachments", async (c) => {
         size: file.size,
         r2Key: objectKey,
         etag: object.httpEtag,
+        clientId,
       });
-      return c.json(attachmentToDto(attachment), 201);
+      if (attachment.r2Key !== objectKey) {
+        await c.env.ATTACHMENTS.delete(objectKey).catch(() => undefined);
+      }
+      return c.json(
+        attachmentToDto(attachment),
+        attachment.r2Key === objectKey ? 201 : 200,
+      );
     } catch (error) {
       await c.env.ATTACHMENTS.delete(objectKey);
       throw error;

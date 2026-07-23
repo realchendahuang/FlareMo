@@ -17,14 +17,14 @@ export function AttachmentGallery({
         const isAudio = attachment.content_type?.startsWith("audio/");
         return (
           <div
-            className="overflow-hidden rounded-lg border bg-card"
+            className="overflow-hidden rounded-xl border bg-card transition-shadow duration-200 hover:shadow-sm"
             key={attachment.name}
           >
             {!compact && isImage && (
               <a href={attachment.download_url}>
                 <img
                   alt={attachment.filename}
-                  className="max-h-[32rem] w-full bg-muted object-contain"
+                  className="max-h-[32rem] w-full bg-muted object-contain motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo motion-safe:hover:scale-[1.015]"
                   loading="lazy"
                   src={attachment.preview_url}
                 />

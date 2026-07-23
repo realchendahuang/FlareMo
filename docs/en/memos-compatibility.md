@@ -18,8 +18,8 @@ FlareMo is Memos-compatible, not a Memos server fork. The goal is to reuse commo
 | state filter | Supported | `normal`, `archived`, `trashed`. |
 | pagination | Supported | `page_size`, `page_token`. |
 | ordering | Supported | `order_by` subset. |
-| full-text search | Supported | `q` uses D1 FTS5 and safely falls back to substring matching when needed. |
-| upload attachment | Supported | `POST /api/v1/attachments`. |
+| full-text search | Supported | `q` uses D1 FTS5 and safely falls back to substring matching when needed; it supports `has:attachment`, `is:pinned`, date, and `in:` filters. |
+| upload attachment | Supported | `POST /api/v1/attachments`; an optional `client_id` makes offline retries idempotent. |
 | bind memo attachments | Supported | `PATCH /api/v1/{name=memos/*}/attachments`. |
 | download attachment | Supported | `GET /api/v1/{name=attachments/*}/blob`. |
 | range / inline preview | Supported | Single byte ranges, ETag, and controlled inline disposition. |

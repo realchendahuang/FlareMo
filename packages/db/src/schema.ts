@@ -41,6 +41,10 @@ export const memos = sqliteTable(
       .default("normal"),
     pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
     source: text("source").notNull().default("web"),
+    // A client-generated id makes offline submission retries idempotent. It
+    // intentionally stays internal; the compatible resource payload exposes
+    // the matching `client_id` value to callers.
+    clientId: text("client_id"),
     payload: text("payload", { mode: "json" })
       .$type<MemoPayload>()
       .notNull()
@@ -62,6 +66,7 @@ export const memos = sqliteTable(
       table.updatedAt,
       table.id,
     ),
+    uniqueIndex("memos_user_client_id_idx").on(table.userId, table.clientId),
     index("memos_visibility_idx").on(table.visibility),
   ],
 );
@@ -157,6 +162,9 @@ export const attachments = sqliteTable(
     })
       .notNull()
       .default("ready"),
+    // Stable client ids let an offline retry recognize an attachment whose
+    // upload completed before the browser lost the response.
+    clientId: text("client_id"),
     etag: text("etag"),
     payload: text("payload", { mode: "json" })
       .$type<Record<string, unknown>>()
@@ -169,6 +177,10 @@ export const attachments = sqliteTable(
   (table) => [
     index("attachments_user_created_idx").on(table.userId, table.createdAt),
     index("attachments_memo_idx").on(table.memoId),
+    uniqueIndex("attachments_user_client_id_idx").on(
+      table.userId,
+      table.clientId,
+    ),
     index("attachments_user_state_created_idx").on(
       table.userId,
       table.state,

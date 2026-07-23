@@ -1,7 +1,7 @@
-import type { FlareMoDb, UserRow } from "@flaremo/db";
+import type { AttachmentRow, FlareMoDb, UserRow } from "@flaremo/db";
 import { attachments } from "@flaremo/db";
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
-import { NotFoundError, ValidationError } from "./errors";
+import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
 
@@ -12,6 +12,7 @@ export type CreateAttachmentMetadataInput = {
   size: number;
   r2Key: string;
   state?: "ready" | "deleting" | "missing";
+  clientId?: string | null;
   etag?: string | null;
   payload?: Record<string, unknown>;
 };
@@ -27,11 +28,16 @@ export async function createAttachmentMetadata(
   input: CreateAttachmentMetadataInput,
 ) {
   const memoId = input.memoId ? parseResourceName(input.memoId, "memos") : null;
+  const clientId = normalizeAttachmentClientId(input.clientId);
   if (memoId) {
     await getMemoById(db, user, memoId);
   }
   if (!input.filename.trim()) {
     throw new ValidationError("Attachment filename is required");
+  }
+  if (clientId) {
+    const existing = await findAttachmentByClientId(db, user, clientId);
+    if (existing) return assertUsableClientAttachment(existing);
   }
 
   const now = new Date().toISOString();
@@ -44,6 +50,7 @@ export async function createAttachmentMetadata(
     contentType: input.contentType ?? null,
     size: input.size,
     state: input.state ?? "ready",
+    clientId,
     etag: input.etag ?? null,
     payload: input.payload ?? {},
     createdAt: now,
@@ -51,7 +58,17 @@ export async function createAttachmentMetadata(
     deletedAt: null,
   };
 
-  await db.insert(attachments).values(row);
+  try {
+    await db.insert(attachments).values(row);
+  } catch (error) {
+    // A second browser can cross the pre-insert check at the same time. The
+    // unique index remains the final idempotency boundary.
+    if (clientId) {
+      const existing = await findAttachmentByClientId(db, user, clientId);
+      if (existing) return assertUsableClientAttachment(existing);
+    }
+    throw error;
+  }
   return getAttachmentById(db, user, row.id);
 }
 
@@ -175,6 +192,44 @@ export async function getAttachmentById(
   }
 
   return row;
+}
+
+export async function getAttachmentByClientId(
+  db: FlareMoDb,
+  user: UserRow,
+  clientId: string,
+): Promise<AttachmentRow | undefined> {
+  const attachment = await findAttachmentByClientId(db, user, clientId);
+  return attachment && !attachment.deletedAt && attachment.state === "ready"
+    ? attachment
+    : undefined;
+}
+
+async function findAttachmentByClientId(
+  db: FlareMoDb,
+  user: UserRow,
+  clientId: string,
+): Promise<AttachmentRow | undefined> {
+  return db
+    .select()
+    .from(attachments)
+    .where(
+      and(eq(attachments.userId, user.id), eq(attachments.clientId, clientId)),
+    )
+    .get();
+}
+
+function assertUsableClientAttachment(attachment: AttachmentRow) {
+  if (!attachment.deletedAt && attachment.state === "ready") {
+    return attachment;
+  }
+  throw new ConflictError("Attachment client_id is unavailable");
+}
+
+export function normalizeAttachmentClientId(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const clientId = value.trim();
+  return clientId && clientId.length <= 128 ? clientId : undefined;
 }
 
 export async function bindMemoAttachments(

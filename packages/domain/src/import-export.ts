@@ -9,7 +9,12 @@ import {
 } from "@flaremo/db";
 import { and, eq } from "drizzle-orm";
 import { createResourceId, createToken, parseResourceName } from "./ids";
-import { normalizeMemoPayload, normalizeMemoTags, updateMemo } from "./memos";
+import {
+  normalizeMemoClientId,
+  normalizeMemoPayload,
+  normalizeMemoTags,
+  updateMemo,
+} from "./memos";
 
 export async function exportData(
   db: FlareMoDb,
@@ -102,11 +107,28 @@ export async function importData(
 
   for (const memo of bundle.memos) {
     const sourceId = parseResourceName(memo.name, "memos");
-    const existing = await db
+    const payload = normalizeMemoPayload(memo.payload);
+    const requestedClientId = normalizeMemoClientId(payload.client_id);
+    if (requestedClientId) payload.client_id = requestedClientId;
+
+    const existingById = await db
       .select({ id: memos.id })
       .from(memos)
       .where(and(eq(memos.id, sourceId), eq(memos.userId, user.id)))
       .get();
+    const existingByClientId = requestedClientId
+      ? await db
+          .select({ id: memos.id })
+          .from(memos)
+          .where(
+            and(
+              eq(memos.userId, user.id),
+              eq(memos.clientId, requestedClientId),
+            ),
+          )
+          .get()
+      : undefined;
+    const existing = existingById ?? existingByClientId;
 
     if (existing && conflict === "skip") {
       memoIdMap.set(memo.name, existing.id);
@@ -115,12 +137,15 @@ export async function importData(
     }
 
     if (existing && conflict === "overwrite") {
+      // `client_id` is a stable creation id, not imported memo content. The
+      // target row keeps its canonical value (or gains it only on insert).
+      delete payload.client_id;
       await updateMemo(db, user, existing.id, {
         content: memo.content,
         visibility: memo.visibility,
         status: memo.state,
         pinned: memo.pinned,
-        payload: memo.payload,
+        payload,
       });
       await db
         .update(memos)
@@ -135,9 +160,17 @@ export async function importData(
       continue;
     }
 
-    const importedId = existing ? createResourceId("memos") : sourceId;
+    const importedId = existingById ? createResourceId("memos") : sourceId;
     memoIdMap.set(memo.name, importedId);
-    const payload = normalizeMemoPayload(memo.payload);
+    // A duplicate import is intentionally a new memo. It cannot reuse the
+    // original request's idempotency key when that key already identifies a
+    // memo in this account.
+    const clientId = existingByClientId ? undefined : requestedClientId;
+    if (clientId) {
+      payload.client_id = clientId;
+    } else if (existingByClientId) {
+      delete payload.client_id;
+    }
     const tags = normalizeMemoTags(payload.tags ?? extractTags(memo.content));
     payload.tags = tags;
     const createdAt = memo.create_time ?? now;
@@ -150,6 +183,7 @@ export async function importData(
       status: memo.state,
       pinned: memo.pinned,
       source: memo.source ?? "import",
+      clientId,
       payload,
       createdAt,
       updatedAt,

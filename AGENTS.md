@@ -116,5 +116,6 @@ pnpm dev
 - `docs/release.md`：发版规则。
 - `docs/maintenance.md`：维护、备份和恢复。
 - `docs/memos-compatibility.md`：Memos 兼容矩阵。
+- `docs/design-system.md`：Ember 设计系统（色彩、字体、动效、组件和文案约定）。
 - `docs/semantic-search.md`：语义搜索、Vectorize 和 Workers AI 的边界。
 - `ROADMAP.md`：稳定方向和公开任务池。

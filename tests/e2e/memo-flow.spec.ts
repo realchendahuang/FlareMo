@@ -18,6 +18,86 @@ test("creates a memo and filters it by tag", async ({ page }) => {
   await expect(page.getByText(content)).toBeVisible();
 });
 
+test("restores an unfinished new-memo draft after a reload", async ({
+  page,
+}) => {
+  const content = `Persistent draft #draft${Date.now()}`;
+
+  await page.goto("/");
+  const composer = page.getByRole("textbox", { name: /new note|新笔记/i });
+  await composer.fill(content);
+  // The composer persists after a short debounce, including its client id.
+  await page.waitForTimeout(800);
+
+  await page.reload();
+  await expect(
+    page.getByRole("textbox", { name: /new note|新笔记/i }),
+  ).toHaveValue(content);
+  await expect(
+    page.getByText(/restored.*draft|已恢复未完成的草稿/i),
+  ).toBeVisible();
+});
+
+test("queues an offline note and saves it after connectivity returns", async ({
+  page,
+}) => {
+  const content = `Queued offline note #offline${Date.now()}`;
+
+  await page.goto("/");
+  await page.context().setOffline(true);
+  await page.getByRole("textbox", { name: /new note|新笔记/i }).fill(content);
+  await page.getByRole("button", { name: /save|保存/i }).click();
+  await expect(page.getByText(/offline|离线/i)).toBeVisible();
+
+  await page.context().setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByText(content)).toBeVisible();
+});
+
+test("searches timeline and archived notes by default and supports archive syntax", async ({
+  page,
+}) => {
+  const marker = Date.now();
+  const timeline = `Timeline search marker ${marker}`;
+  const archived = `Archived search marker ${marker}`;
+  const timelineResponse = await page.request.post("/api/app/memos", {
+    data: { content: timeline },
+  });
+  const archivedResponse = await page.request.post("/api/app/memos", {
+    data: { content: archived },
+  });
+  expect(timelineResponse.ok()).toBe(true);
+  expect(archivedResponse.ok()).toBe(true);
+  const archivedMemo = (await archivedResponse.json()) as { id: string };
+  const archiveResponse = await page.request.patch(
+    `/api/app/memos/${archivedMemo.id}`,
+    { data: { status: "archived" } },
+  );
+  expect(archiveResponse.ok()).toBe(true);
+
+  await page.goto("/");
+  await page
+    .getByRole("navigation", { name: /navigation|导航/i })
+    .getByRole("button", { name: /archive|归档/i })
+    .click();
+  const search = page.getByRole("textbox", { name: /search|搜索/i });
+  await search.fill(`search marker ${marker}`);
+  await expect(
+    page.locator("article").filter({ hasText: timeline }),
+  ).toBeVisible();
+  await expect(
+    page.locator("article").filter({ hasText: archived }),
+  ).toBeVisible();
+  await expect(page.getByTestId("memo-search-excerpt").first()).toContainText(
+    "search marker",
+  );
+
+  await search.fill(`Archived search marker ${marker} in:archive`);
+  await expect(
+    page.locator("article").filter({ hasText: archived }),
+  ).toBeVisible();
+});
+
 test("shows a memo submitted by an external agent in the timeline", async ({
   page,
 }) => {
@@ -153,8 +233,8 @@ test("edits and shares a memo", async ({ page }) => {
   const card = page.locator("article").filter({ hasText: content });
   await card.getByRole("button", { name: /actions|操作/i }).click();
   await page.getByRole("menuitem", { name: /edit|编辑/i }).click();
-  await page.getByRole("dialog").getByRole("textbox").fill(updated);
-  await page.getByRole("button", { name: /save|保存/i }).click();
+  await card.getByRole("textbox").fill(updated);
+  await card.getByRole("button", { name: /^save$|^保存$/i }).click();
   await expect(
     page.locator("article").filter({ hasText: updated }),
   ).toBeVisible();

@@ -24,14 +24,21 @@ import {
   SearchIcon,
   UploadIcon,
 } from "lucide-react";
-import { lazy, Suspense, useMemo, useState } from "react";
+import {
+  lazy,
+  type RefObject,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import {
   ApiError,
-  bindMemoAttachments,
   createMemo,
   createShare,
-  deleteAttachment,
   exportData,
   getMemoStats,
   hardDeleteMemo,
@@ -40,7 +47,6 @@ import {
   type Memo,
   type MemoState,
   type MemoStatsResponse,
-  type MemoVisibility,
   type Share,
   trashMemo,
   updateMemo,
@@ -62,7 +68,16 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UpdateStatus } from "@/components/update-status";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useNewMemoCapture } from "@/hooks/use-new-memo-capture";
 import { type TranslationKey, useI18n } from "@/i18n";
+import {
+  enqueueMemoSubmission,
+  flushQueuedMemoSubmissions,
+  getNewMemoDraftId,
+  isBrowserOnline,
+  type MemoCaptureInput,
+} from "@/lib/local-memo-capture";
+import { cn } from "@/lib/utils";
 
 const MemoDetailPage = lazy(() =>
   import("@/pages/memo-detail-page").then((module) => ({
@@ -104,7 +119,13 @@ function FlareMoApp() {
   const setQuery = (q: string) =>
     void navigate({
       replace: true,
-      search: (current) => ({ ...current, q: q || undefined }),
+      search: (current) => ({
+        ...current,
+        q: q || undefined,
+        // A text query includes timeline and archived notes by default; trash
+        // remains available through the explicit `in:trash` search operator.
+        view: q.trim() ? "all" : view,
+      }),
     });
   const [sharesByMemo, setSharesByMemo] = useState<Map<string, Share>>(
     new Map(),
@@ -112,18 +133,68 @@ function FlareMoApp() {
   const [timeZone] = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
+  const [newMemoDraftId] = useState(getNewMemoDraftId);
+  const capture = useNewMemoCapture({ draftId: newMemoDraftId });
+  const desktopSearchRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const [isTimelineScrolled, setIsTimelineScrolled] = useState(false);
+  const isQueueFlushing = useRef(false);
+  const isQueueFlushPending = useRef(false);
+  const isCaptureSubmitting = useRef(false);
+  const restoredDraftNotified = useRef(false);
+  const [isCaptureSubmissionPending, setIsCaptureSubmissionPending] =
+    useState(false);
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
+  const isSearching = Boolean(debouncedQuery);
+
+  useEffect(() => {
+    const focusSearch = () => {
+      const desktop = window.matchMedia("(min-width: 768px)").matches;
+      (desktop ? desktopSearchRef : mobileSearchRef).current?.focus();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const editable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLocaleLowerCase() === "k"
+      ) {
+        event.preventDefault();
+        focusSearch();
+        return;
+      }
+      if (event.key === "/" && !editable) {
+        event.preventDefault();
+        focusSearch();
+        return;
+      }
+      // "c" jumps straight into the composer, like Memos' quick capture.
+      if (event.key.toLocaleLowerCase() === "c" && !editable) {
+        const composer = document.getElementById("flaremo-composer-input");
+        if (composer instanceof HTMLTextAreaElement) {
+          event.preventDefault();
+          composer.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const memosQuery = useInfiniteQuery({
     queryKey: ["memos", view, debouncedQuery, activeTag],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       listMemos({
-        include_deleted: view === "trashed",
+        include_deleted: !isSearching && view === "trashed",
         page_size: PAGE_SIZE,
         page_token: pageParam,
         q: debouncedQuery || undefined,
-        state: viewToMemoState(view),
+        state: isSearching ? undefined : viewToMemoState(view),
         tag: activeTag,
       }),
     getNextPageParam: (lastPage) => lastPage.next_page_token,
@@ -165,23 +236,19 @@ function FlareMoApp() {
     toast.error(normalizedError.message);
   };
 
-  const createMutation = useMutation({
-    mutationFn: (input: {
-      content: string;
-      visibility: MemoVisibility;
-      tags: string[];
-      files: File[];
-    }) =>
-      createMemoWithAttachments({
-        ...input,
-        content: input.content || t("toast.untitledAttachment"),
-      }),
-    onSuccess: () => {
-      toast.success(t("toast.saved"));
-      void invalidateWorkspace();
-    },
-    onError: handleMutationError,
-  });
+  const { mutateAsync: createMemoAsync, isPending: isCreatingMemo } =
+    useMutation({
+      mutationFn: createMemoWithAttachments,
+      onSuccess: () => {
+        void invalidateWorkspace();
+      },
+      // A memo can be created before one of its attachment uploads loses the
+      // network response. Refresh the list even on failure so the durable
+      // memo is not hidden while its queued attachment retry is pending.
+      onError: () => {
+        void invalidateWorkspace();
+      },
+    });
 
   const trashMutation = useMutation({
     mutationFn: trashMemo,
@@ -261,6 +328,107 @@ function FlareMoApp() {
     },
     onError: handleMutationError,
   });
+
+  const flushQueuedCaptures = useCallback(async () => {
+    if (!isBrowserOnline()) return;
+    // An "online" event that lands while a flush is running (e.g. the mount
+    // flush) must schedule another pass instead of being swallowed.
+    if (isQueueFlushing.current) {
+      isQueueFlushPending.current = true;
+      return;
+    }
+
+    isQueueFlushing.current = true;
+    try {
+      let submitted = 0;
+      let failed = 0;
+      do {
+        isQueueFlushPending.current = false;
+        const result = await flushQueuedMemoSubmissions(
+          (submission) => createMemoAsync(submission),
+          {
+            shouldContinueAfterFailure:
+              shouldContinueQueuedSubmissionAfterFailure,
+          },
+        );
+        submitted += result.submittedIds.length;
+        failed += result.failedIds.length;
+      } while (isQueueFlushPending.current && isBrowserOnline());
+      if (submitted > 0) {
+        toast.success(t("toast.queueSynced"));
+      }
+      if (failed > 0) {
+        toast.error(t("toast.queueNeedsAttention", { count: failed }));
+      }
+    } finally {
+      isQueueFlushing.current = false;
+    }
+  }, [createMemoAsync, t]);
+
+  useEffect(() => {
+    void flushQueuedCaptures();
+    const handleOnline = () => void flushQueuedCaptures();
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [flushQueuedCaptures]);
+
+  useEffect(() => {
+    if (!capture.didRestoreStoredDraft || restoredDraftNotified.current) return;
+    restoredDraftNotified.current = true;
+    toast.success(t("toast.draftRestored"));
+  }, [capture.didRestoreStoredDraft, t]);
+
+  const handleCaptureSubmit = async (input: MemoCaptureInput) => {
+    if (isCaptureSubmitting.current) return;
+
+    isCaptureSubmitting.current = true;
+    setIsCaptureSubmissionPending(true);
+    const submission = {
+      ...input,
+      content: input.content || t("toast.untitledAttachment"),
+    };
+    try {
+      const validationError = validateMemoCaptureSubmission(submission, t);
+      if (validationError) {
+        handleMutationError(validationError);
+        throw validationError;
+      }
+
+      if (!isBrowserOnline()) {
+        const queued = await enqueueMemoSubmission(submission);
+        if (!queued) {
+          const error = new Error(t("toast.offlineStorageUnavailable"));
+          handleMutationError(error);
+          throw error;
+        }
+        await capture.discardDraft();
+        toast.success(t("toast.queuedForSync"));
+        return;
+      }
+
+      try {
+        await createMemoAsync(submission);
+        await capture.discardDraft();
+        toast.success(t("toast.saved"));
+      } catch (error) {
+        if (!shouldQueueAfterFailure(error)) {
+          handleMutationError(error);
+          throw error;
+        }
+
+        const queued = await enqueueMemoSubmission(submission);
+        if (!queued) {
+          handleMutationError(error);
+          throw error;
+        }
+        await capture.discardDraft();
+        toast.success(t("toast.queuedForSync"));
+      }
+    } finally {
+      isCaptureSubmitting.current = false;
+      setIsCaptureSubmissionPending(false);
+    }
+  };
 
   const handleExport = async () => {
     try {
@@ -351,7 +519,14 @@ function FlareMoApp() {
           {renderExplorer("flaremo-import-file-desktop")}
         </div>
         <div className="flex h-full min-w-0 flex-1 flex-col">
-          <header className="z-20 shrink-0 bg-background/95 backdrop-blur">
+          <header
+            className={cn(
+              "z-20 shrink-0 border-b bg-background/90 backdrop-blur-md motion-safe:transition-[border-color,box-shadow] motion-safe:duration-200",
+              isTimelineScrolled
+                ? "border-border shadow-xs"
+                : "border-transparent",
+            )}
+          >
             <div className="flex h-14 items-center gap-2 px-5 lg:px-3">
               <Sheet>
                 <SheetTrigger asChild>
@@ -384,7 +559,7 @@ function FlareMoApp() {
                   /
                 </span>
                 <div className="truncate px-1.5 py-1 text-sm font-semibold">
-                  {viewTitle(view, t)}
+                  {query.trim() ? t("search.results") : viewTitle(view, t)}
                 </div>
                 {activeTag && (
                   <button
@@ -398,15 +573,23 @@ function FlareMoApp() {
               </div>
               <SearchBox
                 className="hidden w-[243px] md:block"
+                inputRef={desktopSearchRef}
                 query={query}
+                showShortcut
                 setQuery={setQuery}
                 t={t}
               />
             </div>
           </header>
-          <main className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pt-1 pb-8 lg:px-3">
+          <main
+            className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pt-1 pb-8 lg:px-3"
+            onScroll={(event) =>
+              setIsTimelineScrolled(event.currentTarget.scrollTop > 4)
+            }
+          >
             <SearchBox
-              className="mb-3 md:hidden motion-safe:animate-[flaremo-rise_160ms_ease-out_both]"
+              className="mb-3 md:hidden motion-safe:animate-rise"
+              inputRef={mobileSearchRef}
               query={query}
               setQuery={setQuery}
               t={t}
@@ -414,19 +597,19 @@ function FlareMoApp() {
             <div className="flex flex-col gap-3">
               {view === "all" && (
                 <MemoComposer
-                  isPending={createMutation.isPending}
-                  onSubmit={async ({ content, visibility, tags, files }) => {
-                    await createMutation.mutateAsync({
-                      content,
-                      visibility,
-                      tags,
-                      files,
-                    });
-                  }}
+                  draft={capture.draft}
+                  isPending={isCreatingMemo || isCaptureSubmissionPending}
+                  onDraftChange={capture.updateDraft}
+                  onSubmit={handleCaptureSubmit}
                 />
               )}
               {(activeTag || query.trim()) && (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground motion-safe:animate-[flaremo-rise_140ms_ease-out_both]">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground motion-safe:animate-rise">
+                  {query.trim() && (
+                    <span className="rounded-md bg-muted px-2 py-1">
+                      {t("search.globalScope")}
+                    </span>
+                  )}
                   {activeTag && (
                     <button
                       className="rounded-md bg-muted px-2 py-1 motion-safe:transition-colors hover:text-foreground"
@@ -448,6 +631,11 @@ function FlareMoApp() {
                   </button>
                 </div>
               )}
+              {query.trim() && (
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  {t("search.syntaxHint")}
+                </p>
+              )}
               <MemoList
                 attachmentsByMemo={attachmentsByMemo}
                 hasError={memosQuery.isError}
@@ -455,6 +643,7 @@ function FlareMoApp() {
                 isFetchingNextPage={memosQuery.isFetchingNextPage}
                 isLoading={memosQuery.isLoading}
                 memos={memos}
+                searchQuery={debouncedQuery || undefined}
                 sharesByMemo={sharesByMemo}
                 onArchive={(id) => {
                   const memo = memos.find(
@@ -478,6 +667,7 @@ function FlareMoApp() {
                 onRestore={(id) => restoreMutation.mutate(id)}
                 onRetry={() => void memosQuery.refetch()}
                 onShare={(id) => shareMutation.mutate(id)}
+                onTagClick={setActiveTag}
                 onTrash={(id) => trashMutation.mutate(id)}
                 onUpdate={async (id, input) => {
                   await updateMutation.mutateAsync({ id, input });
@@ -493,12 +683,16 @@ function FlareMoApp() {
 
 function SearchBox({
   className,
+  inputRef,
   query,
+  showShortcut = false,
   setQuery,
   t,
 }: {
   className: string;
+  inputRef?: RefObject<HTMLInputElement | null>;
   query: string;
+  showShortcut?: boolean;
   setQuery: (value: string) => void;
   t: (key: TranslationKey) => string;
 }) {
@@ -508,70 +702,88 @@ function SearchBox({
         <SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
         <Input
           aria-label={t("common.search")}
-          className="h-9 rounded-xl border-0 bg-muted pl-9 shadow-none focus-visible:ring-1"
-          placeholder={t("common.search")}
+          className="h-9 rounded-xl border-0 bg-muted pr-11 pl-9 shadow-none transition-[box-shadow,background-color] focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-flame-400/30"
+          placeholder={t("search.placeholder")}
+          ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        {showShortcut && (
+          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shadow-xs">
+            ⌘K
+          </kbd>
+        )}
       </div>
     </div>
   );
 }
 
-async function createMemoWithAttachments(input: {
-  content: string;
-  visibility: MemoVisibility;
-  tags: string[];
-  files: File[];
-}) {
-  const uploadResults = await Promise.allSettled(
-    input.files.map((file) => uploadAttachment({ file })),
-  );
-  const attachments = uploadResults.flatMap((result) =>
-    result.status === "fulfilled" ? [result.value] : [],
-  );
-  const failedUpload = uploadResults.find(
-    (result) => result.status === "rejected",
-  );
-  if (failedUpload?.status === "rejected") {
-    await cleanupAttachments(attachments);
-    throw toError(failedUpload.reason);
+async function createMemoWithAttachments(input: MemoCaptureInput) {
+  const memo = await createMemo({
+    content: input.content,
+    visibility: input.visibility,
+    payload: { tags: input.tags, client_id: input.clientId },
+    source: "web",
+  });
+
+  // A mobile queue can hold many large files. Upload them in order so a
+  // transient failure stops early, and each retry only replays stable ids.
+  for (const [index, file] of input.files.entries()) {
+    await uploadAttachment({
+      file,
+      memo: memo.name,
+      clientId: getAttachmentCaptureClientId(input.clientId, index),
+    });
   }
 
-  let memo: Memo | undefined;
-  try {
-    memo = await createMemo({
-      content: input.content,
-      visibility: input.visibility,
-      payload: { tags: input.tags },
-      source: "web",
-    });
-    if (attachments.length > 0) {
-      await bindMemoAttachments(
-        memo.name,
-        attachments.map((attachment) => attachment.name),
-      );
-    }
-    return memo;
-  } catch (error) {
-    await Promise.allSettled([
-      ...attachments.map((attachment) => deleteAttachment(attachment.id)),
-      ...(memo ? [hardDeleteMemo(memo.id)] : []),
-    ]);
-    throw toError(error);
-  }
+  return memo;
 }
 
-async function cleanupAttachments(
-  attachments: Array<{ id: string }>,
-): Promise<void> {
-  await Promise.allSettled(
-    attachments.map((attachment) => deleteAttachment(attachment.id)),
-  );
+function getAttachmentCaptureClientId(
+  memoClientId: string | undefined,
+  index: number,
+) {
+  if (!memoClientId) return undefined;
+  const clientId = `${memoClientId}:attachment:${index}`;
+  return clientId.length <= 128 ? clientId : undefined;
 }
 
 function toError(error: unknown) {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+function shouldQueueAfterFailure(error: unknown) {
+  // Queue only when the request never received a meaningful answer (network
+  // failure, timeout, rate limit). A server error response is surfaced to
+  // the user instead, with the draft kept intact for an explicit retry.
+  if (!(error instanceof ApiError)) return true;
+  return error.status === 408 || error.status === 429;
+}
+
+function shouldContinueQueuedSubmissionAfterFailure(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 408 &&
+    error.status !== 429
+  );
+}
+
+function validateMemoCaptureSubmission(
+  input: MemoCaptureInput,
+  t: (key: TranslationKey) => string,
+) {
+  if (input.content.length > 100_000) {
+    return new Error(t("toast.memoTooLong"));
+  }
+  if (input.files.length > 100) {
+    return new Error(t("toast.tooManyAttachments"));
+  }
+  if (input.files.some((file) => file.size > 25 * 1024 * 1024)) {
+    return new Error(t("toast.attachmentTooLarge"));
+  }
+  return undefined;
 }
 
 type MemoSnapshot = Array<

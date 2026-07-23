@@ -1,15 +1,16 @@
-import type {
-  CreateMemoInput,
-  ListMemosQuery,
-  MemoOrderBy,
-  MemoStatsQuery,
-  MemoStatsResponse,
-  UpdateMemoInput,
+import {
+  type CreateMemoInput,
+  type ListMemosQuery,
+  type MemoOrderBy,
+  type MemoStatsQuery,
+  type MemoStatsResponse,
+  parseMemoSearchQuery,
+  type UpdateMemoInput,
 } from "@flaremo/contracts";
 import type { FlareMoDb, MemoPayload, MemoRow, UserRow } from "@flaremo/db";
 import { attachments, memoRevisions, memos, memoTags } from "@flaremo/db";
 import { and, asc, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
-import { NotFoundError, ValidationError } from "./errors";
+import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
 
 export type MemoListResult = {
@@ -31,6 +32,12 @@ export async function createMemo(
 ): Promise<MemoRow> {
   const now = new Date().toISOString();
   const payload = normalizeMemoPayload(input.payload);
+  const clientId = normalizeMemoClientId(payload.client_id);
+  if (clientId) {
+    payload.client_id = clientId;
+    const existing = await getMemoByClientId(db, user, clientId);
+    if (existing) return existing;
+  }
   const tags = normalizeMemoTags(payload.tags ?? extractTags(input.content));
   payload.tags = tags;
   const row = {
@@ -41,6 +48,7 @@ export async function createMemo(
     status: "normal" as const,
     pinned: false,
     source: input.source,
+    clientId,
     payload,
     createdAt: now,
     updatedAt: now,
@@ -48,20 +56,30 @@ export async function createMemo(
   };
 
   const insertMemo = db.insert(memos).values(row);
-  if (tags.length > 0) {
-    await db.batch([
-      insertMemo,
-      db.insert(memoTags).values(
-        tags.map((tag) => ({
-          memoId: row.id,
-          userId: user.id,
-          tag,
-          createdAt: now,
-        })),
-      ),
-    ]);
-  } else {
-    await insertMemo;
+  try {
+    if (tags.length > 0) {
+      await db.batch([
+        insertMemo,
+        db.insert(memoTags).values(
+          tags.map((tag) => ({
+            memoId: row.id,
+            userId: user.id,
+            tag,
+            createdAt: now,
+          })),
+        ),
+      ]);
+    } else {
+      await insertMemo;
+    }
+  } catch (error) {
+    // A second tab can submit the same queued entry at the same time. The
+    // unique `(user_id, client_id)` index is the final idempotency boundary.
+    if (clientId) {
+      const existing = await getMemoByClientId(db, user, clientId);
+      if (existing) return existing;
+    }
+    throw error;
   }
   return getMemoById(db, user, row.id, { includeDeleted: true });
 }
@@ -71,6 +89,7 @@ export async function listMemos(
   user: UserRow,
   query: ListMemosQuery,
 ): Promise<MemoListResult> {
+  const search = parseMemoSearchQuery(query.q);
   const cursor = query.page_token
     ? decodePageToken(query.page_token, query.order_by)
     : undefined;
@@ -80,21 +99,52 @@ export async function listMemos(
     : memos.createdAt;
   const filters = [eq(memos.userId, user.id)];
 
-  if (query.state) {
-    filters.push(eq(memos.status, query.state));
+  // The established `state` query parameter wins over a search scope so that
+  // Memos-compatible clients retain their existing filtering semantics.
+  const searchState = query.state ?? memoSearchScopeToState(search.scope);
+  if (searchState) {
+    filters.push(eq(memos.status, searchState));
+  } else if (query.q?.trim() && !query.include_deleted) {
+    // Full-text search is intentionally broader than the timeline: archived
+    // notes stay discoverable, while trashed notes remain opt-in via in:trash.
+    filters.push(inArray(memos.status, ["normal", "archived"]));
   } else if (!query.include_deleted) {
     filters.push(eq(memos.status, "normal"));
   }
 
-  if (query.q) {
-    const ftsQuery = buildFtsQuery(query.q);
+  if (search.text) {
+    const ftsQuery = buildFtsQuery(search.text);
     filters.push(
       ftsQuery
         ? sql`${memos.id} IN (
             SELECT memo_id FROM memos_fts WHERE memos_fts MATCH ${ftsQuery}
           )`
-        : sql`${memos.content} LIKE ${`%${escapeLike(query.q)}%`} ESCAPE '\\'`,
+        : sql`${memos.content} LIKE ${`%${escapeLike(search.text)}%`} ESCAPE '\\'`,
     );
+  }
+
+  if (search.hasAttachment) {
+    filters.push(
+      sql`EXISTS (
+        SELECT 1 FROM ${attachments}
+        WHERE ${attachments.memoId} = ${memos.id}
+          AND ${attachments.userId} = ${user.id}
+          AND ${attachments.deletedAt} IS NULL
+          AND ${attachments.state} = 'ready'
+      )`,
+    );
+  }
+
+  if (search.isPinned) {
+    filters.push(eq(memos.pinned, true));
+  }
+
+  if (search.after) {
+    filters.push(gte(memos.createdAt, toUtcDayStart(search.after)));
+  }
+
+  if (search.before) {
+    filters.push(lt(memos.createdAt, toUtcDayStart(search.before)));
   }
 
   if (query.tag) {
@@ -273,6 +323,18 @@ export async function getMemoById(
   return row;
 }
 
+async function getMemoByClientId(
+  db: FlareMoDb,
+  user: UserRow,
+  clientId: string,
+): Promise<MemoRow | undefined> {
+  return db
+    .select()
+    .from(memos)
+    .where(and(eq(memos.userId, user.id), eq(memos.clientId, clientId)))
+    .get();
+}
+
 export async function updateMemo(
   db: FlareMoDb,
   user: UserRow,
@@ -289,6 +351,25 @@ export async function updateMemo(
     input.payload !== undefined
       ? normalizeMemoPayload(input.payload)
       : normalizeMemoPayload(existing.payload);
+  const persistedClientId =
+    existing.clientId ?? normalizeMemoClientId(existing.payload.client_id);
+  const requestedClientId =
+    input.payload !== undefined
+      ? normalizeMemoClientId(nextPayload.client_id)
+      : undefined;
+  // payload.client_id stays mutable like any other payload field. A payload
+  // update that omits it preserves the previous creation id so the
+  // idempotency key is not silently dropped.
+  const nextClientId = requestedClientId ?? persistedClientId;
+  if (nextClientId && nextClientId !== existing.clientId) {
+    const owner = await getMemoByClientId(db, user, nextClientId);
+    if (owner && owner.id !== existing.id) {
+      throw new ConflictError("Memo client_id is already in use");
+    }
+  }
+  if (input.payload !== undefined && nextClientId) {
+    nextPayload.client_id = nextClientId;
+  }
   const tags = metadataChanged
     ? normalizeMemoTags(nextPayload.tags ?? extractTags(nextContent))
     : [];
@@ -303,6 +384,7 @@ export async function updateMemo(
     ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
     ...(status !== undefined ? { status } : {}),
     ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
+    ...(nextClientId !== existing.clientId ? { clientId: nextClientId } : {}),
     ...(metadataChanged ? { payload: nextPayload } : {}),
     updatedAt: now,
     ...(status === "trashed" || status === "deleted" ? { deletedAt: now } : {}),
@@ -381,6 +463,12 @@ export function normalizeMemoPayload(payload: unknown): MemoPayload {
   return { ...(payload as MemoPayload) };
 }
 
+export function normalizeMemoClientId(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const clientId = value.trim();
+  return clientId && clientId.length <= 128 ? clientId : undefined;
+}
+
 export function normalizeMemoTags(values: string[]) {
   const tags = new Set<string>();
   for (const value of values) {
@@ -427,6 +515,19 @@ function escapeLike(value: string) {
     .replaceAll("\\", "\\\\")
     .replaceAll("%", "\\%")
     .replaceAll("_", "\\_");
+}
+
+function memoSearchScopeToState(
+  scope: "timeline" | "archive" | "trash" | undefined,
+) {
+  if (scope === "timeline") return "normal" as const;
+  if (scope === "archive") return "archived" as const;
+  if (scope === "trash") return "trashed" as const;
+  return undefined;
+}
+
+function toUtcDayStart(date: string) {
+  return `${date}T00:00:00.000Z`;
 }
 
 function extractTags(content: string) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { memoSearchScopes } from "./search-query";
 
 export const memoVisibilitySchema = z.enum(["private", "protected", "public"]);
 export const memoStatusSchema = z.enum([
@@ -15,6 +16,7 @@ export const memoOrderBySchema = z.enum([
   "updated_at asc",
   "updated_at desc",
 ]);
+export const memoSearchScopeSchema = z.enum(memoSearchScopes);
 
 export const memoPropertySchema = z
   .object({
@@ -31,6 +33,9 @@ export const memoPayloadSchema = z
     tags: z.array(z.string()).optional(),
     property: memoPropertySchema.optional(),
     location: z.unknown().optional(),
+    // Memos-compatible payloads may already carry arbitrary client ids. The
+    // domain layer only promotes a non-empty value up to 128 characters to
+    // the internal idempotency key, without rejecting existing clients.
     client_id: z.string().optional(),
   })
   .passthrough();
@@ -60,7 +65,12 @@ export const listMemosQuerySchema = z.object({
   page_token: z.string().optional(),
   order_by: memoOrderBySchema.default("created_at desc"),
   state: memoStatusSchema.optional(),
-  q: z.string().optional(),
+  q: z
+    .string()
+    .optional()
+    .describe(
+      "Full-text terms plus optional filters: has:attachment, is:pinned, before:YYYY-MM-DD, after:YYYY-MM-DD, and in:timeline|archive|trash. Without state or in:, queries search timeline and archived memos; use in:trash for trashed memos. Date filters use memo creation dates in UTC; after is inclusive and before is exclusive. Invalid filter-like terms remain text.",
+    ),
   tag: z.string().optional(),
   include_deleted: z.coerce.boolean().default(false),
 });

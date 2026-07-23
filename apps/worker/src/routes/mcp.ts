@@ -66,7 +66,11 @@ mcpApi.post("/mcp", async (c) => {
                 type: "object",
                 properties: {
                   page_size: { type: "integer", minimum: 1, maximum: 100 },
-                  q: { type: "string" },
+                  q: {
+                    type: "string",
+                    description:
+                      "Full-text terms plus optional filters: has:attachment, is:pinned, before:YYYY-MM-DD, after:YYYY-MM-DD, and in:timeline|archive|trash.",
+                  },
                   tag: { type: "string" },
                   state: {
                     type: "string",
@@ -104,12 +108,17 @@ mcpApi.post("/mcp", async (c) => {
             },
             {
               name: "search_memos",
-              description: "Search memos by text query.",
+              description:
+                "Search memos by full-text terms and optional has:attachment, is:pinned, date, or scope filters.",
               inputSchema: {
                 type: "object",
                 required: ["q"],
                 properties: {
-                  q: { type: "string" },
+                  q: {
+                    type: "string",
+                    description:
+                      "Full-text terms plus optional filters: has:attachment, is:pinned, before:YYYY-MM-DD, after:YYYY-MM-DD, and in:timeline|archive|trash.",
+                  },
                   page_size: { type: "integer", minimum: 1, maximum: 100 },
                 },
               },
