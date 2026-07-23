@@ -19,7 +19,7 @@ HTTP 400
 Your GitHub authorization has expired. Please reauthorize your GitHub connection by reinstalling the Cloudflare GitHub App.
 ```
 
-这时在 `Git 帐户` 下拉里选择 `新建 GitHub 连接`，或按 Cloudflare 提示重新安装 Cloudflare GitHub App。GitHub 可能要求 sudo/passkey、GitHub Mobile、authenticator app 或邮箱验证码；这是 GitHub 账号侧的安全验证，不是 FlareMo 代码问题。
+这时按顺序操作：先在 GitHub 卸载旧的 `Cloudflare Workers and Pages` App，再回到 Deploy Button 表单选择 `新建 GitHub 连接`，最后在带 Cloudflare `state` 参数的 GitHub 页面选择 `Install & Authorize`。不要先从 GitHub App 页面直接安装；无 `state` 的安装不会建立当前 Cloudflare 表单所需的 Git 账号连接。GitHub 可能要求 sudo/passkey、GitHub Mobile、authenticator app 或邮箱验证码；这是 GitHub 账号侧的安全验证，不是 FlareMo 代码问题。
 
 一键部署完成后还要做一件事：
 
