@@ -357,14 +357,10 @@ export async function updateMemo(
     input.payload !== undefined
       ? normalizeMemoClientId(nextPayload.client_id)
       : undefined;
-  if (
-    persistedClientId &&
-    requestedClientId &&
-    persistedClientId !== requestedClientId
-  ) {
-    throw new ConflictError("Memo client_id is immutable");
-  }
-  const nextClientId = persistedClientId ?? requestedClientId;
+  // payload.client_id stays mutable like any other payload field. A payload
+  // update that omits it preserves the previous creation id so the
+  // idempotency key is not silently dropped.
+  const nextClientId = requestedClientId ?? persistedClientId;
   if (nextClientId && nextClientId !== existing.clientId) {
     const owner = await getMemoByClientId(db, user, nextClientId);
     if (owner && owner.id !== existing.id) {
