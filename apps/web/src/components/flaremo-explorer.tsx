@@ -12,6 +12,7 @@ type FlareMoExplorerProps = {
   activeTag?: string;
   activeView: ExplorerView;
   footer?: ReactNode;
+  headerAction?: ReactNode;
   stats: MemoStatsResponse;
   onTagChange: (tag?: string) => void;
   onViewChange: (view: ExplorerView) => void;
@@ -21,6 +22,7 @@ export function FlareMoExplorer({
   activeTag,
   activeView,
   footer,
+  headerAction,
   stats,
   onTagChange,
   onViewChange,
@@ -54,7 +56,7 @@ export function FlareMoExplorer({
 
   return (
     <aside className="flex min-h-full flex-col px-3 py-4 text-sm">
-      <header className="mb-5 flex items-center gap-2 px-1">
+      <header className="mb-5 flex items-center justify-between gap-2 px-1">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground text-xs font-semibold text-background">
             F
@@ -63,6 +65,7 @@ export function FlareMoExplorer({
             FlareMo
           </div>
         </div>
+        {headerAction}
       </header>
 
       <section className="mb-4 grid grid-cols-3 gap-2 px-1 motion-safe:animate-[flaremo-rise_180ms_ease-out_both]">

@@ -100,11 +100,7 @@ FlareMo 的部署被刻意做得很轻。两种方式，挑一种就行。
 
 **方式一：一键部署按钮**
 
-点击上方「Deploy to Cloudflare」按钮，Cloudflare 会读取 `wrangler.jsonc`，自动创建 Worker 并生成 D1 / R2 绑定。部署完成后跑一次远程迁移：
-
-```bash
-pnpm migrate:remote
-```
+点击上方「Deploy to Cloudflare」按钮，Cloudflare 会读取 `wrangler.jsonc`，自动创建 Worker、生成 D1 / R2 绑定并通过部署命令应用 D1 migrations。把 `FLAREMO_DEPLOY_REPOSITORY` 填成 Cloudflare 创建的 GitHub 仓库（例如 `octocat/flaremo`），应用内就能直接打开该仓库的更新 workflow。
 
 如果你的 Cloudflare Dashboard 还没有连接 GitHub 或 GitLab，Cloudflare 会先要求连接 Git provider。这个 OAuth 授权由你在 Cloudflare 页面里确认，FlareMo 不会要求应用内 token。
 
@@ -124,18 +120,17 @@ pnpm exec wrangler r2 bucket create flaremo-attachments
 ```bash
 pnpm verify
 pnpm deploy:dry-run
-pnpm migrate:remote
 pnpm deploy
 ```
 
-完整部署说明见 [docs/deploy.md](./docs/deploy.md)。英文部署说明见 [docs/en/deploy.md](./docs/en/deploy.md)。Deploy Button 的实测记录见 [docs/deploy-button-test.md](./docs/deploy-button-test.md)。
+完整部署说明见 [docs/deploy.md](./docs/deploy.md)，版本更新见 [docs/update.md](./docs/update.md)。英文部署说明见 [docs/en/deploy.md](./docs/en/deploy.md)。Deploy Button 的实测记录见 [docs/deploy-button-test.md](./docs/deploy-button-test.md)。
 
 **部署前检查清单**
 
 - Wrangler 已登录目标 Cloudflare 账号：`pnpm exec wrangler whoami`。
 - `wrangler.jsonc` 里的 D1 binding 是 `DB`，并已填入目标 D1 的 `database_id`。
 - `wrangler.jsonc` 里的 R2 binding 是 `ATTACHMENTS`，目标 bucket 已创建。
-- 远端 D1 migrations 会在首次部署后执行：`pnpm migrate:remote`。
+- `pnpm deploy` 会先应用尚未执行的远端 D1 migrations，再发布 Worker。
 - Cloudflare Access application 已规划好人类访问、Service Token 和公开分享 bypass。
 - 发布前已跑：`pnpm verify` 和 `pnpm deploy:dry-run`。
 
@@ -277,12 +272,14 @@ FlareMo 当前已经具备：
 
 ## 工程化
 
-项目不使用 GitHub Actions 作为 CI。发布前由维护者在本地执行：
+项目不使用 GitHub Actions 作为 CI 或生产部署器。发布前由维护者在本地执行：
 
 ```bash
 pnpm verify
 pnpm deploy:dry-run
 ```
+
+Deploy Button 创建的用户仓库包含一个最小权限的更新 workflow。它只同步正式 Release 并创建升级 PR；合并后仍由 Cloudflare Workers Builds 负责部署，不需要 Cloudflare API Token。
 
 常用维护命令：
 

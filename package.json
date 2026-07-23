@@ -1,6 +1,6 @@
 {
   "name": "flaremo",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -24,7 +24,7 @@
     "migrate:local": "wrangler d1 migrations apply DB --local",
     "migrate:remote": "wrangler d1 migrations apply DB --remote",
     "deploy:dry-run": "pnpm --filter @flaremo/web build && wrangler deploy --config ./wrangler.jsonc --dry-run",
-    "deploy": "pnpm --filter @flaremo/web build && pnpm --filter @flaremo/worker deploy"
+    "deploy": "pnpm --filter @flaremo/web build && pnpm migrate:remote && pnpm --filter @flaremo/worker deploy"
   },
   "cloudflare": {
     "bindings": {
@@ -39,6 +39,9 @@
       },
       "FLAREMO_SINGLE_USER_NAME": {
         "description": "Owner display name used by the single-user runtime model."
+      },
+      "FLAREMO_DEPLOY_REPOSITORY": {
+        "description": "GitHub repository created for this deployment, in owner/repository form. FlareMo uses it only to link the owner to the repository's update workflow."
       }
     }
   },

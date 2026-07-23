@@ -13,6 +13,8 @@
 - 测试入口：Chrome 登录态打开公开 Deploy Button URL
 - 结果：Cloudflare 正确进入 Workers `deploy-to-workers` 创建流程，并在 Dashboard URL 中携带 FlareMo 仓库地址。
 
+2026-07-23 增加的 `FLAREMO_DEPLOY_REPOSITORY` 表单项和部署前自动 migration 尚未完成新的 Deploy Button 端到端复测；本次只通过项目配置检查、测试和 `pnpm deploy:dry-run` 验证。完整复测仍受下述 GitHub App 重新授权步骤阻塞。
+
 已确认的跳转目标：
 
 ```text
@@ -103,11 +105,12 @@ Deploy Button 自动处理：
 - 在表单里映射 Worker 项目名、D1 binding、R2 binding、构建命令和部署命令。
 - 允许把 D1 和 R2 binding 切换为 `+ 新建`，由 Cloudflare 在部署流程里创建测试资源。
 - GitHub App 授权有效时，创建 Git 仓库连接并用 Workers Builds 执行构建部署。
+- `pnpm deploy` 在发布 Worker 前自动应用 D1 migrations。
 
 仍需手工处理：
 
 - 首次使用或授权过期时，先完成 GitHub/GitLab provider 授权；GitHub 可能要求 sudo/passkey、GitHub Mobile、authenticator app 或邮箱验证码。
-- 部署成功后，在生成的项目配置里确认 D1 database id 和 R2 bucket 名，再执行远端 D1 migrations。
+- 部署成功后，在生成的项目配置里确认 D1 database id、R2 bucket 名和 `FLAREMO_DEPLOY_REPOSITORY`；migrations 已包含在部署命令中。
 - 配置 Cloudflare Access application、Allow policy、Service Token policy 和公开分享 bypass。
 - 绑定自定义域名、DNS 和证书。
 
@@ -116,7 +119,7 @@ Deploy Button 自动处理：
 - Cloudflare 能打开 Deploy Button 页面并识别 FlareMo 仓库。
 - Cloudflare 能读取 Workers 项目配置。
 - D1 database 和 R2 bucket 绑定能被部署流程识别。
-- 部署完成后可以执行远端 D1 migrations。
+- 部署命令可以自动执行远端 D1 migrations。
 - 生产访问由 Cloudflare Access 接管，FlareMo 不要求应用内 Bearer token。
 
 ## 部署后仍需人工确认

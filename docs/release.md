@@ -1,6 +1,6 @@
 # 发版规则
 
-FlareMo 使用 Git tag 和 GitHub Release 发布版本。项目不依赖 GitHub Actions；发布前由维护者在本地跑完整门禁。
+FlareMo 使用 Git tag 和 GitHub Release 发布版本。项目不依赖 GitHub Actions 做 CI 或生产部署；发布前由维护者在本地跑完整门禁。用户部署仓库中的更新 workflow 只消费这里发布的正式 Release。
 
 ## 版本号
 
@@ -29,9 +29,10 @@ pnpm exec wrangler d1 migrations list DB --local
 涉及生产部署时：
 
 ```bash
-pnpm migrate:remote
 pnpm deploy
 ```
+
+`pnpm deploy` 会在发布 Worker 前应用尚未执行的远端 D1 migrations。
 
 ## Release notes 必须包含
 
@@ -41,6 +42,8 @@ pnpm deploy
 - Cloudflare 资源或 Access 配置变化。
 - 升级步骤。
 - 已知问题。
+
+自动部署先执行 migration，再发布 Worker。所有 migration 必须与上一正式版本的 Worker 向后兼容；删除列、收紧约束等破坏性收缩要等新代码完成发布后，在后续 release 中单独执行。
 
 ## 发版命令
 

@@ -112,6 +112,21 @@ const messages = {
     "toast.imported": "已导入 {count} 条",
     "toast.invalidImport": "导入文件不是有效的 JSON",
     "toast.statsUnavailable": "概览暂时无法加载",
+    "update.open": "系统更新",
+    "update.title": "系统更新",
+    "update.version": "版本",
+    "update.available": "有新版本",
+    "update.availableDescription":
+      "升级会先进入你的部署仓库，确认合并后由 Cloudflare 自动发布。",
+    "update.currentDescription": "查看当前版本和最新稳定版本。",
+    "update.current": "当前版本",
+    "update.latest": "最新版本",
+    "update.published": "发布时间",
+    "update.unavailable": "暂时无法检查",
+    "update.repositoryNotConfigured": "尚未配置部署仓库，当前会打开升级指南。",
+    "update.releaseNotes": "版本说明",
+    "update.goToUpdate": "前往更新",
+    "update.guide": "升级指南",
   },
   "en-US": {
     "app.name": "FlareMo",
@@ -213,6 +228,23 @@ const messages = {
     "toast.imported": "Imported {count} notes",
     "toast.invalidImport": "The import file is not valid JSON",
     "toast.statsUnavailable": "Overview is temporarily unavailable",
+    "update.open": "System update",
+    "update.title": "System update",
+    "update.version": "Version",
+    "update.available": "Update available",
+    "update.availableDescription":
+      "The update is prepared in your deployment repository. Merge it there and Cloudflare will publish it automatically.",
+    "update.currentDescription":
+      "Review the installed and latest stable versions.",
+    "update.current": "Installed",
+    "update.latest": "Latest",
+    "update.published": "Published",
+    "update.unavailable": "Check unavailable",
+    "update.repositoryNotConfigured":
+      "The deployment repository is not configured, so the update guide will open instead.",
+    "update.releaseNotes": "Release notes",
+    "update.goToUpdate": "Go to update",
+    "update.guide": "Update guide",
   },
 } as const satisfies Record<Locale, Record<string, string>>;
 

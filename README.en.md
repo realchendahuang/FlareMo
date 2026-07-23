@@ -35,13 +35,7 @@ FlareMo keeps the UI honest: if a feature is not wired to the backend, it does n
 
 ### Deploy Button
 
-Click the Deploy to Cloudflare button above. Cloudflare reads `wrangler.jsonc`, creates a Worker, and provisions the required D1 and R2 bindings.
-
-After the first deployment, apply D1 migrations:
-
-```bash
-pnpm migrate:remote
-```
+Click the Deploy to Cloudflare button above. Cloudflare reads `wrangler.jsonc`, creates a Worker, provisions the required D1 and R2 bindings, and applies D1 migrations through the deploy command. Set `FLAREMO_DEPLOY_REPOSITORY` to the GitHub repository Cloudflare creates, for example `octocat/flaremo`, so the in-app update entry can open that repository's update workflow.
 
 If your Cloudflare Dashboard has not connected GitHub or GitLab yet, Cloudflare will ask you to connect a Git provider first. That OAuth step happens in Cloudflare. FlareMo does not ask for an app-level token.
 
@@ -62,7 +56,6 @@ Write the generated D1 `database_id` into `wrangler.jsonc`, then run:
 ```bash
 pnpm verify
 pnpm deploy:dry-run
-pnpm migrate:remote
 pnpm deploy
 ```
 
@@ -73,7 +66,7 @@ Full deployment docs: [docs/en/deploy.md](./docs/en/deploy.md).
 - Wrangler is logged in to the target Cloudflare account: `pnpm exec wrangler whoami`.
 - `wrangler.jsonc` uses `DB` as the D1 binding and contains the target D1 `database_id`.
 - `wrangler.jsonc` uses `ATTACHMENTS` as the R2 binding, and the target bucket exists.
-- Remote D1 migrations will be applied after the first deploy: `pnpm migrate:remote`.
+- `pnpm deploy` applies pending remote D1 migrations before publishing the Worker.
 - Cloudflare Access policies are planned for human access, Service Tokens, and public share bypass routes.
 - The release gate has passed: `pnpm verify` and `pnpm deploy:dry-run`.
 
@@ -155,7 +148,7 @@ pnpm backup:drill
 pnpm release vX.Y.Z
 ```
 
-The project does not use GitHub Actions as CI. Maintainers run the local release gate before publishing.
+The project does not use GitHub Actions as CI or as the production deployer. Maintainers run the local release gate before publishing. Repositories created by the Deploy Button include a least-privilege workflow that only prepares upstream Release updates as pull requests; Cloudflare Workers Builds remains the deployer. See [the update guide](./docs/en/update.md).
 
 ## Contributing
 

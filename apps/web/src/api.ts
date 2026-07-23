@@ -37,6 +37,23 @@ export type ListAttachmentsResponse = {
   attachments: Attachment[];
 };
 
+export type AppInfo = {
+  ok: true;
+  product: "FlareMo";
+  version: string;
+  update_repository: string | null;
+  update_workflow_url: string | null;
+  releases_url: string;
+  update_guide_url: string;
+};
+
+export type LatestRelease = {
+  version: string;
+  name: string;
+  published_at: string | null;
+  url: string;
+};
+
 export class ApiError extends Error {
   readonly status: number;
 
@@ -63,6 +80,46 @@ export async function listMemos(params: ListMemoParams = {}) {
 export async function getMemoStats(timeZone: string) {
   const query = new URLSearchParams({ time_zone: timeZone });
   return apiRequest<MemoStatsResponse>(`/api/app/stats?${query.toString()}`);
+}
+
+export async function getAppInfo() {
+  return apiRequest<AppInfo>("/api/app/health");
+}
+
+export async function getLatestRelease(): Promise<LatestRelease> {
+  const response = await fetch(
+    "https://api.github.com/repos/realchendahuang/FlareMo/releases/latest",
+    {
+      headers: {
+        accept: "application/vnd.github+json",
+      },
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`GitHub release check failed (${response.status})`);
+  }
+  const release = (await response.json()) as {
+    tag_name?: unknown;
+    name?: unknown;
+    published_at?: unknown;
+  };
+  const version =
+    typeof release.tag_name === "string"
+      ? release.tag_name.replace(/^v/, "")
+      : "";
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error("GitHub returned an invalid FlareMo release version");
+  }
+  return {
+    version,
+    name:
+      typeof release.name === "string" && release.name
+        ? release.name
+        : `v${version}`,
+    published_at:
+      typeof release.published_at === "string" ? release.published_at : null,
+    url: `https://github.com/realchendahuang/FlareMo/releases/tag/v${encodeURIComponent(version)}`,
+  };
 }
 
 export async function createMemo(input: CreateMemoRequest) {
