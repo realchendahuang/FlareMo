@@ -57,7 +57,7 @@ export function MemoComposer({ isPending, onSubmit }: MemoComposerProps) {
 
   return (
     <form
-      className="group relative flex w-full flex-col rounded-xl border border-border bg-card shadow-sm motion-safe:animate-[flaremo-rise_180ms_ease-out_both] motion-safe:transition-[border-color,box-shadow,transform] motion-safe:duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30 focus-within:motion-safe:-translate-y-px"
+      className="group relative flex w-full flex-col rounded-xl border border-border bg-card shadow-sm motion-safe:animate-[flaremo-rise_180ms_ease-out_both] motion-safe:transition-[border-color,box-shadow] motion-safe:duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
