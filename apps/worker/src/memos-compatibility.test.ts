@@ -536,6 +536,8 @@ async function createTestRuntime(suffix: string) {
     "0000_illegal_inhumans.sql",
     "0001_familiar_morph.sql",
     "0002_wooden_professor_monster.sql",
+    "0003_equal_maximus.sql",
+    "0004_complex_the_enforcers.sql",
   ]) {
     await applyMigration(
       db,

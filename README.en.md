@@ -21,7 +21,8 @@ The screenshots show the current backend-backed timeline, editor, filtering, and
 ## What It Does
 
 - Quick memo capture with tags and attachments.
-- Timeline, archive, trash, D1 FTS5 search, tag filtering, and activity heatmap.
+- Timeline, archive, trash, D1 FTS5 search, tag filtering, and activity heatmap. Search spans timeline and archived notes by default and supports `has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, and `in:timeline|archive|trash`.
+- An installable PWA; new memo drafts are saved locally, while offline submissions (including attachments) wait in a local queue and are submitted in order when connectivity returns.
 - Markdown/GFM with image and audio attachment previews.
 - Memo detail pages with relations, backlinks, and revision restore.
 - Revocable public share links.

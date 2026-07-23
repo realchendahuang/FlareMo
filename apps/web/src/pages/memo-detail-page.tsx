@@ -20,6 +20,7 @@ import {
   revokeShare,
 } from "@/api";
 import { AttachmentGallery } from "@/components/attachment-gallery";
+import { FlareMoLogo } from "@/components/flaremo-logo";
 import { LazyMemoContent } from "@/components/lazy-memo-content";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,7 +127,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
               {t("common.back")}
             </Link>
           </Button>
-          <span className="text-sm font-semibold">FlareMo</span>
+          <FlareMoLogo markClassName="size-5" />
         </header>
 
         {contextQuery.isLoading && (
