@@ -2,7 +2,6 @@ import { ArchiveIcon, HashIcon, InboxIcon, Trash2Icon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { MemoStatsResponse } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
-import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/i18n";
 import { buildMonthLabels } from "@/lib/activity";
 import { cn } from "@/lib/utils";
@@ -62,7 +61,7 @@ export function FlareMoExplorer({
         {headerAction}
       </header>
 
-      <section className="mb-4 grid grid-cols-3 gap-2 px-1 motion-safe:animate-[flaremo-rise_180ms_ease-out_both]">
+      <section className="mb-4 grid grid-cols-3 gap-2 px-1 motion-safe:animate-rise">
         <StatCell label={t("explorer.records")} value={stats.counts.total} />
         <StatCell label={t("explorer.tags")} value={stats.tags.length} />
         <StatCell label={t("explorer.days")} value={stats.active_days} />
@@ -78,14 +77,15 @@ export function FlareMoExplorer({
           data-testid="activity-heatmap"
           role="img"
         >
-          {stats.activity.map((day) => (
+          {stats.activity.map((day, index) => (
             <div
               aria-hidden="true"
               className={cn(
-                "aspect-square rounded-[3px] motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
+                "aspect-square rounded-[3px] motion-safe:animate-fade motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
                 heatmapColor(day.count),
               )}
               key={day.date}
+              style={{ animationDelay: `${index * 4}ms` }}
               title={t("explorer.heatmapDay", {
                 count: day.count,
                 date: day.date,
@@ -110,18 +110,24 @@ export function FlareMoExplorer({
           <button
             aria-current={activeView === item.view ? "page" : undefined}
             className={cn(
-              "flex h-9 items-center gap-3 rounded-md px-2 text-left motion-safe:transition-[background-color,color,transform] motion-safe:duration-150",
+              "relative flex h-9 items-center gap-3 rounded-lg px-2.5 text-left motion-safe:transition-[background-color,color,transform] motion-safe:duration-150",
               activeView === item.view
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground hover:bg-muted motion-safe:hover:translate-x-0.5",
+                ? "bg-accent font-medium text-accent-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5",
             )}
             key={item.view}
             type="button"
             onClick={() => onViewChange(item.view)}
           >
+            {activeView === item.view && (
+              <span
+                aria-hidden="true"
+                className="bg-brand-gradient absolute top-2 bottom-2 left-0 w-[3px] rounded-full"
+              />
+            )}
             <item.icon />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            <span className="text-xs tabular-nums opacity-70">
+            <span className="text-xs tabular-nums opacity-60">
               {item.count}
             </span>
           </button>
@@ -139,10 +145,10 @@ export function FlareMoExplorer({
               return (
                 <button
                   className={cn(
-                    "inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-xs motion-safe:transition-[background-color,color,transform] motion-safe:duration-150",
+                    "inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-xs motion-safe:transition-[background-color,color,transform] motion-safe:duration-150",
                     active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:text-foreground motion-safe:hover:-translate-y-px",
+                      ? "bg-flame-100 font-medium text-flame-700 dark:bg-flame-400/12 dark:text-flame-200"
+                      : "bg-muted text-muted-foreground hover:bg-flame-50 hover:text-flame-700 motion-safe:hover:-translate-y-px dark:hover:bg-flame-400/8 dark:hover:text-flame-200",
                   )}
                   key={tag.name}
                   type="button"
@@ -151,9 +157,7 @@ export function FlareMoExplorer({
                   <HashIcon />
                   <span className="truncate">{tag.name}</span>
                   {tag.count > 1 && (
-                    <Badge variant={active ? "secondary" : "outline"}>
-                      {tag.count}
-                    </Badge>
+                    <span className="tabular-nums opacity-60">{tag.count}</span>
                   )}
                 </button>
               );
@@ -173,10 +177,10 @@ export function FlareMoExplorer({
 function StatCell({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <div className="font-heading text-2xl leading-none font-semibold tabular-nums text-muted-foreground">
+      <div className="font-heading text-2xl leading-none font-semibold tabular-nums">
         {value}
       </div>
-      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1.5 text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }

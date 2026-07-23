@@ -5,9 +5,38 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * FlareMo "Ember" design tokens.
+ *
+ * The interface stays quiet — warm neutrals carry ~90% of the surface — and
+ * the brand flame (orange → coral, from the logo gradient) is reserved for
+ * primary actions, active states and the pinned marker. Brand accents must
+ * never cover large areas; restraint is what reads as premium.
+ */
+
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    /* Geist covers Latin; CJK falls through to the system Han fonts so
+       mixed-language notes keep one visual voice. */
+    --font-heading:
+        "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
+        "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    --font-sans:
+        "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
+        "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    --font-mono:
+        ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* Brand flame scale (light theme values; .dark remaps the tokens below) */
+    --color-flame-50: var(--flame-50);
+    --color-flame-100: var(--flame-100);
+    --color-flame-200: var(--flame-200);
+    --color-flame-300: var(--flame-300);
+    --color-flame-400: var(--flame-400);
+    --color-flame-500: var(--flame-500);
+    --color-flame-600: var(--flame-600);
+    --color-flame-700: var(--flame-700);
+    --color-flame-coral: var(--flame-coral);
+
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -25,6 +54,12 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-success-foreground: var(--success-foreground);
+    --color-success: var(--success);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-warning: var(--warning);
+    --color-info-foreground: var(--info-foreground);
+    --color-info: var(--info);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -39,6 +74,7 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -46,75 +82,142 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* Elevation: warm-tinted shadows in light mode; dark mode relies on
+       surface lightness steps instead of shadows. */
+    --shadow-xs: var(--shadow-xs);
+    --shadow-sm: var(--shadow-sm);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+
+    /* Motion: one duration scale + two easing curves for the whole product.
+       Interaction feedback ≤ 140ms, entrances ≤ 320ms. The animate tokens
+       hardcode durations and easings because @theme inline does not emit
+       intermediate vars. */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --animate-rise: flaremo-rise 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-fade: flaremo-fade 140ms ease-out both;
+    --animate-scale-in: flaremo-scale-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    --animate-shimmer: flaremo-shimmer 1.6s linear infinite;
 }
 
 :root {
-    --background: oklch(0.985 0 0);
-    --foreground: oklch(0.145 0 0);
+    /* Brand flame: sampled from the logo gradient (orange → coral spark). */
+    --flame-50: oklch(0.96 0.025 62);
+    --flame-100: oklch(0.93 0.05 59);
+    --flame-200: oklch(0.87 0.09 56);
+    --flame-300: oklch(0.79 0.135 52);
+    --flame-400: oklch(0.72 0.17 50);
+    --flame-500: oklch(0.63 0.19 45);
+    --flame-600: oklch(0.55 0.20 40);
+    --flame-700: oklch(0.47 0.18 36);
+    --flame-coral: oklch(0.64 0.21 30);
+    --gradient-brand: linear-gradient(
+        135deg,
+        var(--flame-400),
+        var(--flame-coral)
+    );
+
+    /* Warm neutrals (hue ~70) so the flame accent never sits on cold gray. */
+    --background: oklch(0.982 0.004 80);
+    --foreground: oklch(0.24 0.012 60);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.24 0.012 60);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.72 0.18 50);
-    --primary-foreground: oklch(1 0 0);
-    --secondary: oklch(0.955 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.935 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.95 0.05 50);
-    --accent-foreground: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.24 0.012 60);
+    --primary: var(--flame-500);
+    --primary-foreground: oklch(0.99 0.005 70);
+    --secondary: oklch(0.955 0.006 75);
+    --secondary-foreground: oklch(0.28 0.012 60);
+    --muted: oklch(0.952 0.007 75);
+    --muted-foreground: oklch(0.52 0.014 65);
+    --accent: var(--flame-50);
+    --accent-foreground: var(--flame-700);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.72 0.18 50);
-    --chart-1: oklch(0.93 0 0);
-    --chart-2: oklch(0.72 0.18 50);
-    --chart-3: oklch(0.62 0.16 50);
-    --chart-4: oklch(0.5 0.14 50);
-    --chart-5: oklch(0.38 0.11 50);
+    --success: oklch(0.62 0.13 155);
+    --success-foreground: oklch(0.98 0.01 150);
+    --warning: oklch(0.70 0.13 75);
+    --warning-foreground: oklch(0.30 0.04 70);
+    --info: oklch(0.58 0.10 240);
+    --info-foreground: oklch(0.98 0.005 240);
+    --border: oklch(0.912 0.006 75);
+    --input: oklch(0.912 0.006 75);
+    --ring: var(--flame-400);
+    --chart-1: var(--flame-100);
+    --chart-2: var(--flame-400);
+    --chart-3: var(--flame-500);
+    --chart-4: var(--flame-600);
+    --chart-5: var(--flame-700);
     --radius: 0.75rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.72 0.18 50);
-    --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.955 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --shadow-xs: 0 1px 2px oklch(0.30 0.02 60 / 0.05);
+    --shadow-sm:
+        0 1px 3px oklch(0.30 0.02 60 / 0.07),
+        0 1px 2px -1px oklch(0.30 0.02 60 / 0.07);
+    --shadow-md:
+        0 4px 12px -2px oklch(0.30 0.02 60 / 0.09),
+        0 2px 4px -2px oklch(0.30 0.02 60 / 0.05);
+    --shadow-lg:
+        0 12px 32px -8px oklch(0.30 0.02 60 / 0.14),
+        0 4px 8px -4px oklch(0.30 0.02 60 / 0.06);
+    --sidebar: oklch(0.972 0.005 78);
+    --sidebar-foreground: oklch(0.24 0.012 60);
+    --sidebar-primary: var(--flame-500);
+    --sidebar-primary-foreground: oklch(0.99 0.005 70);
+    --sidebar-accent: var(--flame-50);
+    --sidebar-accent-foreground: var(--flame-700);
+    --sidebar-border: oklch(0.912 0.006 75);
+    --sidebar-ring: var(--flame-400);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.76 0.17 50);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --background: oklch(0.175 0.006 60);
+    --foreground: oklch(0.955 0.006 75);
+    --card: oklch(0.215 0.007 62);
+    --card-foreground: oklch(0.955 0.006 75);
+    --popover: oklch(0.235 0.008 62);
+    --popover-foreground: oklch(0.955 0.006 75);
+    --primary: var(--flame-400);
+    --primary-foreground: oklch(0.20 0.03 45);
+    --secondary: oklch(0.265 0.008 62);
+    --secondary-foreground: oklch(0.955 0.006 75);
+    --muted: oklch(0.26 0.008 62);
+    --muted-foreground: oklch(0.68 0.012 68);
+    --accent: oklch(0.30 0.03 50);
+    --accent-foreground: var(--flame-200);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.76 0.17 50);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --success: oklch(0.70 0.13 155);
+    --success-foreground: oklch(0.16 0.03 155);
+    --warning: oklch(0.76 0.12 75);
+    --warning-foreground: oklch(0.20 0.04 70);
+    --info: oklch(0.70 0.10 240);
+    --info-foreground: oklch(0.16 0.03 240);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 14%);
+    --ring: var(--flame-400);
+    --chart-1: var(--flame-200);
+    --chart-2: var(--flame-400);
+    --chart-3: var(--flame-500);
+    --chart-4: var(--flame-600);
+    --chart-5: var(--flame-700);
+    --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.3);
+    --shadow-sm:
+        0 1px 3px oklch(0 0 0 / 0.35),
+        0 1px 2px -1px oklch(0 0 0 / 0.35);
+    --shadow-md:
+        0 4px 12px -2px oklch(0 0 0 / 0.4),
+        0 2px 4px -2px oklch(0 0 0 / 0.3);
+    --shadow-lg:
+        0 12px 32px -8px oklch(0 0 0 / 0.5),
+        0 4px 8px -4px oklch(0 0 0 / 0.35);
+    --sidebar: oklch(0.205 0.007 62);
+    --sidebar-foreground: oklch(0.955 0.006 75);
+    --sidebar-primary: var(--flame-400);
+    --sidebar-primary-foreground: oklch(0.20 0.03 45);
+    --sidebar-accent: oklch(0.30 0.03 50);
+    --sidebar-accent-foreground: var(--flame-200);
+    --sidebar-border: oklch(1 0 0 / 9%);
+    --sidebar-ring: var(--flame-400);
 }
 
 @layer base {
@@ -122,11 +225,15 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent) transparent;
+    text-rendering: optimizeLegibility;
     }
   html {
     @apply font-sans;
+    }
+  ::selection {
+    background: color-mix(in oklab, var(--flame-400) 28%, transparent);
     }
 }
 
@@ -141,6 +248,10 @@
   background-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+}
+
 @layer utilities {
   .no-scrollbar {
     scrollbar-width: none;
@@ -149,11 +260,17 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* The brand gradient is only allowed on: the logo, the primary send/CTA
+     button, the pinned marker and active-state indicators. */
+  .bg-brand-gradient {
+    background-image: var(--gradient-brand);
+  }
 }
 
 @layer components {
   .memo-markdown {
-    @apply text-foreground;
+    @apply text-[15px] leading-7 text-foreground;
   }
 
   .memo-markdown > * + * {
@@ -161,15 +278,15 @@
   }
 
   .memo-markdown h1 {
-    @apply text-2xl font-semibold tracking-tight;
-  }
-
-  .memo-markdown h2 {
     @apply text-xl font-semibold tracking-tight;
   }
 
+  .memo-markdown h2 {
+    @apply text-lg font-semibold tracking-tight;
+  }
+
   .memo-markdown h3 {
-    @apply text-lg font-semibold;
+    @apply text-base font-semibold;
   }
 
   .memo-markdown ul {
@@ -184,20 +301,24 @@
     @apply mt-1;
   }
 
+  .memo-markdown li::marker {
+    @apply text-flame-400;
+  }
+
   .memo-markdown a {
-    @apply text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary;
+    @apply font-medium text-flame-600 underline decoration-flame-400/40 underline-offset-4 transition-colors hover:decoration-flame-500 dark:text-flame-300 dark:hover:decoration-flame-300;
   }
 
   .memo-markdown blockquote {
-    @apply border-l-2 pl-4 text-muted-foreground;
+    @apply rounded-r-md border-l-2 border-flame-300 bg-flame-50 py-1 pr-3 pl-4 text-muted-foreground dark:border-flame-600 dark:bg-flame-400/5;
   }
 
   .memo-markdown code {
-    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm;
+    @apply rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
   }
 
   .memo-markdown pre {
-    @apply overflow-x-auto rounded-lg bg-muted p-4;
+    @apply overflow-x-auto rounded-xl border border-border/60 bg-muted p-4;
   }
 
   .memo-markdown pre code {
@@ -214,7 +335,7 @@
   }
 
   .memo-markdown input[type="checkbox"] {
-    @apply mr-2 align-middle;
+    @apply mr-2 align-middle accent-flame-500;
   }
 }
 
@@ -235,5 +356,25 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes flaremo-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes flaremo-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
   }
 }

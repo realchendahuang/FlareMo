@@ -17,6 +17,7 @@ import { useState } from "react";
 import type { Attachment, Memo, MemoState, MemoVisibility, Share } from "@/api";
 import { AttachmentGallery } from "@/components/attachment-gallery";
 import { LazyMemoContent } from "@/components/lazy-memo-content";
+import { MemoSearchExcerpt } from "@/components/memo-search-excerpt";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,13 +31,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -46,7 +40,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useI18n } from "@/i18n";
-import { extractTags, formatMemoTime, getMemoResourceId } from "@/lib/memo";
+import {
+  extractTags,
+  formatMemoRelativeTime,
+  formatMemoTime,
+  getMemoResourceId,
+} from "@/lib/memo";
 import { cn } from "@/lib/utils";
 
 type MemoCardProps = {
@@ -64,6 +63,11 @@ type MemoCardProps = {
   onHardDelete: (id: string) => Promise<void>;
   share?: Share;
   shareUrl?: string;
+  searchQuery?: string;
+  /** Position in the list, used to stagger the entrance animation. */
+  index?: number;
+  /** Called when a tag chip is clicked to filter the timeline by that tag. */
+  onTagClick?: (tag: string) => void;
 };
 
 export function MemoCard({
@@ -78,6 +82,9 @@ export function MemoCard({
   onHardDelete,
   share,
   shareUrl,
+  searchQuery,
+  index = 0,
+  onTagClick,
 }: MemoCardProps) {
   const { locale, t } = useI18n();
   const id = getMemoResourceId(memo);
@@ -91,26 +98,55 @@ export function MemoCard({
     memo.visibility,
   );
 
+  const startEditing = () => {
+    setDraftContent(memo.content);
+    setDraftVisibility(memo.visibility);
+    setIsEditing(true);
+  };
+
+  const saveEditing = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdate(id, {
+        content: draftContent,
+        visibility: draftVisibility,
+      });
+      setIsEditing(false);
+    } catch {
+      // The mutation displays the error and the editor stays open.
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <article
       className={cn(
-        "group relative flex w-full flex-col gap-2 rounded-lg bg-background px-1 py-4 text-card-foreground [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:animate-[flaremo-rise_180ms_ease-out_both] motion-safe:transition-[background-color,transform] motion-safe:duration-150 hover:bg-card motion-safe:hover:-translate-y-px",
-        memo.pinned && "border-l-2 border-l-primary pl-3",
+        "group relative flex w-full flex-col gap-2 rounded-xl px-3 py-4 text-card-foreground [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:animate-rise motion-safe:transition-[background-color,transform,box-shadow] motion-safe:duration-150 hover:bg-card hover:shadow-xs motion-safe:hover:-translate-y-px",
+        isEditing && "bg-card shadow-xs ring-1 ring-flame-400/40",
       )}
+      style={{ animationDelay: `${Math.min(index, 7) * 35}ms` }}
     >
+      {memo.pinned && (
+        <span
+          aria-hidden="true"
+          className="bg-brand-gradient absolute top-4 bottom-4 left-0 w-[3px] rounded-full"
+        />
+      )}
       <div className="flex w-full items-center justify-between gap-2">
         <Link
           className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
           params={{ memoId: memo.id }}
+          title={formatMemoTime(memo.display_time, locale)}
           to="/memo/$memoId"
         >
           {memo.pinned ? (
-            <PinIcon className="text-primary" />
+            <PinIcon className="text-flame-500 dark:text-flame-400" />
           ) : (
             <CircleIcon className="opacity-35" />
           )}
-          <span className="truncate">
-            {formatMemoTime(memo.display_time, locale)}
+          <span className="truncate tabular-nums">
+            {formatMemoRelativeTime(memo.display_time, locale)}
           </span>
         </Link>
         <div className="flex shrink-0 items-center gap-1">
@@ -121,7 +157,7 @@ export function MemoCard({
             <DropdownMenuTrigger asChild>
               <Button
                 aria-label={t("common.actions")}
-                className="opacity-100 motion-safe:transition-opacity md:opacity-0 md:group-hover:opacity-100"
+                className="opacity-100 motion-safe:transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                 size="icon-sm"
                 variant="ghost"
               >
@@ -146,13 +182,7 @@ export function MemoCard({
                   </>
                 ) : (
                   <>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDraftContent(memo.content);
-                        setDraftVisibility(memo.visibility);
-                        setIsEditing(true);
-                      }}
-                    >
+                    <DropdownMenuItem onClick={startEditing}>
                       <Edit3Icon />
                       {t("common.edit")}
                     </DropdownMenuItem>
@@ -181,36 +211,117 @@ export function MemoCard({
           </DropdownMenu>
         </div>
       </div>
-      <div>
-        <LazyMemoContent content={memo.content} />
-        {attachments.length > 0 && (
-          <div className="mt-3">
-            <AttachmentGallery attachments={attachments} />
-          </div>
-        )}
-        {share && (
-          <div className="mt-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-            <a
-              className="font-mono hover:text-foreground"
-              href={shareUrl ?? `/share/${share.token}`}
+      {isEditing ? (
+        <div className="flex flex-col gap-3 motion-safe:animate-fade">
+          <Textarea
+            autoFocus
+            className="min-h-32 resize-none text-[15px] leading-7 focus-visible:ring-flame-400/40"
+            value={draftContent}
+            onChange={(event) => setDraftContent(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                void saveEditing();
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setIsEditing(false);
+              }
+            }}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ToggleGroup
+              type="single"
+              value={draftVisibility}
+              onValueChange={(value) => {
+                if (value) setDraftVisibility(value as MemoVisibility);
+              }}
+              size="sm"
+              variant="outline"
             >
-              {shareUrl ?? `/share/${share.token}`}
-            </a>
-          </div>
-        )}
-      </div>
-      {(tags.length > 0 || memo.state !== "normal") && (
-        <footer className="flex flex-wrap items-center justify-between gap-2 pt-2">
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <Badge
-                className="rounded-md border-0 bg-muted text-muted-foreground"
-                key={tag}
-                variant="secondary"
+              <ToggleGroupItem value="private">
+                {t("visibility.private")}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="protected">
+                {t("visibility.protected")}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="public">
+                {t("visibility.public")}
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={isSaving}
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsEditing(false)}
               >
-                #{tag}
-              </Badge>
-            ))}
+                {t("common.cancel")}
+              </Button>
+              <Button
+                disabled={isSaving || !draftContent.trim()}
+                size="sm"
+                onClick={() => void saveEditing()}
+              >
+                {isSaving && (
+                  <Loader2Icon
+                    className="animate-spin"
+                    data-icon="inline-start"
+                  />
+                )}
+                {t("common.save")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <LazyMemoContent content={memo.content} />
+          {searchQuery && (
+            <MemoSearchExcerpt content={memo.content} query={searchQuery} />
+          )}
+          {attachments.length > 0 && (
+            <div className="mt-3">
+              <AttachmentGallery attachments={attachments} />
+            </div>
+          )}
+          {share && (
+            <div className="mt-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              <a
+                className="font-mono hover:text-foreground"
+                href={shareUrl ?? `/share/${share.token}`}
+              >
+                {shareUrl ?? `/share/${share.token}`}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+      {(tags.length > 0 || memo.state !== "normal") && !isEditing && (
+        <footer className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map((tag) =>
+              onTagClick ? (
+                <button
+                  aria-label={`#${tag}`}
+                  className="cursor-pointer rounded-full motion-safe:transition-transform motion-safe:duration-150 motion-safe:hover:-translate-y-px"
+                  key={tag}
+                  type="button"
+                  onClick={() => onTagClick(tag)}
+                >
+                  <Badge
+                    className="transition-colors hover:bg-flame-200 dark:hover:bg-flame-400/20"
+                    variant="flame"
+                  >
+                    #{tag}
+                  </Badge>
+                </button>
+              ) : (
+                <Badge key={tag} variant="flame">
+                  #{tag}
+                </Badge>
+              ),
+            )}
           </div>
           <div className="ml-auto flex items-center gap-2">
             {memo.state !== "normal" && (
@@ -219,64 +330,6 @@ export function MemoCard({
           </div>
         </footer>
       )}
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("common.edit")}</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            className="min-h-40 resize-none text-base"
-            value={draftContent}
-            onChange={(event) => setDraftContent(event.target.value)}
-          />
-          <ToggleGroup
-            type="single"
-            value={draftVisibility}
-            onValueChange={(value) => {
-              if (value) setDraftVisibility(value as MemoVisibility);
-            }}
-            size="sm"
-            variant="outline"
-          >
-            <ToggleGroupItem value="private">
-              {t("visibility.private")}
-            </ToggleGroupItem>
-            <ToggleGroupItem value="protected">
-              {t("visibility.protected")}
-            </ToggleGroupItem>
-            <ToggleGroupItem value="public">
-              {t("visibility.public")}
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <DialogFooter>
-            <Button
-              disabled={isSaving || !draftContent.trim()}
-              onClick={async () => {
-                setIsSaving(true);
-                try {
-                  await onUpdate(id, {
-                    content: draftContent,
-                    visibility: draftVisibility,
-                  });
-                  setIsEditing(false);
-                } catch {
-                  // The mutation displays the error and the dialog stays open.
-                } finally {
-                  setIsSaving(false);
-                }
-              }}
-            >
-              {isSaving && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
-              )}
-              {t("common.save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
