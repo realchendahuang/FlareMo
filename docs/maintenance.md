@@ -123,6 +123,28 @@ pnpm backup:drill
 
 它会导出本地 D1 持久业务表（跳过可重建的 FTS5 虚拟索引）、生成按表依赖排序的数据恢复文件、用 migrations 在隔离目录创建恢复 schema、导入数据、验证业务表与重建后的 FTS 索引、检查远端 migration 状态、确认 `flaremo-attachments` R2 bucket 存在，并在 `backups/` 下生成演练报告。`backups/` 是本地输出目录，不提交到 Git。
 
+真实 Cloudflare 资源演练需要先创建临时 D1 和 R2，并明确传入目标，脚本不会猜测或覆盖生产绑定：
+
+```bash
+export FLAREMO_RESTORE_DATABASE="flaremo-restore-drill-YYYYMMDD"
+export FLAREMO_RESTORE_DATABASE_ID="<temporary-d1-id>"
+export FLAREMO_RESTORE_BUCKET="flaremo-restore-drill-YYYYMMDD"
+pnpm backup:drill:remote
+```
+
+远端演练会导出生产 D1 持久数据，对临时 D1 应用 migrations，按依赖顺序恢复数据，比较所有业务表和 FTS 计数，并按 D1 中仍有效的 `r2_key` 逐个复制、下载和校验 R2 对象。最后脚本生成指向临时 D1/R2 的 Wrangler 配置并执行 deploy dry-run，但不会部署，也不会修改 `wrangler.jsonc`。
+
+脚本故意不自动删除目标资源。检查 `backups/remote-restore-*/report.md` 后，使用明确名称删除：
+
+```bash
+pnpm exec wrangler d1 delete "$FLAREMO_RESTORE_DATABASE"
+pnpm exec wrangler r2 bucket delete "$FLAREMO_RESTORE_BUCKET"
+```
+
+如果生产 D1 当前没有有效附件记录，R2 复制计数为 0 是正确结果；演练仍会验证源 bucket、目标 bucket 和恢复后的 attachment 元数据计数。不要扫描或复制 D1 未引用的未知对象。
+
+最近一次真实演练：2026-07-23。生产 D1 的 1 个用户、2 条 memo 和对应 FTS 行被恢复到临时 D1，源/目标业务表计数完全一致；生产当时没有有效 attachment，因此 R2 引用对象复制数为 0。指向临时 D1/R2 的 deploy dry-run 成功，随后临时资源被显式删除。
+
 ## 线上排障
 
 查看 Worker 日志：
