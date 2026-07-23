@@ -78,6 +78,11 @@ const multipartRequest = () => ({
             type: "string",
             description: "Optional memo resource name, for example memos/{id}.",
           },
+          client_id: {
+            type: "string",
+            description:
+              "Optional stable client id for idempotent attachment upload retries.",
+          },
         },
       },
     },
@@ -125,7 +130,13 @@ const listMemoParams = [
       enum: ["normal", "archived", "trashed", "deleted"],
     },
   },
-  { name: "q", in: "query", schema: { type: "string" } },
+  {
+    name: "q",
+    in: "query",
+    schema: { type: "string" },
+    description:
+      "Full-text terms plus optional whitespace-delimited filters: has:attachment, is:pinned, before:YYYY-MM-DD, after:YYYY-MM-DD, and in:timeline|archive|trash. Without state or in:, queries search timeline and archived memos; use in:trash for trashed memos. Date filters use the memo creation date in UTC; after is inclusive and before is exclusive. Invalid filter-like terms remain text.",
+  },
   { name: "tag", in: "query", schema: { type: "string" } },
   { name: "include_deleted", in: "query", schema: { type: "boolean" } },
 ];
@@ -438,7 +449,13 @@ export function createOpenApiDocument() {
           summary: "Upload an attachment",
           tags: ["Attachments"],
           requestBody: multipartRequest(),
-          responses: { "201": jsonResponse("Attachment.", schemas.Attachment) },
+          responses: {
+            "200": jsonResponse(
+              "Previously uploaded attachment for the supplied client id.",
+              schemas.Attachment,
+            ),
+            "201": jsonResponse("Attachment.", schemas.Attachment),
+          },
         }),
       },
       "/api/v1/attachments/{id}": {

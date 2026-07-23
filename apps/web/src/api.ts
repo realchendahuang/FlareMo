@@ -149,11 +149,18 @@ export async function hardDeleteMemo(id: string) {
   );
 }
 
-export async function uploadAttachment(input: { file: File; memo?: string }) {
+export async function uploadAttachment(input: {
+  file: File;
+  memo?: string;
+  clientId?: string;
+}) {
   const formData = new FormData();
   formData.set("file", input.file);
   if (input.memo) {
     formData.set("memo", input.memo);
+  }
+  if (input.clientId) {
+    formData.set("client_id", input.clientId);
   }
   return apiRequest<Attachment>("/api/v1/attachments", {
     method: "POST",

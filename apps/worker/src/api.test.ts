@@ -57,9 +57,25 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const offlineCapture = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0003_equal_maximus.sql",
+      ),
+      "utf8",
+    );
+    const offlineAttachments = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0004_complex_the_enforcers.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
+    await applyMigration(db, offlineCapture);
+    await applyMigration(db, offlineAttachments);
   });
 
   afterEach(async () => {
@@ -110,6 +126,135 @@ describe("FlareMo Worker API", () => {
     expect(trashed.state).toBe("trashed");
   });
 
+  it("supports full-text query filters while preserving explicit state", async () => {
+    const normal = await createMemo<{ id: string; name: string }>(
+      "scope-marker timeline",
+    );
+    const archived = await createMemo<{ id: string; name: string }>(
+      "scope-marker archive",
+    );
+    const trashed = await createMemo<{ id: string; name: string }>(
+      "scope-marker trash",
+    );
+    await json(
+      await fetchApp(`http://flaremo.test/api/v1/${archived.name}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "archived" }),
+      }),
+    );
+    await json(
+      await fetchApp(`http://flaremo.test/api/v1/${trashed.name}`, {
+        method: "DELETE",
+      }),
+    );
+
+    const pinned = await createMemo<{ id: string; name: string }>(
+      "pinned-marker",
+    );
+    await json(
+      await fetchApp(`http://flaremo.test/api/v1/${pinned.name}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pinned: true }),
+      }),
+    );
+
+    const withAttachment = await createMemo<{ id: string; name: string }>(
+      "attachment-marker",
+    );
+    const formData = new FormData();
+    formData.set("memo", withAttachment.name);
+    formData.set(
+      "file",
+      new File(["filter attachment"], "filter.txt", { type: "text/plain" }),
+    );
+    await json(
+      await fetchApp("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    const beforeRange = await createMemo<{ id: string; name: string }>(
+      "date-window-marker before",
+    );
+    const inRange = await createMemo<{ id: string; name: string }>(
+      "date-window-marker in",
+    );
+    await env.DB.prepare("UPDATE memos SET created_at = ? WHERE id = ?")
+      .bind("2026-03-31T23:59:59.999Z", beforeRange.name)
+      .run();
+    await env.DB.prepare("UPDATE memos SET created_at = ? WHERE id = ?")
+      .bind("2026-04-01T12:00:00.000Z", inRange.name)
+      .run();
+
+    const literal = await createMemo<{ id: string; name: string }>(
+      "literal before:2026-02-30",
+    );
+
+    const listByQuery = async (q: string, path = "/api/app/memos") => {
+      const separator = path.includes("?") ? "&" : "?";
+      return json<ListMemosResponse>(
+        await fetchApp(
+          `http://flaremo.test${path}${separator}q=${encodeURIComponent(q)}`,
+        ),
+      );
+    };
+
+    expect(
+      (await listByQuery("scope-marker in:timeline")).memos.map(
+        (memo) => memo.name,
+      ),
+    ).toEqual([normal.name]);
+    expect(
+      (await listByQuery("scope-marker")).memos.map((memo) => memo.name),
+    ).toEqual(expect.arrayContaining([normal.name, archived.name]));
+    expect(
+      (await listByQuery("scope-marker")).memos.map((memo) => memo.name),
+    ).not.toContain(trashed.name);
+    expect(
+      (await listByQuery("scope-marker in:archive")).memos.map(
+        (memo) => memo.name,
+      ),
+    ).toEqual([archived.name]);
+    expect(
+      (await listByQuery("scope-marker in:trash")).memos.map(
+        (memo) => memo.name,
+      ),
+    ).toEqual([trashed.name]);
+    expect(
+      (await listByQuery("pinned-marker is:pinned")).memos.map(
+        (memo) => memo.name,
+      ),
+    ).toEqual([pinned.name]);
+    expect(
+      (await listByQuery("attachment-marker has:attachment")).memos.map(
+        (memo) => memo.name,
+      ),
+    ).toEqual([withAttachment.name]);
+    expect(
+      (
+        await listByQuery(
+          "date-window-marker after:2026-04-01 before:2026-04-02",
+        )
+      ).memos.map((memo) => memo.name),
+    ).toEqual([inRange.name]);
+    expect(
+      (await listByQuery("literal before:2026-02-30")).memos.map(
+        (memo) => memo.name,
+      ),
+    ).toEqual([literal.name]);
+    expect(
+      (
+        await listByQuery(
+          "scope-marker in:archive",
+          "/api/v1/memos?state=normal",
+        )
+      ).memos.map((memo) => memo.name),
+    ).toEqual([normal.name]);
+  });
+
   it("initializes the single owner idempotently under concurrent requests", async () => {
     const [memosResponse, statsResponse] = await Promise.all([
       fetchApp("http://flaremo.test/api/app/memos"),
@@ -117,6 +262,86 @@ describe("FlareMo Worker API", () => {
     ]);
     expect(memosResponse.status).toBe(200);
     expect(statsResponse.status).toBe(200);
+  });
+
+  it("replays an offline memo submission without creating a duplicate", async () => {
+    const clientId = "offline-retry-8ec6d4b4-8d49-4cf6-8cb0-14cfe64d9d7c";
+    const first = await json<{ id: string; name: string; content: string }>(
+      await fetchApp("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "Saved while offline",
+          payload: { client_id: clientId },
+        }),
+      }),
+    );
+    const updated = await json<{ payload: { client_id?: string } }>(
+      await fetchApp(`http://flaremo.test/api/app/memos/${first.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ payload: { tags: ["offline"] } }),
+      }),
+    );
+    expect(updated.payload.client_id).toBe(clientId);
+    const replay = await json<{ name: string; content: string }>(
+      await fetchApp("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "This retry must not create another memo",
+          payload: { client_id: clientId },
+        }),
+      }),
+    );
+
+    expect(replay).toMatchObject({
+      name: first.name,
+      content: "Saved while offline",
+    });
+    const list = await json<{ memos: Array<{ name: string }> }>(
+      await fetchApp("http://flaremo.test/api/app/memos"),
+    );
+    expect(list.memos.filter((memo) => memo.name === first.name)).toHaveLength(
+      1,
+    );
+  });
+
+  it("replays an offline attachment upload without duplicating it", async () => {
+    const memo = await createMemo<{ name: string }>("attachment replay memo");
+    const clientId = "offline-attachment-8ec6d4b4-8d49-4cf6-8cb0-14cfe64d9d7c";
+    const createFormData = () => {
+      const formData = new FormData();
+      formData.set("memo", memo.name);
+      formData.set("client_id", clientId);
+      formData.set(
+        "file",
+        new File(["attachment replay"], "replay.txt", {
+          type: "text/plain",
+        }),
+      );
+      return formData;
+    };
+
+    const first = await json<{ name: string }>(
+      await fetchApp("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        body: createFormData(),
+      }),
+    );
+    const replay = await json<{ name: string }>(
+      await fetchApp("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        body: createFormData(),
+      }),
+    );
+
+    expect(replay.name).toBe(first.name);
+    const attached = await json<{ attachments: Array<{ name: string }> }>(
+      await fetchApp(`http://flaremo.test/api/v1/${memo.name}/attachments`),
+    );
+    expect(attached.attachments).toHaveLength(1);
+    expect(attached.attachments[0]?.name).toBe(first.name);
   });
 
   it("exposes release and repository metadata for the update UI", async () => {
@@ -519,8 +744,8 @@ function fetchApp(input: string, init?: RequestInit) {
   return app.fetch(new Request(input, init), env);
 }
 
-async function createMemo(content: string) {
-  return json(
+async function createMemo<T = Record<string, unknown>>(content: string) {
+  return json<T>(
     await fetchApp("http://flaremo.test/api/v1/memos", {
       method: "POST",
       headers: { "content-type": "application/json" },

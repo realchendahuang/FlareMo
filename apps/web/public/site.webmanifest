@@ -1,6 +1,11 @@
 {
+  "id": "/",
   "name": "FlareMo",
   "short_name": "FlareMo",
+  "description": "A private, Cloudflare-native personal knowledge base.",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/brand/flaremo-app-icon-192.png",

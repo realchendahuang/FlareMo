@@ -65,6 +65,26 @@ describe("Memos-compatible API contract", () => {
         "utf8",
       ),
     );
+    await applyMigration(
+      db,
+      await readFile(
+        resolve(
+          import.meta.dirname,
+          "../../../migrations/0003_equal_maximus.sql",
+        ),
+        "utf8",
+      ),
+    );
+    await applyMigration(
+      db,
+      await readFile(
+        resolve(
+          import.meta.dirname,
+          "../../../migrations/0004_complex_the_enforcers.sql",
+        ),
+        "utf8",
+      ),
+    );
   });
 
   afterEach(async () => {

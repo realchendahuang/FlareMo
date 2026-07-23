@@ -5,6 +5,16 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./search-query": {
+      "types": "./src/search-query.ts",
+      "default": "./src/search-query.ts"
+    }
+  },
   "scripts": {
     "build": "tsc -b",
     "check": "tsc -b --pretty false",

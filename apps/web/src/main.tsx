@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "@/components/theme-provider.tsx";
 import { I18nProvider } from "@/i18n.tsx";
+import { registerPwaServiceWorker } from "./pwa.ts";
 
 import "./index.css";
 import App from "./App.tsx";
@@ -13,6 +14,8 @@ const root = document.getElementById("root");
 if (!root) {
   throw new Error("FlareMo root element was not found.");
 }
+
+void registerPwaServiceWorker().catch(() => undefined);
 
 createRoot(root).render(
   <StrictMode>
