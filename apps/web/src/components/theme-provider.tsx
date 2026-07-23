@@ -39,6 +39,18 @@ function getSystemTheme(): ResolvedTheme {
   return "light";
 }
 
+function applyFavicon(theme: ResolvedTheme) {
+  const favicon = document.querySelector<HTMLLinkElement>(
+    "[data-flaremo-favicon]",
+  );
+  const href =
+    theme === "dark" ? favicon?.dataset.darkHref : favicon?.dataset.lightHref;
+
+  if (favicon && href) {
+    favicon.href = href;
+  }
+}
+
 function disableTransitionsTemporarily() {
   const style = document.createElement("style");
   style.appendChild(
@@ -112,6 +124,7 @@ export function ThemeProvider({
 
       root.classList.remove("light", "dark");
       root.classList.add(resolvedTheme);
+      applyFavicon(resolvedTheme);
 
       if (restoreTransitions) {
         restoreTransitions();

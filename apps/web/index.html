@@ -4,7 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#17191d" />
-    <link rel="icon" href="/brand/flaremo-app-icon-512.png" type="image/png" />
+    <link
+      data-dark-href="/brand/flaremo-mark-dark-320.png"
+      data-flaremo-favicon
+      data-light-href="/brand/flaremo-mark-light-300.png"
+      href="/brand/flaremo-mark-light-300.png"
+      rel="icon"
+      type="image/png"
+    />
     <link rel="apple-touch-icon" href="/brand/flaremo-app-icon-180.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <title>FlareMo</title>
@@ -18,6 +25,11 @@
               : "light"
             : theme;
         document.documentElement.classList.add(resolved);
+        const favicon = document.querySelector("[data-flaremo-favicon]");
+        const faviconHref = favicon?.dataset[
+          resolved === "dark" ? "darkHref" : "lightHref"
+        ];
+        if (faviconHref) favicon.href = faviconHref;
       } catch {}
     </script>
   </head>
