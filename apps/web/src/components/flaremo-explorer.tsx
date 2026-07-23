@@ -1,6 +1,7 @@
 import { ArchiveIcon, HashIcon, InboxIcon, Trash2Icon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { MemoStatsResponse } from "@/api";
+import { FlareMoLogo } from "@/components/flaremo-logo";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/i18n";
 import { buildMonthLabels } from "@/lib/activity";
@@ -57,14 +58,7 @@ export function FlareMoExplorer({
   return (
     <aside className="flex min-h-full flex-col px-3 py-4 text-sm">
       <header className="mb-5 flex items-center justify-between gap-2 px-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground text-xs font-semibold text-background">
-            F
-          </div>
-          <div className="truncate font-heading text-sm font-semibold">
-            FlareMo
-          </div>
-        </div>
+        <FlareMoLogo />
         {headerAction}
       </header>
 

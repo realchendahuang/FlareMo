@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <title>FlareMo</title>
+  <defs>
+    <linearGradient id="flaremo-gradient" x1="500" y1="140" x2="500" y2="880" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFA619" />
+      <stop offset=".56" stop-color="#FF8A1F" />
+      <stop offset="1" stop-color="#FF5744" />
+    </linearGradient>
+  </defs>
+  <g stroke="url(#flaremo-gradient)" stroke-width="80" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M400 830V470C400 322 510 240 645 240H860" />
+    <path d="M400 550H700" />
+    <path d="m265 355 100 100" />
+    <path d="M470 160v135" />
+    <path d="m580 430 110-125" />
+    <path d="M210 485h95" />
+  </g>
+</svg>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getPublicShare } from "@/api";
 import { AttachmentGallery } from "@/components/attachment-gallery";
+import { FlareMoLogo } from "@/components/flaremo-logo";
 import { LazyMemoContent } from "@/components/lazy-memo-content";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,7 +27,7 @@ export function PublicSharePage({ token }: { token: string }) {
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-4">
         <header className="flex items-end justify-between border-b pb-4">
           <div>
-            <div className="font-heading text-lg font-semibold">FlareMo</div>
+            <FlareMoLogo labelClassName="text-lg" markClassName="size-7" />
             <div className="text-sm text-muted-foreground">
               {t("share.title")}
             </div>
