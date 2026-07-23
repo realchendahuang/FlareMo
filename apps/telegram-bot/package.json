@@ -1,0 +1,17 @@
+{
+  "name": "@flaremo/telegram-bot-example",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "check": "tsc -b --pretty false",
+    "test": "vitest run --config ../../vitest.config.ts --passWithNoTests"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260708.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}
