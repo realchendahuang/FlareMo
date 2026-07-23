@@ -404,7 +404,7 @@ function FlareMoApp() {
               />
             </div>
           </header>
-          <main className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pb-8 lg:px-3">
+          <main className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pt-1 pb-8 lg:px-3">
             <SearchBox
               className="mb-3 md:hidden motion-safe:animate-[flaremo-rise_160ms_ease-out_both]"
               query={query}
