@@ -18,6 +18,29 @@ test("creates a memo and filters it by tag", async ({ page }) => {
   await expect(page.getByText(content)).toBeVisible();
 });
 
+test("shows a memo submitted by an external agent in the timeline", async ({
+  page,
+}) => {
+  const marker = `Agent ingestion ${Date.now()}`;
+  const response = await page.request.post("/api/v1/memos", {
+    data: {
+      content: `${marker} #telegram`,
+      source: "telegram",
+      payload: {
+        tags: ["telegram"],
+        client_id: `telegram:${Date.now()}`,
+      },
+    },
+  });
+  expect(response.status()).toBe(201);
+
+  await page.goto("/");
+  await expect(
+    page.getByText(`${marker} #telegram`, { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("#telegram", { exact: true })).toBeVisible();
+});
+
 test("keeps filters in the URL and opens a Markdown memo detail", async ({
   page,
 }) => {

@@ -1,0 +1,10 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "flaremo-telegram-bot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-10",
+  "vars": {
+    "FLAREMO_URL": "https://your-flaremo.example.workers.dev",
+    "TELEGRAM_ALLOWED_CHAT_IDS": "123456789"
+  }
+}

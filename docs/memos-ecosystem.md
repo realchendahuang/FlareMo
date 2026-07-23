@@ -29,6 +29,7 @@ CF-Access-Client-Secret
 | curl / HTTP script | 通用脚本 | FlareMo `0.3.0` | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 覆盖 memo CRUD、分页、搜索、附件、分享、revisions、export/import。 |
 | OpenAPI consumers | API schema 工具 | FlareMo `0.3.0` | `/openapi.json` | 生产 Access 后面需要 | 可用 | `apps/worker/src/memos-compatibility.test.ts` 断言公开路径写入 OpenAPI。 |
 | FlareMo MCP endpoint | MCP 客户端 | FlareMo `0.3.0` | `/api/v1/mcp` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 调用 `tools/list` 并断言 `create_memo`。 |
+| FlareMo Telegram Worker example | Telegram Bot | FlareMo `0.3.0` | Telegram webhook -> `/api/v1/memos` | 需要 | 可用 | `apps/telegram-bot/src/index.test.ts` 断言 webhook secret、chat 白名单、Access headers 和结构化 memo 请求。 |
 | Public share reader | 浏览器 / curl | FlareMo `0.3.0` | `/share/*`、`/api/public/shares/*` | 不需要，需 Access bypass | 可用 | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
 
 ## 第三方客户端待测矩阵
@@ -40,7 +41,7 @@ CF-Access-Client-Secret
 | memos-desktop | 桌面客户端 | https://github.com/xudaolong/memos-desktop | 待测 | 未确认 | 未确认 | 未测 | 验证 API base URL、自定义 Access headers、memo CRUD。 |
 | memos_wmp | 微信小程序 | https://github.com/Rabithua/memos_wmp | 待测 | 未确认 | 未确认 | 未测 | 验证小程序网络层是否允许添加 Access headers。 |
 | memoflow | 移动端客户端 | https://github.com/hzc073/memoflow | 待测 | 未确认 | 未确认 | 未测 | 验证登录模型、API base URL、memo CRUD 和附件路径。 |
-| telegramMemoBot | Telegram bot | https://github.com/qazxcdswe123/telegramMemoBot | 待测 | 未确认 | 未确认 | 未测 | 验证 bot 是否依赖 Memos PAT，能否改用 Access headers。 |
+| telegramMemoBot | 第三方 Telegram bot | https://github.com/qazxcdswe123/telegramMemoBot | 待测 | 未确认 | 未确认 | 未测 | 仓库自带示例已经可用；这个第三方项目仍需单独验证是否依赖 Memos PAT。 |
 | Dynos | 移动端客户端 | https://github.com/HonKLam/Dynos | 待测 | 未确认 | 未确认 | 未测 | 验证离线同步和 FlareMo API 子集的重叠范围。 |
 | mcp-server-memos | MCP server | https://github.com/LeslieLeung/mcp-server-memos | 待测 | 未确认 | 未确认 | 未测 | FlareMo 自带 MCP endpoint；仍可验证外部 MCP server 是否能作为兼容客户端使用。 |
 | memos-raycast | Raycast extension | https://github.com/JakeLaoyu/memos-raycast | 待测 | 未确认 | 未确认 | 未测 | 验证 Raycast preferences 是否能配置 Access headers。 |
