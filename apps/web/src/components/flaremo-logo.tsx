@@ -16,8 +16,14 @@ export function FlareMoLogo({
       <img
         alt=""
         aria-hidden="true"
-        className={cn("size-7 shrink-0", markClassName)}
-        src="/brand/flaremo-app-icon-320.png"
+        className={cn("size-7 shrink-0 dark:hidden", markClassName)}
+        src="/brand/flaremo-mark-light-300.png"
+      />
+      <img
+        alt=""
+        aria-hidden="true"
+        className={cn("hidden size-7 shrink-0 dark:block", markClassName)}
+        src="/brand/flaremo-mark-dark-320.png"
       />
       <span
         className={cn(
