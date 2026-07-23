@@ -12,7 +12,7 @@
 
 ## 禁止事项
 
-- 不要新增 GitHub Actions。
+- 不要新增 GitHub Actions CI 或部署 workflow。`flaremo-update.yml` 是唯一例外，只在用户部署仓库中准备上游升级 PR。
 - 不要绕过 `pnpm verify` 直接部署。
 - 不要把 `Temp/`、`node_modules/`、`dist/`、`.wrangler/` 提交。
 - 不要新增应用内 Bearer token 登录。
@@ -44,13 +44,7 @@ Cloudflare 打包验证：
 pnpm deploy:dry-run
 ```
 
-应用远端 D1 migrations：
-
-```bash
-pnpm migrate:remote
-```
-
-部署：
+部署；`pnpm deploy` 会先应用远端 D1 migrations：
 
 ```bash
 pnpm deploy

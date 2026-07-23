@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { UpdateStatus } from "@/components/update-status";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { type TranslationKey, useI18n } from "@/i18n";
 
@@ -282,6 +283,11 @@ function FlareMoApp() {
     <FlareMoExplorer
       activeTag={activeTag}
       activeView={view}
+      headerAction={
+        <div className="mr-8 lg:mr-0">
+          <UpdateStatus />
+        </div>
+      }
       footer={
         <div className="flex items-center gap-1 text-muted-foreground">
           <Button

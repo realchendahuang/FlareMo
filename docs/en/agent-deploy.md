@@ -12,7 +12,7 @@ This runbook is for Codex, Claude Code, Cursor Agent, and other command-capable 
 
 ## Do Not
 
-- Do not add GitHub Actions.
+- Do not add GitHub Actions CI or deployment workflows. `flaremo-update.yml` is the only exception and only prepares upstream update pull requests in user deployment repositories.
 - Do not deploy before `pnpm verify`.
 - Do not commit `Temp/`, `node_modules/`, `dist/`, `.wrangler/`, `.dev.vars`, `backups/`, `test-results/`, or `playwright-report/`.
 - Do not add app-level Bearer token login.
@@ -25,7 +25,6 @@ git status --short
 pnpm install
 pnpm verify
 pnpm deploy:dry-run
-pnpm migrate:remote
 pnpm deploy
 ```
 

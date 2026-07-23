@@ -10,11 +10,7 @@ Cloudflare reads `wrangler.jsonc`, creates the Worker, and provisions the D1 and
 
 If the Cloudflare Dashboard shows `Connect a Git account to continue.`, connect GitHub or GitLab in Cloudflare first. That is a Cloudflare Workers Builds requirement.
 
-After deployment, apply remote D1 migrations:
-
-```bash
-pnpm migrate:remote
-```
+Set `FLAREMO_DEPLOY_REPOSITORY` to the GitHub repository Cloudflare creates, using `owner/repository` form. The deploy command applies pending D1 migrations automatically.
 
 ## Manual Deployment
 
@@ -29,7 +25,6 @@ Write the D1 `database_id` into `wrangler.jsonc`, then run:
 ```bash
 pnpm verify
 pnpm deploy:dry-run
-pnpm migrate:remote
 pnpm deploy
 ```
 
@@ -190,13 +185,9 @@ http://localhost:8787
 
 Read `CHANGELOG.md` and GitHub Release notes before upgrading.
 
-If the release notes mention a database migration:
+The “System update” entry in the lower-left corner shows the installed and latest stable versions. GitHub deployments can follow the [update guide](./update.md) to prepare an update pull request and let Workers Builds deploy it after merge.
 
-```bash
-pnpm migrate:remote
-```
-
-Then deploy:
+For a manual update, read the changelog and release notes, then deploy. This command applies pending migrations before publishing the Worker:
 
 ```bash
 pnpm deploy
