@@ -19,6 +19,7 @@
     "verify": "node ./scripts/preflight.mjs",
     "release": "node ./scripts/release.mjs",
     "backup:drill": "node ./scripts/backup-drill.mjs",
+    "backup:drill:remote": "node ./scripts/remote-restore-drill.mjs",
     "screenshots": "node ./scripts/capture-screenshots.mjs",
     "db:generate": "drizzle-kit generate",
     "migrate:local": "wrangler d1 migrations apply DB --local",

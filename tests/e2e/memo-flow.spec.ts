@@ -98,6 +98,29 @@ test("searches timeline and archived notes by default and supports archive synta
   ).toBeVisible();
 });
 
+test("shows a memo submitted by an external agent in the timeline", async ({
+  page,
+}) => {
+  const marker = `Agent ingestion ${Date.now()}`;
+  const response = await page.request.post("/api/v1/memos", {
+    data: {
+      content: `${marker} #telegram`,
+      source: "telegram",
+      payload: {
+        tags: ["telegram"],
+        client_id: `telegram:${Date.now()}`,
+      },
+    },
+  });
+  expect(response.status()).toBe(201);
+
+  await page.goto("/");
+  await expect(
+    page.getByText(`${marker} #telegram`, { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("#telegram", { exact: true })).toBeVisible();
+});
+
 test("keeps filters in the URL and opens a Markdown memo detail", async ({
   page,
 }) => {
@@ -335,6 +358,59 @@ test("shows the installed version and safe update fallback", async ({
   await expect(
     dialog.getByRole("link", { name: /update guide|升级指南/i }),
   ).toHaveAttribute("href", /docs\/update\.md$/);
+});
+
+test("creates, follows, reads, and removes memo relations", async ({
+  page,
+}) => {
+  const marker = Date.now();
+  const sourceContent = `Relation source ${marker}`;
+  const targetContent = `Relation target ${marker}`;
+  const sourceResponse = await page.request.post("/api/app/memos", {
+    data: { content: sourceContent },
+  });
+  const targetResponse = await page.request.post("/api/app/memos", {
+    data: { content: targetContent },
+  });
+  expect(sourceResponse.ok()).toBe(true);
+  expect(targetResponse.ok()).toBe(true);
+  const source = (await sourceResponse.json()) as { id: string; name: string };
+  const target = (await targetResponse.json()) as { id: string; name: string };
+
+  await page.goto(`/memo/${source.id}`);
+  await page.getByRole("tab", { name: /links|关联/i }).click();
+  await page
+    .getByRole("textbox", { name: /search note content|搜索记录内容/i })
+    .fill(targetContent);
+  await page.getByRole("button", { name: targetContent }).click();
+  const outgoing = page.getByRole("heading", {
+    name: /related notes|关联记录/i,
+  });
+  await expect(
+    outgoing
+      .locator("..")
+      .getByRole("link", { name: new RegExp(targetContent) }),
+  ).toBeVisible();
+
+  await page.goto(`/memo/${target.id}`);
+  await page.getByRole("tab", { name: /links|关联/i }).click();
+  const backlinks = page.getByRole("heading", { name: /backlinks|反向链接/i });
+  await expect(
+    backlinks
+      .locator("..")
+      .getByRole("link", { name: new RegExp(sourceContent) }),
+  ).toBeVisible();
+
+  await page.goto(`/memo/${source.id}`);
+  await page.getByRole("tab", { name: /links|关联/i }).click();
+  await page.getByRole("button", { name: /Remove link|移除与/ }).click();
+  await expect(page.getByText(targetContent, { exact: true })).toHaveCount(0);
+
+  const contextResponse = await page.request.get(
+    `/api/v1/${source.name}/relation-context`,
+  );
+  expect(contextResponse.ok()).toBe(true);
+  expect(await contextResponse.json()).toMatchObject({ relations: [] });
 });
 
 test("keeps activity labels and the focused composer fully visible", async ({

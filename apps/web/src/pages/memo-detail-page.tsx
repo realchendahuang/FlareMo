@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import {
   createShare,
   getMemoContext,
+  listMemos,
   replaceMemoRelations,
   restoreMemoRevision,
   revokeShare,
@@ -45,6 +46,11 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
     queryKey,
     queryFn: () => getMemoContext(memoId),
     retry: false,
+  });
+  const relationCandidatesQuery = useQuery({
+    queryKey: ["relation-candidates", relatedMemo.trim()],
+    queryFn: () => listMemos({ q: relatedMemo.trim(), page_size: 8 }),
+    enabled: relatedMemo.trim().length >= 2,
   });
   const invalidateMemo = async () => {
     await Promise.all([
@@ -83,20 +89,26 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
     onError: (error) => toast.error(toError(error).message),
   });
   const relationMutation = useMutation({
-    mutationFn: async () => {
-      const context = contextQuery.data;
-      if (!context || !relatedMemo.trim()) return;
-      await replaceMemoRelations(context.memo.name, [
-        ...context.relations.map(({ relation }) => ({
-          related_memo: relation.related_memo,
-          type: relation.type,
-        })),
-        { related_memo: relatedMemo.trim(), type: "reference" },
-      ]);
-    },
-    onSuccess: async () => {
+    mutationFn: ({
+      action: _action,
+      relations,
+    }: {
+      action: "add" | "remove";
+      relations: Array<{
+        related_memo: string;
+        type: "reference" | "comment";
+      }>;
+    }) =>
+      replaceMemoRelations(contextQuery.data?.memo.name ?? memoId, relations),
+    onSuccess: async (_data, variables) => {
       setRelatedMemo("");
-      toast.success(t("toast.relationAdded"));
+      toast.success(
+        t(
+          variables.action === "add"
+            ? "toast.relationAdded"
+            : "toast.relationRemoved",
+        ),
+      );
       await invalidateMemo();
     },
     onError: (error) => toast.error(toError(error).message),
@@ -134,13 +146,47 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
         )}
         {contextQuery.data && (
           <MemoDetail
+            candidates={(relationCandidatesQuery.data?.memos ?? []).filter(
+              (memo) =>
+                memo.name !== contextQuery.data.memo.name &&
+                !contextQuery.data.relations.some(
+                  ({ relation }) => relation.related_memo === memo.name,
+                ),
+            )}
             context={contextQuery.data}
+            isSearching={relationCandidatesQuery.isFetching}
             locale={locale}
             relatedMemo={relatedMemo}
             setRelatedMemo={setRelatedMemo}
-            onAddRelation={() => relationMutation.mutate()}
+            onAddRelation={(name) => {
+              const relations = contextQuery.data.relations.map(
+                ({ relation }) => ({
+                  related_memo: relation.related_memo,
+                  type: relation.type,
+                }),
+              );
+              if (relations.some((item) => item.related_memo === name)) return;
+              relationMutation.mutate({
+                action: "add",
+                relations: [
+                  ...relations,
+                  { related_memo: name, type: "reference" },
+                ],
+              });
+            }}
             onCreateShare={() => shareMutation.mutate()}
             onRestore={(revision) => restoreMutation.mutate(revision)}
+            onRemoveRelation={(name) =>
+              relationMutation.mutate({
+                action: "remove",
+                relations: contextQuery.data.relations
+                  .filter(({ relation }) => relation.related_memo !== name)
+                  .map(({ relation }) => ({
+                    related_memo: relation.related_memo,
+                    type: relation.type,
+                  })),
+              })
+            }
             onRevoke={(share) => revokeMutation.mutate(share)}
             pending={
               relationMutation.isPending ||
@@ -156,23 +202,29 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
 }
 
 function MemoDetail({
+  candidates,
   context,
+  isSearching,
   locale,
   relatedMemo,
   setRelatedMemo,
   onAddRelation,
   onCreateShare,
   onRestore,
+  onRemoveRelation,
   onRevoke,
   pending,
 }: {
+  candidates: Awaited<ReturnType<typeof listMemos>>["memos"];
   context: Awaited<ReturnType<typeof getMemoContext>>;
+  isSearching: boolean;
   locale: string;
   relatedMemo: string;
   setRelatedMemo: (value: string) => void;
-  onAddRelation: () => void;
+  onAddRelation: (name: string) => void;
   onCreateShare: () => void;
   onRestore: (revision: string) => void;
+  onRemoveRelation: (name: string) => void;
   onRevoke: (share: string) => void;
   pending: boolean;
 }) {
@@ -208,24 +260,55 @@ function MemoDetail({
             <AttachmentGallery attachments={context.attachments} />
           </TabsContent>
           <TabsContent className="flex flex-col gap-4 pt-4" value="relations">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                aria-label={t("detail.relatedMemoPlaceholder")}
-                placeholder={t("detail.relatedMemoPlaceholder")}
-                value={relatedMemo}
-                onChange={(event) => setRelatedMemo(event.target.value)}
-              />
-              <Button
-                disabled={pending || !relatedMemo.trim()}
-                onClick={onAddRelation}
-              >
-                <PlusIcon data-icon="inline-start" />
-                {t("detail.addRelation")}
-              </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  aria-label={t("detail.relatedMemoPlaceholder")}
+                  placeholder={t("detail.relatedMemoPlaceholder")}
+                  value={relatedMemo}
+                  onChange={(event) => setRelatedMemo(event.target.value)}
+                />
+                <Button
+                  disabled={pending || !relatedMemo.trim()}
+                  onClick={() => onAddRelation(relatedMemo.trim())}
+                >
+                  <PlusIcon data-icon="inline-start" />
+                  {t("detail.addRelation")}
+                </Button>
+              </div>
+              {relatedMemo.trim().length >= 2 && (
+                <div className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-1">
+                  {isSearching && (
+                    <p className="px-2 py-1 text-xs text-muted-foreground">
+                      {t("detail.searchingRelations")}
+                    </p>
+                  )}
+                  {!isSearching && candidates.length === 0 && (
+                    <p className="px-2 py-1 text-xs text-muted-foreground">
+                      {t("detail.noRelationCandidates")}
+                    </p>
+                  )}
+                  {candidates.map((candidate) => (
+                    <button
+                      className="rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-background"
+                      disabled={pending}
+                      key={candidate.name}
+                      type="button"
+                      onClick={() => onAddRelation(candidate.name)}
+                    >
+                      <span className="line-clamp-2">{candidate.content}</span>
+                      <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
+                        {candidate.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <RelationGroup
               label={t("detail.outgoing")}
               relations={context.relations}
+              onRemove={onRemoveRelation}
             />
             <RelationGroup
               label={t("detail.backlinks")}
@@ -327,9 +410,11 @@ function MemoDetail({
 
 function RelationGroup({
   label,
+  onRemove,
   relations,
 }: {
   label: string;
+  onRemove?: (name: string) => void;
   relations: Awaited<ReturnType<typeof getMemoContext>>["relations"];
 }) {
   const { t } = useI18n();
@@ -342,17 +427,34 @@ function RelationGroup({
         </p>
       )}
       {relations.map(({ relation, memo }) => (
-        <Link
-          className="rounded-lg border p-3 text-sm transition-colors hover:bg-muted"
+        <div
+          className="flex items-center gap-1 rounded-lg border p-1"
           key={`${relation.memo}:${relation.related_memo}:${relation.type}`}
-          params={{ memoId: memo.id }}
-          to="/memo/$memoId"
         >
-          <div className="line-clamp-2">{memo.content}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {relation.type}
-          </div>
-        </Link>
+          <Link
+            className="min-w-0 flex-1 rounded-md p-2 text-sm transition-colors hover:bg-muted"
+            params={{ memoId: memo.id }}
+            to="/memo/$memoId"
+          >
+            <div className="line-clamp-2">{memo.content}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {relation.type}
+            </div>
+          </Link>
+          {onRemove && (
+            <Button
+              aria-label={t("detail.removeRelation", {
+                content: memo.content,
+              })}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+              onClick={() => onRemove(relation.related_memo)}
+            >
+              <UnlinkIcon />
+            </Button>
+          )}
+        </div>
       ))}
     </section>
   );
