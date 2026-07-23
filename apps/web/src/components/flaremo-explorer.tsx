@@ -104,7 +104,7 @@ export function FlareMoExplorer({
           className="mt-2 grid grid-cols-12 gap-1 px-1 text-xs text-muted-foreground"
         >
           {monthLabels.map((month) => (
-            <span className="truncate" key={month.date}>
+            <span className="whitespace-nowrap" key={month.date}>
               {month.label}
             </span>
           ))}

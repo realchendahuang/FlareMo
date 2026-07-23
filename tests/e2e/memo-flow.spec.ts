@@ -257,6 +257,41 @@ test("shows the installed version and safe update fallback", async ({
   ).toHaveAttribute("href", /docs\/update\.md$/);
 });
 
+test("keeps activity labels and the focused composer fully visible", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const monthLabels = page.locator(
+    '[data-testid="activity-heatmap"] + div span',
+  );
+  const visibleLabels = monthLabels.filter({ hasText: /\S/ });
+  await expect(visibleLabels.first()).toBeVisible();
+  for (const label of await visibleLabels.all()) {
+    const style = await label.evaluate((element) => ({
+      overflow: getComputedStyle(element).overflow,
+      textOverflow: getComputedStyle(element).textOverflow,
+    }));
+    expect(style.overflow).toBe("visible");
+    expect(style.textOverflow).not.toBe("ellipsis");
+  }
+
+  const composer = page.getByRole("textbox", { name: /new note|新笔记/i });
+  const composerForm = page.locator("form").filter({ has: composer });
+  await page.waitForTimeout(250);
+  const topBeforeFocus = await composerForm.evaluate(
+    (element) => element.getBoundingClientRect().top,
+  );
+  await composer.focus();
+  const header = page.locator("header").first();
+  const geometry = await Promise.all([
+    composerForm.evaluate((element) => element.getBoundingClientRect().top),
+    header.evaluate((element) => element.getBoundingClientRect().bottom),
+  ]);
+  expect(geometry[0]).toBe(topBeforeFocus);
+  expect(geometry[0]).toBeGreaterThan(geometry[1]);
+});
+
 test("keeps the mobile navigation usable", async ({ page }) => {
   for (let index = 0; index < 18; index += 1) {
     const response = await page.request.post("/api/app/memos", {
