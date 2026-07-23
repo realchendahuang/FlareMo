@@ -30,7 +30,7 @@ pnpm verify
 pnpm deploy:dry-run
 ```
 
-项目不使用 GitHub Actions 作为 CI。PR 作者需要在本地跑完门禁，并在 PR 里写明结果。
+项目不使用 GitHub Actions 作为 CI 或生产部署器。PR 作者需要在本地跑完门禁，并在 PR 里写明结果。仓库中的 `flaremo-update.yml` 只服务 Deploy Button 创建的用户仓库，用于把上游 Release 准备成升级 PR。
 
 如需自动修复格式：
 

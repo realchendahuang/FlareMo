@@ -36,7 +36,7 @@ pnpm dev
 
 ```bash
 pnpm verify
-pnpm migrate:remote
+pnpm deploy:dry-run
 pnpm deploy
 ```
 
@@ -50,13 +50,14 @@ pnpm deploy:dry-run
 
 - 改数据库结构时，先改 `packages/db/src/schema.ts`，再运行 `pnpm db:generate`。
 - 生成的 SQL migration 必须提交到 `migrations/`。
+- 自动部署会先迁移再发布 Worker；migration 必须向后兼容上一正式版本，破坏性收缩要拆到后续 release。
 - 业务访问数据必须通过 Drizzle 和 domain services，不要在路由里堆散装 SQL。
 - `/api/v1/*` 是兼容层；新增字段或行为时同步检查 `packages/memos` 和 OpenAPI。
 - `/api/app/*` 可以服务前端体验，但必须复用同一套 domain services。
 - 前端只展示已经接上后端能力的入口；不要放未实现功能的按钮、菜单或文案。
 - 生产访问边界是 Cloudflare Access；不要新增应用内访问令牌登录页。
 - `Temp/` 是参考仓库目录，不能提交。
-- 不使用 GitHub Actions 作为项目 CI；提交前在本地跑 `pnpm verify`。
+- 不使用 GitHub Actions 作为项目 CI 或生产部署器；提交前在本地跑 `pnpm verify`。唯一例外是 `.github/workflows/flaremo-update.yml`，它只在 Deploy Button 创建的用户仓库中同步上游 Release 并创建升级 PR，不持有 Cloudflare 凭据。
 
 ## Issue 和 PR 流程
 

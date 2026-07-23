@@ -237,6 +237,26 @@ test("loads notes beyond the first page", async ({ page }) => {
   await expect(page.getByText(`${marker}-0`, { exact: true })).toBeVisible();
 });
 
+test("shows the installed version and safe update fallback", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const updateButton = page.getByRole("button", {
+    name: /system update|系统更新/i,
+  });
+  await expect(updateButton).toBeVisible();
+  await expect(updateButton).toContainText("v0.3.0");
+  await updateButton.click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("v0.3.0");
+  await expect(
+    dialog.getByRole("link", { name: /update guide|升级指南/i }),
+  ).toHaveAttribute("href", /docs\/update\.md$/);
+});
+
 test("keeps the mobile navigation usable", async ({ page }) => {
   for (let index = 0; index < 18; index += 1) {
     const response = await page.request.post("/api/app/memos", {

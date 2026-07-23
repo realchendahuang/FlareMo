@@ -2,6 +2,35 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.3.0
+
+自托管更新体验版本。这个版本让 Deploy Button 创建的 GitHub 仓库可以发现上游稳定 Release、准备可审查的升级 PR，并在合并后继续使用 Cloudflare Workers Builds 发布。
+
+### 已包含
+
+- 前端侧栏增加“系统更新”入口，显示当前版本、最新稳定版本、发布日期和 Release notes。
+- `/api/app/health` 增加版本元数据，支持把部署仓库配置为 `FLAREMO_DEPLOY_REPOSITORY`，从应用直接进入该仓库的更新 workflow。
+- 新增 `flaremo-update.yml`：每天或手工检查最新稳定 Release，根据两个 Release 之间的差异在用户部署仓库中创建升级 PR；它不依赖上游提交历史，检测到自定义代码冲突时停止且不覆盖 `main`。
+- `pnpm deploy` 会在 Worker 发布前自动应用远端 D1 migrations，使 Deploy Button 首装和后续 Workers Builds 更新使用同一条部署链路。
+- 增加中英文更新指南，并把 GitHub Actions 例外收窄为用户部署仓库的 Release 同步；它不承担项目 CI，不持有 Cloudflare 凭据，也不直接部署。
+- root、Web、Worker、contracts、db、domain、memos、OpenAPI 和 MCP 版本统一到 `0.3.0`。
+
+### Cloudflare、数据库与兼容影响
+
+- 不新增 D1 migration，不改变 D1、R2、Access、Cron 或 Memos-compatible `/api/v1/*` 行为。
+- 新增普通变量 `FLAREMO_DEPLOY_REPOSITORY`；值为用户部署仓库的 `owner/repository`。留空不影响笔记功能，只会让系统更新入口退回升级指南。
+- 从本版本起 `pnpm deploy` 自动执行 `pnpm migrate:remote`；已有 migration 会由 Wrangler 跟踪，不会重复应用。
+- 更新分支使用 Cloudflare 默认的 non-production `wrangler versions upload` 命令创建 preview；只有合并到 production branch 后的 `pnpm deploy` 才执行远端 migration。
+- GitHub Action 只使用当前部署仓库临时的 `GITHUB_TOKEN` 创建分支和 PR。Cloudflare Workers Builds 仍是唯一生产部署器。
+
+### 升级说明
+
+- v0.2.1 或更早实例需要最后手工升级一次到 v0.3.0。
+- 在生成的部署仓库中启用 Actions 的仓库写入和创建 PR 权限。
+- 把 `FLAREMO_DEPLOY_REPOSITORY` 设置为该 GitHub 仓库，例如 `octocat/flaremo`。
+- 以后可在 FlareMo 的系统更新入口运行更新 workflow，合并生成的 PR 后由 Cloudflare 自动部署。
+- GitLab 部署继续使用手工升级流程。
+
 ## v0.2.1
 
 开发工具链安全补丁。这个版本把已经合并到 `main` 的依赖修复纳入正式发布，不改变 v0.2.0 的生产功能、数据模型或 Cloudflare 资源。

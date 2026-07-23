@@ -31,6 +31,7 @@ describe("FlareMo Worker API", () => {
       ASSETS: {
         fetch: async () => new Response("asset", { status: 200 }),
       } as Fetcher,
+      FLAREMO_DEPLOY_REPOSITORY: "example/flaremo",
       FLAREMO_SINGLE_USER_EMAIL: "owner@example.com",
       FLAREMO_SINGLE_USER_NAME: "Owner",
     };
@@ -116,6 +117,34 @@ describe("FlareMo Worker API", () => {
     ]);
     expect(memosResponse.status).toBe(200);
     expect(statsResponse.status).toBe(200);
+  });
+
+  it("exposes release and repository metadata for the update UI", async () => {
+    const health = await json(
+      await fetchApp("http://flaremo.test/api/app/health"),
+    );
+
+    expect(health).toMatchObject({
+      ok: true,
+      product: "FlareMo",
+      version: "0.3.0",
+      update_repository: "example/flaremo",
+      update_workflow_url:
+        "https://github.com/example/flaremo/actions/workflows/flaremo-update.yml",
+      releases_url: "https://github.com/realchendahuang/FlareMo/releases",
+    });
+  });
+
+  it("does not create an update link from an invalid repository value", async () => {
+    env.FLAREMO_DEPLOY_REPOSITORY = "https://github.com/example/flaremo";
+    const health = await json(
+      await fetchApp("http://flaremo.test/api/app/health"),
+    );
+
+    expect(health).toMatchObject({
+      update_repository: null,
+      update_workflow_url: null,
+    });
   });
 
   it("paginates memos with page tokens", async () => {

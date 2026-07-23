@@ -32,6 +32,7 @@
     "crons": ["17 3 * * *"]
   },
   "vars": {
+    "FLAREMO_DEPLOY_REPOSITORY": "",
     "FLAREMO_SINGLE_USER_EMAIL": "owner@flaremo.local",
     "FLAREMO_SINGLE_USER_NAME": "FlareMo Owner"
   }
