@@ -51,9 +51,9 @@
     "@cloudflare/workers-types": "5.20260708.1",
     "@playwright/test": "^1.61.1",
     "drizzle-kit": "^0.31.8",
-    "miniflare": "^4.20260708.1",
+    "miniflare": "^4.20260722.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.0",
-    "wrangler": "^4.110.0"
+    "wrangler": "^4.114.0"
   }
 }
