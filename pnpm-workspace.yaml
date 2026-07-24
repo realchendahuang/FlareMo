@@ -3,6 +3,8 @@ packages:
   - "packages/*"
 overrides:
   "@esbuild-kit/core-utils>esbuild": 0.25.12
+  fast-uri: "^3.1.4"
+  "@hono/node-server": "^2.0.5"
 allowBuilds:
   esbuild: true
   sharp: true
@@ -10,5 +12,5 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@cloudflare/workers-types@4.20260627.1'
   - '@cloudflare/workers-types@5.20260708.1'
-  - miniflare@4.20260708.1
-  - wrangler@4.110.0
+  - miniflare@4.20260722.0
+  - wrangler@4.114.0
