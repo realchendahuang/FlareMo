@@ -1,4 +1,5 @@
 export * from "./attachments";
+export * from "./auth";
 export * from "./errors";
 export * from "./ids";
 export * from "./import-export";

@@ -13,11 +13,14 @@
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests"
   },
   "dependencies": {
+    "@better-auth/api-key": "1.6.25",
+    "@better-auth/drizzle-adapter": "1.6.25",
     "@flaremo/contracts": "workspace:*",
     "@flaremo/db": "workspace:*",
     "@flaremo/domain": "workspace:*",
     "@flaremo/memos": "workspace:*",
     "@hono/zod-validator": "^0.7.6",
+    "better-auth": "1.6.25",
     "hono": "^4.10.7",
     "zod": "^4.1.12"
   },

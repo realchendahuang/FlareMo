@@ -28,3 +28,17 @@ export class ConflictError extends DomainError {
     this.name = "ConflictError";
   }
 }
+
+export class UnauthorizedError extends DomainError {
+  constructor(message = "Authentication required") {
+    super(message, 401);
+    this.name = "UnauthorizedError";
+  }
+}
+
+export class ForbiddenError extends DomainError {
+  constructor(message = "Permission denied") {
+    super(message, 403);
+    this.name = "ForbiddenError";
+  }
+}

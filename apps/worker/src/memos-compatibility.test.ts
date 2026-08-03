@@ -7,10 +7,18 @@ import app from "./index";
 
 let mf: Miniflare;
 let env: Env;
+let sessionCookie: string;
+
+const TEST_AUTH_SECRET =
+  "test-better-auth-secret-that-is-never-used-in-production";
+const TEST_BOOTSTRAP_SECRET =
+  "test-bootstrap-secret-that-is-never-used-in-production";
+const TEST_PASSWORD = "test-password-not-for-production-123";
 
 describe("Memos-compatible API contract", () => {
   beforeEach(async () => {
     ({ mf, env } = await createTestRuntime("source"));
+    sessionCookie = await bootstrapAndSignIn();
   });
 
   afterEach(async () => {
@@ -281,6 +289,7 @@ describe("Memos-compatible API contract", () => {
 
     await mf.dispose();
     ({ mf, env } = await createTestRuntime("restored"));
+    sessionCookie = await bootstrapAndSignIn();
 
     const imported = await json(
       await fetchApp("http://flaremo.test/api/v1/import", {
@@ -467,8 +476,76 @@ describe("Memos-compatible API contract", () => {
   });
 });
 
-function fetchApp(input: string, init?: RequestInit) {
-  return app.fetch(new Request(input, init), env);
+function fetchApp(
+  input: string,
+  init?: RequestInit,
+  options: { authenticated?: boolean } = {},
+) {
+  const headers = new Headers(init?.headers);
+  const path = new URL(input).pathname;
+  if (
+    options.authenticated !== false &&
+    (path.startsWith("/api/app/") || path.startsWith("/api/v1/"))
+  ) {
+    headers.set("cookie", sessionCookie);
+    if (!headers.has("origin") && isUnsafeMethod(init?.method)) {
+      headers.set("origin", "http://flaremo.test");
+    }
+  }
+  return app.fetch(new Request(input, { ...init, headers }), env);
+}
+
+function isUnsafeMethod(method: string | undefined) {
+  return !["GET", "HEAD", "OPTIONS"].includes((method ?? "GET").toUpperCase());
+}
+
+async function bootstrapAndSignIn() {
+  const setup = await app.fetch(
+    new Request("http://flaremo.test/api/auth/flaremo/bootstrap", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-flaremo-bootstrap-secret": TEST_BOOTSTRAP_SECRET,
+      },
+      body: JSON.stringify({
+        username: "owner",
+        name: "Owner",
+        email: "owner@example.com",
+        password: TEST_PASSWORD,
+      }),
+    }),
+    env,
+  );
+  expect(setup.status).toBe(201);
+
+  const signIn = await app.fetch(
+    new Request("http://flaremo.test/api/auth/sign-in/username", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        username: "owner",
+        password: TEST_PASSWORD,
+      }),
+    }),
+    env,
+  );
+  expect(signIn.status).toBe(200);
+  return extractCookieHeader(signIn);
+}
+
+function extractCookieHeader(response: Response) {
+  const headers = response.headers as Headers & {
+    getSetCookie?: () => string[];
+  };
+  const setCookies = headers.getSetCookie?.() ?? [
+    response.headers.get("set-cookie"),
+  ];
+  const cookies = setCookies
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.split(";", 1)[0] ?? "")
+    .filter(Boolean);
+  expect(cookies.length).toBeGreaterThan(0);
+  return cookies.join("; ");
 }
 
 async function createMemo(content: string) {
@@ -538,6 +615,7 @@ async function createTestRuntime(suffix: string) {
     "0002_wooden_professor_monster.sql",
     "0003_equal_maximus.sql",
     "0004_complex_the_enforcers.sql",
+    "0005_confused_masque.sql",
   ]) {
     await applyMigration(
       db,
@@ -557,6 +635,9 @@ async function createTestRuntime(suffix: string) {
       } as Fetcher,
       FLAREMO_SINGLE_USER_EMAIL: "owner@example.com",
       FLAREMO_SINGLE_USER_NAME: "Owner",
+      FLAREMO_PUBLIC_URL: "http://flaremo.test",
+      BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
+      FLAREMO_BOOTSTRAP_SECRET: TEST_BOOTSTRAP_SECRET,
     } as Env,
   };
 }

@@ -5,6 +5,7 @@ dist/
 .wrangler-screenshots/
 .wrangler-e2e/
 .dev.vars*
+!.dev.vars.example
 *.tsbuildinfo
 test-results/
 playwright-report/

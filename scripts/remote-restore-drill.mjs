@@ -17,13 +17,21 @@ const reportPath = join(outputDir, "report.md");
 const objectDir = join(outputDir, "r2");
 const backupTables = [
   "users",
+  // Restore the identity root before Better Auth's dependent records.
+  "auth_users",
+  "auth_accounts",
+  "auth_sessions",
+  "auth_apikeys",
+  "auth_verifications",
+  "auth_user_links",
+  "auth_bootstrap",
   "memos",
-  "attachments",
-  "memo_relations",
   "settings",
-  "shares",
   "memo_tags",
   "memo_revisions",
+  "memo_relations",
+  "attachments",
+  "shares",
 ];
 const tableArgs = backupTables.flatMap((table) => ["--table", table]);
 const steps = [];
@@ -215,6 +223,13 @@ function queryCounts(database, config) {
     [
       "SELECT",
       "(SELECT COUNT(*) FROM users) AS users,",
+      "(SELECT COUNT(*) FROM auth_users) AS auth_users,",
+      "(SELECT COUNT(*) FROM auth_accounts) AS auth_accounts,",
+      "(SELECT COUNT(*) FROM auth_sessions) AS auth_sessions,",
+      "(SELECT COUNT(*) FROM auth_apikeys) AS auth_apikeys,",
+      "(SELECT COUNT(*) FROM auth_verifications) AS auth_verifications,",
+      "(SELECT COUNT(*) FROM auth_user_links) AS auth_user_links,",
+      "(SELECT COUNT(*) FROM auth_bootstrap) AS auth_bootstrap,",
       "(SELECT COUNT(*) FROM memos) AS memos,",
       "(SELECT COUNT(*) FROM memo_tags) AS tags,",
       "(SELECT COUNT(*) FROM memo_revisions) AS revisions,",

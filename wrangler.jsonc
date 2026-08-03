@@ -34,6 +34,11 @@
   "vars": {
     "FLAREMO_DEPLOY_REPOSITORY": "",
     "FLAREMO_SINGLE_USER_EMAIL": "owner@flaremo.local",
-    "FLAREMO_SINGLE_USER_NAME": "FlareMo Owner"
+    "FLAREMO_SINGLE_USER_NAME": "FlareMo Owner",
+    // Canonical origin used by Better Auth for callback and cookie checks.
+    // Set this to the deployed origin; keep secrets out of this file.
+    "FLAREMO_PUBLIC_URL": "",
+    // Optional comma-separated additional browser origins for trusted clients.
+    "FLAREMO_TRUSTED_ORIGINS": ""
   }
 }

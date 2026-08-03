@@ -29,7 +29,8 @@ const FLAREMO_RELEASES_URL =
 const FLAREMO_UPDATE_GUIDE_URL =
   "https://github.com/realchendahuang/FlareMo/blob/main/docs/update.md";
 
-appApi.get("/health", (c) => {
+appApi.get("/health", async (c) => {
+  await getRequestContext(c);
   const repository = normalizeGitHubRepository(c.env.FLAREMO_DEPLOY_REPOSITORY);
   return c.json({
     ok: true,

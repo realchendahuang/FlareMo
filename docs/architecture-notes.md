@@ -10,7 +10,7 @@
 
 ## 目标
 
-FlareMo 要做一个 Flomo 风格、Memos 兼容、完整运行在 Cloudflare 上的个人知识管理系统。
+FlareMo 要做一个 Flomo 风格、面向 Memos 生态构建兼容层、完整运行在 Cloudflare 上的个人知识管理系统。
 
 核心目标：
 
@@ -19,6 +19,7 @@ FlareMo 要做一个 Flomo 风格、Memos 兼容、完整运行在 Cloudflare �
 - 前端和 API 都运行在 Cloudflare Workers 上。
 - 笔记、用户、关系、分享、设置等主数据存 D1。
 - 附件、导出包、生成资源和音频存 R2。
+- 应用层认证使用 Better Auth；Cloudflare Access 只作为可选外层防线。
 - 后续语义检索和 AI 工作流可以接入 Vectorize 和 Workers AI。
 - 不依赖 VPS、Docker、Postgres、Node 常驻进程或本地文件系统。
 
@@ -128,6 +129,42 @@ FlareMo 首先是一个完整可用的笔记和知识管理系统，不是 Cloud
 - Vectorize：只在实现语义搜索时使用。
 - Workers AI：只在实现 AI 功能时使用。
 
+## 认证架构
+
+Better Auth 是 FlareMo 的应用层认证事实源，按请求使用当前 Worker 的 D1 binding 构建，避免把过期或缺失的 binding 捕获在模块级状态中。
+
+当前认证流分成三个互不混淆的边界：
+
+```text
+浏览器
+  Better Auth username/password
+  -> HttpOnly、SameSite=Lax cookie session
+  -> auth_user_links
+  -> 既有 users/owner 和业务数据
+
+脚本 / Memos 客户端 / MCP
+  Authorization: Bearer memos_pat_...
+  -> Better Auth API Key plugin
+  -> auth_user_links
+  -> 既有 FlareMo domain user
+
+公开分享
+  share token + expiration + memo state
+  -> public share data only
+```
+
+首次安装只允许通过 `FLAREMO_BOOTSTRAP_SECRET` 保护的一次性 owner bootstrap 创建账号；正常 Better Auth signup 被关闭。bootstrap 成功后，Better Auth 用户通过 `auth_user_links` 映射到既有的 `users/owner`，不重写 memo、attachment、R2 object key 或 share token。未来多用户可以增加更多映射对，但不需要改变现有资源 ID。
+
+PAT 由 cookie session 下的账户接口创建、列出和撤销，明文只在创建响应返回一次；PAT 不模拟浏览器 session，也不能调用账户 PAT 管理接口。`memos_pat_` 是 FlareMo-native credential，用于保护当前兼容 API 子集，不代表 Memos Server 的完整 auth parity。
+
+Cloudflare Access 可以在这三层之前作为外层 policy。它只负责入口门禁，Access identity 或 Service Token 不会自动提供 FlareMo 应用用户身份；启用时请求仍需 cookie session 或 PAT。公开分享可在 Access 上对最窄路径做 bypass，但不跳过 FlareMo share token 校验。
+
+### 按凭据区分的 Origin policy
+
+`FLAREMO_PUBLIC_URL` 加上可选的 `FLAREMO_TRUSTED_ORIGINS` 形成精确 origin allowlist。cookie session 的状态变更请求（`POST`、`PATCH`、`DELETE` 等非安全方法）必须携带并命中该 allowlist；缺失或不匹配时返回 `403`。PAT/Bearer 请求允许无 Origin，以支持桌面脚本和 MCP；如果 PAT 请求带有 Origin，则同样必须命中 allowlist，否则返回 `403`。
+
+该校验只比较完整 origin，不接受 wildcard，也不把 `Referer` 或 Access headers 当作 Origin。它遵循 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全方向，但不扩大 FlareMo 当前兼容承诺：`/mcp` Streamable HTTP 与 current camelCase wire adapter 仍由 Issue [#40](https://github.com/realchendahuang/FlareMo/issues/40) 追踪。
+
 ## Memos 兼容策略
 
 兼容不是口号，而是产品能力。
@@ -166,21 +203,22 @@ FlareMo 对外暴露 Memos-compatible `/api/v1`。公共兼容面包括：
 
 同时支持：
 
-- 生产访问控制由 Cloudflare Access 负责。
-- 脚本、工具和 MCP 通过 Cloudflare Access Service Token 访问受保护实例。
+- 应用层由 Better Auth cookie session 或 `memos_pat_` PAT 负责认证。
+- Cloudflare Access 是可选的外层 policy；启用时脚本和工具要同时携带 Access Service Token 与 FlareMo PAT。
 - 常见分页参数：`page_size`、`page_token`。
 - 常见排序参数：`order_by`。
 - 常见状态过滤：`state`。
 - 常见 filter 表达式。
 
-Service Token 访问是 Cloudflare Access 层的职责，不进入 FlareMo
-业务代码。生产实例应在 Access application 上配置 `non_identity`
-policy，并用 `service_token` selector 绑定允许访问的 token。客户端
-只需要发送：
+Access Service Token 只属于 Cloudflare Access 层，不进入 FlareMo 用户
+映射。生产实例如启用 Access，应在 Access application 上配置
+`non_identity` policy，并用 `service_token` selector 绑定允许访问的 token；
+客户端还要发送 FlareMo PAT：
 
 ```bash
 CF-Access-Client-Id: <client id>
 CF-Access-Client-Secret: <client secret>
+Authorization: Bearer <memos_pat_...>
 ```
 
 公开分享路径单独处理。`/share/*`、`/api/public/shares/*` 和 `/assets/*`
@@ -194,6 +232,7 @@ CF-Access-Client-Secret: <client secret>
 - 基于 OpenAPI 暴露 MCP endpoint。
 - 响应字段在支持范围内保持 Memos-compatible。
 - Webhooks 作为自动化生态能力进入整体设计。
+- #39 只提供 PAT/Bearer auth 基础；Memos current camelCase wire adapter、auth facade、字段/错误翻译和 `/mcp` Streamable HTTP 由 Issue #40 追踪。
 
 ### 兼容边界
 
@@ -205,7 +244,7 @@ FlareMo 有两层 API。
 
 ### `/api/v1/*`
 
-Memos-compatible 公开 API。
+Memos-compatible API surface。除公开分享和 OpenAPI 入口外，业务请求需要 Better Auth cookie session 或 `memos_pat_` PAT。
 
 用于：
 
@@ -281,6 +320,8 @@ settings
   value TEXT NOT NULL
   PRIMARY KEY (user_id, key)
 ```
+
+Better Auth 的认证表与上述领域表隔离保存：`auth_users`、`auth_sessions`、`auth_accounts`、`auth_verifications`、`auth_apikeys`、`auth_user_links` 和 `auth_bootstrap`。`auth_user_links` 是 auth identity 到 FlareMo domain user 的唯一桥接；保留这层边界可以在未来增加用户映射时不改变既有 memo、attachment 和 share 资源 ID。
 
 payload 示例：
 
@@ -378,6 +419,6 @@ AI 工作流围绕个人知识库展开：
 
 FlareMo 的架构核心是：
 
-**Memos-compatible API + FlareMo-native internal model + Cloudflare Workers runtime + D1/Drizzle source of truth。**
+**面向 Memos 生态的兼容 API + Better Auth + FlareMo-native internal model + Cloudflare Workers runtime + D1/Drizzle source of truth。**
 
 对外吃 Memos 生态，对内保持干净，不复制 Memos 的历史包袱，也不为了凑技术栈而引入 Cloudflare 全家桶。

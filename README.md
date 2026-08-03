@@ -1,6 +1,6 @@
 # FlareMo
 
-**一个免费账号就能 24 小时跑在云端的个人笔记系统。Cloudflare 原生部署，自带数据库和对象存储，登录用你自己的 Cloudflare 账号，对外保留 Memos 兼容 API。**
+**一个免费账号就能 24 小时跑在云端的个人笔记系统。Cloudflare 原生部署，自带数据库和对象存储，应用层使用 Better Auth 原生登录，对外保留 Memos 兼容 API；Cloudflare Access 可以作为可选外层防线。**
 
 [![GitHub stars](https://img.shields.io/github/stars/realchendahuang/FlareMo?style=social)](https://github.com/realchendahuang/FlareMo)
 [![license](https://img.shields.io/github/license/realchendahuang/FlareMo)](./LICENSE)
@@ -31,7 +31,7 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - **Cloudflare D1：5 GB 数据库** —— 用来存笔记、标签、关系、分享、设置。
 - **Cloudflare R2：10 GB 对象存储** —— 用来存附件、图片、导出包。
 - **Cloudflare Workers：免费请求额度，全球边缘节点** —— 代码和前端都在离你最近的地方跑。
-- **Cloudflare Access：用你自己的 Cloudflare 账号登录** —— 不需要应用内再做一套账号密码或 Bearer token。
+- **Better Auth 原生认证** —— 一次性设置用户名和密码，浏览器使用安全 cookie session，脚本和 Memos 客户端使用可撤销的 `memos_pat_` PAT；Cloudflare Access 可继续作为外层防线。
 - **Workers Static Assets** —— 前端和 API 由同一个 Worker 提供，一次部署全搞定。
 
 整套系统跑在一个 Worker 上。你没有一个「服务器」要照看，只有一份代码和一个免费账号。
@@ -103,7 +103,7 @@ FlareMo 的部署被刻意做得很轻。两种方式，挑一种就行。
 
 点击上方「Deploy to Cloudflare」按钮，Cloudflare 会读取 `wrangler.jsonc`，自动创建 Worker、生成 D1 / R2 绑定并通过部署命令应用 D1 migrations。把 `FLAREMO_DEPLOY_REPOSITORY` 填成 Cloudflare 创建的 GitHub 仓库（例如 `octocat/flaremo`），应用内就能直接打开该仓库的更新 workflow。
 
-如果你的 Cloudflare Dashboard 还没有连接 GitHub 或 GitLab，Cloudflare 会先要求连接 Git provider。这个 OAuth 授权由你在 Cloudflare 页面里确认，FlareMo 不会要求应用内 token。
+如果你的 Cloudflare Dashboard 还没有连接 GitHub 或 GitLab，Cloudflare 会先要求连接 Git provider。这个 OAuth 授权由你在 Cloudflare 页面里确认，和 FlareMo 的 Better Auth 登录是两件事；FlareMo 不会要求把任何真实凭据写进仓库。
 
 **方式二：让 AI Agent 替你部署**
 
@@ -126,7 +126,7 @@ pnpm deploy:dry-run
 pnpm deploy
 ```
 
-完整部署说明见 [docs/deploy.md](./docs/deploy.md)，版本更新见 [docs/update.md](./docs/update.md)。英文部署说明见 [docs/en/deploy.md](./docs/en/deploy.md)。Deploy Button 的实测记录见 [docs/deploy-button-test.md](./docs/deploy-button-test.md)。
+完整部署说明见 [docs/deploy.md](./docs/deploy.md)，版本更新见 [docs/update.md](./docs/update.md)。Deploy Button 的实测记录见 [docs/deploy-button-test.md](./docs/deploy-button-test.md)。
 
 **部署前检查清单**
 
@@ -134,46 +134,67 @@ pnpm deploy
 - `wrangler.jsonc` 里的 D1 binding 是 `DB`，并已填入目标 D1 的 `database_id`。
 - `wrangler.jsonc` 里的 R2 binding 是 `ATTACHMENTS`，目标 bucket 已创建。
 - `pnpm deploy` 会先应用尚未执行的远端 D1 migrations，再发布 Worker。
-- Cloudflare Access application 已规划好人类访问、Service Token 和公开分享 bypass。
+- `wrangler.jsonc` 已设置生产 `FLAREMO_PUBLIC_URL`，并通过 Wrangler secret 配置 Better Auth secrets。
+- 已完成一次性 owner bootstrap、原生登录和 PAT 创建验证；如果启用 Cloudflare Access，也已验证外层 policy 与应用层认证同时通过。
+- Cloudflare Access application（可选）已规划好人类访问、Service Token 和公开分享 bypass。
 - 发布前已跑：`pnpm verify` 和 `pnpm deploy:dry-run`。
 
 ---
 
-## 登录：用 Cloudflare Access，不要应用内 token
+## 登录：Better Auth 原生认证，Access 可选
 
-FlareMo 不接受应用内 Bearer token 登录。生产访问边界放在 Cloudflare Access：
+FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署者在生产 HTTPS 的 `/setup` 页面手动输入一次性 bootstrap secret、用户名、显示名、邮箱和密码，创建唯一初始 owner；成功后公共 signup 关闭。`FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 变量，不是登录凭据或 bootstrap 输入。未来可以扩展多用户映射，但当前产品只承诺单用户完整能力。
 
-- **人**使用 Access 登录和 allow policy（支持 Google / GitHub / SSO / 一次性密码等）。
-- **脚本、Memos-compatible 客户端、MCP** 使用 Access Service Token。
-- **公开分享路径** 单独配置 Access bypass。
+- 浏览器登录后使用 `HttpOnly`、`SameSite=Lax` cookie session。
+- 脚本、Memos-compatible 客户端和 MCP 使用账户创建的 `memos_pat_` Personal Access Token。
+- PAT 只在创建响应中显示一次，可以列出元数据并撤销；PAT 不能进入账户管理接口。
+- cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须带 `Origin`，并精确匹配 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`，否则返回 `403`；PAT 请求可以无 Origin，但如果携带 Origin 也必须匹配同一 allowlist，否则返回 `403`。不使用 wildcard、`Referer` 或 Access headers 替代 Origin。
+- Cloudflare Access 是可选外层。启用时，Access Service Token 只通过外层 policy，仍必须同时提供 Better Auth cookie 或 PAT。
+- 公开分享仍使用 FlareMo share token、过期时间和 memo 状态校验，不把公开分享混入私有登录。
 
-这意味着你没有第二套账号密码要记，也没有一个会泄漏的应用级 token 存在数据库里。谁能访问，由 Cloudflare Access 这个统一边界说了算。
+生产部署前在 `wrangler.jsonc` 填入不带 path/query/hash 的 `FLAREMO_PUBLIC_URL`，并交互式配置 secrets：
 
-脚本访问示例：
+```bash
+pnpm exec wrangler secret put BETTER_AUTH_SECRET --config ./wrangler.jsonc
+pnpm exec wrangler secret put FLAREMO_BOOTSTRAP_SECRET --config ./wrangler.jsonc
+```
+
+不要把真实 secret、初始密码、cookie 或 PAT 写进 `wrangler.jsonc`、文档、Git、日志或聊天。完整 setup、Access 迁移和恢复说明见 [部署文档](./docs/deploy.md)。
+
+原生 PAT 访问示例（`FLAREMO_MEMOS_PAT` 只应来自本地安全配置）：
+
+```bash
+curl "$FLAREMO_URL/api/v1/memos" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
+```
+
+如果生产仍启用 Access，再附加 Access headers；仅有 Access Service Token 不足以访问私有业务数据：
 
 ```bash
 curl "$FLAREMO_URL/api/v1/memos" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
-  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET"
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
 ```
 
-MCP 访问示例：
+当前 MCP 访问示例（FlareMo 既有 JSON-RPC 子集）：
 
 ```bash
 curl "$FLAREMO_URL/api/v1/mcp" \
   -H "content-type: application/json" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
   -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT" \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-建议 bypass 的公开路径：
+建议只 bypass 的公开路径（如果启用 Access）：
 
 - `/share/*`
 - `/api/public/shares/*`
 - `/assets/*`
 
-分享内容仍由 FlareMo 的 share token、过期时间和 memo 状态校验。
+分享内容仍由 FlareMo 的 share token、过期时间和 memo 状态校验。Origin 安全方向参考 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp)，但不代表协议已经兼容。Memos current `/mcp` Streamable HTTP、current camelCase wire adapter、Memos auth facade 和完整 server parity 仍由 [Issue #40](https://github.com/realchendahuang/FlareMo/issues/40) 追踪；#39 的 PAT/Bearer 基础不代表已经完成这些兼容面。
 
 ---
 
@@ -184,7 +205,7 @@ curl "$FLAREMO_URL/api/v1/mcp" \
 - API: Hono-style Worker routes, Zod contracts, OpenAPI
 - Database: Cloudflare D1, Drizzle
 - Object storage: Cloudflare R2
-- Auth boundary: Cloudflare Access
+- Auth boundary: Better Auth; optional Cloudflare Access outer layer
 - Package manager: pnpm
 
 D1 是笔记、用户、标签、分享、关系等业务数据的事实源。R2 只放附件、导出包和对象文件。KV、Vectorize、Workers AI、Queues/Cron 只有在对应功能真的进入实现时才接入，不拿来替代 D1。
@@ -196,7 +217,9 @@ flowchart LR
   Browser["FlareMo Web UI"] --> Worker["Cloudflare Worker"]
   Clients["Memos-compatible clients / scripts / MCP"] --> Worker
 
+  Worker --> Auth["Better Auth: sessions, accounts, PATs"]
   Worker --> D1["D1: memos, users, relations, shares, settings"]
+  Access["Cloudflare Access (optional)"] -. outer policy .-> Worker
   Worker --> R2["R2: attachments and exports"]
   Worker --> Assets["Workers Static Assets"]
 ```
@@ -267,7 +290,8 @@ FlareMo 当前已经具备：
 - R2 附件。
 - Memos 兼容 API 子集、导入导出、OpenAPI 和 MCP。
 - Flomo 风格的快速记录和时间线 UI。
-- Cloudflare Access 生产访问边界。
+- Better Auth 原生 cookie session、一次性 owner bootstrap 和可撤销 `memos_pat_` PAT。
+- Cloudflare Access 可选外层防线，以及公开分享 bypass 的边界说明。
 - Deploy to Cloudflare 按钮。
 - Agent 部署 runbook、发版规则、兼容矩阵和开源协作文件。
 

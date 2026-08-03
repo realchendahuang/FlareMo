@@ -1,22 +1,34 @@
 # Memos 生态兼容记录
 
-FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。
+FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。#39 只提供原生 cookie/PAT 认证基础；真实 current camelCase wire adapter 和 Streamable HTTP MCP 仍由 Issue #40 追踪。
 
-生产实例默认放在 Cloudflare Access 后面。第三方工具如果要直接访问受保护的 FlareMo，必须能发送：
+生产实例迁移期建议放在 Cloudflare Access 后面。第三方工具访问私有 FlareMo 时，必须满足应用层认证：
+
+```text
+Authorization: Bearer memos_pat_...
+```
+
+如果外层仍启用 Cloudflare Access，还必须额外发送：
 
 ```text
 CF-Access-Client-Id
 CF-Access-Client-Secret
 ```
 
-不能发送自定义 header 的工具，可能只能用于未启用 Access 的本地实例、测试实例，或需要额外代理层。
+Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 用户 session；不能发送应用层 `Authorization` 的工具无法访问私有 API，除非使用额外代理层。公开分享仍只依赖 share token、过期和 memo 状态校验。
+
+## Origin 安全契约
+
+浏览器 cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须携带 `Origin`，并精确命中 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；缺失或不匹配返回 `403`。桌面脚本、MCP 和其他非浏览器客户端使用 PAT 时可以不发送 Origin；若 PAT 请求主动携带 Origin，也必须命中同一 allowlist，否则返回 `403`。不使用 wildcard、`Referer` 或 Access headers 替代 Origin。
+
+这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 模型方向一致，只说明安全边界相似，不说明 FlareMo 已完成 Memos 协议兼容。`/mcp` Streamable HTTP 和 current camelCase wire adapter 仍属于 Issue [#40](https://github.com/realchendahuang/FlareMo/issues/40)。
 
 ## 状态定义
 
 | 状态 | 含义 |
 | --- | --- |
-| 可用 | 已连接 FlareMo 并完成核心读写路径。 |
-| 部分可用 | 核心路径有一部分可用，但存在明确缺口。 |
+| 可用 | 已连接 FlareMo，并用 cookie session 或 `memos_pat_` PAT 完成核心读写路径；如生产启用 Access，还验证了两层认证。 |
+| 部分可用 | 核心路径有一部分可用，或只验证了 Access 外层而没有验证应用层 PAT。 |
 | 不支持 | 当前客户端能力或认证模型与 FlareMo 不匹配。 |
 | 未测 | 只完成资料收集，还没有实际连接 FlareMo。 |
 
@@ -24,27 +36,27 @@ CF-Access-Client-Secret
 
 这些条目已经由仓库自动化测试覆盖，可以作为脚本和工具接入 FlareMo 的当前事实基线。
 
-| 工具 / 路径 | 类型 | 测试版本 | 请求路径 | 是否需要 Access Service Token | 当前状态 | 证据 |
+| 工具 / 路径 | 类型 | 测试版本 | 请求路径 | 应用层认证 | 当前状态 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- |
-| curl / HTTP script | 通用脚本 | FlareMo `0.3.0` | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 覆盖 memo CRUD、分页、搜索、附件、分享、revisions、export/import。 |
-| OpenAPI consumers | API schema 工具 | FlareMo `0.3.0` | `/openapi.json` | 生产 Access 后面需要 | 可用 | `apps/worker/src/memos-compatibility.test.ts` 断言公开路径写入 OpenAPI。 |
-| FlareMo MCP endpoint | MCP 客户端 | FlareMo `0.3.0` | `/api/v1/mcp` | 生产 Access 后面需要 | 可用 | `apps/worker/src/api.test.ts` 调用 `tools/list` 并断言 `create_memo`。 |
-| FlareMo Telegram Worker example | Telegram Bot | FlareMo `0.3.0` | Telegram webhook -> `/api/v1/memos` | 需要 | 可用 | `apps/telegram-bot/src/index.test.ts` 断言 webhook secret、chat 白名单、Access headers 和结构化 memo 请求。 |
-| Public share reader | 浏览器 / curl | FlareMo `0.3.0` | `/share/*`、`/api/public/shares/*` | 不需要，需 Access bypass | 可用 | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
+| curl / HTTP script | 通用脚本 | 当前工作树 | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | `memos_pat_`；Access 开启时再加 Access headers | 可用（Worker contract） | `apps/worker/src/auth.test.ts` 和 `apps/worker/src/api.test.ts` 覆盖 cookie、PAT、memo CRUD、分页、搜索、附件、分享、revisions、export/import。 |
+| OpenAPI consumers | API schema 工具 | 当前工作树 | `/openapi.json` | OpenAPI 描述可公开读取；私有 API 请求需 PAT | 可用（schema surface） | `apps/worker/src/memos-compatibility.test.ts` 断言公开路径写入 OpenAPI。 |
+| FlareMo MCP endpoint | MCP 客户端 | 当前工作树 | `/api/v1/mcp` | `memos_pat_`；Access 开启时再加 Access headers | 部分可用（旧式 JSON-RPC） | `apps/worker/src/auth.test.ts` 覆盖 PAT `tools/list`；current Memos `/mcp` Streamable HTTP 留在 #40。 |
+| FlareMo Telegram Worker example | Telegram Bot | 当前工作树 | Telegram webhook -> `/api/v1/memos` | 需要 PAT；现有示例的 Access-only 发送路径需单独更新 | 部分可用 / 待回归 | 现有示例测试覆盖 webhook 和 Access headers，但不证明新的应用层 PAT 已接通。 |
+| Public share reader | 浏览器 / curl | 当前工作树 | `/share/*`、`/api/public/shares/*` | 不需要 session/PAT；Access 开启时需 bypass | 可用（share contract） | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
 
 ## 第三方客户端待测矩阵
 
 这些条目还没有实际连接 FlareMo，不能写成支持。
 
-| 工具 | 类型 | 仓库 | 待测版本 | 是否支持自定义 header | 是否可走 Access Service Token | 当前状态 | 需要验证的请求路径 / 下一步 |
+| 工具 | 类型 | 仓库 | 待测版本 | 是否支持自定义 header | 是否可发送 PAT | 当前状态 | 需要验证的请求路径 / 下一步 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| memos-desktop | 桌面客户端 | https://github.com/xudaolong/memos-desktop | 待测 | 未确认 | 未确认 | 未测 | 验证 API base URL、自定义 Access headers、memo CRUD。 |
-| memos_wmp | 微信小程序 | https://github.com/Rabithua/memos_wmp | 待测 | 未确认 | 未确认 | 未测 | 验证小程序网络层是否允许添加 Access headers。 |
-| memoflow | 移动端客户端 | https://github.com/hzc073/memoflow | 待测 | 未确认 | 未确认 | 未测 | 验证登录模型、API base URL、memo CRUD 和附件路径。 |
-| telegramMemoBot | 第三方 Telegram bot | https://github.com/qazxcdswe123/telegramMemoBot | 待测 | 未确认 | 未确认 | 未测 | 仓库自带示例已经可用；这个第三方项目仍需单独验证是否依赖 Memos PAT。 |
+| memos-desktop | 桌面客户端 | https://github.com/xudaolong/memos-desktop | 待测 | 未确认 | 未确认 | 未测 | 验证 API base URL、PAT 配置/注入、memo CRUD；若 Access 开启，再验证双层 headers。 |
+| memos_wmp | 微信小程序 | https://github.com/Rabithua/memos_wmp | 待测 | 未确认 | 未确认 | 未测 | 验证网络层是否允许添加 `Authorization` PAT 和可选 Access headers。 |
+| memoflow | 移动端客户端 | https://github.com/hzc073/memoflow | 待测 | 未确认 | 未确认 | 未测 | 验证登录模型、PAT/API base URL、memo CRUD 和附件路径。 |
+| telegramMemoBot | 第三方 Telegram bot | https://github.com/qazxcdswe123/telegramMemoBot | 待测 | 未确认 | 未确认 | 未测 | 验证是否支持 FlareMo `memos_pat_`，不能只验证 Cloudflare Access headers。 |
 | Dynos | 移动端客户端 | https://github.com/HonKLam/Dynos | 待测 | 未确认 | 未确认 | 未测 | 验证离线同步和 FlareMo API 子集的重叠范围。 |
 | mcp-server-memos | MCP server | https://github.com/LeslieLeung/mcp-server-memos | 待测 | 未确认 | 未确认 | 未测 | FlareMo 自带 MCP endpoint；仍可验证外部 MCP server 是否能作为兼容客户端使用。 |
-| memos-raycast | Raycast extension | https://github.com/JakeLaoyu/memos-raycast | 待测 | 未确认 | 未确认 | 未测 | 验证 Raycast preferences 是否能配置 Access headers。 |
+| memos-raycast | Raycast extension | https://github.com/JakeLaoyu/memos-raycast | 待测 | 未确认 | 未确认 | 未测 | 验证 Raycast preferences 是否能配置 PAT；若 Access 开启，再验证 Access headers。 |
 | memos-extensions | 浏览器插件 | https://github.com/yozi9257/memos-extensions | 待测 | 未确认 | 未确认 | 未测 | 验证扩展权限、header 注入和创建 memo 路径。 |
 | notum | 离线优先笔记 | https://github.com/nikita-popov/notum | 待测 | 未确认 | 未确认 | 未测 | 验证同步协议是否只依赖 FlareMo 已支持的 `/api/v1` 子集。 |
 
@@ -53,7 +65,10 @@ CF-Access-Client-Secret
 一个客户端标记为“可用”前，至少要完成：
 
 - 配置 FlareMo base URL。
-- 通过 Cloudflare Access Service Token 访问受保护实例，或明确记录只能访问本地/未保护实例。
+- 用 cookie session 或 `memos_pat_` PAT 访问应用层；若通过受保护生产实例，再加 Cloudflare Access Service Token。
+- 验证 cookie session 的状态变更带 trusted Origin；缺失或不可信 Origin 返回 `403`。
+- 验证无 Origin 的 PAT 桌面/脚本/MCP 请求可以工作；带未授权 Origin 的 PAT 请求返回 `403`。
+- 不要把只通过 Cloudflare Access headers 当成应用层兼容证据。
 - 记录客户端名称、版本、测试日期、FlareMo version 或 commit。
 - 创建 memo。
 - 列出 memo。
@@ -71,6 +86,7 @@ CF-Access-Client-Secret
 - 客户端版本：
 - FlareMo version / commit：
 - 部署方式：local / protected production / unprotected test
+- 应用层 PAT：required / not required / unsupported
 - Access Service Token：required / not required / unsupported
 - 请求路径：
 - 结果：可用 / 部分可用 / 不支持
@@ -92,4 +108,4 @@ CF-Access-Client-Secret
 - `apps/worker/src/memos-compatibility.test.ts`
 - `apps/worker/src/api.test.ts`
 
-这些测试证明 FlareMo 的公开子集稳定，但不能替代真实客户端兼容测试。真实客户端结果必须回写到本文。
+这些测试证明 FlareMo 自己的公开子集和认证边界，但不能替代真实 Memos 客户端兼容测试，也不能证明 Memos current `/mcp` Streamable HTTP 已实现。真实客户端结果必须回写到本文。

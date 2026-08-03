@@ -1,6 +1,6 @@
 # FlareMo
 
-**A Cloudflare-native personal knowledge system that can run all day on a free Cloudflare account. It ships with D1, R2, Cloudflare Access, a quiet memo timeline, and a Memos-compatible API subset.**
+**A Cloudflare-native personal knowledge system that can run all day on a free Cloudflare account. It ships with D1, R2, Better Auth native authentication, an optional Cloudflare Access outer layer, a quiet memo timeline, and a Memos-compatible API subset.**
 
 [![GitHub stars](https://img.shields.io/github/stars/realchendahuang/FlareMo?style=social)](https://github.com/realchendahuang/FlareMo)
 [![license](https://img.shields.io/github/license/realchendahuang/FlareMo)](./LICENSE)
@@ -38,11 +38,11 @@ FlareMo keeps the UI honest: if a feature is not wired to the backend, it does n
 
 Click the Deploy to Cloudflare button above. Cloudflare reads `wrangler.jsonc`, creates a Worker, provisions the required D1 and R2 bindings, and applies D1 migrations through the deploy command. Set `FLAREMO_DEPLOY_REPOSITORY` to the GitHub repository Cloudflare creates, for example `octocat/flaremo`, so the in-app update entry can open that repository's update workflow.
 
-If your Cloudflare Dashboard has not connected GitHub or GitLab yet, Cloudflare will ask you to connect a Git provider first. That OAuth step happens in Cloudflare. FlareMo does not ask for an app-level token.
+If your Cloudflare Dashboard has not connected GitHub or GitLab yet, Cloudflare will ask you to connect a Git provider first. That OAuth step happens in Cloudflare and is separate from FlareMo's Better Auth setup; no application credential belongs in the repository.
 
 ### Agent Deployment
 
-Use [docs/en/agent-deploy.md](./docs/en/agent-deploy.md) or the Chinese [docs/agent-deploy.md](./docs/agent-deploy.md) with Codex, Claude Code, Cursor Agent, or another command-capable agent.
+Use the repository [agent deployment runbook](./docs/agent-deploy.md) with Codex, Claude Code, Cursor Agent, or another command-capable agent.
 
 ### Manual Deployment
 
@@ -60,7 +60,7 @@ pnpm deploy:dry-run
 pnpm deploy
 ```
 
-Full deployment docs: [docs/en/deploy.md](./docs/en/deploy.md).
+Full deployment docs: [docs/deploy.md](./docs/deploy.md).
 
 ### Pre-deployment Checklist
 
@@ -68,25 +68,45 @@ Full deployment docs: [docs/en/deploy.md](./docs/en/deploy.md).
 - `wrangler.jsonc` uses `DB` as the D1 binding and contains the target D1 `database_id`.
 - `wrangler.jsonc` uses `ATTACHMENTS` as the R2 binding, and the target bucket exists.
 - `pnpm deploy` applies pending remote D1 migrations before publishing the Worker.
-- Cloudflare Access policies are planned for human access, Service Tokens, and public share bypass routes.
+- `FLAREMO_PUBLIC_URL` is set to the production canonical origin, and Better Auth secrets are configured through Wrangler or the Cloudflare dashboard.
+- The one-time owner bootstrap, native login, and PAT creation have been verified; if Cloudflare Access is enabled, the outer policy and application authentication have both been tested.
+- Cloudflare Access policies are optional outer controls for human access, Service Tokens, and public share bypass routes.
 - The release gate has passed: `pnpm verify` and `pnpm deploy:dry-run`.
 
-## Auth Boundary
+## Auth Boundary: Better Auth, with optional Access
 
-Production access belongs to Cloudflare Access:
+FlareMo's application authentication is provided by Better Auth. On the first production deployment, the operator manually enters the one-time bootstrap secret, username, display name, email, and password in the HTTPS `/setup` page to create the single owner. Public signup is disabled after bootstrap. `FLAREMO_SINGLE_USER_EMAIL` and `FLAREMO_SINGLE_USER_NAME` are legacy variables for existing `users/owner` domain metadata, not login credentials or bootstrap inputs; the setup form is authoritative. The data model leaves room for future mapped users without changing existing memo IDs.
 
-- Humans use an Access identity policy.
-- Scripts, MCP, and Memos-compatible clients use Access Service Tokens.
-- Public share routes should have an explicit Access bypass policy.
+- Browser login uses an `HttpOnly`, `SameSite=Lax` cookie session.
+- Scripts, MCP, and Memos-compatible clients use a revocable `memos_pat_` Personal Access Token created by an authenticated account.
+- The plaintext PAT is returned only at creation time; list and revoke responses do not expose it.
+- Cookie-session state-changing requests such as `POST`, `PATCH`, and `DELETE` must carry an `Origin` that exactly matches `FLAREMO_PUBLIC_URL` or `FLAREMO_TRUSTED_ORIGINS`; missing or untrusted origins return `403`. PAT requests may omit `Origin` for desktop scripts and MCP clients, but a supplied `Origin` must match the same allowlist or the request returns `403`. Wildcards, `Referer`, and Access headers are not substitutes for Origin validation.
+- Cloudflare Access is an optional outer layer. An Access Service Token only passes the outer policy; it does not become a FlareMo user session. If Access is enabled, clients need both layers.
+- Public shares continue to use FlareMo share tokens, expiry, and memo-state checks.
 
-FlareMo does not issue app-level Bearer tokens and does not keep an instance login page.
+Set the production `FLAREMO_PUBLIC_URL` to an origin without a path, query, or fragment, then configure the two Worker secrets interactively:
 
-Script example:
+```bash
+pnpm exec wrangler secret put BETTER_AUTH_SECRET --config ./wrangler.jsonc
+pnpm exec wrangler secret put FLAREMO_BOOTSTRAP_SECRET --config ./wrangler.jsonc
+```
+
+Never put real secrets, the initial password, cookies, or PATs in `wrangler.jsonc`, documentation, Git, logs, or chat. See the [deployment guide](./docs/deploy.md) for the setup sequence.
+
+Native PAT example (`FLAREMO_MEMOS_PAT` must come from a secure local configuration):
+
+```bash
+curl "$FLAREMO_URL/api/v1/memos" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
+```
+
+When Access remains enabled, add its headers as well; an Access Service Token alone is not enough for private application data:
 
 ```bash
 curl "$FLAREMO_URL/api/v1/memos" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
-  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET"
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
 ```
 
 ## Tech Stack
@@ -96,7 +116,7 @@ curl "$FLAREMO_URL/api/v1/memos" \
 - API: Hono-style Worker routes, Zod contracts, OpenAPI
 - Database: Cloudflare D1, Drizzle
 - Object storage: Cloudflare R2
-- Auth boundary: Cloudflare Access
+- Auth boundary: Better Auth; optional Cloudflare Access outer layer
 - Package manager: pnpm
 
 D1 is the source of truth for notes, users, relations, shares, settings, and attachment metadata. R2 stores only binary objects and export bundles.
@@ -107,17 +127,19 @@ FlareMo uses Memos as an ecosystem anchor, not as an internal server fork. The c
 
 Current docs:
 
-- [Memos compatibility matrix](./docs/en/memos-compatibility.md)
+- [Memos compatibility matrix](./docs/memos-compatibility.md)
 - [Memos ecosystem matrix](./docs/memos-ecosystem.md)
 - [Semantic search architecture](./docs/semantic-search.md)
 - [OpenAPI](./packages/contracts/src/openapi.ts)
 
-The important auth detail is Cloudflare Access. A third-party Memos client must be able to send these headers to talk to a protected production FlareMo instance:
+The important auth detail is the two-layer boundary. A third-party Memos client must send a FlareMo PAT, and if the production instance is behind Access it must also send these headers:
 
 ```text
 CF-Access-Client-Id
 CF-Access-Client-Secret
 ```
+
+`memos_pat_` is a FlareMo-native application credential, not proof of complete Memos Server auth parity. The Origin security direction follows the [Memos 0.30 MCP browser-origin model](https://usememos.com/docs/integrations/mcp), but the current `/api/v1/mcp` endpoint is FlareMo's existing JSON-RPC subset. The current Memos `/mcp` Streamable HTTP endpoint, auth facade, and current camelCase wire adapter remain tracked in [Issue #40](https://github.com/realchendahuang/FlareMo/issues/40).
 
 ## Development
 
