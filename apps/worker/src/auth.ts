@@ -66,7 +66,30 @@ export type FlareMoAuth = {
     }) => Promise<MemosApiKey & { key: string }>;
     getSession: (input: {
       headers: Headers;
-    }) => Promise<{ user: { id: string } } | null>;
+      query?: {
+        disableCookieCache?: boolean;
+        disableRefresh?: boolean;
+      };
+    }) => Promise<{
+      session: { token: string; expiresAt: Date };
+      user: { id: string };
+    } | null>;
+    signInUsername: (input: {
+      body: {
+        username: string;
+        password: string;
+        rememberMe?: boolean;
+      };
+      headers: Headers;
+      asResponse: false;
+      returnHeaders: true;
+    }) => Promise<{
+      headers: Headers;
+      response: {
+        token: string;
+        user: { id: string };
+      };
+    }>;
     signUpEmail: (input: {
       body: {
         email: string;

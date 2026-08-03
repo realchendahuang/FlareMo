@@ -27,7 +27,7 @@ The screenshots show the current backend-backed timeline, editor, filtering, and
 - Memo detail pages with relations, backlinks, and revision restore.
 - Revocable public share links.
 - Memos-style import and export with conflict strategies.
-- Memos-compatible `/api/v1` memo, attachment, relation, share, import/export, OpenAPI, and MCP subset.
+- A current Memos-style camelCase/protobuf-JSON `/api/v1` subset for memos, attachments, relations, shares, auth facade, and PAT resources; the legacy snake_case wire remains available through an explicit header.
 - Chinese and English interface.
 
 FlareMo keeps the UI honest: if a feature is not wired to the backend, it does not appear as a fake entry point.
@@ -139,7 +139,7 @@ CF-Access-Client-Id
 CF-Access-Client-Secret
 ```
 
-`memos_pat_` is a FlareMo-native application credential, not proof of complete Memos Server auth parity. The Origin security direction follows the [Memos 0.30 MCP browser-origin model](https://usememos.com/docs/integrations/mcp), but the current `/api/v1/mcp` endpoint is FlareMo's existing JSON-RPC subset. The current Memos `/mcp` Streamable HTTP endpoint, auth facade, and current camelCase wire adapter remain tracked in [Issue #40](https://github.com/realchendahuang/FlareMo/issues/40).
+`memos_pat_` is a FlareMo-native application credential, not proof of complete Memos Server auth parity. The Origin security direction follows the [Memos 0.30 MCP browser-origin model](https://usememos.com/docs/integrations/mcp). The default `/api/v1` wire is now the implemented current camelCase/protobuf-JSON subset, while `X-FlareMo-Wire: legacy` keeps the older snake_case surface available. The Better Auth-backed auth facade and PAT resources are implemented as a subset; `accessToken` is an opaque session-backed token, not a native Memos JWT. The root `/mcp` endpoint is a stateless Streamable HTTP MCP tool subset. Complete Memos Server parity, full CEL/Connect/SSE, comments/reactions/shortcuts, and real smoke tests for third-party clients remain unfinished; see the [compatibility matrix](./docs/memos-compatibility.md) and [ecosystem matrix](./docs/memos-ecosystem.md).
 
 ## Development
 

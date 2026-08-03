@@ -359,7 +359,14 @@ async function signIn(username: string, password: string) {
 }
 
 function fetchRaw(path: string, init?: RequestInit) {
-  return app.fetch(new Request(`http://flaremo.test${path}`, init), env);
+  const headers = new Headers(init?.headers);
+  if (path.startsWith("/api/v1/") && !headers.has("x-flaremo-wire")) {
+    headers.set("x-flaremo-wire", "legacy");
+  }
+  return app.fetch(
+    new Request(`http://flaremo.test${path}`, { ...init, headers }),
+    env,
+  );
 }
 
 function authenticatedJsonHeaders(cookie: string): HeadersInit {

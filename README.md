@@ -86,7 +86,7 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - 记录详情、引用关系、反向链接和历史版本恢复。
 - 可撤销的公开分享链接。
 - 支持冲突策略的 Memos 数据导入导出。
-- Memos 兼容的 `/api/v1` memo / attachment / share 子集。
+- Memos current camelCase / protobuf-JSON 风格的 `/api/v1` memo、attachment、relation、share、auth facade 和 PAT 资源子集；旧 snake_case wire 通过显式 header 保留。
 - OpenAPI 输出。
 - MCP 端点。
 - 中英文界面。
@@ -177,7 +177,7 @@ curl "$FLAREMO_URL/api/v1/memos" \
   -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
 ```
 
-当前 MCP 访问示例（FlareMo 既有 JSON-RPC 子集）：
+旧版 MCP 访问示例（保留给已有 FlareMo 客户端）：
 
 ```bash
 curl "$FLAREMO_URL/api/v1/mcp" \
@@ -188,13 +188,23 @@ curl "$FLAREMO_URL/api/v1/mcp" \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
+current Memos 风格的无状态 Streamable HTTP MCP 使用根路径 `/mcp`，支持 `initialize`、`notifications/initialized`、`tools/list` 和 `tools/call`。它仍是 FlareMo 的工具子集，不承诺 SSE、有状态 MCP session 或完整 Memos MCP method surface：
+
+```bash
+curl "$FLAREMO_URL/mcp" \
+  -H "content-type: application/json" \
+  -H "accept: application/json, text/event-stream" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT" \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}'
+```
+
 建议只 bypass 的公开路径（如果启用 Access）：
 
 - `/share/*`
 - `/api/public/shares/*`
 - `/assets/*`
 
-分享内容仍由 FlareMo 的 share token、过期时间和 memo 状态校验。Origin 安全方向参考 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp)，但不代表协议已经兼容。Memos current `/mcp` Streamable HTTP、current camelCase wire adapter、Memos auth facade 和完整 server parity 仍由 [Issue #40](https://github.com/realchendahuang/FlareMo/issues/40) 追踪；#39 的 PAT/Bearer 基础不代表已经完成这些兼容面。
+分享内容仍由 FlareMo 的 share token、过期时间和 memo 状态校验。当前 `/api/v1` 默认是 current camelCase wire，`/mcp` 是无状态 Streamable HTTP MCP 子集；旧 snake_case API 可通过 `X-FlareMo-Wire: legacy` 或 legacy vendor `Accept` 显式选择。Better Auth-backed auth facade 和 PAT 资源已提供，但 `accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。完整 Memos Server parity、完整 CEL/Connect/SSE、comments/reactions/shortcuts，以及第三方客户端逐一实测仍未完成，详见 [兼容矩阵](./docs/memos-compatibility.md) 和 [生态实测矩阵](./docs/memos-ecosystem.md)。
 
 ---
 

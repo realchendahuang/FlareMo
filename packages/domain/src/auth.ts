@@ -1,12 +1,14 @@
 import {
   authApiKeys,
   authBootstrap,
+  authSessions,
   authUserLinks,
+  authUsers,
   type FlareMoDb,
   type UserRow,
   users,
 } from "@flaremo/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { ConflictError } from "./errors";
 import { ensureSingleUser, type SingleUserConfig } from "./users";
 
@@ -113,6 +115,55 @@ export async function getFlaremoUserByAuthUserId(
       where: eq(users.id, link.flaremoUserId),
     })) ?? null
   );
+}
+
+export async function getAuthUserById(db: FlareMoDb, authUserId: string) {
+  return (
+    (await db.query.authUsers.findFirst({
+      where: eq(authUsers.id, authUserId),
+    })) ?? null
+  );
+}
+
+/**
+ * Resolve a Better Auth session token for the current-Memos auth facade.
+ *
+ * Better Auth's browser session remains the source of truth. This helper only
+ * lets a Memos-compatible client carry the opaque session token returned by
+ * `/api/v1/auth/signin` in an Authorization header; it does not introduce a
+ * second token store or a shared-password fallback.
+ */
+export async function getFlaremoUserByAuthSessionToken(
+  db: FlareMoDb,
+  token: string,
+) {
+  const session = await db.query.authSessions.findFirst({
+    where: and(
+      eq(authSessions.token, token),
+      gt(authSessions.expiresAt, new Date()),
+    ),
+  });
+  if (!session) return null;
+
+  const user = await getFlaremoUserByAuthUserId(db, session.userId);
+  if (!user) return null;
+
+  return {
+    authUserId: session.userId,
+    session,
+    user,
+  };
+}
+
+export async function revokeAuthSessionByToken(
+  db: FlareMoDb,
+  token: string,
+): Promise<boolean> {
+  const deleted = await db
+    .delete(authSessions)
+    .where(eq(authSessions.token, token))
+    .returning({ id: authSessions.id });
+  return deleted.length > 0;
 }
 
 export async function listMemosPersonalAccessTokens(

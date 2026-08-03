@@ -163,7 +163,7 @@ Cloudflare Access 可以在这三层之前作为外层 policy。它只负责入�
 
 `FLAREMO_PUBLIC_URL` 加上可选的 `FLAREMO_TRUSTED_ORIGINS` 形成精确 origin allowlist。cookie session 的状态变更请求（`POST`、`PATCH`、`DELETE` 等非安全方法）必须携带并命中该 allowlist；缺失或不匹配时返回 `403`。PAT/Bearer 请求允许无 Origin，以支持桌面脚本和 MCP；如果 PAT 请求带有 Origin，则同样必须命中 allowlist，否则返回 `403`。
 
-该校验只比较完整 origin，不接受 wildcard，也不把 `Referer` 或 Access headers 当作 Origin。它遵循 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全方向，但不扩大 FlareMo 当前兼容承诺：`/mcp` Streamable HTTP 与 current camelCase wire adapter 仍由 Issue [#40](https://github.com/realchendahuang/FlareMo/issues/40) 追踪。
+该校验只比较完整 origin，不接受 wildcard，也不把 `Referer` 或 Access headers 当作 Origin。它遵循 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全方向。当前 `/api/v1` 默认是 current camelCase wire，并提供根 `/mcp` 无状态 Streamable HTTP MCP 子集；这些是有限兼容面，不等于完整 Memos Server parity。
 
 ## Memos 兼容策略
 
@@ -200,10 +200,13 @@ FlareMo 对外暴露 Memos-compatible `/api/v1`。公共兼容面包括：
 - `POST /api/v1/import`
 - `GET /openapi.json`
 - `POST /api/v1/mcp`
+- `POST /mcp` stateless Streamable HTTP MCP subset
 
 同时支持：
 
 - 应用层由 Better Auth cookie session 或 `memos_pat_` PAT 负责认证。
+- 默认 `/api/v1` 使用 current camelCase/protobuf-JSON subset；旧 snake_case wire 通过 `X-FlareMo-Wire: legacy` 或 legacy vendor `Accept` 显式选择。
+- current auth facade 的 `accessToken` 是 opaque Better Auth session-backed token，不是 Memos 原生 JWT。
 - Cloudflare Access 是可选的外层 policy；启用时脚本和工具要同时携带 Access Service Token 与 FlareMo PAT。
 - 常见分页参数：`page_size`、`page_token`。
 - 常见排序参数：`order_by`。
@@ -232,11 +235,11 @@ Authorization: Bearer <memos_pat_...>
 - 基于 OpenAPI 暴露 MCP endpoint。
 - 响应字段在支持范围内保持 Memos-compatible。
 - Webhooks 作为自动化生态能力进入整体设计。
-- #39 只提供 PAT/Bearer auth 基础；Memos current camelCase wire adapter、auth facade、字段/错误翻译和 `/mcp` Streamable HTTP 由 Issue #40 追踪。
+- current camelCase wire、Better Auth-backed auth facade、字段/错误翻译、PAT 资源和根 `/mcp` 无状态 Streamable HTTP MCP 子集已实现并有仓库测试；`accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。
 
 ### 兼容边界
 
-FlareMo 兼容 Memos 生态，不复制 Memos 服务端历史包袱。Connect/gRPC、复杂 CEL filter、instance settings、SSO、notifications、comments、reactions、admin surfaces、SSE 等能力只有在它们确实服务 FlareMo 产品目标时才进入实现，不为了追求字面 parity 复制复杂度。
+FlareMo 兼容 Memos 生态，不复制 Memos 服务端历史包袱。完整 Connect/gRPC、复杂 CEL filter、instance settings、SSO、notifications、comments、reactions、shortcuts、admin surfaces、SSE、有状态 MCP session 和第三方客户端实测仍未完成；这些能力只有在它们确实服务 FlareMo 产品目标时才进入实现，不为了追求字面 parity 复制复杂度。
 
 ## API 分层
 

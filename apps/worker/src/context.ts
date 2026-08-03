@@ -1,6 +1,7 @@
 import { createDb } from "@flaremo/db";
 import {
   ForbiddenError,
+  getFlaremoUserByAuthSessionToken,
   getFlaremoUserByAuthUserId,
   UnauthorizedError,
 } from "@flaremo/domain";
@@ -26,7 +27,17 @@ export async function getRequestContext(c: Context<HonoBindings>) {
   if (token) {
     assertTrustedBearerOrigin(c);
     if (!token.startsWith("memos_pat_")) {
-      throw new UnauthorizedError();
+      const session = await getFlaremoUserByAuthSessionToken(db, token);
+      if (!session) throw new UnauthorizedError();
+
+      return {
+        db,
+        user: session.user,
+        authUserId: session.authUserId,
+        credential: "session" as const,
+        bearerSession: true,
+        session: session.session,
+      };
     }
     const verification = await auth.api.verifyApiKey({
       body: {
@@ -49,6 +60,8 @@ export async function getRequestContext(c: Context<HonoBindings>) {
       user,
       authUserId: verification.key.referenceId,
       credential: "pat" as const,
+      bearerSession: false,
+      session: null,
     };
   }
 
@@ -83,6 +96,8 @@ export async function getBrowserRequestContext(
     user,
     authUserId: session.user.id,
     credential: "session" as const,
+    bearerSession: false,
+    session: null,
   };
 }
 
