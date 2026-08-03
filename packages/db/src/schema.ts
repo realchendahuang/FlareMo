@@ -23,6 +23,170 @@ export const users = sqliteTable(
   (table) => [uniqueIndex("users_email_idx").on(table.email)],
 );
 
+// Better Auth owns authentication identities. These tables intentionally stay
+// separate from the domain `users` table above so existing memo, attachment,
+// share, and R2 ownership identifiers remain stable during the auth cutover.
+//
+// Better Auth hands real Date objects to the Drizzle adapter, so its timestamp
+// columns use `timestamp_ms` rather than the domain tables' ISO text dates.
+const authTimestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
+
+export const authUsers = sqliteTable(
+  "auth_users",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    emailVerified: integer("email_verified", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    image: text("image"),
+    username: text("username"),
+    displayUsername: text("display_username"),
+    createdAt: authTimestamp("created_at").notNull(),
+    updatedAt: authTimestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_users_email_idx").on(table.email),
+    uniqueIndex("auth_users_username_idx").on(table.username),
+  ],
+);
+
+export const authSessions = sqliteTable(
+  "auth_sessions",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: authTimestamp("expires_at").notNull(),
+    token: text("token").notNull(),
+    createdAt: authTimestamp("created_at").notNull(),
+    updatedAt: authTimestamp("updated_at").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("auth_sessions_token_idx").on(table.token),
+    index("auth_sessions_user_id_idx").on(table.userId),
+  ],
+);
+
+export const authAccounts = sqliteTable(
+  "auth_accounts",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: authTimestamp("access_token_expires_at"),
+    refreshTokenExpiresAt: authTimestamp("refresh_token_expires_at"),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: authTimestamp("created_at").notNull(),
+    updatedAt: authTimestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_accounts_provider_account_idx").on(
+      table.providerId,
+      table.accountId,
+    ),
+    index("auth_accounts_user_id_idx").on(table.userId),
+  ],
+);
+
+export const authVerifications = sqliteTable(
+  "auth_verifications",
+  {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: authTimestamp("expires_at").notNull(),
+    createdAt: authTimestamp("created_at").notNull(),
+    updatedAt: authTimestamp("updated_at").notNull(),
+  },
+  (table) => [index("auth_verifications_identifier_idx").on(table.identifier)],
+);
+
+export const authApiKeys = sqliteTable(
+  "auth_apikeys",
+  {
+    id: text("id").primaryKey(),
+    configId: text("config_id").notNull().default("memos"),
+    name: text("name"),
+    start: text("start"),
+    referenceId: text("reference_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    prefix: text("prefix"),
+    key: text("key").notNull(),
+    refillInterval: integer("refill_interval"),
+    refillAmount: integer("refill_amount"),
+    lastRefillAt: authTimestamp("last_refill_at"),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    rateLimitEnabled: integer("rate_limit_enabled", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    rateLimitTimeWindow: integer("rate_limit_time_window"),
+    rateLimitMax: integer("rate_limit_max"),
+    requestCount: integer("request_count").notNull().default(0),
+    remaining: integer("remaining"),
+    lastRequest: authTimestamp("last_request"),
+    expiresAt: authTimestamp("expires_at"),
+    permissions: text("permissions"),
+    metadata: text("metadata"),
+    createdAt: authTimestamp("created_at").notNull(),
+    updatedAt: authTimestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_apikeys_key_idx").on(table.key),
+    index("auth_apikeys_reference_config_idx").on(
+      table.referenceId,
+      table.configId,
+    ),
+    index("auth_apikeys_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+// This one-to-one bridge is the only authentication-to-domain ownership
+// mapping. A future multi-user feature can add more mapped pairs without
+// changing any existing FlareMo resource IDs.
+export const authUserLinks = sqliteTable(
+  "auth_user_links",
+  {
+    authUserId: text("auth_user_id")
+      .primaryKey()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    flaremoUserId: text("flaremo_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: authTimestamp("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_user_links_flaremo_user_id_idx").on(table.flaremoUserId),
+  ],
+);
+
+export const authBootstrap = sqliteTable("auth_bootstrap", {
+  id: text("id").primaryKey(),
+  state: text("state", {
+    enum: ["initializing", "complete", "recovery_required"],
+  }).notNull(),
+  authUserId: text("auth_user_id").references(() => authUsers.id, {
+    onDelete: "restrict",
+  }),
+  flaremoUserId: text("flaremo_user_id").references(() => users.id, {
+    onDelete: "restrict",
+  }),
+  createdAt: authTimestamp("created_at").notNull(),
+  completedAt: authTimestamp("completed_at"),
+});
+
 export const memos = sqliteTable(
   "memos",
   {
@@ -244,6 +408,9 @@ export type MemoPayload = {
 };
 
 export type UserRow = typeof users.$inferSelect;
+export type AuthUserRow = typeof authUsers.$inferSelect;
+export type AuthApiKeyRow = typeof authApiKeys.$inferSelect;
+export type AuthBootstrapRow = typeof authBootstrap.$inferSelect;
 export type MemoRow = typeof memos.$inferSelect;
 export type NewMemoRow = typeof memos.$inferInsert;
 export type MemoTagRow = typeof memoTags.$inferSelect;

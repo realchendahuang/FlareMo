@@ -11,10 +11,13 @@ import {
   memoToDto,
   parseMemosResourceName,
 } from "@flaremo/memos";
-import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
-import { getRequestContext, type HonoBindings } from "../context";
+import {
+  getRequestContext,
+  type HonoBindings,
+  type ReturnTypeOfRequestContext,
+} from "../context";
 import { jsonError } from "../http";
 
 export const mcpApi = new Hono<HonoBindings>();
@@ -33,6 +36,7 @@ const toolCallSchema = z.object({
 
 mcpApi.post("/mcp", async (c) => {
   try {
+    const authContext = await getRequestContext(c);
     const request = mcpRequestSchema.parse(await c.req.json());
     const id = request.id ?? null;
 
@@ -130,7 +134,11 @@ mcpApi.post("/mcp", async (c) => {
 
     if (request.method === "tools/call") {
       const call = toolCallSchema.parse(request.params);
-      const result = await callTool(c, call.name, call.arguments ?? {});
+      const result = await callTool(
+        authContext,
+        call.name,
+        call.arguments ?? {},
+      );
       return c.json({
         jsonrpc: "2.0",
         id,
@@ -162,11 +170,11 @@ mcpApi.post("/mcp", async (c) => {
 });
 
 async function callTool(
-  c: Context<HonoBindings>,
+  context: ReturnTypeOfRequestContext,
   name: string,
   args: Record<string, unknown>,
 ) {
-  const { db, user } = await getRequestContext(c);
+  const { db, user } = context;
 
   if (name === "list_memos") {
     const query = listMemosQuerySchema.parse(args) as ListMemosQuery;

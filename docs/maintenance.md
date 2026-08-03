@@ -76,9 +76,18 @@ FlareMo 的主数据在 D1，附件在 R2。备份必须同时覆盖两者。
 
 D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL dump，并把 dump 存到可信位置。`memos_fts` 是可由 `memos` 重建的 FTS5 虚拟索引；Wrangler 不支持整库导出包含虚拟表的数据库，因此导出时只选择下面的持久业务表，不导出 FTS shadow tables：
 
+认证表也属于 D1 的持久业务数据。它们包含 session、账户关联和 PAT 的敏感校验数据，备份文件必须按生产数据同等敏感级别保存；不要把导出文件上传到 issue、聊天或公开 artifact。
+
 ```bash
 pnpm exec wrangler d1 export DB --remote \
   --table users \
+  --table auth_users \
+  --table auth_accounts \
+  --table auth_sessions \
+  --table auth_verifications \
+  --table auth_apikeys \
+  --table auth_user_links \
+  --table auth_bootstrap \
   --table memos \
   --table attachments \
   --table memo_relations \
@@ -89,6 +98,8 @@ pnpm exec wrangler d1 export DB --remote \
   --output ./backups/flaremo.sql \
   --skip-confirmation
 ```
+
+当前 `pnpm backup:drill` 和远端恢复脚本已经把这些认证表纳入自动化导出、恢复和计数校验；仍需在每次认证 schema 变更后重新演练，不要把旧的 backup drill 结果当成新的认证数据恢复证明。
 
 R2 备份建议使用 S3 兼容工具同步 bucket：
 
@@ -104,12 +115,13 @@ rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments
 
 1. 创建新的 D1 database 和 R2 bucket。
 2. 对新的 D1 database 执行 FlareMo migrations。
-3. 恢复 D1 数据。`pnpm backup:drill` 会生成按外键依赖排序的数据恢复文件，可作为恢复流程参考；插入 `memos` 时 migration 创建的 trigger 会重建 `memos_fts`。
+3. 先恢复 `users`，再恢复 `auth_users`，然后按外键依赖恢复 `auth_accounts`、`auth_sessions`、`auth_verifications`、`auth_apikeys`、`auth_user_links` 和 `auth_bootstrap`，最后恢复 memo、附件、关系、分享、设置等业务表。`pnpm backup:drill` 会生成按外键依赖排序的数据恢复文件，可作为恢复流程参考；插入 `memos` 时 migration 创建的 trigger 会重建 `memos_fts`。
 4. 恢复 R2 对象。
 5. 更新 `wrangler.jsonc` 的 D1 `database_id` 和 R2 bucket name。
-6. 执行 `pnpm deploy:dry-run`。
-7. 执行 `pnpm deploy`。
-8. 检查 Access policy 和公开分享 bypass policy。
+6. 配置相同或有意轮换的 `BETTER_AUTH_SECRET`，并重新配置 `FLAREMO_BOOTSTRAP_SECRET`；不要把 secret 写入恢复 SQL 或仓库。
+7. 执行 `pnpm deploy:dry-run`。
+8. 执行 `pnpm deploy`。
+9. 检查 Better Auth bootstrap 状态、cookie session、PAT、PAT revoke 和公开分享；如果保留 Access，再检查 Access policy 和公开分享 bypass policy。
 
 D1 migration 不等于备份。破坏性 migration 发布前必须先做 D1 dump。
 
@@ -133,6 +145,8 @@ pnpm backup:drill:remote
 ```
 
 远端演练会导出生产 D1 持久数据，对临时 D1 应用 migrations，按依赖顺序恢复数据，比较所有业务表和 FTS 计数，并按 D1 中仍有效的 `r2_key` 逐个复制、下载和校验 R2 对象。最后脚本生成指向临时 D1/R2 的 Wrangler 配置并执行 deploy dry-run，但不会部署，也不会修改 `wrangler.jsonc`。
+
+认证表恢复演练必须额外确认：bootstrap 状态仍为 `complete`、既有 owner 映射存在、session/PAT 的敏感值没有出现在报告中，并在必要时主动撤销旧 session/PAT。认证数据不能只按普通 memo 行计数。
 
 脚本故意不自动删除目标资源。检查 `backups/remote-restore-*/report.md` 后，使用明确名称删除：
 
@@ -166,3 +180,5 @@ pnpm exec wrangler r2 bucket list
 ```
 
 生产实例如果启用了 Cloudflare Access，未带 Access Service Token 的脚本请求被拦截是预期行为。
+
+即使 Access Service Token 通过，未带 Better Auth cookie session 或 `memos_pat_` PAT 的私有业务请求仍应返回应用层 `401`。排障时先区分外层 Access 状态和 Worker 原生认证状态，不要把 Access 通过误判为应用登录成功。

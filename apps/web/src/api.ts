@@ -54,6 +54,30 @@ export type LatestRelease = {
   url: string;
 };
 
+export type BootstrapStatus = {
+  initialized: boolean;
+  state: "ready" | "complete" | "recovery_required";
+  setup_available: boolean;
+};
+
+export type PersonalAccessToken = {
+  id: string;
+  name: string | null;
+  start: string | null;
+  prefix: string | null;
+  enabled: boolean;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+  last_request: string | null;
+  request_count: number;
+  rate_limit_enabled: boolean;
+  rate_limit_max: number | null;
+  rate_limit_time_window: number | null;
+};
+
+export const AUTHENTICATION_REQUIRED_EVENT = "flaremo:authentication-required";
+
 export class ApiError extends Error {
   readonly status: number;
 
@@ -90,6 +114,7 @@ export async function getLatestRelease(): Promise<LatestRelease> {
   const response = await fetch(
     "https://api.github.com/repos/realchendahuang/FlareMo/releases/latest",
     {
+      credentials: "omit",
       headers: {
         accept: "application/vnd.github+json",
       },
@@ -120,6 +145,67 @@ export async function getLatestRelease(): Promise<LatestRelease> {
       typeof release.published_at === "string" ? release.published_at : null,
     url: `https://github.com/realchendahuang/FlareMo/releases/tag/v${encodeURIComponent(version)}`,
   };
+}
+
+export async function getBootstrapStatus() {
+  return apiRequest<BootstrapStatus>(
+    "/api/auth/flaremo/bootstrap/status",
+    {},
+    {
+      authRequired: false,
+    },
+  );
+}
+
+export async function bootstrapOwner(input: {
+  username: string;
+  name: string;
+  email: string;
+  password: string;
+  bootstrapSecret: string;
+}) {
+  return apiRequest<{ ok: true }>(
+    "/api/auth/flaremo/bootstrap",
+    {
+      method: "POST",
+      headers: {
+        "x-flaremo-bootstrap-secret": input.bootstrapSecret,
+      },
+      body: JSON.stringify({
+        username: input.username,
+        name: input.name,
+        email: input.email,
+        password: input.password,
+      }),
+    },
+    { authRequired: false },
+  );
+}
+
+export async function listPersonalAccessTokens() {
+  return apiRequest<{ personal_access_tokens: PersonalAccessToken[] }>(
+    "/api/app/account/personal-access-tokens",
+  );
+}
+
+export async function createPersonalAccessToken(input: {
+  name: string;
+  expires_in_days?: number | null;
+}) {
+  return apiRequest<{
+    personal_access_token: PersonalAccessToken;
+    token: string;
+  }>("/api/app/account/personal-access-tokens", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function revokePersonalAccessToken(id: string) {
+  return apiRequest<{ personal_access_token: PersonalAccessToken }>(
+    `/api/app/account/personal-access-tokens/${encodeURIComponent(id)}/revoke`,
+    { method: "POST" },
+  );
 }
 
 export async function createMemo(input: CreateMemoRequest) {
@@ -236,6 +322,8 @@ export async function replaceMemoRelations(
 export async function getPublicShare(token: string) {
   return apiRequest<PublicShare>(
     `/api/public/shares/${encodeURIComponent(token)}`,
+    {},
+    { authRequired: false },
   );
 }
 
@@ -250,13 +338,21 @@ export async function importData(bundle: unknown) {
   });
 }
 
-async function apiRequest<T>(path: string, init: RequestInit = {}) {
+async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  options: { authRequired?: boolean } = {},
+) {
   const headers = new Headers(init.headers);
   if (!(init.body instanceof FormData) && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
 
-  const response = await fetch(path, { ...init, headers });
+  const response = await fetch(path, {
+    ...init,
+    credentials: "same-origin",
+    headers,
+  });
   const contentType = response.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");
 
@@ -266,11 +362,18 @@ async function apiRequest<T>(path: string, init: RequestInit = {}) {
       const body = (await response.json()) as { error?: { message?: string } };
       message = body.error?.message ?? message;
     }
+    if (
+      response.status === 401 &&
+      options.authRequired !== false &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new Event(AUTHENTICATION_REQUIRED_EVENT));
+    }
     throw new ApiError(message, response.status);
   }
 
   if (!isJson) {
-    throw new ApiError("Cloudflare Access session required", 401);
+    throw new ApiError("The server returned an unexpected response.", 502);
   }
 
   return (await response.json()) as T;

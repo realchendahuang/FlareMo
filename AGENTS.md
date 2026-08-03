@@ -10,9 +10,11 @@ FlareMo 是一个 Cloudflare 原生的个人知识管理系统：
 - D1 是笔记、用户、关系、分享、设置和附件元数据的事实源。
 - R2 只存附件、导出包和对象文件。
 - `/api/v1/*` 提供 Memos 兼容 API 子集。
-- 人的生产访问交给 Cloudflare Access；脚本、Memos-compatible 客户端和 MCP 使用 Access Service Token。
+- 应用层使用 Better Auth：浏览器使用 HttpOnly cookie session，脚本、Memos-compatible 客户端和 MCP 使用可撤销的 `memos_pat_` Personal Access Token。
+- Cloudflare Access 是可选的外层防线和迁移期防线；启用时，客户端仍必须通过 Access policy，并在应用层提供 cookie session 或 `memos_pat_`。
+- 当前默认是一套单用户 bootstrap；禁止公开 signup，但认证表和 `auth_user_links` 为未来多用户保留扩展边界。
 
-不要把 FlareMo 改成 VPS、Docker、Postgres、Node 常驻服务或应用内 Bearer token 登录方案。
+不要把 FlareMo 改成 VPS、Docker、Postgres 或 Node 常驻服务，也不要另造一套绕开 Better Auth 的登录、Bearer token 或共享密码方案。
 
 ## 常用命令
 
@@ -55,7 +57,9 @@ pnpm deploy:dry-run
 - `/api/v1/*` 是兼容层；新增字段或行为时同步检查 `packages/memos` 和 OpenAPI。
 - `/api/app/*` 可以服务前端体验，但必须复用同一套 domain services。
 - 前端只展示已经接上后端能力的入口；不要放未实现功能的按钮、菜单或文案。
-- 生产访问边界是 Cloudflare Access；不要新增应用内访问令牌登录页。
+- 应用层认证边界是 Better Auth；不要新增绕开 Better Auth 的登录页、共享密码或第二套应用令牌。Cloudflare Access 可以作为可选外层防线，但不能被误当成应用用户身份映射。
+- 凭据相关的 Origin 契约必须保持不变：cookie session 的状态变更请求（包括 `POST`、`PATCH`、`DELETE` 等非安全方法）必须携带并精确匹配 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；PAT 请求可以省略 Origin，但一旦携带也必须精确匹配同一 allowlist，否则返回 `403`。不要用 wildcard、`Referer` 或 Cloudflare Access headers 替代 Origin 校验。
+- 不得把 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET`、初始密码、cookie 或 `memos_pat_` 明文写进代码、文档、migration、issue、PR、日志或聊天；生产 secret 只能通过 Wrangler secret 或 Cloudflare 控制台安全配置。
 - `Temp/` 是参考仓库目录，不能提交。
 - 不使用 GitHub Actions 作为项目 CI 或生产部署器；提交前在本地跑 `pnpm verify`。唯一例外是 `.github/workflows/flaremo-update.yml`，它只在 Deploy Button 创建的用户仓库中同步上游 Release 并创建升级 PR，不持有 Cloudflare 凭据。
 
@@ -116,6 +120,7 @@ pnpm dev
 - `docs/release.md`：发版规则。
 - `docs/maintenance.md`：维护、备份和恢复。
 - `docs/memos-compatibility.md`：Memos 兼容矩阵。
+- `docs/memos-ecosystem.md`：第三方客户端、认证方式和真实兼容验证记录。
 - `docs/design-system.md`：Ember 设计系统（色彩、字体、动效、组件和文案约定）。
 - `docs/semantic-search.md`：语义搜索、Vectorize 和 Workers AI 的边界。
 - `ROADMAP.md`：稳定方向和公开任务池。

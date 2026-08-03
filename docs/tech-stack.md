@@ -21,12 +21,13 @@ FlareMo 对外提供 Memos 兼容 API，但内部实现是 FlareMo-native 和 Cl
 | 数据库 | Cloudflare D1 | 笔记、用户、设置、关系、分享、令牌和附件元数据的唯一事实源。 |
 | ORM | Drizzle ORM | 数据库 schema 的事实源，提供类型安全查询和 migration 生成。 |
 | 迁移 | drizzle-kit + Wrangler D1 migrations | Drizzle 生成 SQL，Wrangler 将 migration 应用到本地和远程 D1。 |
+| 应用认证 | Better Auth + Drizzle adapter + API Key plugin | 用户名/密码、cookie session、一次性 owner bootstrap 和可撤销 `memos_pat_` PAT。 |
 | 校验 | Zod + `drizzle-orm/zod` | API 运行时校验，以及从 Drizzle schema 派生 select / insert / update 校验规则。 |
 | 前端 | React | 面向快速收集的 Web UI。 |
 | 服务端状态 | TanStack Query | 请求、缓存、乐观更新和失效刷新。 |
 | 前端路由 | TanStack Router | 类型安全的前端路由。 |
 | UI | Tailwind CSS + shadcn/ui | 干净、可维护、适合工具型产品的组件基础。 |
-| 访问控制 | Cloudflare Access | 保护生产 Worker、Preview URL 和自定义域；应用内不维护实例级访问令牌。 |
+| 访问控制 | Better Auth + 可选 Cloudflare Access | Better Auth 是应用层身份和 session；Cloudflare Access 作为可选的生产外层防线。 |
 | 对象存储 | Cloudflare R2 | 存附件二进制、导出包、生成资源和音频文件。 |
 | 工具链 | Wrangler | 本地开发、D1 migrations、bindings 和部署。 |
 | 测试 | Vitest + Playwright | 单元/集成测试，以及浏览器级产品验证。 |
@@ -46,7 +47,9 @@ FlareMo 对外提供 Memos 兼容 API，但内部实现是 FlareMo-native 和 Cl
 - TanStack Query 适合处理服务端状态、缓存、乐观更新和失效刷新，正好匹配笔记系统的快速创建、编辑、删除和列表刷新。
 - TanStack Router 的类型安全路由和 search params 能力，适合搜索、标签、分页、排序等状态需要进 URL 的工具型产品。
 - shadcn/ui 是可复制、可改造的组件基础，不是封闭 UI 框架，适合 FlareMo 后续形成自己的产品风格。
-- Cloudflare Access 可以直接保护 Workers 的 `workers.dev`、Preview URL 和自定义域。FlareMo 不在应用层实现实例级访问令牌登录；人的访问交给 Access identity policy，脚本和 MCP 使用 Access Service Token。
+- Better Auth 的 cookie session 和 API Key plugin 适合把浏览器登录与脚本/Memos 客户端凭据放在同一套 D1-backed identity 模型下；应用层不接受共享密码或未命名的临时 Bearer token。
+- 凭据类型使用不同的 Origin 契约：cookie session 的状态变更必须带 `Origin` 并精确命中 `FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS`，而 PAT 可以省略 Origin；PAT 一旦携带 Origin 也必须命中同一 allowlist，否则返回 `403`。这不把 Access headers 或 `Referer` 当成应用层 Origin。
+- Cloudflare Access 可以直接保护 Workers 的 `workers.dev`、Preview URL 和自定义域，作为可选纵深防御。Access identity policy 和 Access Service Token 只控制入口，不自动产生 FlareMo 用户身份；启用 Access 时仍需 Better Auth cookie session 或 `memos_pat_` PAT。
 
 这套栈不是为了“显得完整”而堆技术。稳定核心是：Workers + D1 + Drizzle + Hono + React。R2、Vectorize、Workers AI、Queues/Cron 都有明确职责，不能替代 D1 的主数据位置。
 
@@ -113,7 +116,8 @@ Workers KV 适合高读、最终一致的数据，比如缓存、feature flags �
 - Workers
 - Workers Static Assets
 - D1
-- Cloudflare Access
+- Better Auth
+- Cloudflare Access（可选外层防线）
 - Wrangler
 - R2
 
@@ -131,7 +135,7 @@ FlareMo 首先是一个完整可靠的笔记和知识管理系统，不是 Cloud
 
 FlareMo 有两层 API。
 
-生产环境下，两层 API 都位于 Cloudflare Access 之后。FlareMo 业务代码只处理笔记领域逻辑，不实现实例级访问令牌、登录页或自建会话网关。
+生产环境下，两层 API 都由 Better Auth 应用层保护；Cloudflare Access 可以放在最外层。FlareMo 业务代码不实现共享密码或第二套自建会话网关，Better Auth 负责 cookie session 和 PAT 验证。
 
 ### Memos 兼容 API
 
@@ -147,16 +151,19 @@ FlareMo 有两层 API。
 
 这一层在支持范围内保留 Memos 兼容的资源命名和响应字段。
 
-脚本、MCP 和 Memos-compatible 客户端通过 Cloudflare Access Service
-Token 调用这一层。客户端只发送 Cloudflare Access 要求的两个头：
+脚本、MCP 和 Memos-compatible 客户端通过 `memos_pat_` PAT 调用这一层。
+如果部署启用了 Cloudflare Access，客户端还要发送 Access Service Token；
+两层凭据不能互相替代：
 
 ```bash
 CF-Access-Client-Id: <client id>
 CF-Access-Client-Secret: <client secret>
+Authorization: Bearer <memos_pat_...>
 ```
 
-FlareMo 不接受也不签发应用内 Bearer token。生产实例的正确做法是在
-Cloudflare Access application 上增加 `non_identity` policy，并用
+FlareMo 不接受任意格式的应用 Bearer token，只接受由 Better Auth API Key
+plugin 创建、可撤销并以 `memos_pat_` 开头的 PAT。生产实例如启用 Access，
+再在 Access application 上增加 `non_identity` policy，并用
 `service_token` selector 绑定允许访问的 Service Token。
 
 公开分享路径是唯一例外。`/share/*`、`/api/public/shares/*` 和
@@ -186,6 +193,8 @@ Drizzle schema 是数据库结构的事实源。
 - `attachments`
 - `shares`
 - `settings`
+- `auth_users`、`auth_sessions`、`auth_accounts`、`auth_verifications`
+- `auth_apikeys`、`auth_user_links`、`auth_bootstrap`
 
 凡是需要独立查询、过滤或更新的业务字段，都应该放进列。JSON payload 只用于派生元数据或暂时不需要一等关系行为的灵活字段。
 
@@ -221,6 +230,7 @@ docs/         # 结果型项目文档
 - Vectorize 或任何 AI 知识库只存派生搜索索引。
 - KV 不是数据库替代品。
 - Memos 兼容 API 是 FlareMo 内部服务之上的 adapter。
-- 生产访问边界使用 Cloudflare Access；不要在应用内再造实例级访问令牌登录。
+- Better Auth 是应用层认证边界；Cloudflare Access 只作为可选外层防线。
+- #39 的 PAT/Bearer 认证不等于 Memos Server 完整 auth parity；current camelCase wire adapter、auth facade 和 `/mcp` Streamable HTTP 由 Issue #40 追踪。Origin 安全方向参考 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp)，不等于已经完成协议兼容。
 - 产品实现保持克制：围绕快速收集、时间线、搜索、标签、附件、导入导出、语义检索、AI 工作流和 Memos 兼容面展开，不做无关的社交和后台复杂度。
 - 不为了凑技术栈而添加 Cloudflare 产品。功能真的需要时再引入。

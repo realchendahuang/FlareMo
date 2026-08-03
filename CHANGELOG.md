@@ -2,6 +2,31 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## Unreleased
+
+Better Auth 原生认证基础版本。这个变更把 FlareMo 从“只依赖 Cloudflare Access”推进到应用层可独立认证，同时保留 Access 作为可选的迁移期和纵深防御边界。
+
+### 已包含
+
+- 接入 Better Auth + D1/Drizzle adapter：用户名/密码、HttpOnly cookie session、一次性 owner bootstrap，并关闭正常公共 signup。
+- 保留既有 `users/owner`、memo、attachment、R2 object key 和 share token，通过 `auth_user_links` 做认证身份到业务用户的桥接。
+- 增加 `memos_pat_` Personal Access Token 基础：由 cookie session 创建，明文只在创建时返回一次，可以列出元数据和撤销；PAT 可用于当前受保护的 `/api/v1/*` 和旧式 `/api/v1/mcp` 子集。
+- 新增 `FLAREMO_PUBLIC_URL`、可选 `FLAREMO_TRUSTED_ORIGINS` 两个公开 Worker vars；`BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 必须通过 Wrangler secret 或 Cloudflare 控制台配置。
+- 增加按凭据区分的 Origin 安全契约：cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须携带并精确命中 allowlist；PAT 可以无 Origin，但携带 Origin 时也必须命中，否则返回 `403`。Access headers 不替代应用层 Origin 校验。
+
+### Cloudflare、数据库与兼容影响
+
+- 新增 Better Auth 认证表 migration；发布前必须确认 D1 备份、恢复和演练覆盖 `auth_users`、`auth_sessions`、`auth_accounts`、`auth_verifications`、`auth_apikeys`、`auth_user_links` 和 `auth_bootstrap`。
+- 第一轮生产部署建议保留 Cloudflare Access。Access Service Token 只通过外层 policy，不自动成为 FlareMo 应用用户身份；启用 Access 时，机器请求仍需 FlareMo PAT。
+- 本变更只提供 PAT/Bearer authentication foundation，不承诺 Memos Server 完整 auth parity。真实 current camelCase wire adapter、auth facade、字段/错误翻译和 `/mcp` Streamable HTTP 由 Issue #40 追踪。
+
+### 升级说明
+
+- 设置 `wrangler.jsonc` 中的 `FLAREMO_PUBLIC_URL`，并通过 `wrangler secret put` 配置两个 Better Auth secrets；不要把真实值写进仓库、release notes、issue、日志或聊天。
+- 应用 D1 migration 后，由部署者在生产 HTTPS 的 `/setup` 页面手动完成一次 owner bootstrap；bootstrap secret、用户名、邮箱和初始密码不进入 shell、Agent 输出、release notes、Git 或日志。
+- 验证 cookie session、密码修改后的其他 session 撤销、PAT 创建/访问/撤销、公开分享匿名访问和无凭据 `401`；同时验证 cookie mutation 的 trusted Origin、无 Origin 的 PAT，以及不可信 Origin 的 `403`。
+- 在认证与备份脚本完成远端演练前，不要关闭 Access，也不要把本次变更宣称为完整生产认证/恢复验收。
+
 ## v0.3.0
 
 自托管更新体验版本。这个版本让 Deploy Button 创建的 GitHub 仓库可以发现上游稳定 Release、准备可审查的升级 PR，并在合并后继续使用 Cloudflare Workers Builds 发布。

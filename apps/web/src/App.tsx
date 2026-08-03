@@ -12,6 +12,8 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Link,
+  Navigate,
   Outlet,
   RouterProvider,
   useNavigate,
@@ -22,10 +24,12 @@ import {
   LanguagesIcon,
   MenuIcon,
   SearchIcon,
+  SettingsIcon,
   UploadIcon,
 } from "lucide-react";
 import {
   lazy,
+  type ReactNode,
   type RefObject,
   Suspense,
   useCallback,
@@ -37,6 +41,7 @@ import {
 import { toast } from "sonner";
 import {
   ApiError,
+  AUTHENTICATION_REQUIRED_EVENT,
   createMemo,
   createShare,
   exportData,
@@ -52,6 +57,7 @@ import {
   updateMemo,
   uploadAttachment,
 } from "@/api";
+import { authClient } from "@/auth-client";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
 import type { MemoView as ViewMode } from "@/components/flaremo-sidebar";
 import { MemoComposer } from "@/components/memo-composer";
@@ -87,6 +93,21 @@ const MemoDetailPage = lazy(() =>
 const PublicSharePage = lazy(() =>
   import("@/pages/public-share-page").then((module) => ({
     default: module.PublicSharePage,
+  })),
+);
+const LoginPage = lazy(() =>
+  import("@/pages/login-page").then((module) => ({
+    default: module.LoginPage,
+  })),
+);
+const SetupPage = lazy(() =>
+  import("@/pages/setup-page").then((module) => ({
+    default: module.SetupPage,
+  })),
+);
+const AccountPage = lazy(() =>
+  import("@/pages/account-page").then((module) => ({
+    default: module.AccountPage,
   })),
 );
 
@@ -452,8 +473,18 @@ function FlareMoApp() {
       activeTag={activeTag}
       activeView={view}
       headerAction={
-        <div className="mr-8 lg:mr-0">
+        <div className="mr-8 flex items-center gap-1 lg:mr-0">
           <UpdateStatus />
+          <Button
+            asChild
+            aria-label={t("auth.accountTitle")}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <Link title={t("auth.accountTitle")} to="/account">
+              <SettingsIcon />
+            </Link>
+          </Button>
         </div>
       }
       footer={
@@ -872,7 +903,7 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: FlareMoApp,
+  component: ProtectedWorkspaceRoutePage,
   validateSearch: (search: Record<string, unknown>) => ({
     view: isViewMode(search.view) ? search.view : undefined,
     q: typeof search.q === "string" && search.q ? search.q : undefined,
@@ -898,9 +929,11 @@ const shareRoute = createRoute({
 function MemoDetailRoutePage() {
   const { memoId } = memoRoute.useParams();
   return (
-    <Suspense fallback={<RouteLoading />}>
-      <MemoDetailPage memoId={memoId} />
-    </Suspense>
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <MemoDetailPage memoId={memoId} />
+      </Suspense>
+    </AuthenticatedRoute>
   );
 }
 
@@ -909,6 +942,88 @@ const memoRoute = createRoute({
   path: "/memo/$memoId",
   component: MemoDetailRoutePage,
 });
+
+function ProtectedWorkspaceRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <FlareMoApp />
+    </AuthenticatedRoute>
+  );
+}
+
+function LoginRoutePage() {
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <LoginPage />
+    </Suspense>
+  );
+}
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: LoginRoutePage,
+});
+
+function SetupRoutePage() {
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <SetupPage />
+    </Suspense>
+  );
+}
+
+const setupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/setup",
+  component: SetupRoutePage,
+});
+
+function AccountRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <AccountPage />
+      </Suspense>
+    </AuthenticatedRoute>
+  );
+}
+
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/account",
+  component: AccountRoutePage,
+});
+
+function AuthenticatedRoute({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const session = authClient.useSession();
+  const [authenticationRequired, setAuthenticationRequired] = useState(false);
+
+  useEffect(() => {
+    const handleAuthenticationRequired = () => {
+      queryClient.clear();
+      setAuthenticationRequired(true);
+    };
+    window.addEventListener(
+      AUTHENTICATION_REQUIRED_EVENT,
+      handleAuthenticationRequired,
+    );
+    return () =>
+      window.removeEventListener(
+        AUTHENTICATION_REQUIRED_EVENT,
+        handleAuthenticationRequired,
+      );
+  }, [queryClient]);
+
+  if (session.isPending) {
+    return <RouteLoading />;
+  }
+  if (authenticationRequired || !session.data?.user) {
+    return <Navigate replace to="/login" />;
+  }
+  return children;
+}
 
 function RouteErrorPage({ error }: { error: Error }) {
   const { t } = useI18n();
@@ -941,7 +1056,14 @@ function isViewMode(value: unknown): value is ViewMode {
 
 const router = createRouter({
   defaultPreload: "intent",
-  routeTree: rootRoute.addChildren([indexRoute, memoRoute, shareRoute]),
+  routeTree: rootRoute.addChildren([
+    indexRoute,
+    memoRoute,
+    shareRoute,
+    loginRoute,
+    setupRoute,
+    accountRoute,
+  ]),
   scrollRestoration: true,
 });
 

@@ -8,14 +8,17 @@
 - `pnpm install` 已完成，或 Agent 可以执行它。
 - Wrangler 已登录目标 Cloudflare 账号。
 - `wrangler.jsonc` 里的 D1、R2 binding 指向目标资源。
-- 生产访问由 Cloudflare Access 配置，不由 FlareMo 应用代码配置。
+- `wrangler.jsonc` 的 `FLAREMO_PUBLIC_URL` 已设置为生产 canonical origin；需要时设置 `FLAREMO_TRUSTED_ORIGINS`。
+- `BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 已通过 Wrangler secret 或 Cloudflare 控制台配置。Agent 不得要求用户把 secret、密码、cookie 或 PAT 粘贴到聊天中。
+- `FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 公开变量；它们不是 Better Auth 登录身份、用户名、密码或 bootstrap 输入。初始认证身份以部署者在生产 `/setup` 页面提交的值为准。
+- Cloudflare Access 可以作为可选外层防线，但不替代 FlareMo 应用层认证。
 
 ## 禁止事项
 
 - 不要新增 GitHub Actions CI 或部署 workflow。`flaremo-update.yml` 是唯一例外，只在用户部署仓库中准备上游升级 PR。
 - 不要绕过 `pnpm verify` 直接部署。
 - 不要把 `Temp/`、`node_modules/`、`dist/`、`.wrangler/` 提交。
-- 不要新增应用内 Bearer token 登录。
+- 不要新增绕开 Better Auth 的登录、共享密码或第二套 Bearer token；机器访问使用已撤销能力的 `memos_pat_` PAT。
 - 不要把 D1 主数据迁移到 KV、R2 或 Vectorize。
 
 ## 标准流程
@@ -44,6 +47,15 @@ Cloudflare 打包验证：
 pnpm deploy:dry-run
 ```
 
+配置生产认证 secrets（交互式输入，不要把值写进命令行参数、仓库或日志）：
+
+```bash
+pnpm exec wrangler secret put BETTER_AUTH_SECRET --config ./wrangler.jsonc
+pnpm exec wrangler secret put FLAREMO_BOOTSTRAP_SECRET --config ./wrangler.jsonc
+```
+
+Wrangler secret 不提供安全的值回读路径。Agent 只检查配置后的 bootstrap status，不得要求用户把 secret 重新粘贴、打印或通过命令行转交。
+
 部署；`pnpm deploy` 会先应用远端 D1 migrations：
 
 ```bash
@@ -58,21 +70,36 @@ Wrangler 会输出生产 URL。设置：
 export FLAREMO_URL="https://<worker-name>.<account>.workers.dev"
 ```
 
-如果生产实例由 Cloudflare Access 保护，未登录访问应返回 Access 页面：
+检查原生认证是否已经配置：
+
+```bash
+curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
+```
+
+首次安装必须由部署者在浏览器打开 `https://<your-flaremo-origin>/setup`，并在生产 HTTPS 页面手动输入 `FLAREMO_BOOTSTRAP_SECRET`、初始用户名、显示名、邮箱和 12–128 个字符的初始密码。如果启用了 Cloudflare Access，先通过外层 policy 再打开 `/setup`。Agent 不得要求用户把这些值粘贴到聊天、命令行、shell history、issue、日志或 Agent 输出，也不得代用户调用 bootstrap endpoint；部署者完成页面提交后，Agent 只能检查 bootstrap status 和登录结果。
+
+bootstrap endpoint 只保留给明确批准的受控恢复/自动化流程；本 runbook 不提供把 secret 或密码放进环境变量、命令行参数或非交互 `curl` 的示例。
+
+然后验证 cookie session，登录后创建并安全保存 `memos_pat_` PAT，再用 PAT 访问私有 API。PAT 明文只在创建时显示一次。
+
+如果生产实例由 Cloudflare Access 保护，未通过外层 policy 的访问应返回 Access 页面：
 
 ```bash
 curl -sSL "$FLAREMO_URL" | rg "Log in|Cloudflare Access|FlareMo"
 ```
 
-脚本访问需要 Access Service Token：
+脚本访问需要应用层 PAT；如果 Access 仍启用，还要加 Access Service Token：
 
 ```bash
 curl "$FLAREMO_URL/api/v1/memos" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
-  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET"
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
 ```
 
-公开分享路径要单独验证 bypass policy，但分享内容仍必须由 FlareMo token 控制。
+公开分享路径要单独验证 bypass policy，但分享内容仍必须由 FlareMo share token 控制。Access Service Token alone 不能访问私有 API。
+
+当前 `/api/v1/mcp` 是 FlareMo 现有 JSON-RPC 子集；Memos current `/mcp` Streamable HTTP 和 current camelCase wire adapter 由 Issue #40 追踪，Agent 不得在发布记录中宣称已经完整兼容。
 
 ## 常见失败
 
@@ -100,6 +127,27 @@ pnpm exec wrangler r2 bucket list
 CF-Access-Client-Id
 CF-Access-Client-Secret
 ```
+
+### 原生认证返回 `401`
+
+这通常表示请求只带了 Access headers，或者没有带 Better Auth cookie/PAT。按顺序检查：
+
+1. `FLAREMO_PUBLIC_URL` 是不带 path/query/hash 的 canonical origin。
+2. `BETTER_AUTH_SECRET` 长度至少为 32 个字符，且 secret 已配置到目标 Worker。
+3. bootstrap status 为 `complete`，并且 owner 已成功登录。
+4. 浏览器请求带 cookie，机器请求带 `Authorization: Bearer memos_pat_...`。
+5. 如果 PAT 被撤销或过期，重新创建一个 PAT；不要把 PAT 明文写入 issue、日志或部署配置。
+
+### 原生认证返回 `403`（Origin policy）
+
+这通常表示凭据有效，但请求的 Origin 不符合应用层安全契约：
+
+1. cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须携带 Origin，并且精确等于 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS` 中的一个 origin。
+2. PAT 请求可以没有 Origin；桌面脚本、MCP 和其他非浏览器客户端不需要为了认证人为添加 Origin。
+3. PAT 请求如果携带 Origin，也必须命中同一 allowlist；不匹配时预期返回 `403`。
+4. allowlist 不支持 wildcard；`Referer` 和 Cloudflare Access headers 都不能修复 Origin mismatch。修改公开 vars 后需要重新部署 Worker。
+
+这套规则与 Memos 0.30 的 browser-origin 模型方向一致，但不代表 `/mcp` Streamable HTTP 或 current camelCase wire adapter 已实现；两者仍属于 Issue #40。
 
 ### 前端资源旧版本
 

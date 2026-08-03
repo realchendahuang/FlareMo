@@ -40,10 +40,20 @@ pnpm deploy
 - Memos 兼容面变化。
 - 数据库 migration 说明。
 - Cloudflare 资源或 Access 配置变化。
+- Better Auth 应用认证变化：cookie session、bootstrap、signup 状态、PAT 前缀/撤销行为，以及 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS` 和 Worker secrets 的配置要求。
 - 升级步骤。
 - 已知问题。
 
 自动部署先执行 migration，再发布 Worker。所有 migration 必须与上一正式版本的 Worker 向后兼容；删除列、收紧约束等破坏性收缩要等新代码完成发布后，在后续 release 中单独执行。
+
+涉及 Better Auth 的 release 还必须明确记录：
+
+1. 先备份 D1 和 R2，并确认认证表也在备份范围内。
+2. 设置公开的 `FLAREMO_PUBLIC_URL`，通过 `wrangler secret put` 配置 `BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET`；任何 secret、密码、cookie 或 PAT 都不得进入 release notes、Git 或日志。
+3. 应用认证 migration 后部署 Worker，由部署者在生产 HTTPS 的 `/setup` 页面手动完成一次性 owner 初始化，再检查 bootstrap status、用户名登录、密码修改、session 撤销、PAT 创建/撤销和公开分享。
+4. 验证 cookie session 状态变更必须使用 allowlist 内的 Origin；无 Origin 或不可信 Origin 返回 `403`。同时验证无 Origin 的 PAT 请求可用，以及带不可信 Origin 的 PAT 请求返回 `403`。
+5. 第一轮发布保留 Cloudflare Access。Access 是可选外层，不得把 Access Service Token 单独当成 FlareMo 应用身份。
+6. 如果 release 声称扩大 Memos 兼容面，必须同时提供真实客户端证据；#39 的 PAT/Bearer 基础不等于 current camelCase wire adapter 或 `/mcp` Streamable HTTP。
 
 ## 发版命令
 
