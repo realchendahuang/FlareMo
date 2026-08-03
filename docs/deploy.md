@@ -88,7 +88,7 @@ Cloudflare Access 可以作为额外的外层防线，但 Access 身份或 Acces
 | PAT/Bearer 携带 Origin | 必须精确匹配同一 allowlist | 不匹配返回 `403` |
 | Cloudflare Access headers | 只属于可选外层 policy | 不能替代 cookie session、PAT 或 Origin 校验 |
 
-这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全模型保持同一方向，但不表示 FlareMo 已实现 Memos 当前协议。`/mcp` Streamable HTTP 和 current camelCase wire adapter 仍由 Issue [#40](https://github.com/realchendahuang/FlareMo/issues/40) 追踪。
+这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全模型保持同一方向。当前 `/api/v1` 默认使用 current camelCase wire，并已提供 Better Auth-backed auth facade、PAT 资源和根 `/mcp` 无状态 Streamable HTTP MCP 子集；这些能力仍不是完整 Memos Server parity。`accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。
 
 ### 3. 配置 Worker secrets
 
@@ -143,7 +143,7 @@ curl "$FLAREMO_URL/api/v1/memos" \
 
 如果 Cloudflare Access 仍然启用，上面的请求还要附加 Access Service Token headers。Access Service Token 单独发送时，Worker 仍会返回应用层 `401`，这是预期行为。
 
-当前 `/api/v1/mcp` 是 FlareMo 既有 JSON-RPC MCP 子集，同样需要 cookie session 或 PAT。Memos current `/mcp` Streamable HTTP 和 current camelCase wire adapter 不属于本次认证任务，见 Issue #40。
+旧的 `/api/v1/mcp` 是 FlareMo 既有 JSON-RPC MCP 子集，同样需要 cookie session 或 PAT；它继续保留给旧客户端。current Memos 风格的无状态 JSON Streamable HTTP MCP 位于根 `/mcp`，支持 `initialize`、`notifications/initialized`、`tools/list` 和 `tools/call`，但不承诺 SSE、有状态 session 或完整 method surface。
 
 ## Cloudflare Access（可选外层防线）
 
@@ -228,6 +228,18 @@ curl "$FLAREMO_URL/api/v1/mcp" \
   -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $FLAREMO_MEMOS_PAT" \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+current Memos 风格 MCP 使用根 `/mcp`，同样需要 FlareMo PAT；它是无状态 JSON Streamable HTTP 子集：
+
+```bash
+curl "$FLAREMO_URL/mcp" \
+  -H "content-type: application/json" \
+  -H "accept: application/json, text/event-stream" \
+  -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT" \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}'
 ```
 
 不要把 Access Service Token 改造成 FlareMo 应用内 token。两种凭据属于不同层：Access 只保护入口，FlareMo PAT 才映射到 D1 中的应用用户。

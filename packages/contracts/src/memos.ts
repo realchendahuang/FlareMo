@@ -65,6 +65,7 @@ export const listMemosQuerySchema = z.object({
   page_token: z.string().optional(),
   order_by: memoOrderBySchema.default("created_at desc"),
   state: memoStatusSchema.optional(),
+  visibility: memoVisibilitySchema.optional(),
   q: z
     .string()
     .optional()

@@ -347,6 +347,13 @@ async function apiRequest<T>(
   if (!(init.body instanceof FormData) && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
+  // The web app still consumes FlareMo's original snake_case DTOs for its
+  // /api/v1 attachment, share, relation, import, and export helpers. Keep
+  // that internal client explicit while external /api/v1 callers default to
+  // the current Memos-compatible wire.
+  if (path.startsWith("/api/v1/") && !headers.has("x-flaremo-wire")) {
+    headers.set("x-flaremo-wire", "legacy");
+  }
 
   const response = await fetch(path, {
     ...init,

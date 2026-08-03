@@ -191,7 +191,10 @@ test("creates, uses, and revokes a Memos PAT while shares stay public", async ()
     expect(listedTokens).not.toContain(createdToken.token);
 
     const patMemoResponse = await patClient.post("/api/v1/memos", {
-      headers: { authorization: `Bearer ${createdToken.token}` },
+      headers: {
+        authorization: `Bearer ${createdToken.token}`,
+        "x-flaremo-wire": "legacy",
+      },
       data: { content: "E2E PAT memo" },
     });
     expect(patMemoResponse.status()).toBe(201);
@@ -203,13 +206,13 @@ test("creates, uses, and revokes a Memos PAT while shares stay public", async ()
     expect(patManagementResponse.status()).toBe(401);
 
     const memoResponse = await session.post("/api/v1/memos", {
-      headers: { origin: E2E_BASE_URL },
+      headers: { origin: E2E_BASE_URL, "x-flaremo-wire": "legacy" },
       data: { content: "E2E public share memo" },
     });
     expect(memoResponse.status()).toBe(201);
     const memo = (await memoResponse.json()) as { name: string };
     const shareResponse = await session.post(`/api/v1/${memo.name}/shares`, {
-      headers: { origin: E2E_BASE_URL },
+      headers: { origin: E2E_BASE_URL, "x-flaremo-wire": "legacy" },
       data: {},
     });
     expect(shareResponse.status()).toBe(201);
@@ -219,7 +222,9 @@ test("creates, uses, and revokes a Memos PAT while shares stay public", async ()
       `/api/public/shares/${share.token}`,
     );
     expect(anonymousShare.status()).toBe(200);
-    const anonymousPrivate = await anonymous.get("/api/v1/memos");
+    const anonymousPrivate = await anonymous.get("/api/v1/memos", {
+      headers: { "x-flaremo-wire": "legacy" },
+    });
     expect(anonymousPrivate.status()).toBe(401);
 
     const revokeResponse = await session.post(
@@ -229,7 +234,10 @@ test("creates, uses, and revokes a Memos PAT while shares stay public", async ()
     expect(revokeResponse.status()).toBe(200);
 
     const revokedPatResponse = await patClient.post("/api/v1/memos", {
-      headers: { authorization: `Bearer ${createdToken.token}` },
+      headers: {
+        authorization: `Bearer ${createdToken.token}`,
+        "x-flaremo-wire": "legacy",
+      },
       data: { content: "should be rejected" },
     });
     expect(revokedPatResponse.status()).toBe(401);

@@ -112,6 +112,10 @@ export async function listMemos(
     filters.push(eq(memos.status, "normal"));
   }
 
+  if (query.visibility) {
+    filters.push(eq(memos.visibility, query.visibility));
+  }
+
   if (search.text) {
     const ftsQuery = buildFtsQuery(search.text);
     filters.push(

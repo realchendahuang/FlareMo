@@ -5,6 +5,10 @@ const E2E_COOKIE_MUTATION_OPTIONS = {
   headers: { origin: E2E_BASE_URL },
 };
 
+const E2E_LEGACY_API_MUTATION_OPTIONS = {
+  headers: { origin: E2E_BASE_URL, "x-flaremo-wire": "legacy" },
+};
+
 test("creates a memo and filters it by tag", async ({ page }) => {
   const tag = `e2e${Date.now()}`;
   const content = `Playwright memo #${tag}`;
@@ -112,7 +116,7 @@ test("shows a memo submitted by an external agent in the timeline", async ({
 }) => {
   const marker = `Agent ingestion ${Date.now()}`;
   const response = await page.request.post("/api/v1/memos", {
-    ...E2E_COOKIE_MUTATION_OPTIONS,
+    ...E2E_LEGACY_API_MUTATION_OPTIONS,
     data: {
       content: `${marker} #telegram`,
       source: "telegram",
@@ -424,6 +428,7 @@ test("creates, follows, reads, and removes memo relations", async ({
 
   const contextResponse = await page.request.get(
     `/api/v1/${source.name}/relation-context`,
+    { headers: { "x-flaremo-wire": "legacy" } },
   );
   expect(contextResponse.ok()).toBe(true);
   expect(await contextResponse.json()).toMatchObject({ relations: [] });

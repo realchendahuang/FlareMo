@@ -1,4 +1,7 @@
-import { createOpenApiDocument } from "@flaremo/contracts";
+import {
+  createCurrentOpenApiDocument,
+  createOpenApiDocument,
+} from "@flaremo/contracts";
 import { createDb } from "@flaremo/db";
 import {
   finalizeAttachmentCleanup,
@@ -12,8 +15,12 @@ import type { FlareMoEnv } from "./env";
 import { accountApi } from "./routes/account-api";
 import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
-import { mcpApi } from "./routes/mcp";
+import { mcpApi, mcpStreamableApi } from "./routes/mcp";
 import { memosApi } from "./routes/memos-api";
+import {
+  isLegacyWireRequest,
+  memosCurrentApi,
+} from "./routes/memos-current-api";
 import { publicApi } from "./routes/public-api";
 
 const app = new Hono<HonoBindings>();
@@ -43,18 +50,46 @@ app.use(
   }),
 );
 
+app.use(
+  "/mcp",
+  cors({
+    origin: (origin, c) => {
+      try {
+        return getTrustedOrigins(c.env).includes(origin) ? origin : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    credentials: false,
+    allowHeaders: ["content-type", "authorization", "accept", "mcp-session-id"],
+    allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+  }),
+);
+
 app.route("/api/auth/flaremo", authApi);
 app.all("/api/auth/*", (c) => createFlareMoAuth(c.env).handler(c.req.raw));
 app.route("/api/app/account", accountApi);
 app.route("/api/app", appApi);
 app.route("/api/public", publicApi);
+app.route("/mcp", mcpStreamableApi);
+app.route("/api/v1", memosCurrentApi);
 app.route("/api/v1", memosApi);
 app.route("/api/v1", mcpApi);
 
-app.get("/openapi.json", (c) => c.json(createOpenApiDocument()));
+app.get("/openapi.json", (c) =>
+  c.json(
+    isLegacyWireRequest(c)
+      ? createOpenApiDocument()
+      : createCurrentOpenApiDocument(),
+  ),
+);
 app.get("/api/v1/openapi.json", async (c) => {
   await getRequestContext(c);
-  return c.json(createOpenApiDocument());
+  return c.json(
+    isLegacyWireRequest(c)
+      ? createOpenApiDocument()
+      : createCurrentOpenApiDocument(),
+  );
 });
 
 app.notFound((c) => {

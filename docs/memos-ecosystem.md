@@ -1,6 +1,6 @@
 # Memos 生态兼容记录
 
-FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。#39 只提供原生 cookie/PAT 认证基础；真实 current camelCase wire adapter 和 Streamable HTTP MCP 仍由 Issue #40 追踪。
+FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。当前工作树已经提供 current camelCase REST 子集、Better Auth-backed auth facade、PAT 资源基础和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
 
 生产实例迁移期建议放在 Cloudflare Access 后面。第三方工具访问私有 FlareMo 时，必须满足应用层认证：
 
@@ -21,7 +21,7 @@ Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 
 
 浏览器 cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须携带 `Origin`，并精确命中 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；缺失或不匹配返回 `403`。桌面脚本、MCP 和其他非浏览器客户端使用 PAT 时可以不发送 Origin；若 PAT 请求主动携带 Origin，也必须命中同一 allowlist，否则返回 `403`。不使用 wildcard、`Referer` 或 Access headers 替代 Origin。
 
-这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 模型方向一致，只说明安全边界相似，不说明 FlareMo 已完成 Memos 协议兼容。`/mcp` Streamable HTTP 和 current camelCase wire adapter 仍属于 Issue [#40](https://github.com/realchendahuang/FlareMo/issues/40)。
+这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 模型方向一致，只说明安全边界相似。FlareMo 的 current wire 是当前已实现的兼容子集；它不等于完整 Memos 协议或完整服务端 parity。
 
 ## 状态定义
 
@@ -39,8 +39,10 @@ Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 
 | 工具 / 路径 | 类型 | 测试版本 | 请求路径 | 应用层认证 | 当前状态 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- |
 | curl / HTTP script | 通用脚本 | 当前工作树 | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | `memos_pat_`；Access 开启时再加 Access headers | 可用（Worker contract） | `apps/worker/src/auth.test.ts` 和 `apps/worker/src/api.test.ts` 覆盖 cookie、PAT、memo CRUD、分页、搜索、附件、分享、revisions、export/import。 |
-| OpenAPI consumers | API schema 工具 | 当前工作树 | `/openapi.json` | OpenAPI 描述可公开读取；私有 API 请求需 PAT | 可用（schema surface） | `apps/worker/src/memos-compatibility.test.ts` 断言公开路径写入 OpenAPI。 |
-| FlareMo MCP endpoint | MCP 客户端 | 当前工作树 | `/api/v1/mcp` | `memos_pat_`；Access 开启时再加 Access headers | 部分可用（旧式 JSON-RPC） | `apps/worker/src/auth.test.ts` 覆盖 PAT `tools/list`；current Memos `/mcp` Streamable HTTP 留在 #40。 |
+| current REST script | 通用脚本 | 当前工作树 | `/api/v1/auth/*`、`/api/v1/memos`、`/api/v1/attachments`、`/api/v1/users/*`、`/api/v1/shares/*` | Better Auth cookie/session bearer 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（current contract） | `apps/worker/src/memos-compatibility.test.ts` 覆盖 camelCase DTO、current enum、updateMask、PAT、标准错误和匿名 share read；`accessToken` 是 opaque session-backed token。 |
+| OpenAPI consumers | API schema 工具 | 当前工作树 | `/openapi.json` | OpenAPI 描述可公开读取；私有 API 请求需 PAT | 可用（schema surface） | `apps/worker/src/memos-compatibility.test.ts` 断言默认 current OpenAPI 和显式 legacy OpenAPI。 |
+| FlareMo legacy MCP endpoint | MCP 客户端 | 当前工作树 | `/api/v1/mcp` | `memos_pat_`；Access 开启时再加 Access headers | 部分可用（旧式 JSON-RPC） | `apps/worker/src/auth.test.ts` 覆盖 PAT `tools/list`；保留给已有 FlareMo 客户端。 |
+| FlareMo current MCP endpoint | MCP 客户端 | 当前工作树 | `/mcp` | Better Auth cookie/session bearer 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（stateless protocol subset） | `apps/worker/src/mcp-streamable.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、`tools/call` 和工具错误 envelope；未验证所有第三方 MCP client。 |
 | FlareMo Telegram Worker example | Telegram Bot | 当前工作树 | Telegram webhook -> `/api/v1/memos` | 需要 PAT；现有示例的 Access-only 发送路径需单独更新 | 部分可用 / 待回归 | 现有示例测试覆盖 webhook 和 Access headers，但不证明新的应用层 PAT 已接通。 |
 | Public share reader | 浏览器 / curl | 当前工作树 | `/share/*`、`/api/public/shares/*` | 不需要 session/PAT；Access 开启时需 bypass | 可用（share contract） | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
 
@@ -108,4 +110,4 @@ Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 
 - `apps/worker/src/memos-compatibility.test.ts`
 - `apps/worker/src/api.test.ts`
 
-这些测试证明 FlareMo 自己的公开子集和认证边界，但不能替代真实 Memos 客户端兼容测试，也不能证明 Memos current `/mcp` Streamable HTTP 已实现。真实客户端结果必须回写到本文。
+这些测试证明 FlareMo 自己的 current/legacy 公开子集、Better Auth 认证边界和无状态 `/mcp` 协议切片，但不能替代真实 Memos 客户端兼容测试，也不能证明完整 Memos Server parity。真实客户端结果必须回写到本文；在没有实际连接、版本和日期证据前，第三方客户端保持“未测”。

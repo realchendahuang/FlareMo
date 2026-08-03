@@ -385,7 +385,9 @@ describe("Memos-compatible API contract", () => {
 
   it("documents every supported public path in OpenAPI", async () => {
     const openapi = await json(
-      await fetchApp("http://flaremo.test/openapi.json"),
+      await fetchApp("http://flaremo.test/openapi.json", {
+        headers: { "x-flaremo-wire": "legacy" },
+      }),
     );
     expect(openapi.info.version).toBe(FLAREMO_API_VERSION);
     const paths = Object.keys(openapi.paths);
@@ -474,6 +476,368 @@ describe("Memos-compatible API contract", () => {
     );
     expect(privateBlob.status).toBe(404);
   });
+
+  it("serves the current camelCase REST facade on top of Better Auth", async () => {
+    const currentOpenapi = await fetchCurrent(
+      "http://flaremo.test/openapi.json",
+      undefined,
+      { authenticated: false },
+    );
+    expect(currentOpenapi.status).toBe(200);
+    expect(await currentOpenapi.json()).toMatchObject({
+      info: { title: "FlareMo current Memos-compatible API" },
+      paths: {
+        "/api/v1/auth/signin": expect.any(Object),
+        "/api/v1/memos": expect.any(Object),
+        "/mcp": expect.any(Object),
+      },
+    });
+
+    const legacyOpenapi = await fetchApp(
+      "http://flaremo.test/openapi.json",
+      { headers: { "x-flaremo-wire": "legacy" } },
+      { authenticated: false },
+    );
+    expect(legacyOpenapi.status).toBe(200);
+    expect(await legacyOpenapi.json()).toMatchObject({
+      info: { title: "FlareMo Memos-compatible API" },
+    });
+
+    const signInResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/signin",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          passwordCredentials: {
+            username: "owner",
+            password: TEST_PASSWORD,
+          },
+        }),
+      },
+      { authenticated: false },
+    );
+    expect(signInResponse.status).toBe(200);
+    expect(signInResponse.headers.get("set-cookie")).toBeTruthy();
+    const signIn = (await signInResponse.json()) as {
+      accessToken: string;
+      user: { name: string; role: string; username: string };
+      accessTokenExpiresAt: string;
+    };
+    expect(signIn).toMatchObject({
+      accessToken: expect.any(String),
+      accessTokenExpiresAt: expect.any(String),
+      user: {
+        name: "users/owner",
+        role: "ADMIN",
+        username: "owner",
+      },
+    });
+
+    const bearer = { authorization: `Bearer ${signIn.accessToken}` };
+    const meResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/me",
+      { headers: bearer },
+    );
+    expect(meResponse.status).toBe(200);
+    expect(await meResponse.json()).toMatchObject({
+      user: { name: "users/owner", username: "owner" },
+    });
+
+    const createdResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/memos",
+      {
+        method: "POST",
+        headers: { ...bearer, "content-type": "application/json" },
+        body: JSON.stringify({
+          memo: {
+            content: "current wire memo #current",
+            visibility: "PUBLIC",
+            property: { hasLink: true },
+            location: { placeholder: "Shanghai" },
+          },
+        }),
+      },
+    );
+    expect(createdResponse.status).toBe(200);
+    const created = (await createdResponse.json()) as {
+      name: string;
+      state: string;
+      visibility: string;
+      createTime: string;
+      updateTime: string;
+      tags: string[];
+      property: { hasLink: boolean };
+      location: { placeholder: string };
+    };
+    expect(created).toMatchObject({
+      name: expect.stringMatching(/^memos\//),
+      state: "NORMAL",
+      visibility: "PUBLIC",
+      createTime: expect.any(String),
+      updateTime: expect.any(String),
+      tags: ["current"],
+      property: { hasLink: true },
+      location: { placeholder: "Shanghai" },
+    });
+    expect(created).not.toHaveProperty("create_time");
+
+    const listed = (await (
+      await fetchCurrent(
+        "http://flaremo.test/api/v1/memos?pageSize=1&orderBy=create_time%20desc",
+        { headers: bearer },
+      )
+    ).json()) as { memos: Array<Record<string, unknown>> };
+    expect(listed.memos[0]).toMatchObject({
+      name: created.name,
+      visibility: "PUBLIC",
+    });
+
+    const updated = await fetchCurrent(
+      `http://flaremo.test/api/v1/${created.name}?updateMask=pinned,visibility`,
+      {
+        method: "PATCH",
+        headers: { ...bearer, "content-type": "application/json" },
+        body: JSON.stringify({
+          memo: {
+            name: created.name,
+            pinned: true,
+            visibility: "PROTECTED",
+          },
+        }),
+      },
+    );
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toMatchObject({
+      name: created.name,
+      pinned: true,
+      visibility: "PROTECTED",
+    });
+
+    const secondResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/memos",
+      {
+        method: "POST",
+        headers: { ...bearer, "content-type": "application/json" },
+        body: JSON.stringify({ memo: { content: "related memo" } }),
+      },
+    );
+    const second = (await secondResponse.json()) as { name: string };
+
+    const attachmentResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/attachments",
+      {
+        method: "POST",
+        headers: { ...bearer, "content-type": "application/json" },
+        body: JSON.stringify({
+          attachment: {
+            filename: "current.txt",
+            content: "aGVsbG8=",
+            type: "text/plain",
+            memo: created.name,
+          },
+        }),
+      },
+    );
+    expect(attachmentResponse.status).toBe(200);
+    const attachment = (await attachmentResponse.json()) as {
+      name: string;
+      size: string;
+      memo: string;
+      type: string;
+    };
+    expect(attachment).toMatchObject({
+      name: expect.stringMatching(/^attachments\//),
+      size: "5",
+      memo: created.name,
+      type: "text/plain",
+    });
+
+    const attachmentList = await fetchCurrent(
+      "http://flaremo.test/api/v1/attachments?pageSize=10",
+      { headers: bearer },
+    );
+    expect(attachmentList.status).toBe(200);
+    expect(await attachmentList.json()).toMatchObject({
+      attachments: [expect.objectContaining({ name: attachment.name })],
+    });
+
+    const relationResponse = await fetchCurrent(
+      `http://flaremo.test/api/v1/${created.name}/relations`,
+      {
+        method: "PATCH",
+        headers: { ...bearer, "content-type": "application/json" },
+        body: JSON.stringify({
+          name: created.name,
+          relations: [
+            {
+              memo: { name: created.name },
+              relatedMemo: { name: second.name },
+              type: "REFERENCE",
+            },
+          ],
+        }),
+      },
+    );
+    expect(relationResponse.status).toBe(200);
+    const relations = await fetchCurrent(
+      `http://flaremo.test/api/v1/${created.name}/relations`,
+      { headers: bearer },
+    );
+    expect(await relations.json()).toMatchObject({
+      relations: [
+        {
+          memo: { name: created.name },
+          relatedMemo: { name: second.name },
+          type: "REFERENCE",
+        },
+      ],
+    });
+
+    const shareResponse = await fetchCurrent(
+      `http://flaremo.test/api/v1/${created.name}/shares`,
+      {
+        method: "POST",
+        headers: { ...bearer, "content-type": "application/json" },
+        body: JSON.stringify({
+          parent: created.name,
+          memoShare: {},
+        }),
+      },
+    );
+    expect(shareResponse.status).toBe(200);
+    const share = (await shareResponse.json()) as { name: string };
+    const shareToken = share.name.split("/").at(-1);
+    expect(shareToken).toBeTruthy();
+    const publicShare = await fetchCurrent(
+      `http://flaremo.test/api/v1/shares/${shareToken}`,
+      undefined,
+      { authenticated: false },
+    );
+    expect(publicShare.status).toBe(200);
+    expect(await publicShare.json()).toMatchObject({ name: created.name });
+
+    const patCreate = await fetchCurrent(
+      "http://flaremo.test/api/v1/users/owner/personalAccessTokens",
+      {
+        method: "POST",
+        headers: { ...bearer, "content-type": "application/json" },
+        body: JSON.stringify({
+          description: "current test token",
+          expiresInDays: 0,
+        }),
+      },
+    );
+    expect(patCreate.status).toBe(200);
+    const pat = (await patCreate.json()) as {
+      personalAccessToken: { name: string };
+      token: string;
+    };
+    expect(pat.personalAccessToken.name).toContain(
+      "users/owner/personalAccessTokens/",
+    );
+    expect(pat.token).toMatch(/^memos_pat_/);
+
+    const patList = await fetchCurrent(
+      "http://flaremo.test/api/v1/users/owner/personalAccessTokens",
+      { headers: { authorization: `Bearer ${pat.token}` } },
+    );
+    expect(patList.status).toBe(200);
+    expect(await patList.json()).toMatchObject({
+      personalAccessTokens: [
+        expect.objectContaining({
+          description: "current test token",
+        }),
+      ],
+    });
+
+    const mcpHeaders = {
+      authorization: `Bearer ${pat.token}`,
+      "content-type": "application/json",
+      accept: "application/json",
+    };
+    const initialize = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-03-26" },
+      }),
+    });
+    expect(initialize.status).toBe(200);
+    expect(await initialize.json()).toMatchObject({
+      result: {
+        protocolVersion: "2025-03-26",
+        capabilities: { tools: {} },
+      },
+    });
+
+    const tools = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/list",
+      }),
+    });
+    const toolNames = (
+      (await tools.json()) as {
+        result: { tools: Array<{ name: string }> };
+      }
+    ).result.tools.map((tool) => tool.name);
+    expect(toolNames).toContain("memo_list_memos");
+    expect(toolNames).not.toContain("list_memos");
+
+    const toolCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: {
+          name: "memo_create_memo",
+          arguments: { body: { content: "created through current MCP" } },
+        },
+      }),
+    });
+    expect(toolCall.status).toBe(200);
+    expect(await toolCall.json()).toMatchObject({
+      result: {
+        structuredContent: {
+          content: "created through current MCP",
+        },
+      },
+    });
+
+    const toolError = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 4,
+        method: "tools/call",
+        params: { name: "not_a_real_tool", arguments: {} },
+      }),
+    });
+    expect(await toolError.json()).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ type: "text" }],
+      },
+    });
+
+    const unauthenticated = await fetchCurrent(
+      "http://flaremo.test/api/v1/memos",
+      undefined,
+      { authenticated: false },
+    );
+    expect(unauthenticated.status).toBe(401);
+    expect(await unauthenticated.json()).toMatchObject({ code: 16 });
+  });
 });
 
 function fetchApp(
@@ -488,11 +852,24 @@ function fetchApp(
     (path.startsWith("/api/app/") || path.startsWith("/api/v1/"))
   ) {
     headers.set("cookie", sessionCookie);
+    if (path.startsWith("/api/v1/") && !headers.has("x-flaremo-wire")) {
+      headers.set("x-flaremo-wire", "legacy");
+    }
     if (!headers.has("origin") && isUnsafeMethod(init?.method)) {
       headers.set("origin", "http://flaremo.test");
     }
   }
   return app.fetch(new Request(input, { ...init, headers }), env);
+}
+
+function fetchCurrent(
+  input: string,
+  init?: RequestInit,
+  options: { authenticated?: boolean } = {},
+) {
+  const headers = new Headers(init?.headers);
+  headers.set("x-flaremo-wire", "current");
+  return fetchApp(input, { ...init, headers }, options);
 }
 
 function isUnsafeMethod(method: string | undefined) {

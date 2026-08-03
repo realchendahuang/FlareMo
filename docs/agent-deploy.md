@@ -99,7 +99,7 @@ curl "$FLAREMO_URL/api/v1/memos" \
 
 公开分享路径要单独验证 bypass policy，但分享内容仍必须由 FlareMo share token 控制。Access Service Token alone 不能访问私有 API。
 
-当前 `/api/v1/mcp` 是 FlareMo 现有 JSON-RPC 子集；Memos current `/mcp` Streamable HTTP 和 current camelCase wire adapter 由 Issue #40 追踪，Agent 不得在发布记录中宣称已经完整兼容。
+旧的 `/api/v1/mcp` 是 FlareMo 现有 JSON-RPC 子集；根 `/mcp` 现在提供 current Memos 风格的无状态 JSON Streamable HTTP MCP 子集。Agent 不得在发布记录中宣称已经完整兼容：完整 CEL、Connect/gRPC、SSE、comments/reactions/shortcuts，以及第三方客户端真实 smoke test 仍未完成。
 
 ## 常见失败
 
@@ -147,7 +147,7 @@ CF-Access-Client-Secret
 3. PAT 请求如果携带 Origin，也必须命中同一 allowlist；不匹配时预期返回 `403`。
 4. allowlist 不支持 wildcard；`Referer` 和 Cloudflare Access headers 都不能修复 Origin mismatch。修改公开 vars 后需要重新部署 Worker。
 
-这套规则与 Memos 0.30 的 browser-origin 模型方向一致，但不代表 `/mcp` Streamable HTTP 或 current camelCase wire adapter 已实现；两者仍属于 Issue #40。
+这套规则与 Memos 0.30 的 browser-origin 模型方向一致，但不代表 FlareMo 已完成完整 Memos Server parity。current wire 和根 `/mcp` 只承诺兼容矩阵中列出的子集。
 
 ### 前端资源旧版本
 

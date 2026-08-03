@@ -28,9 +28,11 @@ pnpm deploy:dry-run
 pnpm deploy
 ```
 
-## Cloudflare Access
+## Better Auth and optional Cloudflare Access
 
-FlareMo expects production instances to be protected by Cloudflare Access. Do not add an app-level Bearer token, login page, or custom session gateway to FlareMo.
+FlareMo's application authentication is provided by Better Auth. The first deployment uses the one-time `/setup` flow to create the single owner; browsers use an `HttpOnly` cookie session, while scripts, MCP, and Memos-compatible clients use a revocable `memos_pat_` PAT. Cloudflare Access is optional outer policy and never replaces the application session or PAT.
+
+The current `/api/v1` wire is the current Memos-style camelCase/protobuf-JSON subset. The legacy snake_case wire is selected explicitly with `X-FlareMo-Wire: legacy`. The current auth facade returns an opaque Better Auth session-backed `accessToken`, not a native Memos JWT. The root `/mcp` is a stateless Streamable HTTP MCP subset; complete Memos Server parity is not promised.
 
 Recommended boundary:
 
@@ -95,12 +97,13 @@ Return to the FlareMo Access application and add a policy:
 | Include | The Service Token you created |
 | Require | Optional; add IP/Country constraints if clients come from fixed networks |
 
-Machine clients authenticate with Cloudflare Access headers:
+Machine clients authenticate with Cloudflare Access headers plus the FlareMo application PAT:
 
 ```bash
 curl "$FLAREMO_URL/api/v1/memos" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
-  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET"
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
 ```
 
 MCP example:
@@ -110,7 +113,20 @@ curl "$FLAREMO_URL/api/v1/mcp" \
   -H "content-type: application/json" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
   -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT" \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+The current Memos-style stateless MCP surface is at `/mcp` and supports `initialize`, `notifications/initialized`, `tools/list`, and `tools/call`:
+
+```bash
+curl "$FLAREMO_URL/mcp" \
+  -H "content-type: application/json" \
+  -H "accept: application/json, text/event-stream" \
+  -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT" \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}'
 ```
 
 Do not turn the Service Token into a FlareMo app token. FlareMo application code does not read, issue, or store these credentials.
@@ -166,7 +182,7 @@ curl -I "$FLAREMO_URL/api/public/shares/not-a-real-token"
 - The `Client Secret` is not committed to the repository, issues, PRs, or public logs.
 - `/share/*`, `/api/public/shares/*`, and `/assets/*` have explicit `Bypass` policies.
 - The root application, `/api/v1/*`, and `/openapi.json` are not bypassed.
-- FlareMo has no app-level Bearer token login.
+- Access is not treated as FlareMo application identity; private API requests still use a Better Auth cookie/session bearer or `memos_pat_` PAT.
 
 ## Local Development
 

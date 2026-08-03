@@ -8,14 +8,14 @@ This runbook is for Codex, Claude Code, Cursor Agent, and other command-capable 
 - `pnpm install` has completed, or the agent can run it.
 - Wrangler is logged in to the target Cloudflare account.
 - `wrangler.jsonc` points to the target D1 and R2 resources.
-- Production access is handled by Cloudflare Access, not FlareMo application code.
+- Application authentication is handled by Better Auth. Cloudflare Access is optional outer policy and does not replace a FlareMo cookie session or `memos_pat_` PAT.
 
 ## Do Not
 
 - Do not add GitHub Actions CI or deployment workflows. `flaremo-update.yml` is the only exception and only prepares upstream update pull requests in user deployment repositories.
 - Do not deploy before `pnpm verify`.
 - Do not commit `Temp/`, `node_modules/`, `dist/`, `.wrangler/`, `.dev.vars`, `backups/`, `test-results/`, or `playwright-report/`.
-- Do not add app-level Bearer token login.
+- Do not add a second authentication system, shared password, or standalone bearer-token table outside Better Auth. Machine access uses the revocable `memos_pat_` PAT boundary.
 - Do not move canonical note data from D1 to KV, R2, or Vectorize.
 
 ## Standard Flow
@@ -47,10 +47,13 @@ Scripts need an Access Service Token:
 ```bash
 curl "$FLAREMO_URL/api/v1/memos" \
   -H "CF-Access-Client-Id: $FLAREMO_ACCESS_CLIENT_ID" \
-  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET"
+  -H "CF-Access-Client-Secret: $FLAREMO_ACCESS_CLIENT_SECRET" \
+  -H "Authorization: Bearer $FLAREMO_MEMOS_PAT"
 ```
 
 Public share routes need a separate Access bypass policy. The content must still be protected by FlareMo share tokens.
+
+The default `/api/v1` wire is the current camelCase/protobuf-JSON subset. `X-FlareMo-Wire: legacy` selects the older snake_case wire. The root `/mcp` endpoint is a stateless Streamable HTTP MCP subset; it is not a claim of complete Memos Server parity. The auth facade's `accessToken` is an opaque Better Auth session-backed token, not a native Memos JWT.
 
 ## Common Failures
 

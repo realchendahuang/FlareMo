@@ -122,7 +122,9 @@ describe("FlareMo Worker API", () => {
     expect(byTag.memos).toHaveLength(1);
 
     const openapi = await json(
-      await fetchApp("http://flaremo.test/openapi.json"),
+      await fetchApp("http://flaremo.test/openapi.json", {
+        headers: { "x-flaremo-wire": "legacy" },
+      }),
     );
     expect(openapi.paths["/api/v1/memos"]).toBeTruthy();
 
@@ -771,6 +773,9 @@ function fetchApp(
     (path.startsWith("/api/app/") || path.startsWith("/api/v1/"))
   ) {
     headers.set("cookie", sessionCookie);
+    if (path.startsWith("/api/v1/") && !headers.has("x-flaremo-wire")) {
+      headers.set("x-flaremo-wire", "legacy");
+    }
     if (!headers.has("origin") && isUnsafeMethod(init?.method)) {
       headers.set("origin", "http://flaremo.test");
     }
