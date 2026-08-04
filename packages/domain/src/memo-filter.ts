@@ -4,6 +4,15 @@ import { ValidationError } from "./errors";
 
 const MAX_MEMO_FILTER_LENGTH = 4_096;
 const MAX_MEMO_FILTER_AST_NODES = 512;
+const MAX_MEMO_FILTER_REGEX_LENGTH = 1_024;
+const MAX_MEMO_FILTER_REGEX_CACHE_ENTRIES = 256;
+
+const memoFilterRegexCache = new Map<string, RegExp>();
+
+type MemoFilterAst = {
+  op: string;
+  args: unknown;
+};
 
 /**
  * A compiled Memos CEL filter.  The parser/evaluator is deliberately kept in
@@ -62,6 +71,37 @@ const memoFilterEnvironment = new Environment({
         leftSet.every((value) => rightSet.includes(value))
       );
     },
+  )
+  .registerFunction(
+    "flaremo_tag_in(list<string>, list<string>): bool",
+    (tags: string[], candidates: string[]) =>
+      candidates.some((candidate) =>
+        tags.some(
+          (tag) => tag === candidate || tag.startsWith(`${candidate}/`),
+        ),
+      ),
+  )
+  .registerFunction(
+    "string.flaremo_contains(string): bool",
+    (left: string, right: string) =>
+      left.toLowerCase().includes(right.toLowerCase()),
+  )
+  .registerFunction(
+    "string.flaremo_startsWith(string): bool",
+    (left: string, right: string) =>
+      left.toLowerCase().startsWith(right.toLowerCase()),
+  )
+  .registerFunction(
+    "string.flaremo_endsWith(string): bool",
+    (left: string, right: string) =>
+      left.toLowerCase().endsWith(right.toLowerCase()),
+  )
+  .registerFunction(
+    "string.flaremo_matches(string): bool",
+    (left: string, pattern: string) => {
+      const regex = getMemoFilterRegex(pattern);
+      return regex.test(left);
+    },
   );
 
 export function compileMemoFilter(
@@ -72,6 +112,7 @@ export function compileMemoFilter(
   if (value.length > MAX_MEMO_FILTER_LENGTH) {
     throw new ValidationError("Memos filter is too long");
   }
+  rejectReservedImplementationNames(value);
 
   let compiled: ParseResult;
   try {
@@ -92,22 +133,19 @@ export function compileMemoFilter(
       `Invalid Memos CEL filter: ${safeError(checked.error)}`,
     );
   }
+  if (checked.type !== "bool") {
+    throw new ValidationError(
+      "Invalid Memos CEL filter: filter must evaluate to a boolean",
+    );
+  }
+
+  validateMemoFilterSurface(compiled.ast);
 
   const frozenNow = new Date();
-  const usesTagAlias = astContainsIdentifier(compiled.ast, "tag");
 
   return (memo, user) => {
     const context = memoFilterContext(memo, user, frozenNow);
     try {
-      // Memos' `tag` is a virtual alias for membership in `tags`, not one
-      // arbitrary scalar stored on a memo. Evaluating once per tag preserves
-      // the existential semantics of the upstream `tag in [...]` form while
-      // keeping CEL-JS' regular type checker in place.
-      if (usesTagAlias) {
-        return context.tags.some(
-          (tag) => compiled({ ...context, tag }) === true,
-        );
-      }
       return compiled(context) === true;
     } catch (error) {
       throw new ValidationError(
@@ -155,106 +193,576 @@ export function memoFilterContext(
 }
 
 function normalizeMemoFilterExpression(expression: string) {
-  let normalized = expression
-    .replaceAll("sets.contains(", "flaremo_sets_contains(")
-    .replaceAll("sets.intersects(", "flaremo_sets_intersects(")
-    .replaceAll("sets.equivalent(", "flaremo_sets_equivalent(");
+  let normalized = rewriteOutsideStringLiterals(expression, (code) =>
+    code
+      .replace(
+        /\bsets\s*\.\s*(contains|intersects|equivalent)\s*\(/g,
+        (_, name: string) => `flaremo_sets_${name}(`,
+      )
+      .replace(
+        /\.\s*(contains|startsWith|endsWith|matches)\s*(?=\()/g,
+        (_, name: string) => `.flaremo_${name}`,
+      ),
+  );
 
   normalized = rewriteTagsAll(normalized);
+  normalized = rewriteTagAliasIn(normalized);
   return normalized;
 }
 
 function rewriteTagsAll(expression: string) {
-  const target = "tags.all(";
   let output = "";
   let cursor = 0;
   while (cursor < expression.length) {
-    const match = findOutsideString(expression, target, cursor);
-    if (match < 0) {
+    const match = findQualifiedCall(expression, "tags", "all", cursor);
+    if (!match) {
       output += expression.slice(cursor);
       break;
     }
 
-    output += expression.slice(cursor, match);
-    const end = findClosingParenthesis(expression, match + target.length - 1);
+    const end = findClosingDelimiter(expression, match.opening);
     if (end < 0) {
-      output += expression.slice(match);
+      output += expression.slice(cursor);
       break;
     }
 
-    const call = expression.slice(match, end + 1);
+    output += expression.slice(cursor, match.start);
+    const call = expression.slice(match.start, end + 1);
     output += `(size(tags) > 0 && ${call})`;
     cursor = end + 1;
   }
   return output;
 }
 
-function findOutsideString(input: string, needle: string, from: number) {
-  let quote: string | undefined;
-  let escaped = false;
-  for (let index = from; index <= input.length - needle.length; index += 1) {
-    const character = input[index];
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (character === "\\") escaped = true;
-      else if (character === quote) quote = undefined;
-      continue;
+function rewriteTagAliasIn(expression: string) {
+  let output = "";
+  let cursor = 0;
+  while (cursor < expression.length) {
+    const match = findTagInList(expression, cursor);
+    if (!match) {
+      output += expression.slice(cursor);
+      break;
     }
-    if (character === '"' || character === "'" || character === "`") {
-      quote = character;
-      continue;
-    }
-    if (input.startsWith(needle, index)) return index;
+
+    output += expression.slice(cursor, match.start);
+    output += `flaremo_tag_in(tags,${expression.slice(match.listStart, match.end + 1)})`;
+    cursor = match.end + 1;
   }
-  return -1;
+  return output;
 }
 
-function findClosingParenthesis(input: string, opening: number) {
-  let depth = 0;
-  let quote: string | undefined;
-  let escaped = false;
+function rewriteOutsideStringLiterals(
+  input: string,
+  rewrite: (code: string) => string,
+) {
+  let output = "";
+  let segmentStart = 0;
+  let index = 0;
+
+  while (index < input.length) {
+    if (!isStringDelimiter(input[index])) {
+      index += 1;
+      continue;
+    }
+
+    output += rewrite(input.slice(segmentStart, index));
+    const end = findStringLiteralEnd(input, index);
+    if (end < 0) {
+      output += input.slice(index);
+      return output;
+    }
+    output += input.slice(index, end);
+    index = end;
+    segmentStart = end;
+  }
+
+  return output + rewrite(input.slice(segmentStart));
+}
+
+function findQualifiedCall(
+  input: string,
+  receiver: string,
+  method: string,
+  from: number,
+) {
+  for (let index = from; index < input.length; index += 1) {
+    if (isStringDelimiter(input[index])) {
+      const end = findStringLiteralEnd(input, index);
+      if (end < 0) return undefined;
+      index = end - 1;
+      continue;
+    }
+    if (!input.startsWith(receiver, index)) continue;
+    if (
+      isIdentifierCharacter(input[index - 1]) ||
+      isIdentifierCharacter(input[index + receiver.length])
+    ) {
+      continue;
+    }
+
+    let cursor = skipWhitespace(input, index + receiver.length);
+    if (input[cursor] !== ".") continue;
+    cursor = skipWhitespace(input, cursor + 1);
+    if (!input.startsWith(method, cursor)) continue;
+    if (
+      isIdentifierCharacter(input[cursor - 1]) ||
+      isIdentifierCharacter(input[cursor + method.length])
+    ) {
+      continue;
+    }
+    cursor = skipWhitespace(input, cursor + method.length);
+    if (input[cursor] !== "(") continue;
+    return { start: index, opening: cursor };
+  }
+  return undefined;
+}
+
+function findTagInList(input: string, from: number) {
+  for (let index = from; index < input.length; index += 1) {
+    if (isStringDelimiter(input[index])) {
+      const end = findStringLiteralEnd(input, index);
+      if (end < 0) return undefined;
+      index = end - 1;
+      continue;
+    }
+    if (!input.startsWith("tag", index)) continue;
+    if (
+      isIdentifierCharacter(input[index - 1]) ||
+      isIdentifierCharacter(input[index + 3])
+    ) {
+      continue;
+    }
+
+    let cursor = skipWhitespace(input, index + 3);
+    if (!input.startsWith("in", cursor)) continue;
+    if (
+      isIdentifierCharacter(input[cursor - 1]) ||
+      isIdentifierCharacter(input[cursor + 2])
+    ) {
+      continue;
+    }
+    cursor = skipWhitespace(input, cursor + 2);
+    if (input[cursor] !== "[") continue;
+    const end = findClosingDelimiter(input, cursor);
+    if (end < 0) return undefined;
+    return { start: index, listStart: cursor, end };
+  }
+  return undefined;
+}
+
+function findClosingDelimiter(input: string, opening: number) {
+  const expected = new Map([
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+  ]);
+  const closing = new Set(expected.values());
+  const stack: string[] = [];
+
   for (let index = opening; index < input.length; index += 1) {
     const character = input[index];
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (character === "\\") escaped = true;
-      else if (character === quote) quote = undefined;
+    if (character === undefined) continue;
+    if (isStringDelimiter(character)) {
+      const end = findStringLiteralEnd(input, index);
+      if (end < 0) return -1;
+      index = end - 1;
       continue;
     }
-    if (character === '"' || character === "'" || character === "`") {
-      quote = character;
+    if (expected.has(character)) {
+      stack.push(expected.get(character) as string);
       continue;
     }
-    if (character === "(") depth += 1;
-    else if (character === ")") {
-      depth -= 1;
-      if (depth === 0) return index;
+    if (!closing.has(character)) continue;
+    if (stack.pop() !== character) return -1;
+    if (stack.length === 0) return index;
+  }
+  return -1;
+}
+
+function findStringLiteralEnd(input: string, start: number) {
+  const delimiter = input[start];
+  if (delimiter === undefined) return -1;
+  const triple = input.startsWith(delimiter.repeat(3), start);
+  const width = triple ? 3 : 1;
+
+  for (let index = start + width; index < input.length; index += 1) {
+    if (input[index] === "\\") {
+      index += 1;
+      continue;
+    }
+    if (
+      triple
+        ? input.startsWith(delimiter.repeat(3), index)
+        : input[index] === delimiter
+    ) {
+      return index + width;
     }
   }
   return -1;
 }
 
-function astContainsIdentifier(
-  node: { op: string; args: unknown },
-  name: string,
-): boolean {
-  if (node.op === "id") return node.args === name;
-  const children = Array.isArray(node.args)
-    ? node.args
-    : node.args && typeof node.args === "object"
-      ? Object.values(node.args)
-      : [];
-  return children.some((child) => {
-    if (isAstNode(child)) return astContainsIdentifier(child, name);
-    if (Array.isArray(child)) {
-      return child.some((nested) =>
-        isAstNode(nested) ? astContainsIdentifier(nested, name) : false,
-      );
-    }
-    return false;
-  });
+function isStringDelimiter(value: string | undefined) {
+  return value === '"' || value === "'" || value === "`";
 }
 
+function isIdentifierCharacter(value: string | undefined) {
+  return value !== undefined && /[A-Za-z0-9_]/.test(value);
+}
+
+function skipWhitespace(input: string, from: number) {
+  let index = from;
+  while (/\s/.test(input[index] ?? "")) index += 1;
+  return index;
+}
+
+const memoFilterBooleanFields = new Set([
+  "pinned",
+  "has_link",
+  "has_task_list",
+  "has_code",
+  "has_incomplete_tasks",
+]);
+const memoFilterStringFields = new Set([
+  "content",
+  "creator",
+  "visibility",
+  "state",
+]);
+const memoFilterAllowedIds = new Set([
+  ...memoFilterBooleanFields,
+  ...memoFilterStringFields,
+  "creator_id",
+  "created_ts",
+  "updated_ts",
+  "tags",
+  "now",
+]);
+
+function rejectUnsupported(message: string): never {
+  throw new ValidationError(`Invalid Memos CEL filter: ${message}`);
+}
+
+function rejectReservedImplementationNames(expression: string) {
+  let found = false;
+  rewriteOutsideStringLiterals(expression, (code) => {
+    if (
+      /\bflaremo_(?:sets_(?:contains|intersects|equivalent)|tag_in|(?:contains|startsWith|endsWith|matches))\b/.test(
+        code,
+      )
+    ) {
+      found = true;
+    }
+    return code;
+  });
+  if (found) {
+    rejectUnsupported("reserved implementation helper is not public");
+  }
+}
+
+function validateMemoFilterSurface(node: MemoFilterAst) {
+  visitMemoFilterAst(node, new Set<string>());
+}
+
+function visitMemoFilterAst(node: MemoFilterAst, boundIds: Set<string>) {
+  switch (node.op) {
+    case "id": {
+      const name = identifierName(node);
+      if (!name || (!memoFilterAllowedIds.has(name) && !boundIds.has(name))) {
+        rejectUnsupported("identifier is not supported");
+      }
+      return;
+    }
+    case "value":
+      return;
+    case "list":
+      for (const item of requireAstArray(node.args, "list")) {
+        visitMemoFilterAst(item, boundIds);
+      }
+      return;
+    case "&&":
+    case "||":
+    case "==":
+    case "!=":
+    case "<":
+    case "<=":
+    case ">":
+    case ">=": {
+      const args = binaryAstArgs(node);
+      if (!args) rejectUnsupported(`${node.op} requires two operands`);
+      if (
+        ["<", "<=", ">", ">="].includes(node.op) &&
+        isStringOrderingOperand(args[0])
+      ) {
+        rejectUnsupported("string ordering is not supported");
+      }
+      visitMemoFilterAst(args[0], boundIds);
+      visitMemoFilterAst(args[1], boundIds);
+      return;
+    }
+    case "!_":
+      if (!isAstNode(node.args))
+        rejectUnsupported("NOT requires one condition");
+      visitMemoFilterAst(node.args, boundIds);
+      return;
+    case "call":
+      validateCallSurface(node, boundIds);
+      return;
+    case "rcall":
+      validateReceiverCallSurface(node, boundIds);
+      return;
+    default:
+      rejectUnsupported(`operator ${node.op} is not supported`);
+  }
+}
+
+function validateCallSurface(node: MemoFilterAst, boundIds: Set<string>) {
+  const parts = callParts(node);
+  if (!parts) rejectUnsupported("malformed function call");
+
+  if (
+    parts.name === "flaremo_tag_in" ||
+    parts.name === "flaremo_sets_contains" ||
+    parts.name === "flaremo_sets_intersects" ||
+    parts.name === "flaremo_sets_equivalent"
+  ) {
+    if (parts.args.length !== 2) {
+      rejectUnsupported(`${parts.name} requires tags and a string list`);
+    }
+    const receiver = requireAstArg(parts.args, 0, parts.name);
+    const candidates = requireAstArg(parts.args, 1, parts.name);
+    if (identifierName(receiver) !== "tags" || !isStringList(candidates)) {
+      rejectUnsupported(`${parts.name} requires tags and a string list`);
+    }
+    visitMemoFilterAst(receiver, boundIds);
+    return;
+  }
+
+  if (parts.name === "size") {
+    if (parts.args.length !== 1) {
+      rejectUnsupported("size is only supported for tags");
+    }
+    const receiver = requireAstArg(parts.args, 0, "size");
+    if (identifierName(receiver) !== "tags") {
+      rejectUnsupported("size is only supported for tags");
+    }
+    visitMemoFilterAst(receiver, boundIds);
+    return;
+  }
+
+  if (parts.name === "timestamp" || parts.name === "duration") {
+    if (parts.args.length !== 1) {
+      rejectUnsupported(`${parts.name} requires one literal`);
+    }
+    const literal = stringLiteral(requireAstArg(parts.args, 0, parts.name));
+    if (literal === undefined) {
+      rejectUnsupported(`${parts.name} requires a literal string`);
+    }
+    if (parts.name === "timestamp") validateTimestampLiteral(literal);
+    else validateDurationLiteral(literal);
+    return;
+  }
+
+  rejectUnsupported(`function ${parts.name} is not supported`);
+}
+
+function validateReceiverCallSurface(
+  node: MemoFilterAst,
+  boundIds: Set<string>,
+) {
+  const parts = receiverCallParts(node);
+  if (!parts) rejectUnsupported("malformed receiver call");
+
+  if (
+    parts.name === "exists" ||
+    parts.name === "all" ||
+    parts.name === "exists_one"
+  ) {
+    if (parts.args.length !== 2) {
+      rejectUnsupported(`${parts.name} is only supported for tags`);
+    }
+    const iteratorArg = requireAstArg(parts.args, 0, parts.name);
+    const predicate = requireAstArg(parts.args, 1, parts.name);
+    if (
+      identifierName(parts.receiver) !== "tags" ||
+      identifierName(iteratorArg) === undefined
+    ) {
+      rejectUnsupported(`${parts.name} is only supported for tags`);
+    }
+    const iterator = identifierName(iteratorArg);
+    if (!iterator || iterator === "tag") {
+      rejectUnsupported("tag comprehension iterator is not valid");
+    }
+    visitMemoFilterAst(parts.receiver, boundIds);
+    const nestedIds = new Set(boundIds);
+    nestedIds.add(iterator);
+    visitMemoFilterAst(predicate, nestedIds);
+    return;
+  }
+
+  if (
+    parts.name !== "flaremo_contains" &&
+    parts.name !== "flaremo_startsWith" &&
+    parts.name !== "flaremo_endsWith" &&
+    parts.name !== "flaremo_matches"
+  ) {
+    rejectUnsupported(`method ${parts.name} is not supported`);
+  }
+  const receiverName = identifierName(parts.receiver);
+  if (receiverName !== "content" && !boundIds.has(receiverName ?? "")) {
+    rejectUnsupported("text methods only support content and tag iterators");
+  }
+  if (parts.args.length !== 1) {
+    rejectUnsupported(`${parts.name} requires one string literal`);
+  }
+  const literal = stringLiteral(requireAstArg(parts.args, 0, parts.name));
+  if (literal === undefined) {
+    rejectUnsupported(`${parts.name} requires a literal string`);
+  }
+  if (parts.name === "flaremo_matches") validateRegexPattern(literal);
+  visitMemoFilterAst(parts.receiver, boundIds);
+}
+
+function requireAstArray(value: unknown, label: string): MemoFilterAst[] {
+  if (!Array.isArray(value) || !value.every(isAstNode)) {
+    rejectUnsupported(`${label} arguments are not valid`);
+  }
+  return value;
+}
+
+function requireAstArg(
+  args: MemoFilterAst[],
+  index: number,
+  label: string,
+): MemoFilterAst {
+  const arg = args[index];
+  if (!arg) rejectUnsupported(`${label} arguments are not valid`);
+  return arg;
+}
+
+function binaryAstArgs(
+  node: MemoFilterAst,
+): [MemoFilterAst, MemoFilterAst] | undefined {
+  if (
+    !Array.isArray(node.args) ||
+    node.args.length !== 2 ||
+    !isAstNode(node.args[0]) ||
+    !isAstNode(node.args[1])
+  ) {
+    return undefined;
+  }
+  return [node.args[0], node.args[1]];
+}
+
+function callParts(
+  node: MemoFilterAst,
+): { name: string; args: MemoFilterAst[] } | undefined {
+  if (node.op !== "call" || !Array.isArray(node.args)) return undefined;
+  const [name, args] = node.args;
+  if (
+    typeof name !== "string" ||
+    !Array.isArray(args) ||
+    !args.every(isAstNode)
+  ) {
+    return undefined;
+  }
+  return { name, args };
+}
+
+function receiverCallParts(
+  node: MemoFilterAst,
+):
+  | { name: string; receiver: MemoFilterAst; args: MemoFilterAst[] }
+  | undefined {
+  if (node.op !== "rcall" || !Array.isArray(node.args)) return undefined;
+  const [name, receiver, args] = node.args;
+  if (
+    typeof name !== "string" ||
+    !isAstNode(receiver) ||
+    !Array.isArray(args) ||
+    !args.every(isAstNode)
+  ) {
+    return undefined;
+  }
+  return { name, receiver, args };
+}
+
+function isStringOrderingOperand(node: MemoFilterAst) {
+  return node.op === "id" && memoFilterStringFields.has(String(node.args));
+}
+
+function stringLiteral(node: MemoFilterAst) {
+  return node.op === "value" && typeof node.args === "string"
+    ? node.args
+    : undefined;
+}
+
+function identifierName(node: unknown) {
+  return isAstNode(node) && node.op === "id" && typeof node.args === "string"
+    ? node.args
+    : undefined;
+}
+
+function isStringList(node: MemoFilterAst) {
+  return (
+    node.op === "list" &&
+    Array.isArray(node.args) &&
+    node.args.every((item) => isAstNode(item) && typeof item.args === "string")
+  );
+}
+
+function validateTimestampLiteral(value: string) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      value,
+    ) ||
+    Number.isNaN(Date.parse(value))
+  ) {
+    rejectUnsupported("timestamp requires a valid RFC3339 literal");
+  }
+}
+
+function validateDurationLiteral(value: string) {
+  if (
+    !/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:ns|us|µs|ms|s|m|h)(?:(?:\d+(?:\.\d+)?|\.\d+)(?:ns|us|µs|ms|s|m|h))*$/.test(
+      value,
+    )
+  ) {
+    rejectUnsupported("duration requires a valid literal");
+  }
+}
+
+function validateRegexPattern(pattern: string) {
+  if (pattern.length > MAX_MEMO_FILTER_REGEX_LENGTH) {
+    rejectUnsupported("regex literal is too long");
+  }
+  if (/\\(?:[1-9]\d*|k<)|\(\?/.test(pattern)) {
+    rejectUnsupported("regex uses an unsupported construct");
+  }
+  if (/\((?:[^()\\]|\\.)*[+*{](?:[^()\\]|\\.)*\)[+*{]/.test(pattern)) {
+    rejectUnsupported("regex contains nested quantifiers");
+  }
+  if (memoFilterRegexCache.has(pattern)) return;
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern);
+  } catch {
+    rejectUnsupported("regex is invalid");
+  }
+  if (memoFilterRegexCache.size >= MAX_MEMO_FILTER_REGEX_CACHE_ENTRIES) {
+    const oldest = memoFilterRegexCache.keys().next().value;
+    if (oldest !== undefined) memoFilterRegexCache.delete(oldest);
+  }
+  memoFilterRegexCache.set(pattern, regex);
+}
+
+function getMemoFilterRegex(pattern: string) {
+  const cached = memoFilterRegexCache.get(pattern);
+  if (cached) return cached;
+  validateRegexPattern(pattern);
+  const compiled = memoFilterRegexCache.get(pattern);
+  if (!compiled) throw new Error("Memos filter regex was not compiled");
+  return compiled;
+}
 function memoCreatorId(userId: string) {
   if (userId === "users/owner") return 1n;
   const numericId = /^users\/([1-9][0-9]*)$/.exec(userId)?.[1];
@@ -293,7 +801,7 @@ function countAstNodes(node: { op: string; args: unknown }): number {
   return count;
 }
 
-function isAstNode(value: unknown): value is { op: string; args: unknown } {
+function isAstNode(value: unknown): value is MemoFilterAst {
   return Boolean(
     value && typeof value === "object" && "op" in value && "args" in value,
   );

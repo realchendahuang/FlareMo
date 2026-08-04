@@ -53,6 +53,53 @@ describe("Memos CEL filter", () => {
     expect(caseSensitive?.(memo, user)).toBe(false);
   });
 
+  it("keeps tag aliases atomic across boolean expressions and supports hierarchy", () => {
+    const hierarchical = {
+      ...memo,
+      pinned: false,
+      payload: { tags: ["book/fiction"], property: {} },
+    } as MemoRow;
+    expect(compileMemoFilter('tag in ["book"]')?.(hierarchical, user)).toBe(
+      true,
+    );
+
+    const pinnedWithoutTags = {
+      ...memo,
+      pinned: true,
+      payload: { tags: [], property: {} },
+    } as MemoRow;
+    expect(
+      compileMemoFilter('tag in ["book"] || pinned')?.(pinnedWithoutTags, user),
+    ).toBe(true);
+    expect(
+      compileMemoFilter('tag in ["book"] && pinned')?.(pinnedWithoutTags, user),
+    ).toBe(false);
+    expect(
+      compileMemoFilter('!(tag in ["book"])')?.(pinnedWithoutTags, user),
+    ).toBe(true);
+  });
+
+  it("uses case-insensitive string matching and validates regexes once", () => {
+    expect(compileMemoFilter('content.contains("ROADMAP")')?.(memo, user)).toBe(
+      true,
+    );
+    expect(compileMemoFilter('content.startsWith("ROAD")')?.(memo, user)).toBe(
+      true,
+    );
+    expect(compileMemoFilter('content.endsWith("LAUNCH")')?.(memo, user)).toBe(
+      true,
+    );
+    expect(
+      compileMemoFilter('content.matches("road.*launch")')?.(memo, user),
+    ).toBe(true);
+    expect(() => compileMemoFilter('content.matches("[")')).toThrow(
+      "Invalid Memos CEL filter",
+    );
+    expect(() => compileMemoFilter('content.matches("(?=road)")')).toThrow(
+      "Invalid Memos CEL filter",
+    );
+  });
+
   it("supports the upstream set helpers and non-vacuous tags.all", () => {
     expect(
       compileMemoFilter(
@@ -89,5 +136,53 @@ describe("Memos CEL filter", () => {
     expect(() => compileMemoFilter("x".repeat(4_097))).toThrow(
       "Memos filter is too long",
     );
+    expect(() => compileMemoFilter("1")).toThrow(
+      "filter must evaluate to a boolean",
+    );
+    expect(() => compileMemoFilter('timestamp("garbage") < now')).toThrow(
+      "Invalid Memos CEL filter",
+    );
+    expect(() =>
+      compileMemoFilter('duration("garbage") > duration("1s")'),
+    ).toThrow("Invalid Memos CEL filter");
+    expect(() => compileMemoFilter('visibility < "PUBLIC"')).toThrow(
+      "Invalid Memos CEL filter",
+    );
+    expect(() => compileMemoFilter('tag == "urgent"')).toThrow(
+      "Invalid Memos CEL filter",
+    );
+    expect(() => compileMemoFilter("tags.map(t, t)")).toThrow(
+      "Invalid Memos CEL filter",
+    );
+    expect(() =>
+      compileMemoFilter('content.substring(0, 2) == "road"'),
+    ).toThrow("Invalid Memos CEL filter");
+    expect(() => compileMemoFilter('created_ts.getHours("UTC") > 0')).toThrow(
+      "Invalid Memos CEL filter",
+    );
+  });
+
+  it("normalizes only code and preserves string literals", () => {
+    expect(
+      compileMemoFilter('sets . contains ( tags, ["urgent"] )')?.(memo, user),
+    ).toBe(true);
+    const singleTagMemo = {
+      ...memo,
+      payload: { tags: ["urgent"], property: {} },
+    } as MemoRow;
+    expect(
+      compileMemoFilter('tags . all (t, t.startsWith("URGENT"))')?.(
+        singleTagMemo,
+        user,
+      ),
+    ).toBe(true);
+
+    const literalMemo = { ...memo, content: "sets.contains(" } as MemoRow;
+    expect(
+      compileMemoFilter('content.contains("sets.contains(")')?.(
+        literalMemo,
+        user,
+      ),
+    ).toBe(true);
   });
 });

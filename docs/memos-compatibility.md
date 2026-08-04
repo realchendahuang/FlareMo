@@ -1,8 +1,8 @@
 # Memos 兼容矩阵
 
-> 矩阵快照：2026-08-04。本页按当前工作树、当前 `git diff` 和仓库测试整理；它描述的是 FlareMo 的兼容边界，不是对任意 Memos 客户端的线上承诺。
+> 矩阵快照：2026-08-05。本页按当前工作树、当前 `git diff` 和仓库测试整理；它描述的是 FlareMo 的兼容边界，不是对任意 Memos 客户端的线上承诺。
 
-FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos Server 的 Go fork。它的定位是“内核不同、对外协议尽量兼容”：应用层使用 Better Auth，数据由 D1/Drizzle 和 R2 承载，并提供 Memos 风格 current camelCase REST、旧 FlareMo legacy wire、canonical Connect/protobuf unary adapter、有限 SSE 和无状态 Streamable HTTP MCP。
+FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos Server 的 Go fork。它的定位是“内核不同、对外协议尽量兼容”：应用层使用 Better Auth，数据由 D1/Drizzle 和 R2 承载，并提供 Memos 风格 current camelCase REST、旧 FlareMo legacy wire、canonical Connect/protobuf unary adapter、有限 SSE 和无状态 Streamable HTTP MCP。官方 Memos generated Connect client 已在隔离的本地 Wrangler Worker 上完成一次 binary unary smoke；这仍不是完整 Memos Server parity 或官方 Web/第三方客户端线上兼容证明。
 
 当前可以准确地说 FlareMo 已经有 Better Auth 原生鉴权、Memos 风格 access/refresh token、可撤销 `memos_pat_` PAT，以及 Memo/Auth/Shortcut 为主并扩展到 Attachment、单用户 User、Instance 和空 IdentityProvider 列表的兼容基础。不能宣称已经完成完整 Memos Server parity，也不能把仓库 contract tests 写成官方 Web 或第三方客户端已经可用。
 
@@ -28,7 +28,8 @@ FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos 
 | protobuf / gRPC-style / gRPC-Web unary | 部分实现 | 部分已测试 | 有手写 codec 和 framing；部分请求/响应已测，未达到 generated schema/runtime parity。 |
 | SSE | 已实现 | 已测试 | D1 outbox + polling + cursor replay 的 FlareMo 实现；不是上游进程内 SSEHub parity。 |
 | Streamable HTTP MCP | 已实现 | 已测试 | 根 `/mcp` 是无状态 JSON 子集；不承诺有状态 session、SSE 或完整工具面。 |
-| 官方 Memos Web、第三方客户端 | 未验证 | 未测 | 已做源码静态审计的候选见 [memos-ecosystem.md](./memos-ecosystem.md)，没有真实客户端 smoke 记录。 |
+| 官方 Memos generated Connect client | 已验证子集 | 已测（隔离 local E2E） | 使用 pinned `Temp/memos` generated client、`useBinaryFormat: true`，已解码 Auth、Memo/social、Attachment、Shortcut、User、Instance 的列出 unary 方法；不是生产验证或完整 parity。 |
+| 官方 Memos Web、第三方客户端 | 未验证 | 未测 | 官方 Web 仍只有源码静态审计；第三方候选见 [memos-ecosystem.md](./memos-ecosystem.md)，没有真实客户端 smoke 记录。 |
 | 完整 Memos Server parity | 未实现 | 未验证 | 当前明确不能宣称完成。 |
 
 ## Wire 模式
@@ -91,20 +92,20 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 
 - `application/json`：Connect JSON message。
 - `application/proto`：Connect protobuf unary message。
-- `application/grpc+proto`：单个未压缩 gRPC-style unary frame。
-- `application/grpc-web+proto`：单个未压缩 gRPC-Web protobuf frame。
-- `application/grpc-web-text+proto`：上面 frame 的 base64 文本形式。
+- `application/grpc`、`application/grpc+proto`：单个未压缩 gRPC-style unary frame；Worker 目前把两种请求 media type 映射到同一个 protobuf codec。
+- `application/grpc-web`、`application/grpc-web+proto`：单个未压缩 gRPC-Web protobuf frame。
+- `application/grpc-web-text`、`application/grpc-web-text+proto`：单个未压缩 gRPC-Web protobuf frame 的 base64 文本形式。
 
 这里是 Worker 上的手写 `ProtoReader` / `ProtoWriter` 适配层，不是从上游 proto 生成的完整 runtime。能返回 unary frame 不等于原生 HTTP/2 gRPC server、generated Connect client 或完整 schema parity。
 
 | 上游 service | 当前已接入方法 | 代码状态 | 仓库测试状态 | 重要边界 |
 | --- | --- | --- | --- | --- |
 | `MemoService` | `CreateMemo`、`ListMemos`、`GetMemo`、`UpdateMemo`、`DeleteMemo`；附件 binding；relations；comments；reactions；shares；`GetMemoByShare`；旧 `GetSharedMemo` alias；`GetLinkMetadata`、`BatchGetLinkMetadata` | 已实现子集 | 已测试 | JSON unary 和部分 protobuf/gRPC-Web framing 有覆盖；canonical `GetMemoByShare` 已有 JSON 测试。普通 memo RPC 仍需应用凭据。 |
-| `AuthService` | `GetCurrentUser`、`SignIn`、`RefreshToken`、`SignOut` | 已实现子集 | 部分已测试 | Better Auth 是身份事实源；native JWT/refresh 是 facade，不是上游 token 的字节级 parity；REST/native auth 和 binary `SignIn` 有覆盖，但完整 generated-client RPC roundtrip 未测。 |
+| `AuthService` | `GetCurrentUser`、`SignIn`、`RefreshToken`、`SignOut` | 已实现子集 | 已测（generated binary 子集） | Better Auth 是身份事实源；native JWT/refresh 是 facade，不是上游 token 的字节级 parity；官方 generated client 已完成列出方法的 binary roundtrip。 |
 | `ShortcutService` | `ListShortcuts`、`GetShortcut`、`CreateShortcut`、`UpdateShortcut`、`DeleteShortcut` | 已实现 | 已测试 | 有 JSON、gRPC-Web framing 和 social contract 覆盖；filter 仍是有限 CEL。 |
-| `AttachmentService` | `CreateAttachment`、`ListAttachments`、`GetAttachment`、`UpdateAttachment`、`DeleteAttachment`、`BatchDeleteAttachments` | 已实现子集 | 部分已测试 | JSON `ListAttachments`、R2/D1 domain path 和 protobuf 请求字段有测试；binary 上传、binary response 的 generated-client roundtrip 未测。只允许有限 memo 字段更新；`externalLink`、客户端指定 `attachmentId` 等能力明确拒绝。 |
-| `UserService` | current user list/batch/get/update；stats；user settings；空的 linked identities/webhooks/notifications list；PAT list/create/delete | 已实现子集 | 部分已测试 | 单用户模型；JSON `ListUsers`、`ListUserSettings` 和 protobuf request field 有覆盖。完整用户生命周期、完整 stats/settings oneof、binary response 和多用户语义未完成。 |
-| `InstanceService` | `GetInstanceProfile`、`GetInstanceSetting`、`BatchGetInstanceSettings`、`UpdateInstanceSetting`、`GetInstanceStats`；`TestInstanceEmailSetting` 明确返回 `501` | 部分实现 | 部分已测试 | profile、公开 settings 和 batch settings 有 JSON contract；Storage/Tags/AI 等 setting oneof、stats binary roundtrip 和 email delivery 未完成。 |
+| `AttachmentService` | `CreateAttachment`、`ListAttachments`、`GetAttachment`、`UpdateAttachment`、`DeleteAttachment`、`BatchDeleteAttachments` | 已实现子集 | 已测（generated binary 子集） | 官方 generated client 已完成 create/list/get/delete；update/batch delete、完整字段和上传语义仍未完成。只允许有限 memo 字段更新；`externalLink`、客户端指定 `attachmentId` 等能力明确拒绝。 |
+| `UserService` | current user list/batch/get/update；stats；user settings；空的 linked identities/webhooks/notifications list；PAT list/create/delete | 已实现子集 | 已测（generated binary 子集） | 官方 generated client 已完成 list/get/stats/settings/notifications/webhooks 的列出方法；单用户生命周期、多用户语义、完整 settings oneof 和 mutation 方法仍未完成。 |
+| `InstanceService` | `GetInstanceProfile`、`GetInstanceSetting`、`BatchGetInstanceSettings`、`UpdateInstanceSetting`、`GetInstanceStats`；`TestInstanceEmailSetting` 明确返回 `501` | 部分实现 | 已测（generated binary 子集） | 官方 generated client 已完成 profile、batch settings、stats；Storage/Tags/AI 等 setting oneof、更新和 email delivery 未完成。 |
 | `IdentityProviderService` | `ListIdentityProviders` 返回空列表 | 仅有限实现 | 已测试（空列表） | 没有 OAuth2 provider CRUD 或 linked identity 流程；其余方法明确返回 `501`。 |
 | `AIService` | 无可用业务实现；transcription 请求明确返回 `501` | 未实现 | 未验证 | protobuf codec 中存在字段映射代码不代表 AI provider 已配置或可调用。 |
 | 其他 service / 未列出 method | 无 | 未实现 | 未验证 | route 对未知 service/method 返回 unimplemented，不做泛化伪成功。 |
@@ -119,9 +120,9 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 
 - `InstanceSetting` 的 Storage/Tags/AI oneof、S3/AI/transcription 配置、UserSetting 完整 oneof、notification payload、attachment `motionMedia` / `externalLink` 等字段。
 - memo create/update 的完整时间、initial attachments/relations/location、完整 update mask、pagination token，以及 comments/reactions 的完整 response schema。
-- canonical `GetMemoByShare`、Attachment create/list/update/delete、User/Instance/IdentityProvider 的全部 generated-client binary roundtrip。
+- Attachment update/batch delete、User/Instance/IdentityProvider 的未覆盖方法和完整 generated-client schema roundtrip；本次 smoke 只覆盖列出的 unary 子集。
 - 原生 gRPC HTTP/2、完整 metadata/trailer、gRPC-Web trailer frame、压缩、streaming RPC、取消和 deadline 语义。
-- Memos 官方 generated Connect client 的实际连接和解码。
+- 官方 Memos Web 的真实浏览器请求、第三方客户端连接，以及 native HTTP/2 gRPC 的真实客户端验证。
 
 ## SSE 与 MCP
 
@@ -133,7 +134,7 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 
 ## 仅静态审计与明确未实现
 
-对当前参考快照 `Temp/memos` 的 proto 和 generated Web Connect client 做过静态审计，确认上游参考面包含 Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI 八类 service，并确认官方 Web 使用 binary Connect、cookie credentials 和 bearer/refresh 生命周期。这个审计只用于列出协议面，不能证明 FlareMo 或官方 Web 已互通。
+对当前参考快照 `Temp/memos` 的 proto 和 generated Web Connect client 做过静态审计，并在 2026-08-05 使用 commit `daa71d0456d07a25ff5ea435e46577d31d030728` 生成的 client 做过一次隔离 local binary smoke。静态审计确认上游参考面包含 Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI 八类 service，并确认官方 Web 使用 binary Connect、cookie credentials 和 bearer/refresh 生命周期；local smoke 只证明列出的 generated unary 子集能解码，不证明官方 Web 或全部服务已互通。
 
 当前明确未实现或未验证的能力：
 

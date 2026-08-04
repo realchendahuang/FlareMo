@@ -19,6 +19,13 @@ const FIXTURE_ACCESS_EXPIRES_AT = 1_735_690_500;
 const FIXTURE_REFRESH_EXPIRES_AT = 1_738_281_600;
 const FIXTURE_FIRST_TOKEN_ID = "00000000-0000-4000-8000-000000000001";
 const FIXTURE_SECOND_TOKEN_ID = "00000000-0000-4000-8000-000000000002";
+const GO_ACCESS_TOKEN_SHA256 =
+  "f849ac9ef389c070d2bddabf1aedfc8e465cd769bcdd38799202c2754d282d0f";
+const GO_ACCESS_SEGMENT_SHA256 = {
+  header: "08c78c4576dba19dabf54432ec3613d12ee3bdb256a001a48d48808501d2b077",
+  payload: "fe7affb5a0910da91db2c61478c777bbb23b8e54e47a532b62a527ee5e77d57c",
+  signature: "7ee97cb1769406c81b05cafb1541e331e622456105ff9f267744f3625cc392de",
+};
 
 let runtime: Miniflare;
 let env: Env;
@@ -100,6 +107,18 @@ describe("native Memos auth deterministic golden fixture", () => {
       refreshTokenExpiresAt: new Date(FIXTURE_REFRESH_EXPIRES_AT * 1_000),
       subject: 1,
     });
+    const accessSegments = issued.accessToken.split(".");
+    expect(accessSegments).toHaveLength(3);
+    expect(await sha256Hex(issued.accessToken)).toBe(GO_ACCESS_TOKEN_SHA256);
+    expect(await sha256Hex(accessSegments[0] ?? "")).toBe(
+      GO_ACCESS_SEGMENT_SHA256.header,
+    );
+    expect(await sha256Hex(accessSegments[1] ?? "")).toBe(
+      GO_ACCESS_SEGMENT_SHA256.payload,
+    );
+    expect(await sha256Hex(accessSegments[2] ?? "")).toBe(
+      GO_ACCESS_SEGMENT_SHA256.signature,
+    );
     expect(issued.refreshCookie).toContain(
       `memos_refresh=${expectedFirstRefreshToken};`,
     );
@@ -216,9 +235,19 @@ async function createTestRuntime() {
       FLAREMO_SINGLE_USER_EMAIL: TEST_ONLY_EMAIL,
       FLAREMO_SINGLE_USER_NAME: TEST_ONLY_NAME,
       FLAREMO_PUBLIC_URL: "http://flaremo.test",
-      BETTER_AUTH_SECRET: crypto.randomUUID(),
+      BETTER_AUTH_SECRET: "cross-language-fixture-secret-2026",
     } as Env,
   };
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 async function signReferenceJwt(

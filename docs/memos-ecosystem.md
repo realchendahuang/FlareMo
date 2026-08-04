@@ -1,6 +1,6 @@
 # Memos 生态兼容记录
 
-FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。本文把“代码已接入”“仓库 contract 已测试”“源码静态审计”和“真实客户端 smoke”分开记录，不把“接口长得像”当成“已经兼容”。截至本次快照，FlareMo 已有 Better Auth-backed identity、Memos 风格 HS256 access JWT/轮换 `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT、Connect/protobuf/gRPC-Web unary 子集、D1 outbox/cursor replay SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
+FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。本文把“代码已接入”“仓库 contract 已测试”“源码静态审计”和“真实客户端 smoke”分开记录，不把“接口长得像”当成“已经兼容”。截至本次快照，FlareMo 已有 Better Auth-backed identity、Memos 风格 HS256 access JWT/轮换 `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT、Connect/protobuf/gRPC-Web unary 子集、D1 outbox/cursor replay SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；官方 generated Connect client 已在隔离的本地 Wrangler Worker 上完成一次 binary unary smoke，但完整 Memos Server parity、官方 Web 真实指向 FlareMo 和第三方客户端实测仍未完成。
 
 ## 状态定义
 
@@ -44,23 +44,33 @@ Access Service Token 不会自动变成 FlareMo 用户 session；不能发送应
 | --- | --- | --- | --- | --- |
 | current REST script / curl | 通用 HTTP 脚本 | 已实现 | `memos-compatibility.test.ts`、`memos-social.test.ts`、`auth.test.ts` 覆盖 current DTO、memo/attachment/share、social、PAT、native auth、Origin 和标准错误；`memos-auth-golden.test.ts` 固定验证 FlareMo 自己的 JWT/refresh bytes。 | 已测试的是 FlareMo contract；没有独立客户端或线上实例 smoke，也不证明上游 token parity。 |
 | legacy REST script / curl | 兼容迁移脚本 | 已实现 | current/legacy OpenAPI 和 wire negotiation 有测试。 | 未对历史第三方脚本逐一重放。 |
-| generic Connect JSON client | HTTP unary client | 已实现子集 | `memos-transport.test.ts` 覆盖 Memo/Shortcut 及部分 Auth、Attachment/User/Instance/IdentityProvider JSON RPC。 | 尚未使用官方 generated Connect client 连接。 |
+| generic Connect JSON client | HTTP unary client | 已实现子集 | `memos-transport.test.ts` 覆盖 Memo/Shortcut 及部分 Auth、Attachment/User/Instance/IdentityProvider JSON RPC。 | 官方 generated client 的 binary smoke 已单独记录；generic JSON client 仍未逐一做第三方客户端 smoke。 |
 | generic protobuf / gRPC-style client | HTTP binary client | 已实现子集 | `memos-protobuf.test.ts`、`memos-transport.test.ts` 覆盖 media type、部分 upstream field number、unary framing、gRPC-Web/text 和 error status。 | response 多数只做 frame/字节断言；generated schema roundtrip 未测。 |
 | FlareMo current MCP endpoint | MCP client | 已实现子集 | `mcp-streamable.test.ts`、`memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、`tools/call` 和工具错误 envelope。 | 根 `/mcp` 是无状态 JSON 子集；未测所有第三方 MCP client。 |
 | FlareMo legacy MCP endpoint | 旧 MCP JSON-RPC | 已实现子集 | `mcp-streamable.test.ts` 和 `auth.test.ts` 覆盖旧工具名/PAT 边界。 | 不能从旧 endpoint 推断完整 Memos MCP 兼容。 |
 | FlareMo SSE consumer | EventSource / SSE client | 已实现子集 | `memos-transport.test.ts` 覆盖 authenticated stream、connected/heartbeat、`Last-Event-ID` replay、visibility 和 cancellation。 | D1 polling 实现，未做第三方 EventSource smoke。 |
 | FlareMo Telegram Worker example | Telegram webhook adapter | 已实现示例 | `apps/telegram-bot/src/index.test.ts` 覆盖 PAT-only、可选 Access headers、secret 校验和 fail-closed。 | 不是真实 Telegram API 或生产 FlareMo smoke。 |
 | public share reader | 浏览器 / curl | 已实现 | `memos-compatibility.test.ts`、`api.test.ts` 覆盖 share token 隔离、撤销、过期/状态和附件读取。 | 仍需在实际部署域名上验证 Access bypass 规则；不绕过 FlareMo share 校验。 |
+| 官方 Memos generated Connect client | `protoc-gen-es` + `@connectrpc/connect-web` binary unary client | 已实测子集 | 隔离本地 Wrangler E2E：覆盖 Auth、Memo/social、Attachment、Shortcut、User、Instance 列出的 unary 方法，并由官方 generated decoder 解码响应。 | 只证明 pinned generated client 的 local binary roundtrip；不是生产域名、官方 Web 全量行为或完整 Memos Server parity。 |
 
-## 官方 Memos Web：仅静态审计
+## 官方 Memos generated Connect client：已完成隔离本地 smoke
 
-当前本地参考快照 `Temp/memos` 的 Web 代码和 generated proto client 已被用于协议面静态审计，不能作为真实互通证据。审计得到的关键事实是：
+2026-08-05 对当前本地工作树做过一次隔离 local E2E。测试使用本地参考快照 `Temp/memos` 的 commit `daa71d0456d07a25ff5ea435e46577d31d030728` 生成的 TypeScript client，并使用 `@bufbuild/protobuf@2.12.0`、`@connectrpc/connect@2.1.1`、`@connectrpc/connect-web@2.1.1` 和 `useBinaryFormat: true`，连接本地 Wrangler Worker `http://127.0.0.1:18787`。
 
-- 官方 Web 使用 8 类 generated Connect client：Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI。
-- `connect.ts` 选择 binary format，并使用 `credentials: include`；认证生命周期包含 bearer access token、refresh cookie、Unauthenticated 后 refresh/retry。
-- 因此仅有 Connect JSON 或“HTTP 返回 200”不够；必须把 Attachment/User/Instance 等 response 交给同一 generated client 解码，并真实验证 refresh、signout、memo CRUD 和附件路径。
+已由官方 generated client 成功完成并解码：
 
-当前结论：`仅静态审计`，没有官方 Web 指向 FlareMo 的真实请求、客户端版本记录或 smoke 结果。FlareMo 的手写 protobuf codec 仍有字段和 transport 边界，不能宣称官方 Web 已兼容。
+- `InstanceService`：`GetInstanceProfile`、`BatchGetInstanceSettings`、`GetInstanceStats`。
+- `AuthService`：`SignIn`、`GetCurrentUser`、`RefreshToken`、`SignOut`；signout 后 refresh token reuse 被拒绝。
+- `MemoService`：memo CRUD、comments、reactions、shares 和 share read。
+- `AttachmentService`：create/list/get/delete。
+- `ShortcutService`：create/list/update/delete。
+- `UserService`：list/get/stats/settings/notifications/webhooks。
+
+这条证据只说明 pinned generated client 能把列出的 Connect binary unary 请求发到 FlareMo，并把响应交给同一 generated schema 解码。它不是生产域名验证，也不是官方 Memos Web 全量 smoke：官方 Web 的 cookie credentials、refresh/retry、未覆盖的 IdentityProvider/AI 方法、streaming/metadata 等仍需单独验证；第三方客户端仍保持未测。
+
+## 官方 Memos Web：仍仅静态审计
+
+当前本地参考快照的官方 Web 代码仍只做过协议面静态审计。审计确认官方 Web 使用 8 类 generated Connect client：Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI；`connect.ts` 选择 binary format，并使用 `credentials: include`，认证生命周期包含 bearer access token、refresh cookie、Unauthenticated 后 refresh/retry。没有把官方 Web 本身配置到 FlareMo 的真实浏览器请求，因此不能把上面的 generated client smoke 扩大成“官方 Web 已兼容”。
 
 ## 第三方客户端矩阵
 
@@ -84,7 +94,7 @@ Access Service Token 不会自动变成 FlareMo 用户 session；不能发送应
 
 - 不是完整 Memos Server parity；不能把 current REST、Connect JSON、手写 protobuf 或 `/mcp` 子集合并成“完整兼容”。
 - `AIService/Transcribe`、Instance email test、OAuth2/IdentityProvider CRUD、User create/delete、linked identity CRUD、webhook CRUD、notification update/delete 当前明确未实现或返回 `501`。
-- User/Instance/Attachment 的部分方法虽然已经接入 route，但没有完整 generated-client binary roundtrip；不能把“JSON handler 存在”写成 binary 客户端可用。
+- User/Instance/Attachment 的已列出方法已经有一次 pinned generated-client binary roundtrip，但这不覆盖全部字段、全部方法、生产域名或官方 Web；不能把它写成完整 binary parity。
 - public memo read 已接入 current REST 和 Connect 的明确 viewer policy：匿名只读 `PUBLIC + NORMAL`，private/protected/archived/trashed/deleted 不可见；comments、relations、attachments、reactions 会先检查 parent/read visibility。公开 share 仍是独立 token 入口，不等于普通 memo public ACL。
 - 没有完整 CEL、复杂分页/排序、全部 protobuf 字段、metadata/trailer、压缩、streaming、gRPC-Web trailer frame 或原生 HTTP/2 gRPC parity。
 - SSE 是 D1 outbox/polling/replay，不是上游 SSEHub；没有完整事件集、retention/pruning 和第三方 EventSource 实测。

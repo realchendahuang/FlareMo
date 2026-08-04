@@ -30,9 +30,16 @@ describe("Memos protobuf transport", () => {
 
   it("supports Connect, gRPC, gRPC-Web, and text gRPC-Web media types", () => {
     expect(detectBinaryTransport("application/proto")).toBe("connect-proto");
+    expect(detectBinaryTransport("application/grpc")).toBe("grpc-proto");
     expect(detectBinaryTransport("application/grpc+proto")).toBe("grpc-proto");
+    expect(detectBinaryTransport("application/grpc-web")).toBe(
+      "grpc-web-proto",
+    );
     expect(detectBinaryTransport("application/grpc-web+proto")).toBe(
       "grpc-web-proto",
+    );
+    expect(detectBinaryTransport("application/grpc-web-text")).toBe(
+      "grpc-web-text-proto",
     );
     expect(detectBinaryTransport("application/grpc-web-text+proto")).toBe(
       "grpc-web-text-proto",

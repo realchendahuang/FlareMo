@@ -2323,6 +2323,12 @@ async function connectAuthSignOut(
 function copyResponseHeaders(target: Headers, source: Headers) {
   for (const [name, value] of source.entries()) {
     if (name === "set-cookie") target.append(name, value);
+    // Better Auth returns a JSON representation for its sign-out/sign-in
+    // handler. The Connect adapter has already selected the protobuf
+    // representation, so copying representation headers would make a valid
+    // binary response undecodable by generated clients (especially an empty
+    // google.protobuf.Empty response).
+    else if (name === "content-type" || name === "content-length") continue;
     else target.set(name, value);
   }
 }
