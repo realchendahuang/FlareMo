@@ -1,6 +1,6 @@
 # Memos 生态兼容记录
 
-FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。本文把“代码已接入”“仓库 contract 已测试”“源码静态审计”和“真实客户端 smoke”分开记录，不把“接口长得像”当成“已经兼容”。截至本次快照，FlareMo 已有 Better Auth-backed identity、Memos 风格 HS256 access JWT/轮换 `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT、Connect/protobuf/gRPC-Web unary 子集、D1 outbox/cursor replay SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；官方 generated Connect client 已在隔离的本地 Wrangler Worker 上完成一次 binary unary smoke，但完整 Memos Server parity、官方 Web 真实指向 FlareMo 和第三方客户端实测仍未完成。
+FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。本文把“代码已接入”“仓库 contract 已测试”“源码静态审计”和“真实客户端 smoke”分开记录，不把“接口长得像”当成“已经兼容”。截至本次快照，FlareMo 已有 Better Auth-backed identity、Memos 风格 HS256 access JWT/轮换 `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT、Connect/protobuf/gRPC-Web unary 子集、D1 outbox/cursor replay SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；官方 generated Connect client 已在隔离的本地 Wrangler Worker 完成 binary unary smoke，并在生产域名完成匿名 `ListMemos` binary smoke，但完整 Memos Server parity、官方 Web 真实指向 FlareMo 和第三方客户端实测仍未完成。
 
 ## 状态定义
 
@@ -51,9 +51,9 @@ Access Service Token 不会自动变成 FlareMo 用户 session；不能发送应
 | FlareMo SSE consumer | EventSource / SSE client | 已实现子集 | `memos-transport.test.ts` 覆盖 authenticated stream、connected/heartbeat、`Last-Event-ID` replay、visibility 和 cancellation。 | D1 polling 实现，未做第三方 EventSource smoke。 |
 | FlareMo Telegram Worker example | Telegram webhook adapter | 已实现示例 | `apps/telegram-bot/src/index.test.ts` 覆盖 PAT-only、可选 Access headers、secret 校验和 fail-closed。 | 不是真实 Telegram API 或生产 FlareMo smoke。 |
 | public share reader | 浏览器 / curl | 已实现 | `memos-compatibility.test.ts`、`api.test.ts` 覆盖 share token 隔离、撤销、过期/状态和附件读取。 | 仍需在实际部署域名上验证 Access bypass 规则；不绕过 FlareMo share 校验。 |
-| 官方 Memos generated Connect client | `protoc-gen-es` + `@connectrpc/connect-web` binary unary client | 已实测子集 | 隔离本地 Wrangler E2E：覆盖 Auth、Memo/social、Attachment、Shortcut、User、Instance 列出的 unary 方法，并由官方 generated decoder 解码响应。 | 只证明 pinned generated client 的 local binary roundtrip；不是生产域名、官方 Web 全量行为或完整 Memos Server parity。 |
+| 官方 Memos generated Connect client | `protoc-gen-es` + `@connectrpc/connect-web` binary unary client | 已实测子集 | 隔离本地 Wrangler E2E：覆盖 Auth、Memo/social、Attachment、Shortcut、User、Instance 列出的 unary 方法，并由官方 generated decoder 解码响应；同一 client 对生产域名匿名 `MemoService/ListMemos` 也成功解码。 | 生产只覆盖一个匿名 unary 方法；不是官方 Web 全量行为或完整 Memos Server parity。 |
 
-## 官方 Memos generated Connect client：已完成隔离本地 smoke
+## 官方 Memos generated Connect client：local 与 production anonymous smoke
 
 2026-08-05 对当前本地工作树做过一次隔离 local E2E。测试使用本地参考快照 `Temp/memos` 的 commit `daa71d0456d07a25ff5ea435e46577d31d030728` 生成的 TypeScript client，并使用 `@bufbuild/protobuf@2.12.0`、`@connectrpc/connect@2.1.1`、`@connectrpc/connect-web@2.1.1` 和 `useBinaryFormat: true`，连接本地 Wrangler Worker `http://127.0.0.1:18787`。
 
@@ -66,7 +66,7 @@ Access Service Token 不会自动变成 FlareMo 用户 session；不能发送应
 - `ShortcutService`：create/list/update/delete。
 - `UserService`：list/get/stats/settings/notifications/webhooks。
 
-这条证据只说明 pinned generated client 能把列出的 Connect binary unary 请求发到 FlareMo，并把响应交给同一 generated schema 解码。它不是生产域名验证，也不是官方 Memos Web 全量 smoke：官方 Web 的 cookie credentials、refresh/retry、未覆盖的 IdentityProvider/AI 方法、streaming/metadata 等仍需单独验证；第三方客户端仍保持未测。
+local 证据说明 pinned generated client 能把列出的 Connect binary unary 请求发到 FlareMo，并把响应交给同一 generated schema 解码；production 证据只覆盖匿名 `MemoService/ListMemos`。这不是官方 Memos Web 全量 smoke：官方 Web 的 cookie credentials、refresh/retry、未覆盖的 IdentityProvider/AI 方法、streaming/metadata 等仍需单独验证；第三方客户端仍保持未测。
 
 ## 官方 Memos Web：仍仅静态审计
 
