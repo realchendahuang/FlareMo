@@ -4,12 +4,30 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## Unreleased
 
-### 鉴权安全收口
+后续变更将在下一次 release 汇总。
+
+## v0.4.1
+
+鉴权安全收口补丁。这个版本把 Better Auth、operator recovery 和 Memos-compatible auth facade 的安全边界收紧，同时不改变 D1 schema。
+
+### 已修复
 
 - Better Auth 的危险 cookie 请求（包括直接 Better Auth endpoint、bootstrap/recovery 和 current Memos signin/refresh）统一要求携带并精确匹配 trusted Origin；缺失或不可信 Origin 返回 `403`。
 - 增加独立、默认关闭的 `FLAREMO_RECOVERY_SECRET` operator recovery：只重置已完成 bootstrap 的既有 owner，复用 Better Auth 的一次性 reset/password hashing/session 撤销流程，并撤销所有 `memos_pat_`；不创建第二个 owner。
 - current Memos facade 的 PAT signout 现在会验证 PAT，随机/无效 PAT 不再得到假成功响应；Access headers 仍不能单独成为应用身份。
 - 明确记录当前没有 email provider，Better Auth 忘记密码邮件流程保持关闭；恢复能力与普通“知道当前密码时修改密码”不再混淆。
+
+### Cloudflare、数据库与兼容影响
+
+- 本版本不新增 D1 migration；已有 Better Auth 认证表仍必须包含在 D1 备份、恢复和演练范围内。
+- Cloudflare Access 仍只是可选外层 policy；Access headers 或 Service Token 不会成为 FlareMo 应用身份。
+- 本版本继续提供已记录的 Memos-compatible 子集，不宣称完整 Memos Server parity、原生 JWT parity 或第三方客户端已验证。
+
+### 升级说明
+
+- 保持现有 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS`、`BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 配置；不要把 secret、密码、cookie 或 PAT 写入 Git、release notes、日志或聊天。
+- `FLAREMO_RECOVERY_SECRET` 默认不配置；只在批准的 operator recovery 窗口临时配置，成功后立即轮换或删除。
+- 升级后重新验证 trusted Origin、cookie session、PAT 创建/访问/撤销、旧 session/PAT 失效和公开分享；生产 authenticated smoke 若仍被 Cloudflare Access 拦截，必须通过已授权 Access session/token 验证，不能把 Access headers 当作应用身份。
 
 ## v0.4.0
 
