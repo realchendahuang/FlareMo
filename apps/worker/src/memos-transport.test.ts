@@ -336,6 +336,17 @@ describe("Memos native auth and transport boundaries", () => {
     expect(relationList.relations[0]?.relatedMemo.name).toBe(related.name);
     expect(relationList.relations[0]?.type).toBe("REFERENCE");
 
+    const incomingRelationList = await connect("ListMemoRelations", {
+      name: related.name,
+    });
+    expect(incomingRelationList.relations).toEqual([
+      expect.objectContaining({
+        memo: { name: created.name, snippet: expect.any(String) },
+        relatedMemo: { name: related.name, snippet: expect.any(String) },
+        type: "REFERENCE",
+      }),
+    ]);
+
     const attachment = await request("/api/v1/attachments", {
       method: "POST",
       headers: {

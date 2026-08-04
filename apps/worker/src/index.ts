@@ -86,7 +86,18 @@ app.use(
       }
     },
     credentials: true,
-    allowHeaders: ["content-type", "authorization", "connect-protocol-version"],
+    allowHeaders: [
+      "content-type",
+      "authorization",
+      "accept",
+      "connect-protocol-version",
+      "grpc-accept-encoding",
+      "grpc-encoding",
+      "grpc-timeout",
+      "x-grpc-web",
+      "x-user-agent",
+    ],
+    exposeHeaders: ["grpc-status", "grpc-message", "grpc-status-details-bin"],
     allowMethods: ["POST", "OPTIONS"],
   }),
 );

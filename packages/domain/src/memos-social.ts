@@ -207,6 +207,8 @@ export async function createMemoComment(
   };
   const eventStatement = insertMemosSseEvent(db, {
     type: "memo.comment.created",
+    // The pinned Memos server broadcasts the parent memo so subscribers
+    // refresh the comment collection attached to that resource.
     name: parentId,
     visibility: parent.visibility,
     creatorId: parent.userId,
@@ -864,6 +866,7 @@ function validateShortcut(title: string, filter: string) {
   if (!title) throw new ValidationError("Shortcut title is required");
   if (title.length > 256)
     throw new ValidationError("Shortcut title is too long");
+  if (!filter) throw new ValidationError("Shortcut filter is required");
   if (filter.length > 4_096)
     throw new ValidationError("Shortcut filter is too long");
   if (filter) compileMemoFilter(filter);

@@ -28,6 +28,8 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260708.1",
+    "@connectrpc/connect": "2.1.1",
+    "@connectrpc/connect-web": "2.1.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.0",
     "wrangler": "^4.114.0"

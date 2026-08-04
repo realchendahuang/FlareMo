@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { createDb, memosSseEvents } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
@@ -72,6 +73,18 @@ describe("Memos social REST compatibility", () => {
     expect(
       new Set([first.name, second.name]).has(secondPage.memos[0].name),
     ).toBe(true);
+
+    const commentEvent = (
+      await createDb(env.DB).select().from(memosSseEvents).all()
+    ).find((event) => event.type === "memo.comment.created");
+    expect(commentEvent).toMatchObject({
+      // The pinned Memos server identifies the parent memo for this event;
+      // the comment itself is available through the comments collection.
+      name: parent.name,
+      parent: null,
+      visibility: "private",
+      creatorId: "users/owner",
+    });
   });
 
   it("upserts, lists, and deletes memo reactions", async () => {
@@ -210,6 +223,21 @@ describe("Memos social REST compatibility", () => {
     );
     expect(deleted.status).toBe(200);
     expect((await json(await fetchSocial(shortcutPath))).shortcuts).toEqual([]);
+  });
+
+  it("rejects shortcuts without an upstream-compatible filter", async () => {
+    const response = await fetchSocial(
+      "http://flaremo.test/api/v1/users/owner/shortcuts",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Missing filter" }),
+      },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 3,
+    });
   });
 
   it("uses the current JSON error envelope and exact Origin boundary", async () => {

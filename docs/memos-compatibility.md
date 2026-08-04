@@ -80,9 +80,13 @@ content.contains("...")
 tags.exists(t, t == "...")
 pinned == true
 visibility == "PUBLIC"
+size(content) > 100
+created_ts.getFullYear() == 2026
+created_ts >= timestamp(1704067200)
+updated_ts < now - duration("1h")
 ```
 
-`orderBy` 当前只支持单字段的 `create_time` / `update_time` asc/desc 子集。未支持的 filter 或排序会返回 current 标准错误，而不是静默改变语义。大小写、层级 tag、RE2 与 JavaScript regex、`name` 变量、复杂宏、完整分页和大数据量 bounded execution 仍未完成上游对照。
+当前还支持 `size(content)`、`size(tags)`、上游 timestamp accessor（不接受 timezone 参数）、epoch integer timestamp，以及 `now`/`duration` 的时间算术。`orderBy` 当前只支持单字段的 `create_time` / `update_time` asc/desc 子集。未支持的 filter 或排序会返回 current 标准错误，而不是静默改变语义。大小写、层级 tag、RE2 与 JavaScript regex、`name` 变量、复杂宏、完整分页和大数据量 bounded execution 仍未完成上游对照。
 
 普通 `GetMemo`、`ListMemos`、comments、reactions、memo relations 和 memo attachments 已经有独立的 optional viewer：匿名只读 `PUBLIC + NORMAL`，认证用户继续使用 Better Auth/PAT 的 owner-scoped 读取；创建、更新、删除和 share/social mutation 仍需认证。User profile/stats 的完整 public projection 尚未实现，不能把这一段扩大成完整 Memos ACL parity。
 
@@ -122,12 +126,12 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 - memo create/update 的完整时间、initial attachments/relations/location、完整 update mask、pagination token，以及 comments/reactions 的完整 response schema。
 - Attachment update/batch delete、User/Instance/IdentityProvider 的未覆盖方法和完整 generated-client schema roundtrip；本次 smoke 只覆盖列出的 unary 子集。Attachment 列表的分页/排序/过滤是 FlareMo 的有限子集，不是完整 CEL parity。
 - 官方 Memos Web 的 `/file/attachments/{id}/{filename}` 文件 URL bridge 已实现，支持 Better Auth/PAT/native access JWT 私有读取和 `share_token` 绑定的公开读取；`thumbnail=true` 目前返回原始对象，motion media 转换和任意 `externalLink` 持久化仍未完成。
-- 原生 gRPC HTTP/2、完整 metadata/trailer、gRPC-Web trailer frame、压缩、streaming RPC、取消和 deadline 语义。
+- 原生 gRPC HTTP/2、完整 metadata/trailer、压缩、streaming RPC、取消和 deadline 语义；gRPC-Web unary 已有标准 data+trailer frame，但还没有官方浏览器 transport 的端到端证明。
 - 官方 Memos Web 的真实浏览器请求、第三方客户端连接，以及 native HTTP/2 gRPC 的真实客户端验证。
 
 ## SSE 与 MCP
 
-`GET /api/v1/sse` 是 authenticated `text/event-stream`。当前实现使用 D1 `memos_sse_events` outbox、5 秒 polling、`Last-Event-ID` cursor replay、连接注释和 30 秒 heartbeat；当前事件包括 memo create/update/delete、comment create、reaction upsert/delete。仓库测试覆盖 authenticated handshake、replay、visibility filtering 和 cancellation。
+`GET /api/v1/sse` 是 authenticated `text/event-stream`。当前实现使用 D1 `memos_sse_events` outbox、5 秒 polling、`Last-Event-ID` cursor replay、连接注释和 30 秒 heartbeat；当前事件包括 memo create/update/delete、comment create、reaction upsert/delete。comment-created 事件按 pinned 上游语义把父 memo 放在 `name`，不额外写 `parent`；关系和附件绑定变更会与 `memo.updated` outbox 写入同一 D1 batch。仓库测试覆盖 authenticated handshake、replay、visibility filtering 和 cancellation。
 
 这不是上游进程内 SSEHub parity：当前没有 Durable Object broadcaster、retention/pruning、关系/附件/shortcut/share/user/notification 的完整事件集，也没有第三方 EventSource smoke。
 
@@ -143,8 +147,8 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 - 单用户以外的用户创建、删除、权限、协作和完整用户资源语义。
 - SSO/OAuth2 provider、linked identity、webhook、notification 的完整 CRUD/投递。
 - AI transcription、instance email testing/delivery、完整 instance setting provider 配置。
-- 普通 public memo 的完整匿名 ACL、完整 CEL filter、复杂排序/分页和所有上游错误细节。
-- generated client 端到端 binary roundtrip、原生 gRPC metadata/trailer/streaming/compression。
+- 普通 public memo 的完整匿名 ACL、完整 CEL filter、复杂排序/分页和所有上游错误细节；当前 CEL 仍是受限 evaluator，且 filter 会在 Worker 侧执行而不是完全下推到 SQL。
+- generated client 全量端到端 binary roundtrip、原生 gRPC metadata/trailer/streaming/compression，以及官方浏览器 gRPC-Web transport 全量验证。
 - 完整 SSE event hub、事件保留策略和第三方 EventSource/MCP/client smoke。
 - Memos native JWT/refresh token 的版本级、字节级 parity。
 
@@ -157,7 +161,8 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 - `apps/worker/src/memos-compatibility.test.ts`：current/legacy REST、memo/attachment/share、PAT、native auth facade、OpenAPI、MCP contract。
 - `apps/worker/src/memos-social.test.ts`：comments、reactions、shortcuts 和错误/Origin 边界。
 - `apps/worker/src/memos-transport.test.ts`：native JWT、refresh cookie、Connect JSON、部分新增 service、protobuf/gRPC-Web framing、SSE 和 canonical share RPC。
-- `apps/worker/src/memos-protobuf.test.ts`：media type、请求 field number、部分 response serialization 和 binary error status。
+- `apps/worker/src/memos-protobuf.test.ts`：media type、请求 field number、部分 response serialization、gRPC-Web unary data/trailer frame 和 binary error status。
+- `apps/worker/src/memos-connect-client.test.ts`：使用官方 generated `MemoService` 和 `@connectrpc/connect-web`，对 Connect binary 与 gRPC-Web binary 做有限的 schema-decoded unary smoke；不代表完整官方 Web 或第三方客户端兼容。
 - `apps/worker/src/mcp-streamable.test.ts`：无状态 Streamable HTTP MCP 的初始化、工具列表、调用错误和 legacy route。
 - `apps/worker/src/memos-link-metadata.test.ts`、`packages/memos/src/adapter.test.ts`、`packages/memos/src/current-adapter.test.ts`：link metadata 输入限制、resource name 和 DTO 映射。
 - `apps/telegram-bot/src/index.test.ts`：项目自带 Telegram Worker 示例的 PAT、可选 Access headers 和 webhook fail-closed contract；不是对真实 Telegram 或生产 FlareMo 的 smoke。
