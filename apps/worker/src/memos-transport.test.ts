@@ -450,7 +450,9 @@ describe("Memos native auth and transport boundaries", () => {
       expect.arrayContaining([
         expect.objectContaining({
           name: "instance/settings/GENERAL",
-          value: expect.objectContaining({ case: "generalSetting" }),
+          generalSetting: expect.objectContaining({
+            disallowUserRegistration: true,
+          }),
         }),
       ]),
     );

@@ -92,7 +92,7 @@ describe("Memos protobuf transport", () => {
     ).toEqual({
       attachment: {
         filename: "a.txt",
-        content,
+        content: "AQID",
         type: "text/plain",
       },
     });
@@ -165,10 +165,7 @@ describe("Memos protobuf transport", () => {
         settings: [
           {
             name: "instance/settings/GENERAL",
-            value: {
-              case: "generalSetting",
-              value: { disallowUserRegistration: true },
-            },
+            generalSetting: { disallowUserRegistration: true },
           },
         ],
       },
@@ -185,10 +182,7 @@ describe("Memos protobuf transport", () => {
       settings: [
         {
           name: "instance/settings/GENERAL",
-          value: {
-            case: "generalSetting",
-            value: { disallowUserRegistration: true },
-          },
+          generalSetting: { disallowUserRegistration: true },
         },
       ],
     });

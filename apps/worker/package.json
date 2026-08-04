@@ -15,6 +15,7 @@
   "dependencies": {
     "@better-auth/api-key": "1.6.25",
     "@better-auth/drizzle-adapter": "1.6.25",
+    "@bufbuild/protobuf": "2.12.0",
     "@flaremo/contracts": "workspace:*",
     "@flaremo/db": "workspace:*",
     "@flaremo/domain": "workspace:*",
