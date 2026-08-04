@@ -139,6 +139,7 @@ Public shares need unauthenticated access to the share page and shared attachmen
 
 - `/share/*`
 - `/api/public/shares/*`
+- `/file/*` (for public attachment URLs carrying a valid `share_token`; private requests remain protected by FlareMo)
 - `/assets/*`
 
 Recommended policies:
@@ -147,9 +148,10 @@ Recommended policies:
 | --- | --- | --- |
 | `/share/*` | `Bypass` | `Everyone` |
 | `/api/public/shares/*` | `Bypass` | `Everyone` |
+| `/file/*` | `Bypass` | `Everyone` |
 | `/assets/*` | `Bypass` | `Everyone` |
 
-Only bypass these public paths. Do not bypass `/api/v1/*`, `/openapi.json`, or the root application. `Bypass` disables Access enforcement and Access logging for matching requests; machine clients that need authentication and auditability should use `Service Auth`.
+Only bypass these public paths. Do not bypass `/api/v1/*`, `/openapi.json`, or the root application. `/file/*` carries both Memos Web private attachment URLs and public URLs with a `share_token`; when Access is bypassed, the Worker still requires a Better Auth cookie/session bearer, native access JWT, or PAT for the private branch and validates the share token, expiry, revocation, memo state, and attachment ownership for the public branch. `Bypass` disables Access enforcement and Access logging for matching requests; machine clients that need authentication and auditability should use `Service Auth`.
 
 The bypass only skips Cloudflare Access. FlareMo still validates share token, expiration time, and memo state. Archived, trashed, deleted, or expired shares must remain inaccessible.
 
@@ -182,7 +184,7 @@ curl -I "$FLAREMO_URL/api/public/shares/not-a-real-token"
 - Human access uses an `Allow` policy scoped to allowed users only.
 - Scripts, MCP, and Memos-compatible clients use a FlareMo `memos_pat_` token, plus a `Service Auth` policy and Access Service Token when Access remains enabled.
 - The `Client Secret` is not committed to the repository, issues, PRs, or public logs.
-- `/share/*`, `/api/public/shares/*`, and `/assets/*` have explicit `Bypass` policies.
+- `/share/*`, `/api/public/shares/*`, `/file/*`, and `/assets/*` have explicit `Bypass` policies; `/file/*` remains fail-closed at the FlareMo application layer.
 - The root application, `/api/v1/*`, and `/openapi.json` are not bypassed.
 - Access is not treated as FlareMo application identity; private API requests still use a Better Auth cookie/session bearer or `memos_pat_` PAT.
 

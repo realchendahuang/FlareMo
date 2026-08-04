@@ -24,7 +24,7 @@ import {
   getShortcut,
   getStoredSetting,
   hardDeleteMemo,
-  listAttachments,
+  listAttachmentsPage,
   listMemoAttachments,
   listMemoAttachmentsForViewer,
   listMemoComments,
@@ -185,7 +185,7 @@ memosConnectApi.post("/:service/:method", async (c) => {
       ].includes(method)
     ) {
       const optionalContext = await getOptionalRequestContext(c);
-      return connectInstanceMethod(
+      return await connectInstanceMethod(
         c,
         optionalContext.user
           ? (optionalContext as ConnectRequestContext)
@@ -208,16 +208,28 @@ memosConnectApi.post("/:service/:method", async (c) => {
       return connectAuthSignOut(c, context, binaryTransport);
     }
     if (service === "memos.api.v1.AttachmentService") {
-      return connectAttachmentMethod(c, context, method, body, binaryTransport);
+      return await connectAttachmentMethod(
+        c,
+        context,
+        method,
+        body,
+        binaryTransport,
+      );
     }
     if (service === "memos.api.v1.UserService") {
-      return connectUserMethod(c, context, method, body, binaryTransport);
+      return await connectUserMethod(c, context, method, body, binaryTransport);
     }
     if (service === "memos.api.v1.InstanceService") {
-      return connectInstanceMethod(c, context, method, body, binaryTransport);
+      return await connectInstanceMethod(
+        c,
+        context,
+        method,
+        body,
+        binaryTransport,
+      );
     }
     if (service === "memos.api.v1.IdentityProviderService") {
-      return connectIdentityProviderMethod(
+      return await connectIdentityProviderMethod(
         c,
         context,
         method,
@@ -235,7 +247,13 @@ memosConnectApi.post("/:service/:method", async (c) => {
       );
     }
     if (service === "memos.api.v1.ShortcutService") {
-      return connectShortcutMethod(c, context, method, body, binaryTransport);
+      return await connectShortcutMethod(
+        c,
+        context,
+        method,
+        body,
+        binaryTransport,
+      );
     }
     if (service !== memoService) {
       return connectErrorForTransport(
@@ -436,16 +454,18 @@ async function connectAttachmentMethod(
       return connectValue(c, currentAttachmentToDto(attachment), transport);
     }
     case "ListAttachments": {
-      const filter = optionalString(body.filter);
-      const memoId = filter ? parseAttachmentMemoFilter(filter) : undefined;
-      const attachments = await listAttachments(context.db, context.user, {
-        memoId,
+      const filter = parseAttachmentFilter(optionalString(body.filter));
+      const result = await listAttachmentsPage(context.db, context.user, {
         pageSize: pageSize(body.pageSize),
+        pageToken: optionalString(body.pageToken),
+        orderBy: optionalString(body.orderBy),
+        filter,
       });
       return connectValue(
         c,
-        currentAttachmentsToListResponse(attachments, {
-          totalSize: attachments.length,
+        currentAttachmentsToListResponse(result.attachments, {
+          nextPageToken: result.nextPageToken,
+          totalSize: result.totalSize,
         }),
         transport,
       );
@@ -1811,14 +1831,34 @@ function attachmentBytes(value: unknown) {
   return new Uint8Array();
 }
 
-function parseAttachmentMemoFilter(value: string) {
-  const match = /^memo\s*(?:==|=)\s*["']([^"']+)["']$/i.exec(value.trim());
-  if (!match?.[1]) {
+function parseAttachmentFilter(value: string | undefined) {
+  if (!value?.trim()) return undefined;
+  const trimmed = value.trim();
+  const contains = /^filename\.contains\(\s*["']([^"']*)["']\s*\)$/i.exec(
+    trimmed,
+  );
+  if (contains?.[1] !== undefined) {
+    return { filenameContains: contains[1] };
+  }
+  const equality = /^([a-z_]+)\s*(?:==|=)\s*["']([^"']*)["']$/i.exec(trimmed);
+  if (!equality?.[1] || equality[2] === undefined) {
     throw new ConnectInputError(
-      'Attachment filter only supports memo == "memos/{id}"',
+      'Attachment filter supports memo == "memos/{id}", filename == "...", filename.contains("..."), or mime_type == "..."',
     );
   }
-  return match[1];
+  const [, field, valuePart] = equality;
+  switch (field.toLowerCase()) {
+    case "memo":
+      return { memoId: valuePart };
+    case "filename":
+      return { filenameEquals: valuePart };
+    case "mime_type":
+      return { contentType: valuePart };
+    default:
+      throw new ConnectInputError(
+        "Attachment filter field is not supported by FlareMo",
+      );
+  }
 }
 
 function fieldMaskPaths(value: unknown) {

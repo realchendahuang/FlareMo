@@ -549,6 +549,44 @@ describe("FlareMo Worker API", () => {
     );
     expect(await blob.text()).toBe("hello attachment");
 
+    const unauthenticatedFile = await fetchApp(
+      `http://flaremo.test/file/${attachment.name}/hello.txt`,
+      undefined,
+      { authenticated: false },
+    );
+    expect(unauthenticatedFile.status).toBe(401);
+
+    const fileUrl = `http://flaremo.test/file/${attachment.name}/hello.txt`;
+    const file = await fetchApp(fileUrl, {
+      headers: { cookie: sessionCookie },
+    });
+    expect(file.status).toBe(200);
+    expect(file.headers.get("content-type")).toContain("text/plain");
+    expect(file.headers.get("content-disposition")).toContain(
+      'filename="hello.txt"',
+    );
+    expect(await file.text()).toBe("hello attachment");
+
+    const fileWithUntrustedName = await fetchApp(
+      `http://flaremo.test/file/${attachment.name}/not-the-real-file.txt`,
+      { headers: { cookie: sessionCookie } },
+    );
+    expect(fileWithUntrustedName.status).toBe(200);
+    expect(await fileWithUntrustedName.text()).toBe("hello attachment");
+
+    const partialFile = await fetchApp(fileUrl, {
+      headers: { cookie: sessionCookie, range: "bytes=0-4" },
+    });
+    expect(partialFile.status).toBe(206);
+    expect(await partialFile.text()).toBe("hello");
+
+    const etag = file.headers.get("etag");
+    expect(etag).toBeTruthy();
+    const notModified = await fetchApp(fileUrl, {
+      headers: { cookie: sessionCookie, "if-none-match": etag ?? "" },
+    });
+    expect(notModified.status).toBe(304);
+
     const deleted = await json(
       await fetchApp(`http://flaremo.test/api/v1/${attachment.name}`, {
         method: "DELETE",
@@ -731,7 +769,7 @@ describe("FlareMo Worker API", () => {
       "file",
       new File(["shared attachment"], "shared.txt", { type: "text/plain" }),
     );
-    await json(
+    const sharedAttachment = await json<{ name: string }>(
       await fetchApp("http://flaremo.test/api/v1/attachments", {
         method: "POST",
         body: formData,
@@ -761,6 +799,22 @@ describe("FlareMo Worker API", () => {
     expect(blob.ok).toBe(true);
     expect(await blob.text()).toBe("shared attachment");
 
+    const memosWebShareFile = await fetchApp(
+      `http://flaremo.test/file/${sharedAttachment.name}/shared.txt?share_token=${encodeURIComponent(share.token)}`,
+      undefined,
+      { authenticated: false },
+    );
+    expect(memosWebShareFile.status).toBe(200);
+    expect(memosWebShareFile.headers.get("cache-control")).toContain("public");
+    expect(await memosWebShareFile.text()).toBe("shared attachment");
+
+    const invalidShareFile = await fetchApp(
+      `http://flaremo.test/file/${sharedAttachment.name}/shared.txt?share_token=invalid-token`,
+      undefined,
+      { authenticated: false },
+    );
+    expect(invalidShareFile.status).toBe(404);
+
     const otherMemo = await createMemo("not shared");
     const otherFormData = new FormData();
     otherFormData.set("memo", otherMemo.name);
@@ -778,6 +832,13 @@ describe("FlareMo Worker API", () => {
       `http://flaremo.test/api/public/shares/${share.token}/attachments/${otherAttachment.id}/blob`,
     );
     expect(forbiddenBlob.status).toBe(404);
+
+    const forbiddenMemosWebFile = await fetchApp(
+      `http://flaremo.test/file/${otherAttachment.name}/private.txt?share_token=${encodeURIComponent(share.token)}`,
+      undefined,
+      { authenticated: false },
+    );
+    expect(forbiddenMemosWebFile.status).toBe(404);
 
     await json(
       await fetchApp(`http://flaremo.test/api/v1/${memo.name}`, {

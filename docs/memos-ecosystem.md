@@ -51,6 +51,7 @@ Access Service Token 不会自动变成 FlareMo 用户 session；不能发送应
 | FlareMo SSE consumer | EventSource / SSE client | 已实现子集 | `memos-transport.test.ts` 覆盖 authenticated stream、connected/heartbeat、`Last-Event-ID` replay、visibility 和 cancellation。 | D1 polling 实现，未做第三方 EventSource smoke。 |
 | FlareMo Telegram Worker example | Telegram webhook adapter | 已实现示例 | `apps/telegram-bot/src/index.test.ts` 覆盖 PAT-only、可选 Access headers、secret 校验和 fail-closed。 | 不是真实 Telegram API 或生产 FlareMo smoke。 |
 | public share reader | 浏览器 / curl | 已实现 | `memos-compatibility.test.ts`、`api.test.ts` 覆盖 share token 隔离、撤销、过期/状态和附件读取。 | 仍需在实际部署域名上验证 Access bypass 规则；不绕过 FlareMo share 校验。 |
+| Memos Web attachment file URL bridge | Memos Web `/file/attachments/{id}/{filename}` | 已实现子集 | `api.test.ts` 覆盖私有 cookie、Range/ETag、错误 filename 不改变对象定位，以及带 `share_token` 的公共读取和跨 memo 隔离。 | 只证明 FlareMo 的文件 URL contract；thumbnail 原图 fallback、motion media、官方 Web 全量行为和生产 Access path policy 仍未实测。 |
 | 官方 Memos generated Connect client | `protoc-gen-es` + `@connectrpc/connect-web` binary unary client | 已实测子集 | 隔离本地 Wrangler E2E：覆盖 Auth、Memo/social、Attachment、Shortcut、User、Instance 列出的 unary 方法，并由官方 generated decoder 解码响应；同一 client 对生产域名匿名 `MemoService/ListMemos` 也成功解码。 | 生产只覆盖一个匿名 unary 方法；不是官方 Web 全量行为或完整 Memos Server parity。 |
 
 ## 官方 Memos generated Connect client：local 与 production anonymous smoke
@@ -70,7 +71,7 @@ local 证据说明 pinned generated client 能把列出的 Connect binary unary 
 
 ## 官方 Memos Web：仍仅静态审计
 
-当前本地参考快照的官方 Web 代码仍只做过协议面静态审计。审计确认官方 Web 使用 8 类 generated Connect client：Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI；`connect.ts` 选择 binary format，并使用 `credentials: include`，认证生命周期包含 bearer access token、refresh cookie、Unauthenticated 后 refresh/retry。没有把官方 Web 本身配置到 FlareMo 的真实浏览器请求，因此不能把上面的 generated client smoke 扩大成“官方 Web 已兼容”。
+当前本地参考快照的官方 Web 代码仍只做过协议面静态审计。审计确认官方 Web 使用 8 类 generated Connect client：Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI；`connect.ts` 选择 binary format，并使用 `credentials: include`，认证生命周期包含 bearer access token、refresh cookie、Unauthenticated 后 refresh/retry。FlareMo 现在已经提供官方 Web 预期的 `/file/attachments/{id}/{filename}` 私有文件 URL 和 `share_token` 公共文件 URL bridge，但没有把官方 Web 本身配置到 FlareMo 的真实浏览器请求，因此不能把 generated client 或文件 bridge 扩大成“官方 Web 已兼容”。
 
 ## 第三方客户端矩阵
 
@@ -96,7 +97,7 @@ local 证据说明 pinned generated client 能把列出的 Connect binary unary 
 - `AIService/Transcribe`、Instance email test、OAuth2/IdentityProvider CRUD、User create/delete、linked identity CRUD、webhook CRUD、notification update/delete 当前明确未实现或返回 `501`。
 - User/Instance/Attachment 的已列出方法已经有一次 pinned generated-client binary roundtrip，但这不覆盖全部字段、全部方法、生产域名或官方 Web；不能把它写成完整 binary parity。
 - public memo read 已接入 current REST 和 Connect 的明确 viewer policy：匿名只读 `PUBLIC + NORMAL`，private/protected/archived/trashed/deleted 不可见；comments、relations、attachments、reactions 会先检查 parent/read visibility。公开 share 仍是独立 token 入口，不等于普通 memo public ACL。
-- 没有完整 CEL、复杂分页/排序、全部 protobuf 字段、metadata/trailer、压缩、streaming、gRPC-Web trailer frame 或原生 HTTP/2 gRPC parity。
+- 没有完整 CEL、复杂分页/排序、全部 protobuf 字段、metadata/trailer、压缩、streaming、gRPC-Web trailer frame 或原生 HTTP/2 gRPC parity。Attachment list 的 page token/order/filter 只是有限子集；`thumbnail=true` 暂时返回原始对象，motion media 和任意 `externalLink` 持久化仍未完成。
 - SSE 是 D1 outbox/polling/replay，不是上游 SSEHub；没有完整事件集、retention/pruning 和第三方 EventSource 实测。
 - 根 `/mcp` 没有有状态 MCP session，不承诺 SSE transport 或所有 MCP client 的 method surface。
 

@@ -44,8 +44,8 @@ Better Auth is the application authentication source of truth. Cloudflare Access
 | Shortcuts | Implemented subset | `GET/POST /api/v1/users/{user}/shortcuts` and `GET/PATCH/DELETE /api/v1/users/{user}/shortcuts/{shortcut}`; supports CEL validation, `validateOnly`, and `updateMask`. |
 | Memo shares | Implemented subset | `GET/POST /api/v1/memos/{memo}/shares` and `DELETE /api/v1/memos/{memo}/shares/{share}`; current share names use `memos/{id}/shares/{token}`. |
 | Anonymous share read | Implemented | `GET /api/v1/shares/{share_id}`, still guarded by share token, expiry, and memo state. |
-| Attachment resources | Implemented subset | `GET/POST /api/v1/attachments` and `GET/PATCH/DELETE /api/v1/attachments/{attachment}`; supports the current `{ attachment: {...} }` wrapper and explicitly rejects `attachmentId`. |
-| Attachment list | Implemented subset | Returns `attachments` and an optional `nextPageToken`; protobuf JSON `size` is emitted as a decimal string. |
+| Attachment resources | Implemented subset | `GET/POST /api/v1/attachments` and `GET/PATCH/DELETE /api/v1/attachments/{attachment}`; supports the current `{ attachment: {...} }` wrapper and explicitly rejects `attachmentId`. The official Memos Web `/file/attachments/{id}/{filename}` private/share read bridge is also implemented; arbitrary `externalLink` persistence, thumbnails, and motion conversion are not. |
+| Attachment list | Implemented subset | Connect `ListAttachments` returns `attachments`, `totalSize`, and an optional `nextPageToken`; it supports bounded `create_time`/`filename` ordering and filename/mime/memo filters. Protobuf JSON `size` is emitted as a decimal string. |
 | PAT resources | Implemented foundation | `GET/POST /api/v1/users/{user}/personalAccessTokens` and `DELETE /api/v1/users/{user}/personalAccessTokens/{token}`. |
 | Standard errors | Implemented | Current errors use `{ code, message, details }` rather than exposing internal FlareMo exceptions. |
 | Current OpenAPI | Implemented | `GET /openapi.json`, and authenticated `GET /api/v1/openapi.json`, describe current/legacy negotiation, native JWT/refresh cookie, social routes, SSE, the Connect JSON subset, and `/mcp`. |
@@ -89,7 +89,8 @@ The endpoint is currently stateless JSON. SSE, MCP session state, the complete m
 Do not describe the following as complete compatibility:
 
 - Complete Memos Server parity or complete Connect/gRPC parity.
-- Full CEL, complex pagination/ordering, or complete attachment filter/order/page-token semantics.
+- Full CEL, complex pagination/ordering, or complete attachment filter/order/page-token semantics; attachment list support is a bounded subset.
+- The Memos Web `/file/attachments/{id}/{filename}` bridge supports private Better Auth/PAT/native-JWT reads and `share_token`-scoped public reads. `thumbnail=true` currently returns the original object; motion-media conversion and arbitrary `externalLink` persistence are not implemented.
 - Current attachment batch delete or Attachment updates beyond the memo-binding subset.
 - Complete upstream service/wire parity for comments, reactions, and shortcuts, plus notifications and admin/instance surfaces.
 - A complete SSE event hub/replay protocol and stateful MCP sessions.

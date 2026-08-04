@@ -277,6 +277,7 @@ curl "$FLAREMO_URL/mcp" \
 
 - `/share/*`
 - `/api/public/shares/*`
+- `/file/*`（只为带 `share_token` 的公开附件 URL 提供外层 bypass；无 token 时仍由 FlareMo 应用层认证）
 - `/assets/*`
 
 建议做法：
@@ -285,9 +286,10 @@ curl "$FLAREMO_URL/mcp" \
 | --- | --- | --- |
 | `/share/*` | `Bypass` | `Everyone` |
 | `/api/public/shares/*` | `Bypass` | `Everyone` |
+| `/file/*` | `Bypass` | `Everyone` |
 | `/assets/*` | `Bypass` | `Everyone` |
 
-只 bypass 这些公开路径，不要 bypass `/api/auth/*`、`/api/app/*`、`/api/v1/*`、`/openapi.json` 或根路径。`Bypass` 会跳过 Access 强制认证，但不会跳过 Better Auth、PAT 或 share token 校验；需要认证和审计的机器请求应使用 `Service Auth`，不要用 `Bypass`。
+只 bypass 这些公开路径，不要 bypass `/api/auth/*`、`/api/app/*`、`/api/v1/*`、`/openapi.json` 或根路径。`/file/*` 同时承载 Memos Web 的私有附件 URL 和带 `share_token` 的公开 URL；如果对它做 Bypass，Worker 仍必须在无 token 分支要求 Better Auth cookie/session bearer、native access JWT 或 PAT，在带 token 分支严格校验 share token、过期时间、撤销状态、memo 状态和附件归属。`Bypass` 会跳过 Access 强制认证，但不会跳过这些 FlareMo 应用层校验；需要认证和审计的机器请求应使用 `Service Auth`，不要用 `Bypass`。
 
 Bypass 只跳过 Cloudflare Access，不跳过 FlareMo 的 share token、过期时间和 memo 状态校验。归档、回收站、删除或过期的分享仍应由 FlareMo 返回不可访问。
 
@@ -322,7 +324,7 @@ curl -I "$FLAREMO_URL/api/public/shares/not-a-real-token"
 - 已完成一次性 owner bootstrap，成功登录，并创建至少一个需要的 PAT。
 - 脚本、MCP 和 Memos-compatible 客户端使用 `Service Auth` policy、Access Service Token 和 FlareMo PAT。
 - `Client Secret` 没有写入仓库、issue、PR 或公开日志。
-- `/share/*`、`/api/public/shares/*`、`/assets/*` 有明确 `Bypass` policy。
+- `/share/*`、`/api/public/shares/*`、`/file/*`、`/assets/*` 有明确 `Bypass` policy；`/file/*` 的应用层 private/share 分支仍然 fail-closed。
 - 没有 bypass 根路径、`/api/auth/*`、`/api/app/*`、`/api/v1/*` 或 `/openapi.json`。
 - 关闭 Access 前，已在隔离环境验证 native cookie session、PAT、revoke、公开分享和无凭据 `401`。
 

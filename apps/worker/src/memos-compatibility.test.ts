@@ -490,6 +490,7 @@ describe("Memos-compatible API contract", () => {
       paths: {
         "/api/v1/auth/signin": expect.any(Object),
         "/api/v1/memos": expect.any(Object),
+        "/file/attachments/{attachment}/{filename}": expect.any(Object),
         "/memos.api.v1.MemoService/GetMemoByShare": expect.any(Object),
         "/memos.api.v1.AttachmentService/ListAttachments": expect.any(Object),
         "/memos.api.v1.InstanceService/GetInstanceProfile": expect.any(Object),

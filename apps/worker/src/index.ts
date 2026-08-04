@@ -27,6 +27,7 @@ import {
   isLegacyWireRequest,
   memosCurrentApi,
 } from "./routes/memos-current-api";
+import { memosFileApi } from "./routes/memos-file-api";
 import { memosSocialApi } from "./routes/memos-social-api";
 import { memosSseApi } from "./routes/memos-sse";
 import { publicApi } from "./routes/public-api";
@@ -108,6 +109,7 @@ app.all("/api/auth/*", (c) => createFlareMoAuth(c.env).handler(c.req.raw));
 app.route("/api/app/account", accountApi);
 app.route("/api/app", appApi);
 app.route("/api/public", publicApi);
+app.route("/file", memosFileApi);
 app.route("/mcp", mcpStreamableApi);
 app.route("/", memosConnectApi);
 app.route("/", memosSseApi);
