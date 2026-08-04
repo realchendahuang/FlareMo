@@ -12,7 +12,13 @@
     "directory": "./apps/web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/mcp", "/openapi.json", "/memos.api.v1.*"]
+    "run_worker_first": [
+      "/api/*",
+      "/file/*",
+      "/mcp",
+      "/openapi.json",
+      "/memos.api.v1.*"
+    ]
   },
   "d1_databases": [
     {
