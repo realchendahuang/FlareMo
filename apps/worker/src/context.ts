@@ -88,6 +88,35 @@ export async function getRequestContext(c: Context<HonoBindings>) {
   return getBrowserRequestContext(c, { auth, db });
 }
 
+/**
+ * Read-only Memos endpoints may serve an anonymous public view. Do not use
+ * the single-user owner as a fallback: that would make a missing credential
+ * equivalent to the owner's private session. Any explicit bearer credential
+ * remains fail-closed and is never downgraded to anonymous access.
+ */
+export async function getOptionalRequestContext(c: Context<HonoBindings>) {
+  try {
+    return await getRequestContext(c);
+  } catch (error) {
+    if (
+      error instanceof UnauthorizedError &&
+      !c.req.raw.headers.has("authorization") &&
+      !c.req.raw.headers.has("cookie")
+    ) {
+      return {
+        db: createDb(c.env.DB),
+        user: null,
+        authUserId: null,
+        credential: "anonymous" as const,
+        bearerSession: false,
+        nativeAccessToken: false,
+        session: null,
+      };
+    }
+    throw error;
+  }
+}
+
 export async function getBrowserRequestContext(
   c: Context<HonoBindings>,
   supplied?: {
@@ -128,6 +157,23 @@ export function assertTrustedCookieMutation(c: Context<HonoBindings>) {
   const origin = c.req.header("origin");
   if (!origin || !getTrustedOrigins(c.env).includes(origin)) {
     throw new ForbiddenError("This browser request must use FlareMo's origin.");
+  }
+}
+
+/**
+ * Validate the transport-level credential boundary before a public Connect
+ * method can short-circuit authentication. Public reads may omit credentials,
+ * but a supplied bearer or cookie must still obey the same exact-origin rule
+ * as authenticated private routes.
+ */
+export function assertRequestCredentialBoundary(c: Context<HonoBindings>) {
+  const token = getBearerToken(c.req.raw.headers);
+  if (token) {
+    assertTrustedBearerOrigin(c);
+    return;
+  }
+  if (c.req.raw.headers.has("cookie")) {
+    assertTrustedCookieMutation(c);
   }
 }
 

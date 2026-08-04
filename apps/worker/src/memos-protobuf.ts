@@ -56,14 +56,257 @@ export function encodeBinaryResponse(
   return transport === "grpc-web-text-proto" ? encodeBase64(framed) : framed;
 }
 
-export function encodeBinaryError(message: string, transport: BinaryTransport) {
-  // google.rpc.Status: code=3 (INVALID_ARGUMENT), message=2. HTTP status and
-  // grpc-status headers are still supplied by the route for transport-aware
-  // clients; this body makes Connect protobuf errors inspectable as well.
-  const status = new ProtoWriter().int32(1, 3).string(2, message).finish();
+export function encodeBinaryError(
+  message: string,
+  transport: BinaryTransport,
+  code = 3,
+) {
+  // google.rpc.Status: code=1, message=2. The HTTP status and transport
+  // headers remain authoritative for Connect/gRPC clients, but the body must
+  // carry the same status code instead of always pretending every failure is
+  // INVALID_ARGUMENT.
+  const status = new ProtoWriter().int32(1, code).string(2, message).finish();
   if (transport === "connect-proto") return status;
   const framed = encodeGrpcUnaryFrame(status);
   return transport === "grpc-web-text-proto" ? encodeBase64(framed) : framed;
+}
+
+/**
+ * Decode a unary response with the same wire framing rules used by the
+ * Worker. This is intentionally exported for contract tests and local
+ * compatibility probes; request handlers never need to decode their own
+ * response. Keeping the inverse here makes binary tests assert message
+ * fields, rather than only checking that a response contains some text.
+ */
+export function decodeBinaryResponse(
+  service: string,
+  method: string,
+  input: Uint8Array,
+  transport: BinaryTransport,
+): ProtoMessage {
+  const payload =
+    transport === "connect-proto"
+      ? input
+      : decodeGrpcUnaryFrame(
+          transport === "grpc-web-text-proto" ? decodeBase64(input) : input,
+        );
+  return decodeResponseMessage(service, method, payload);
+}
+
+function decodeResponseMessage(
+  service: string,
+  method: string,
+  payload: Uint8Array,
+): ProtoMessage {
+  const reader = new ProtoReader(payload);
+  if (service === "memos.api.v1.MemoService") {
+    switch (method) {
+      case "CreateMemo":
+      case "GetMemo":
+      case "UpdateMemo":
+      case "CreateMemoComment":
+      case "GetSharedMemo":
+      case "GetMemoByShare":
+        return decodeMemo(reader);
+      case "ListMemos":
+      case "ListMemoComments":
+        return decodeListResponse(reader, "memos", decodeMemo, {
+          totalSize: method === "ListMemoComments",
+        });
+      case "ListMemoAttachments":
+        return decodeListResponse(reader, "attachments", decodeAttachment);
+      case "ListMemoRelations":
+        return decodeListResponse(reader, "relations", decodeRelation);
+      case "ListMemoReactions":
+        return decodeListResponse(reader, "reactions", decodeReaction, {
+          totalSize: true,
+        });
+      case "ListMemoShares":
+        return decodeListResponse(reader, "memoShares", decodeMemoShare);
+      case "BatchGetLinkMetadata":
+        return decodeListResponse(reader, "linkMetadata", decodeLinkMetadata);
+      case "CreateMemoShare":
+        return decodeMemoShare(reader);
+      case "GetLinkMetadata":
+        return decodeLinkMetadata(reader);
+      default:
+        return {};
+    }
+  }
+  if (service === "memos.api.v1.AuthService") {
+    const response: ProtoMessage = {};
+    while (!reader.done) {
+      const [field, wire] = reader.tag();
+      if (method === "GetCurrentUser" && field === 1) {
+        response.user = decodeUser(reader.message(wire));
+      } else if (method === "SignIn" && field === 1) {
+        response.user = decodeUser(reader.message(wire));
+      } else if (method === "SignIn" && field === 2) {
+        response.accessToken = reader.string(wire);
+      } else if (method === "SignIn" && field === 3) {
+        response.accessTokenExpiresAt = decodeTimestamp(reader.message(wire));
+      } else if (method === "RefreshToken" && field === 1) {
+        response.accessToken = reader.string(wire);
+      } else if (method === "RefreshToken" && field === 2) {
+        response.expiresAt = decodeTimestamp(reader.message(wire));
+      } else {
+        reader.skip(wire);
+      }
+    }
+    return response;
+  }
+  if (service === "memos.api.v1.ShortcutService") {
+    if (method === "ListShortcuts") {
+      return decodeListResponse(reader, "shortcuts", decodeShortcut);
+    }
+    if (method === "DeleteShortcut") return {};
+    return decodeShortcut(reader);
+  }
+  if (service === "memos.api.v1.AttachmentService") {
+    if (method === "ListAttachments") {
+      return decodeListResponse(reader, "attachments", decodeAttachment, {
+        totalSize: true,
+      });
+    }
+    if (method === "DeleteAttachment" || method === "BatchDeleteAttachments") {
+      return {};
+    }
+    return decodeAttachment(reader);
+  }
+  if (service === "memos.api.v1.UserService") {
+    switch (method) {
+      case "GetUser":
+      case "CreateUser":
+      case "UpdateUser":
+        return decodeUser(reader);
+      case "ListUsers":
+      case "BatchGetUsers":
+        return decodeListResponse(reader, "users", decodeUser, {
+          totalSize: true,
+        });
+      case "ListAllUserStats":
+        return decodeListResponse(reader, "stats", decodeUserStats);
+      case "GetUserStats":
+        return decodeUserStats(reader);
+      case "GetUserSetting":
+      case "UpdateUserSetting":
+        return decodeUserSetting(reader);
+      case "ListUserSettings":
+        return decodeListResponse(reader, "settings", decodeUserSetting, {
+          totalSize: true,
+        });
+      case "ListLinkedIdentities":
+        return decodeListResponse(
+          reader,
+          "linkedIdentities",
+          decodeLinkedIdentity,
+        );
+      case "GetLinkedIdentity":
+      case "CreateLinkedIdentity":
+        return decodeLinkedIdentity(reader);
+      case "ListPersonalAccessTokens":
+        return decodeListResponse(
+          reader,
+          "personalAccessTokens",
+          decodePersonalAccessToken,
+          { totalSize: true },
+        );
+      case "CreatePersonalAccessToken": {
+        const response: ProtoMessage = {};
+        while (!reader.done) {
+          const [field, wire] = reader.tag();
+          if (field === 1)
+            response.personalAccessToken = decodePersonalAccessToken(
+              reader.message(wire),
+            );
+          else if (field === 2) response.token = reader.string(wire);
+          else reader.skip(wire);
+        }
+        return response;
+      }
+      case "ListUserWebhooks":
+        return decodeListResponse(reader, "webhooks", decodeWebhook);
+      case "CreateUserWebhook":
+      case "UpdateUserWebhook":
+        return decodeWebhook(reader);
+      case "GetUserWebhookSigningSecret": {
+        const response: ProtoMessage = {};
+        while (!reader.done) {
+          const [field, wire] = reader.tag();
+          if (field === 1) response.signingSecret = reader.string(wire);
+          else reader.skip(wire);
+        }
+        return response;
+      }
+      case "ListUserNotifications":
+        return decodeListResponse(reader, "notifications", decodeNotification);
+      case "UpdateUserNotification":
+        return decodeNotification(reader);
+      default:
+        return {};
+    }
+  }
+  if (service === "memos.api.v1.InstanceService") {
+    if (method === "GetInstanceProfile") return decodeInstanceProfile(reader);
+    if (method === "GetInstanceSetting" || method === "UpdateInstanceSetting") {
+      return decodeInstanceSetting(reader);
+    }
+    if (method === "BatchGetInstanceSettings") {
+      return decodeListResponse(reader, "settings", decodeInstanceSetting);
+    }
+    if (method === "GetInstanceStats") return decodeInstanceStats(reader);
+    return {};
+  }
+  if (service === "memos.api.v1.IdentityProviderService") {
+    if (method === "ListIdentityProviders") {
+      return decodeListResponse(
+        reader,
+        "identityProviders",
+        decodeIdentityProvider,
+      );
+    }
+    if (
+      method === "GetIdentityProvider" ||
+      method === "CreateIdentityProvider"
+    ) {
+      return decodeIdentityProvider(reader);
+    }
+    return {};
+  }
+  if (service === "memos.api.v1.AIService" && method === "Transcribe") {
+    const response: ProtoMessage = {};
+    while (!reader.done) {
+      const [field, wire] = reader.tag();
+      if (field === 1) response.text = reader.string(wire);
+      else reader.skip(wire);
+    }
+    return response;
+  }
+  throw new ProtoCodecError(`Unsupported protobuf service: ${service}`);
+}
+
+function decodeListResponse(
+  reader: ProtoReader,
+  itemKey: string,
+  decoder: (reader: ProtoReader) => ProtoMessage,
+  options: { totalSize?: boolean } = {},
+) {
+  const response: ProtoMessage = { [itemKey]: [] };
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) {
+      const values = response[itemKey];
+      if (!Array.isArray(values)) response[itemKey] = [];
+      (response[itemKey] as ProtoMessage[]).push(decoder(reader.message(wire)));
+    } else if (field === 2) {
+      response.nextPageToken = reader.string(wire);
+    } else if (field === 3 && options.totalSize) {
+      response.totalSize = reader.int32(wire);
+    } else {
+      reader.skip(wire);
+    }
+  }
+  return response;
 }
 
 function decodeRequestMessage(
@@ -79,6 +322,21 @@ function decodeRequestMessage(
   }
   if (service === "memos.api.v1.ShortcutService") {
     return decodeShortcutServiceRequest(method, payload);
+  }
+  if (service === "memos.api.v1.AttachmentService") {
+    return decodeAttachmentServiceRequest(method, payload);
+  }
+  if (service === "memos.api.v1.UserService") {
+    return decodeUserServiceRequest(method, payload);
+  }
+  if (service === "memos.api.v1.InstanceService") {
+    return decodeInstanceServiceRequest(method, payload);
+  }
+  if (service === "memos.api.v1.IdentityProviderService") {
+    return decodeIdentityProviderServiceRequest(method, payload);
+  }
+  if (service === "memos.api.v1.AIService") {
+    return decodeAiServiceRequest(method, payload);
   }
   throw new ProtoCodecError(`Unsupported protobuf service: ${service}`);
 }
@@ -96,10 +354,17 @@ function encodeResponseMessage(
       case "UpdateMemo":
       case "CreateMemoComment":
       case "GetSharedMemo":
+      case "GetMemoByShare":
         return encodeMemo(body);
       case "ListMemos":
-      case "ListMemoComments":
         return encodeList(body.memos, encodeMemo, body.nextPageToken);
+      case "ListMemoComments":
+        return encodeList(
+          body.memos,
+          encodeMemo,
+          body.nextPageToken,
+          body.totalSize,
+        );
       case "ListMemoAttachments":
         return encodeList(
           body.attachments,
@@ -109,7 +374,14 @@ function encodeResponseMessage(
       case "ListMemoRelations":
         return encodeList(body.relations, encodeRelation, body.nextPageToken);
       case "ListMemoReactions":
-        return encodeList(body.reactions, encodeReaction, body.nextPageToken);
+        return encodeList(
+          body.reactions,
+          encodeReaction,
+          body.nextPageToken,
+          body.totalSize,
+        );
+      case "UpsertMemoReaction":
+        return encodeReaction(body);
       case "ListMemoShares":
         return encodeList(body.memoShares, encodeMemoShare);
       case "BatchGetLinkMetadata":
@@ -162,6 +434,135 @@ function encodeResponseMessage(
       default:
         throw new ProtoCodecError(`Unsupported protobuf method: ${method}`);
     }
+  }
+  if (service === "memos.api.v1.AttachmentService") {
+    switch (method) {
+      case "CreateAttachment":
+      case "GetAttachment":
+      case "UpdateAttachment":
+        return encodeAttachment(body);
+      case "ListAttachments":
+        return encodeList(
+          body.attachments,
+          encodeAttachment,
+          body.nextPageToken,
+          body.totalSize,
+        );
+      case "DeleteAttachment":
+      case "BatchDeleteAttachments":
+        return new Uint8Array();
+      default:
+        throw new ProtoCodecError(`Unsupported protobuf method: ${method}`);
+    }
+  }
+  if (service === "memos.api.v1.UserService") {
+    switch (method) {
+      case "GetUser":
+      case "CreateUser":
+      case "UpdateUser":
+        return encodeUser(body);
+      case "ListUsers":
+      case "BatchGetUsers":
+        return encodeList(
+          body.users,
+          encodeUser,
+          body.nextPageToken,
+          body.totalSize,
+        );
+      case "ListAllUserStats":
+        return encodeList(body.stats, encodeUserStats);
+      case "GetUserStats":
+        return encodeUserStats(body);
+      case "GetUserSetting":
+      case "UpdateUserSetting":
+        return encodeUserSetting(body);
+      case "ListUserSettings":
+        return encodeList(
+          body.settings,
+          encodeUserSetting,
+          body.nextPageToken,
+          body.totalSize,
+        );
+      case "ListLinkedIdentities":
+        return encodeList(body.linkedIdentities, encodeLinkedIdentity);
+      case "GetLinkedIdentity":
+      case "CreateLinkedIdentity":
+        return encodeLinkedIdentity(body);
+      case "ListPersonalAccessTokens":
+        return encodeList(
+          body.personalAccessTokens,
+          encodePersonalAccessToken,
+          body.nextPageToken,
+          body.totalSize,
+        );
+      case "CreatePersonalAccessToken":
+        return new ProtoWriter()
+          .message(1, encodePersonalAccessToken(body.personalAccessToken))
+          .string(2, stringValue(body.token))
+          .finish();
+      case "ListUserWebhooks":
+        return encodeList(body.webhooks, encodeWebhook);
+      case "CreateUserWebhook":
+      case "UpdateUserWebhook":
+        return encodeWebhook(body);
+      case "GetUserWebhookSigningSecret":
+        return new ProtoWriter()
+          .string(1, stringValue(body.signingSecret))
+          .finish();
+      case "ListUserNotifications":
+        return encodeList(
+          body.notifications,
+          encodeNotification,
+          body.nextPageToken,
+        );
+      case "UpdateUserNotification":
+        return encodeNotification(body);
+      case "DeleteUser":
+      case "DeleteLinkedIdentity":
+      case "DeletePersonalAccessToken":
+      case "DeleteUserWebhook":
+      case "DeleteUserNotification":
+        return new Uint8Array();
+      default:
+        throw new ProtoCodecError(`Unsupported protobuf method: ${method}`);
+    }
+  }
+  if (service === "memos.api.v1.InstanceService") {
+    switch (method) {
+      case "GetInstanceProfile":
+        return encodeInstanceProfile(body);
+      case "GetInstanceSetting":
+      case "UpdateInstanceSetting":
+        return encodeInstanceSetting(body);
+      case "BatchGetInstanceSettings":
+        return encodeList(body.settings, encodeInstanceSetting);
+      case "GetInstanceStats":
+        return encodeInstanceStats(body);
+      case "TestInstanceEmailSetting":
+        return new Uint8Array();
+      default:
+        throw new ProtoCodecError(`Unsupported protobuf method: ${method}`);
+    }
+  }
+  if (service === "memos.api.v1.IdentityProviderService") {
+    switch (method) {
+      case "ListIdentityProviders":
+        return encodeList(body.identityProviders, encodeIdentityProvider);
+      case "GetIdentityProvider":
+      case "CreateIdentityProvider":
+      case "UpdateIdentityProvider":
+        return encodeIdentityProvider(body);
+      case "DeleteIdentityProvider":
+        return new Uint8Array();
+      default:
+        throw new ProtoCodecError(`Unsupported protobuf method: ${method}`);
+    }
+  }
+  if (service === "memos.api.v1.AIService") {
+    if (method === "Transcribe") {
+      return new ProtoWriter().string(1, stringValue(body.text)).finish();
+    }
+    throw new ProtoCodecError(`Unsupported protobuf method: ${method}`);
   }
   throw new ProtoCodecError(`Unsupported protobuf service: ${service}`);
 }
@@ -234,7 +635,10 @@ function decodeMemoServiceRequest(method: string, bytes: Uint8Array) {
         else reader.skip(wire);
         break;
       case "GetSharedMemo":
-        if (field === 1) body.shareToken = reader.string(wire);
+      case "GetMemoByShare":
+        if (field === 1)
+          body[method === "GetMemoByShare" ? "shareId" : "shareToken"] =
+            reader.string(wire);
         else reader.skip(wire);
         break;
       case "GetLinkMetadata":
@@ -298,6 +702,242 @@ function decodeShortcutServiceRequest(method: string, bytes: Uint8Array) {
         break;
       default:
         reader.skip(wire);
+    }
+  }
+  return body;
+}
+
+function decodeAttachmentServiceRequest(method: string, bytes: Uint8Array) {
+  const reader = new ProtoReader(bytes);
+  const body: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    switch (method) {
+      case "CreateAttachment":
+        if (field === 1)
+          body.attachment = decodeAttachment(reader.message(wire));
+        else if (field === 2) body.attachmentId = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "ListAttachments":
+        if (field === 1) body.pageSize = reader.int32(wire);
+        else if (field === 2) body.pageToken = reader.string(wire);
+        else if (field === 3) body.filter = reader.string(wire);
+        else if (field === 4) body.orderBy = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "GetAttachment":
+      case "DeleteAttachment":
+        if (field === 1) body.name = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "UpdateAttachment":
+        if (field === 1)
+          body.attachment = decodeAttachment(reader.message(wire));
+        else if (field === 2)
+          body.updateMask = decodeFieldMask(reader.message(wire));
+        else reader.skip(wire);
+        break;
+      case "BatchDeleteAttachments":
+        if (field === 1) push(body, "names", reader.string(wire));
+        else reader.skip(wire);
+        break;
+      default:
+        reader.skip(wire);
+    }
+  }
+  return body;
+}
+
+function decodeUserServiceRequest(method: string, bytes: Uint8Array) {
+  const reader = new ProtoReader(bytes);
+  const body: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    switch (method) {
+      case "ListUsers":
+        if (field === 1) body.pageSize = reader.int32(wire);
+        else if (field === 2) body.pageToken = reader.string(wire);
+        else if (field === 3) body.filter = reader.string(wire);
+        else if (field === 4) body.showDeleted = reader.bool(wire);
+        else reader.skip(wire);
+        break;
+      case "BatchGetUsers":
+        if (field === 1) push(body, "usernames", reader.string(wire));
+        else reader.skip(wire);
+        break;
+      case "GetUser":
+      case "GetUserStats":
+      case "GetUserSetting":
+      case "GetLinkedIdentity":
+      case "DeleteUser":
+      case "DeleteLinkedIdentity":
+      case "DeletePersonalAccessToken":
+      case "DeleteUserWebhook":
+      case "GetUserWebhookSigningSecret":
+      case "DeleteUserNotification":
+        if (field === 1) body.name = reader.string(wire);
+        else if (field === 2 && method === "GetUser")
+          body.readMask = decodeFieldMask(reader.message(wire));
+        else if (field === 2 && method === "DeleteUser")
+          body.force = reader.bool(wire);
+        else reader.skip(wire);
+        break;
+      case "CreateUser":
+        if (field === 1) body.user = decodeUser(reader.message(wire));
+        else if (field === 2) body.userId = reader.string(wire);
+        else if (field === 3) body.validateOnly = reader.bool(wire);
+        else if (field === 4) body.requestId = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "UpdateUser":
+        if (field === 1) body.user = decodeUser(reader.message(wire));
+        else if (field === 2)
+          body.updateMask = decodeFieldMask(reader.message(wire));
+        else if (field === 3) body.allowMissing = reader.bool(wire);
+        else reader.skip(wire);
+        break;
+      case "ListAllUserStats":
+        if (field === 1) body.state = stateName(reader.int32(wire));
+        else if (field === 2) body.filter = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "ListUserSettings":
+      case "ListLinkedIdentities":
+      case "ListPersonalAccessTokens":
+      case "ListUserWebhooks":
+      case "ListUserNotifications":
+        if (field === 1) body.parent = reader.string(wire);
+        else if (field === 2 && method !== "ListUserWebhooks")
+          body.pageSize = reader.int32(wire);
+        else if (field === 3 && method !== "ListUserWebhooks")
+          body.pageToken = reader.string(wire);
+        else if (field === 4 && method === "ListUserNotifications")
+          body.filter = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "UpdateUserSetting":
+        if (field === 1) body.setting = decodeUserSetting(reader.message(wire));
+        else if (field === 2)
+          body.updateMask = decodeFieldMask(reader.message(wire));
+        else reader.skip(wire);
+        break;
+      case "CreateLinkedIdentity":
+        if (field === 1) body.parent = reader.string(wire);
+        else if (field === 2) body.idpName = reader.string(wire);
+        else if (field === 3) body.code = reader.string(wire);
+        else if (field === 4) body.redirectUri = reader.string(wire);
+        else if (field === 5) body.codeVerifier = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "CreatePersonalAccessToken":
+        if (field === 1) body.parent = reader.string(wire);
+        else if (field === 2) body.description = reader.string(wire);
+        else if (field === 3) body.expiresInDays = reader.int32(wire);
+        else reader.skip(wire);
+        break;
+      case "CreateUserWebhook":
+        if (field === 1) body.parent = reader.string(wire);
+        else if (field === 2)
+          body.webhook = decodeWebhook(reader.message(wire));
+        else reader.skip(wire);
+        break;
+      case "UpdateUserWebhook":
+        if (field === 1) body.webhook = decodeWebhook(reader.message(wire));
+        else if (field === 2)
+          body.updateMask = decodeFieldMask(reader.message(wire));
+        else reader.skip(wire);
+        break;
+      case "UpdateUserNotification":
+        if (field === 1)
+          body.notification = decodeNotification(reader.message(wire));
+        else if (field === 2)
+          body.updateMask = decodeFieldMask(reader.message(wire));
+        else reader.skip(wire);
+        break;
+      default:
+        reader.skip(wire);
+    }
+  }
+  return body;
+}
+
+function decodeInstanceServiceRequest(method: string, bytes: Uint8Array) {
+  const reader = new ProtoReader(bytes);
+  const body: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    switch (method) {
+      case "GetInstanceSetting":
+        if (field === 1) body.name = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "BatchGetInstanceSettings":
+        if (field === 1) push(body, "names", reader.string(wire));
+        else reader.skip(wire);
+        break;
+      case "UpdateInstanceSetting":
+        if (field === 1)
+          body.setting = decodeInstanceSetting(reader.message(wire));
+        else if (field === 2)
+          body.updateMask = decodeFieldMask(reader.message(wire));
+        else reader.skip(wire);
+        break;
+      case "TestInstanceEmailSetting":
+        if (field === 1) body.email = decodeEmailSetting(reader.message(wire));
+        else if (field === 2) body.recipientEmail = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      default:
+        reader.skip(wire);
+    }
+  }
+  return body;
+}
+
+function decodeIdentityProviderServiceRequest(
+  method: string,
+  bytes: Uint8Array,
+) {
+  const reader = new ProtoReader(bytes);
+  const body: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    switch (method) {
+      case "GetIdentityProvider":
+      case "DeleteIdentityProvider":
+        if (field === 1) body.name = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "CreateIdentityProvider":
+        if (field === 1)
+          body.identityProvider = decodeIdentityProvider(reader.message(wire));
+        else if (field === 2) body.identityProviderId = reader.string(wire);
+        else reader.skip(wire);
+        break;
+      case "UpdateIdentityProvider":
+        if (field === 1)
+          body.identityProvider = decodeIdentityProvider(reader.message(wire));
+        else if (field === 2)
+          body.updateMask = decodeFieldMask(reader.message(wire));
+        else reader.skip(wire);
+        break;
+      default:
+        reader.skip(wire);
+    }
+  }
+  return body;
+}
+
+function decodeAiServiceRequest(method: string, bytes: Uint8Array) {
+  const reader = new ProtoReader(bytes);
+  const body: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (method === "Transcribe" && field === 1) {
+      body.audio = decodeTranscriptionAudio(reader.message(wire));
+    } else {
+      reader.skip(wire);
     }
   }
   return body;
@@ -399,12 +1039,411 @@ function decodeAttachment(reader: ProtoReader): ProtoMessage {
   while (!reader.done) {
     const [field, wire] = reader.tag();
     if (field === 1) attachment.name = reader.string(wire);
+    else if (field === 2)
+      attachment.createTime = decodeTimestamp(reader.message(wire));
     else if (field === 3) attachment.filename = reader.string(wire);
+    else if (field === 4) attachment.content = reader.bytesValue(wire);
+    else if (field === 5) attachment.externalLink = reader.string(wire);
     else if (field === 6) attachment.type = reader.string(wire);
+    else if (field === 7) attachment.size = reader.int64(wire);
     else if (field === 8) attachment.memo = reader.string(wire);
     else reader.skip(wire);
   }
   return attachment;
+}
+
+function decodeUser(reader: ProtoReader): ProtoMessage {
+  const user: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) user.name = reader.string(wire);
+    else if (field === 2) user.role = userRoleName(reader.int32(wire));
+    else if (field === 3) user.username = reader.string(wire);
+    else if (field === 4) user.email = reader.string(wire);
+    else if (field === 5) user.displayName = reader.string(wire);
+    else if (field === 6) user.avatarUrl = reader.string(wire);
+    else if (field === 7) user.description = reader.string(wire);
+    else if (field === 8) user.password = reader.string(wire);
+    else if (field === 9) user.state = stateName(reader.int32(wire));
+    else if (field === 10)
+      user.createTime = decodeTimestamp(reader.message(wire));
+    else if (field === 11)
+      user.updateTime = decodeTimestamp(reader.message(wire));
+    else reader.skip(wire);
+  }
+  return user;
+}
+
+function decodeUserSetting(reader: ProtoReader): ProtoMessage {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) setting.name = reader.string(wire);
+    else if (field === 2)
+      setting.value = {
+        case: "generalSetting",
+        value: decodeUserGeneralSetting(reader.message(wire)),
+      };
+    else if (field === 5)
+      setting.value = {
+        case: "webhooksSetting",
+        value: decodeWebhooksSetting(reader.message(wire)),
+      };
+    else if (field === 6)
+      setting.value = {
+        case: "tagsSetting",
+        value: decodeTagsSetting(reader.message(wire)),
+      };
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeUserGeneralSetting(reader: ProtoReader) {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) setting.locale = reader.string(wire);
+    else if (field === 3) setting.memoVisibility = reader.string(wire);
+    else if (field === 4) setting.theme = reader.string(wire);
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeWebhooksSetting(reader: ProtoReader) {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1)
+      push(setting, "webhooks", decodeWebhook(reader.message(wire)));
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeTagsSetting(reader: ProtoReader) {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) reader.skip(wire);
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeWebhook(reader: ProtoReader): ProtoMessage {
+  const webhook: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) webhook.name = reader.string(wire);
+    else if (field === 2) webhook.url = reader.string(wire);
+    else if (field === 3) webhook.displayName = reader.string(wire);
+    else if (field === 4)
+      webhook.createTime = decodeTimestamp(reader.message(wire));
+    else if (field === 5)
+      webhook.updateTime = decodeTimestamp(reader.message(wire));
+    else if (field === 6) webhook.signingSecret = reader.string(wire);
+    else if (field === 7) webhook.signingSecretSet = reader.bool(wire);
+    else reader.skip(wire);
+  }
+  return webhook;
+}
+
+function decodeNotification(reader: ProtoReader): ProtoMessage {
+  const notification: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) notification.name = reader.string(wire);
+    else if (field === 2) notification.sender = reader.string(wire);
+    else if (field === 3)
+      notification.status = notificationStatusName(reader.int32(wire));
+    else if (field === 4)
+      notification.createTime = decodeTimestamp(reader.message(wire));
+    else if (field === 5)
+      notification.type = notificationTypeName(reader.int32(wire));
+    else reader.skip(wire);
+  }
+  return notification;
+}
+
+function decodeInstanceSetting(reader: ProtoReader): ProtoMessage {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) setting.name = reader.string(wire);
+    else if (field === 2)
+      setting.value = {
+        case: "generalSetting",
+        value: decodeInstanceGeneralSetting(reader.message(wire)),
+      };
+    else if (field === 4)
+      setting.value = {
+        case: "memoRelatedSetting",
+        value: decodeMemoRelatedSetting(reader.message(wire)),
+      };
+    else if (field === 6)
+      setting.value = {
+        case: "notificationSetting",
+        value: decodeNotificationSetting(reader.message(wire)),
+      };
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeInstanceGeneralSetting(reader: ProtoReader) {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 2) setting.disallowUserRegistration = reader.bool(wire);
+    else if (field === 3) setting.disallowPasswordAuth = reader.bool(wire);
+    else if (field === 4) setting.additionalScript = reader.string(wire);
+    else if (field === 5) setting.additionalStyle = reader.string(wire);
+    else if (field === 7) setting.weekStartDayOffset = reader.int32(wire);
+    else if (field === 8) setting.disallowChangeUsername = reader.bool(wire);
+    else if (field === 9) setting.disallowChangeNickname = reader.bool(wire);
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeMemoRelatedSetting(reader: ProtoReader) {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 3) setting.contentLengthLimit = reader.int32(wire);
+    else if (field === 4) setting.enableDoubleClickEdit = reader.bool(wire);
+    else if (field === 7) push(setting, "reactions", reader.string(wire));
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeNotificationSetting(reader: ProtoReader) {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) setting.email = decodeEmailSetting(reader.message(wire));
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeEmailSetting(reader: ProtoReader) {
+  const setting: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) setting.enabled = reader.bool(wire);
+    else if (field === 2) setting.smtpHost = reader.string(wire);
+    else if (field === 3) setting.smtpPort = reader.int32(wire);
+    else if (field === 4) setting.smtpUsername = reader.string(wire);
+    else if (field === 5) setting.smtpPassword = reader.string(wire);
+    else if (field === 6) setting.fromEmail = reader.string(wire);
+    else if (field === 7) setting.fromName = reader.string(wire);
+    else if (field === 8) setting.replyTo = reader.string(wire);
+    else if (field === 9) setting.useTls = reader.bool(wire);
+    else if (field === 10) setting.useSsl = reader.bool(wire);
+    else reader.skip(wire);
+  }
+  return setting;
+}
+
+function decodeIdentityProvider(reader: ProtoReader): ProtoMessage {
+  const provider: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) provider.name = reader.string(wire);
+    else if (field === 2)
+      provider.type = reader.int32(wire) === 1 ? "OAUTH2" : "TYPE_UNSPECIFIED";
+    else if (field === 3) provider.title = reader.string(wire);
+    else if (field === 4) provider.identifierFilter = reader.string(wire);
+    else if (field === 5)
+      provider.config = decodeIdentityProviderConfig(reader.message(wire));
+    else reader.skip(wire);
+  }
+  return provider;
+}
+
+function decodeIdentityProviderConfig(reader: ProtoReader) {
+  const config: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1)
+      config.config = {
+        case: "oauth2Config",
+        value: decodeOAuth2Config(reader.message(wire)),
+      };
+    else reader.skip(wire);
+  }
+  return config;
+}
+
+function decodeOAuth2Config(reader: ProtoReader) {
+  const config: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) config.clientId = reader.string(wire);
+    else if (field === 2) config.clientSecret = reader.string(wire);
+    else if (field === 3) config.authUrl = reader.string(wire);
+    else if (field === 4) config.tokenUrl = reader.string(wire);
+    else if (field === 5) config.userInfoUrl = reader.string(wire);
+    else if (field === 6) push(config, "scopes", reader.string(wire));
+    else if (field === 7)
+      config.fieldMapping = decodeFieldMapping(reader.message(wire));
+    else reader.skip(wire);
+  }
+  return config;
+}
+
+function decodeFieldMapping(reader: ProtoReader) {
+  const mapping: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) mapping.identifier = reader.string(wire);
+    else if (field === 2) mapping.displayName = reader.string(wire);
+    else if (field === 3) mapping.email = reader.string(wire);
+    else if (field === 4) mapping.avatarUrl = reader.string(wire);
+    else reader.skip(wire);
+  }
+  return mapping;
+}
+
+function decodeTranscriptionAudio(reader: ProtoReader) {
+  const audio: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) audio.content = reader.bytesValue(wire);
+    else if (field === 2) audio.uri = reader.string(wire);
+    else if (field === 3) audio.filename = reader.string(wire);
+    else if (field === 4) audio.contentType = reader.string(wire);
+    else reader.skip(wire);
+  }
+  return audio;
+}
+
+function decodePersonalAccessToken(reader: ProtoReader): ProtoMessage {
+  const token: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) token.name = reader.string(wire);
+    else if (field === 2) token.description = reader.string(wire);
+    else if (field === 3)
+      token.createdAt = decodeTimestamp(reader.message(wire));
+    else if (field === 4)
+      token.expiresAt = decodeTimestamp(reader.message(wire));
+    else if (field === 5)
+      token.lastUsedAt = decodeTimestamp(reader.message(wire));
+    else reader.skip(wire);
+  }
+  return token;
+}
+
+function decodeLinkedIdentity(reader: ProtoReader): ProtoMessage {
+  const identity: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) identity.name = reader.string(wire);
+    else if (field === 2) identity.idpName = reader.string(wire);
+    else if (field === 3) identity.externUid = reader.string(wire);
+    else reader.skip(wire);
+  }
+  return identity;
+}
+
+function decodeUserStats(reader: ProtoReader): ProtoMessage {
+  const stats: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) stats.name = reader.string(wire);
+    else if (field === 3)
+      stats.memoTypeStats = decodeMemoTypeStats(reader.message(wire));
+    else if (field === 4) {
+      const entry = decodeStringInt32Entry(reader.message(wire));
+      const tagCount = asRecord(stats.tagCount);
+      tagCount[entry.key] = entry.value;
+      stats.tagCount = tagCount;
+    } else if (field === 5) push(stats, "pinnedMemos", reader.string(wire));
+    else if (field === 6) stats.totalMemoCount = reader.int32(wire);
+    else if (field === 7)
+      push(
+        stats,
+        "memoCreatedTimestamps",
+        decodeTimestamp(reader.message(wire)),
+      );
+    else if (field === 8)
+      push(
+        stats,
+        "memoUpdatedTimestamps",
+        decodeTimestamp(reader.message(wire)),
+      );
+    else reader.skip(wire);
+  }
+  return stats;
+}
+
+function decodeMemoTypeStats(reader: ProtoReader): ProtoMessage {
+  const stats: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) stats.linkCount = reader.int32(wire);
+    else if (field === 2) stats.codeCount = reader.int32(wire);
+    else if (field === 3) stats.todoCount = reader.int32(wire);
+    else if (field === 4) stats.undoCount = reader.int32(wire);
+    else reader.skip(wire);
+  }
+  return stats;
+}
+
+function decodeStringInt32Entry(reader: ProtoReader) {
+  let key = "";
+  let value = 0;
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) key = reader.string(wire);
+    else if (field === 2) value = reader.int32(wire);
+    else reader.skip(wire);
+  }
+  return { key, value };
+}
+
+function decodeInstanceProfile(reader: ProtoReader): ProtoMessage {
+  const profile: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 2) profile.version = reader.string(wire);
+    else if (field === 3) profile.demo = reader.bool(wire);
+    else if (field === 6) profile.instanceUrl = reader.string(wire);
+    else if (field === 7) profile.admin = decodeUser(reader.message(wire));
+    else if (field === 8) profile.commit = reader.string(wire);
+    else if (field === 9) profile.needsSetup = reader.bool(wire);
+    else reader.skip(wire);
+  }
+  return profile;
+}
+
+function decodeInstanceStats(reader: ProtoReader): ProtoMessage {
+  const stats: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) stats.database = decodeDatabaseStats(reader.message(wire));
+    else if (field === 2) stats.localStorageBytes = reader.int64(wire);
+    else if (field === 4)
+      stats.generatedTime = decodeTimestamp(reader.message(wire));
+    else reader.skip(wire);
+  }
+  return stats;
+}
+
+function decodeDatabaseStats(reader: ProtoReader): ProtoMessage {
+  const stats: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) stats.driver = reader.string(wire);
+    else if (field === 2) stats.sizeBytes = reader.int64(wire);
+    else reader.skip(wire);
+  }
+  return stats;
 }
 
 function decodeRelation(reader: ProtoReader): ProtoMessage {
@@ -458,6 +1497,19 @@ function decodeMemoShare(reader: ProtoReader): ProtoMessage {
     else reader.skip(wire);
   }
   return share;
+}
+
+function decodeLinkMetadata(reader: ProtoReader): ProtoMessage {
+  const metadata: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) metadata.url = reader.string(wire);
+    else if (field === 2) metadata.title = reader.string(wire);
+    else if (field === 3) metadata.description = reader.string(wire);
+    else if (field === 4) metadata.image = reader.string(wire);
+    else reader.skip(wire);
+  }
+  return metadata;
 }
 
 function decodeProperty(reader: ProtoReader) {
@@ -564,6 +1616,219 @@ function encodeAttachment(value: unknown) {
     .string(6, stringValue(attachment.type))
     .int64(7, attachment.size)
     .string(8, stringValue(attachment.memo))
+    .finish();
+}
+
+function encodeUserStats(value: unknown) {
+  const stats = asRecord(value);
+  const memoTypeStats = asRecord(stats.memoTypeStats);
+  return new ProtoWriter()
+    .string(1, stringValue(stats.name))
+    .message(
+      3,
+      new ProtoWriter()
+        .int32(1, numberValue(memoTypeStats.linkCount))
+        .int32(2, numberValue(memoTypeStats.codeCount))
+        .int32(3, numberValue(memoTypeStats.todoCount))
+        .int32(4, numberValue(memoTypeStats.undoCount))
+        .finish(),
+    )
+    .mapStringInt32(4, asRecord(stats.tagCount))
+    .repeatedMessages(7, records(stats.memoCreatedTimestamps), encodeTimestamp)
+    .repeatedMessages(8, records(stats.memoUpdatedTimestamps), encodeTimestamp)
+    .repeatedStrings(5, strings(stats.pinnedMemos))
+    .int32(6, numberValue(stats.totalMemoCount))
+    .finish();
+}
+
+function encodeUserSetting(value: unknown) {
+  const setting = asRecord(value);
+  const oneof = asRecord(setting.value);
+  const nested = asRecord(oneof.value);
+  const writer = new ProtoWriter().string(1, stringValue(setting.name));
+  if (oneof.case === "generalSetting") {
+    writer.message(
+      2,
+      new ProtoWriter()
+        .string(1, stringValue(nested.locale))
+        .string(3, stringValue(nested.memoVisibility))
+        .string(4, stringValue(nested.theme))
+        .finish(),
+    );
+  } else if (oneof.case === "webhooksSetting") {
+    writer.message(
+      5,
+      new ProtoWriter()
+        .repeatedMessages(1, records(nested.webhooks), encodeWebhook)
+        .finish(),
+    );
+  }
+  return writer.finish();
+}
+
+function encodeLinkedIdentity(value: unknown) {
+  const identity = asRecord(value);
+  return new ProtoWriter()
+    .string(1, stringValue(identity.name))
+    .string(2, stringValue(identity.idpName))
+    .string(3, stringValue(identity.externUid))
+    .finish();
+}
+
+function encodePersonalAccessToken(value: unknown) {
+  const token = asRecord(value);
+  return new ProtoWriter()
+    .string(1, stringValue(token.name))
+    .string(2, stringValue(token.description))
+    .message(3, encodeTimestamp(token.createdAt))
+    .message(4, encodeTimestamp(token.expiresAt))
+    .message(5, encodeTimestamp(token.lastUsedAt))
+    .finish();
+}
+
+function encodeWebhook(value: unknown) {
+  const webhook = asRecord(value);
+  return new ProtoWriter()
+    .string(1, stringValue(webhook.name))
+    .string(2, stringValue(webhook.url))
+    .string(3, stringValue(webhook.displayName))
+    .message(4, encodeTimestamp(webhook.createTime))
+    .message(5, encodeTimestamp(webhook.updateTime))
+    .bool(7, webhook.signingSecretSet === true)
+    .finish();
+}
+
+function encodeNotification(value: unknown) {
+  const notification = asRecord(value);
+  return new ProtoWriter()
+    .string(1, stringValue(notification.name))
+    .string(2, stringValue(notification.sender))
+    .int32(3, notificationStatusValue(notification.status))
+    .message(4, encodeTimestamp(notification.createTime))
+    .int32(5, notificationTypeValue(notification.type))
+    .message(8, encodeUser(notification.senderUser))
+    .finish();
+}
+
+function encodeInstanceProfile(value: unknown) {
+  const profile = asRecord(value);
+  return new ProtoWriter()
+    .string(2, stringValue(profile.version))
+    .bool(3, profile.demo === true)
+    .string(6, stringValue(profile.instanceUrl))
+    .message(7, encodeUser(profile.admin))
+    .string(8, stringValue(profile.commit))
+    .bool(9, profile.needsSetup === true)
+    .finish();
+}
+
+function encodeInstanceSetting(value: unknown) {
+  const setting = asRecord(value);
+  const oneof = asRecord(setting.value);
+  const nested = asRecord(oneof.value);
+  const writer = new ProtoWriter().string(1, stringValue(setting.name));
+  if (oneof.case === "generalSetting") {
+    writer.message(
+      2,
+      new ProtoWriter()
+        .bool(2, nested.disallowUserRegistration === true)
+        .bool(3, nested.disallowPasswordAuth === true)
+        .string(4, stringValue(nested.additionalScript))
+        .string(5, stringValue(nested.additionalStyle))
+        .int32(7, numberValue(nested.weekStartDayOffset))
+        .bool(8, nested.disallowChangeUsername === true)
+        .bool(9, nested.disallowChangeNickname === true)
+        .finish(),
+    );
+  } else if (oneof.case === "memoRelatedSetting") {
+    writer.message(
+      4,
+      new ProtoWriter()
+        .int32(3, numberValue(nested.contentLengthLimit))
+        .bool(4, nested.enableDoubleClickEdit === true)
+        .repeatedStrings(7, strings(nested.reactions))
+        .finish(),
+    );
+  } else if (oneof.case === "notificationSetting") {
+    writer.message(
+      6,
+      new ProtoWriter().message(1, encodeEmailSetting(nested.email)).finish(),
+    );
+  }
+  return writer.finish();
+}
+
+function encodeEmailSetting(value: unknown) {
+  const setting = asRecord(value);
+  return new ProtoWriter()
+    .bool(1, setting.enabled === true)
+    .string(2, stringValue(setting.smtpHost))
+    .int32(3, numberValue(setting.smtpPort))
+    .string(4, stringValue(setting.smtpUsername))
+    .string(6, stringValue(setting.fromEmail))
+    .string(7, stringValue(setting.fromName))
+    .string(8, stringValue(setting.replyTo))
+    .bool(9, setting.useTls === true)
+    .bool(10, setting.useSsl === true)
+    .finish();
+}
+
+function encodeInstanceStats(value: unknown) {
+  const stats = asRecord(value);
+  const database = asRecord(stats.database);
+  return new ProtoWriter()
+    .message(
+      1,
+      new ProtoWriter()
+        .string(1, stringValue(database.driver))
+        .int64(2, database.sizeBytes)
+        .finish(),
+    )
+    .int64(2, stats.localStorageBytes)
+    .message(4, encodeTimestamp(stats.generatedTime))
+    .finish();
+}
+
+function encodeIdentityProvider(value: unknown) {
+  const provider = asRecord(value);
+  const config = asRecord(provider.config);
+  const oauth = asRecord(config.config).value;
+  const oauthConfig = asRecord(oauth);
+  const configCase = asRecord(config.config).case;
+  const writer = new ProtoWriter()
+    .string(1, stringValue(provider.name))
+    .int32(2, provider.type === "OAUTH2" ? 1 : 0)
+    .string(3, stringValue(provider.title))
+    .string(4, stringValue(provider.identifierFilter));
+  if (configCase === "oauth2Config") {
+    writer.message(
+      5,
+      new ProtoWriter()
+        .message(
+          1,
+          new ProtoWriter()
+            .string(1, stringValue(oauthConfig.clientId))
+            .string(2, stringValue(oauthConfig.clientSecret))
+            .string(3, stringValue(oauthConfig.authUrl))
+            .string(4, stringValue(oauthConfig.tokenUrl))
+            .string(5, stringValue(oauthConfig.userInfoUrl))
+            .repeatedStrings(6, strings(oauthConfig.scopes))
+            .message(7, encodeFieldMapping(oauthConfig.fieldMapping))
+            .finish(),
+        )
+        .finish(),
+    );
+  }
+  return writer.finish();
+}
+
+function encodeFieldMapping(value: unknown) {
+  const mapping = asRecord(value);
+  return new ProtoWriter()
+    .string(1, stringValue(mapping.identifier))
+    .string(2, stringValue(mapping.displayName))
+    .string(3, stringValue(mapping.email))
+    .string(4, stringValue(mapping.avatarUrl))
     .finish();
 }
 
@@ -675,10 +1940,12 @@ function encodeList(
   value: unknown,
   encoder: (value: unknown) => Uint8Array,
   nextPageToken?: unknown,
+  totalSize?: unknown,
 ) {
   return new ProtoWriter()
     .repeatedMessages(1, records(value), encoder)
     .string(2, stringValue(nextPageToken))
+    .int32(3, numberValue(totalSize))
     .finish();
 }
 
@@ -705,6 +1972,36 @@ function visibilityValue(value: unknown) {
   if (value === "PRIVATE") return 1;
   if (value === "PROTECTED") return 2;
   if (value === "PUBLIC") return 3;
+  return 0;
+}
+
+function userRoleName(value: number) {
+  if (value === 2) return "ADMIN";
+  if (value === 3) return "USER";
+  return "ROLE_UNSPECIFIED";
+}
+
+function notificationStatusName(value: number) {
+  if (value === 1) return "UNREAD";
+  if (value === 2) return "ARCHIVED";
+  return "STATUS_UNSPECIFIED";
+}
+
+function notificationStatusValue(value: unknown) {
+  if (value === "UNREAD") return 1;
+  if (value === "ARCHIVED") return 2;
+  return 0;
+}
+
+function notificationTypeName(value: number) {
+  if (value === 1) return "MEMO_COMMENT";
+  if (value === 2) return "MEMO_MENTION";
+  return "TYPE_UNSPECIFIED";
+}
+
+function notificationTypeValue(value: unknown) {
+  if (value === "MEMO_COMMENT") return 1;
+  if (value === "MEMO_MENTION") return 2;
   return 0;
 }
 
@@ -793,10 +2090,23 @@ class ProtoWriter {
     return this;
   }
 
-  int32(field: number, value: number) {
-    if (!Number.isFinite(value) || value === 0) return this;
+  int32(field: number, value: number | undefined) {
+    if (value === undefined || !Number.isFinite(value) || value === 0)
+      return this;
     this.tag(field, 0);
     this.varint(Math.trunc(value));
+    return this;
+  }
+
+  mapStringInt32(field: number, value: ProtoMessage) {
+    for (const [key, rawValue] of Object.entries(value)) {
+      const parsed = typeof rawValue === "number" ? rawValue : Number(rawValue);
+      if (!Number.isFinite(parsed)) continue;
+      this.message(
+        field,
+        new ProtoWriter().string(1, key).int32(2, parsed).finish(),
+      );
+    }
     return this;
   }
 
@@ -884,6 +2194,10 @@ class ProtoReader {
 
   int32(wire: number) {
     return Number(this.varint(wire));
+  }
+
+  int64(wire: number) {
+    return this.varint(wire).toString();
   }
 
   bool(wire: number) {

@@ -484,14 +484,22 @@ describe("Memos-compatible API contract", () => {
       { authenticated: false },
     );
     expect(currentOpenapi.status).toBe(200);
-    expect(await currentOpenapi.json()).toMatchObject({
+    const currentOpenapiBody = await currentOpenapi.json();
+    expect(currentOpenapiBody).toMatchObject({
       info: { title: "FlareMo current Memos-compatible API" },
       paths: {
         "/api/v1/auth/signin": expect.any(Object),
         "/api/v1/memos": expect.any(Object),
+        "/memos.api.v1.MemoService/GetMemoByShare": expect.any(Object),
+        "/memos.api.v1.AttachmentService/ListAttachments": expect.any(Object),
+        "/memos.api.v1.InstanceService/GetInstanceProfile": expect.any(Object),
         "/mcp": expect.any(Object),
       },
     });
+    expect(
+      currentOpenapiBody.paths["/memos.api.v1.MemoService/GetMemo"].post
+        .security,
+    ).toEqual(expect.arrayContaining([{}]));
 
     const legacyOpenapi = await fetchApp(
       "http://flaremo.test/openapi.json",
@@ -1156,8 +1164,10 @@ describe("Memos-compatible API contract", () => {
       undefined,
       { authenticated: false },
     );
-    expect(unauthenticated.status).toBe(401);
-    expect(await unauthenticated.json()).toMatchObject({ code: 16 });
+    expect(unauthenticated.status).toBe(200);
+    expect(await unauthenticated.json()).toMatchObject({
+      memos: expect.any(Array),
+    });
   });
 
   it("clears the cookie session when current signout receives both credentials", async () => {

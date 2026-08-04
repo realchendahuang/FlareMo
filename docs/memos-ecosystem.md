@@ -1,117 +1,129 @@
 # Memos 生态兼容记录
 
-FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。当前工作树已经提供 Better Auth-backed identity、Memos-style HS256 access JWT/rotating `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT 资源、Connect JSON/protobuf/gRPC-Web unary 子集、D1 outbox/cursor replay SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
-
-生产实例迁移期建议放在 Cloudflare Access 后面。第三方工具访问私有 FlareMo 时，必须满足应用层认证：
-
-```text
-Authorization: Bearer memos_pat_...
-```
-
-如果外层仍启用 Cloudflare Access，还必须额外发送：
-
-```text
-CF-Access-Client-Id
-CF-Access-Client-Secret
-```
-
-Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 用户 session；不能发送应用层 `Authorization` 的工具无法访问私有 API，除非使用额外代理层。公开分享仍只依赖 share token、过期和 memo 状态校验。
-
-## Origin 安全契约
-
-浏览器 cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须携带 `Origin`，并精确命中 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；缺失或不匹配返回 `403`。桌面脚本、MCP 和其他非浏览器客户端使用 PAT 时可以不发送 Origin；若 PAT 请求主动携带 Origin，也必须命中同一 allowlist，否则返回 `403`。不使用 wildcard、`Referer` 或 Access headers 替代 Origin。
-
-这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 模型方向一致，只说明安全边界相似。FlareMo 的 current wire 是当前已实现的兼容子集；它不等于完整 Memos 协议或完整服务端 parity。
+FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。本文把“代码已接入”“仓库 contract 已测试”“源码静态审计”和“真实客户端 smoke”分开记录，不把“接口长得像”当成“已经兼容”。截至本次快照，FlareMo 已有 Better Auth-backed identity、Memos 风格 HS256 access JWT/轮换 `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT、Connect/protobuf/gRPC-Web unary 子集、D1 outbox/cursor replay SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
 
 ## 状态定义
 
 | 状态 | 含义 |
 | --- | --- |
-| 可用 | 已连接 FlareMo，并用 cookie session 或 `memos_pat_` PAT 完成核心读写路径；如生产启用 Access，还验证了两层认证。 |
-| 部分可用 | 核心路径有一部分可用，或只验证了 Access 外层而没有验证应用层 PAT。 |
-| 不支持 | 当前客户端能力或认证模型与 FlareMo 不匹配。 |
-| 未测 | 只完成资料收集，还没有实际连接 FlareMo。 |
+| 已实现 | FlareMo 当前工作树有对应 route/domain handler。 |
+| 已测试（仓库契约） | FlareMo 自己的测试以 Miniflare/Worker 或纯 codec 断言了行为；不是外部客户端已连接。 |
+| 仅静态审计 | 阅读了上游 proto/generated client 或第三方客户端源码，推断潜在兼容面；没有真实请求 FlareMo。 |
+| 未测 | 没有足够的源码结论或真实连接记录，不能判断可用。 |
+| 未实现 | FlareMo 没有 handler，或明确返回 `501`。 |
 
-## 已验证工具和脚本
+本文中的“可用”只用于 FlareMo 自己的 contract surface。第三方工具在没有实际请求记录前，一律不能标记为“可用”。
 
-这些条目已经由仓库自动化测试覆盖，可以作为脚本和工具接入 FlareMo 的当前事实基线。
+## 应用层认证和 Access 边界
 
-| 工具 / 路径 | 类型 | 测试版本 | 请求路径 | 应用层认证 | 当前状态 | 证据 |
-| --- | --- | --- | --- | --- | --- | --- |
-| curl / HTTP script | 通用脚本 | 当前工作树 | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | `memos_pat_`；Access 开启时再加 Access headers | 可用（Worker contract） | `apps/worker/src/auth.test.ts` 和 `apps/worker/src/api.test.ts` 覆盖 cookie、PAT、memo CRUD、分页、搜索、附件、分享、revisions、export/import。 |
-| current REST script | 通用脚本 | 当前工作树 | `/api/v1/auth/*`、`/api/v1/memos`、`/api/v1/memos/{memo}/comments`、`reactions`、`/api/v1/users/*/shortcuts`、`/api/v1/attachments`、`/api/v1/shares/*` | Better Auth cookie/session bearer、native Memos access JWT 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（FlareMo contract） | `apps/worker/src/memos-compatibility.test.ts`、`memos-social.test.ts` 覆盖 current DTO、enum、updateMask、PAT、native JWT claims/rotation、social 资源、标准错误和匿名 share read；不是第三方客户端 smoke。 |
-| OpenAPI consumers | API schema 工具 | 当前工作树 | `/openapi.json` | OpenAPI 描述可公开读取；私有 API 请求需 PAT | 可用（schema surface） | `apps/worker/src/memos-compatibility.test.ts` 断言默认 current OpenAPI 和显式 legacy OpenAPI。 |
-| FlareMo legacy MCP endpoint | MCP 客户端 | 当前工作树 | `/api/v1/mcp` | `memos_pat_`；Access 开启时再加 Access headers | 部分可用（旧式 JSON-RPC） | `apps/worker/src/auth.test.ts` 覆盖 PAT `tools/list`；保留给已有 FlareMo 客户端。 |
-| FlareMo current MCP endpoint | MCP 客户端 | 当前工作树 | `/mcp` | Better Auth cookie/session bearer、native Memos access JWT 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（stateless protocol subset） | `apps/worker/src/mcp-streamable.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、memo/social/attachment tool calls 和工具错误 envelope；未验证所有第三方 MCP client。 |
-| Connect / protobuf client | HTTP unary client | 当前工作树 | `/memos.api.v1/{Service}/{Method}` | Cookie session、native Memos access JWT 或 `memos_pat_`；`GetSharedMemo` 和 link metadata 可匿名 | 部分可用（当前 service/transport subset） | 支持 `application/json`、`application/proto`、`application/grpc+proto`、`application/grpc-web+proto`、`application/grpc-web-text+proto`；覆盖 Memo/Auth/Shortcut 的明确 unary 方法集、comments/reactions/shares 和 link metadata；完整 gRPC metadata/trailer、压缩/streaming、其他 service 和第三方 Connect client 仍未测。 |
-| Memos SSE consumer | SSE client | 当前工作树 | `/api/v1/sse` | Cookie session、native Memos access JWT 或 `memos_pat_` | 部分可用（D1 outbox/replay subset） | Worker contract 覆盖 authenticated stream、connected/heartbeat、`id`/`Last-Event-ID` replay、private/public visibility filter 和 cancellation；当前使用 D1 polling，事件集有限，第三方消费端未测。 |
-| FlareMo Telegram Worker example | Telegram Bot | 当前工作树 | Telegram webhook -> `/api/v1/memos` | 必须使用 PAT；Access headers 仅在生产仍启用 Access 时成对追加 | contract-tested subset | Worker tests cover PAT-only native auth, optional Access headers, fail-closed secret configuration, and webhook validation；不等于真实 Telegram/生产 smoke。 |
-| Public share reader | 浏览器 / curl | 当前工作树 | `/share/*`、`/api/public/shares/*` | 不需要 session/PAT；Access 开启时需 bypass | 可用（share contract） | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
+应用层使用 Better Auth；Cloudflare Access 是可选的外层 policy，不是 FlareMo 用户身份。
 
-## 第三方客户端待测矩阵
+```text
+浏览器：Better Auth username/password -> HttpOnly cookie session
+脚本 / Memos-compatible client / MCP：Authorization: Bearer memos_pat_...
+可选外层：Cloudflare Access Service Token -> 仍需上面的 FlareMo 应用凭据
+```
 
-这些条目还没有实际连接 FlareMo，不能写成支持。
+如果生产实例仍放在 Cloudflare Access 后面，机器客户端需要同时满足 Access policy 和 FlareMo 应用层认证：
 
-| 工具 | 类型 | 仓库 | 待测版本 | 是否支持自定义 header | 是否可发送 PAT | 当前状态 | 需要验证的请求路径 / 下一步 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| memos-desktop | 桌面客户端 | https://github.com/xudaolong/memos-desktop | 待测 | 未确认 | 未确认 | 未测 | 验证 API base URL、PAT 配置/注入、memo CRUD；若 Access 开启，再验证双层 headers。 |
-| memos_wmp | 微信小程序 | https://github.com/Rabithua/memos_wmp | 待测 | 未确认 | 未确认 | 未测 | 验证网络层是否允许添加 `Authorization` PAT 和可选 Access headers。 |
-| memoflow | 移动端客户端 | https://github.com/hzc073/memoflow | 待测 | 未确认 | 未确认 | 未测 | 验证登录模型、PAT/API base URL、memo CRUD 和附件路径。 |
-| telegramMemoBot | 第三方 Telegram bot | https://github.com/qazxcdswe123/telegramMemoBot | 待测 | 未确认 | 未确认 | 未测 | 验证是否支持 FlareMo `memos_pat_`，不能只验证 Cloudflare Access headers。 |
-| Dynos | 移动端客户端 | https://github.com/HonKLam/Dynos | 待测 | 未确认 | 未确认 | 未测 | 验证离线同步和 FlareMo API 子集的重叠范围。 |
-| mcp-server-memos | MCP server | https://github.com/LeslieLeung/mcp-server-memos | 待测 | 未确认 | 未确认 | 未测 | FlareMo 自带 MCP endpoint；仍可验证外部 MCP server 是否能作为兼容客户端使用。 |
-| memos-raycast | Raycast extension | https://github.com/JakeLaoyu/memos-raycast | 待测 | 未确认 | 未确认 | 未测 | 验证 Raycast preferences 是否能配置 PAT；若 Access 开启，再验证 Access headers。 |
-| memos-extensions | 浏览器插件 | https://github.com/yozi9257/memos-extensions | 待测 | 未确认 | 未确认 | 未测 | 验证扩展权限、header 注入和创建 memo 路径。 |
-| notum | 离线优先笔记 | https://github.com/nikita-popov/notum | 待测 | 未确认 | 未确认 | 未测 | 验证同步协议是否只依赖 FlareMo 已支持的 `/api/v1` 子集。 |
+```text
+CF-Access-Client-Id: ...
+CF-Access-Client-Secret: ...
+Authorization: Bearer memos_pat_...
+```
 
-## 验证标准
+Access Service Token 不会自动变成 FlareMo 用户 session；不能发送应用层 `Authorization` 的工具不能访问私有 API，除非增加明确的代理层。公开 share 仍只依赖 FlareMo 的 share token、过期时间和 memo 状态校验。
 
-一个客户端标记为“可用”前，至少要完成：
+浏览器 cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须携带 `Origin`，并精确命中 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；缺失或不匹配返回 `403`。PAT 的桌面脚本、MCP 请求可以没有 Origin；若主动携带 Origin，也必须命中同一 allowlist。不能用 wildcard、`Referer` 或 Access headers 替代 Origin。
 
-- 配置 FlareMo base URL。
-- 用 cookie session 或 `memos_pat_` PAT 访问应用层；若通过受保护生产实例，再加 Cloudflare Access Service Token。
-- 验证 cookie session 的状态变更带 trusted Origin；缺失或不可信 Origin 返回 `403`。
-- 验证无 Origin 的 PAT 桌面/脚本/MCP 请求可以工作；带未授权 Origin 的 PAT 请求返回 `403`。
-- 不要把只通过 Cloudflare Access headers 当成应用层兼容证据。
-- 记录客户端名称、版本、测试日期、FlareMo version 或 commit。
-- 创建 memo。
-- 列出 memo。
-- 编辑 memo。
-- 删除或归档 memo。
-- 如果客户端支持附件，验证上传和下载。
-- 如果客户端支持分享，验证创建分享和公开读取。
-- 记录部署方式、已知缺口和是否需要代理层。
+这与 [Memos MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全方向相似，但只说明安全边界相似，不说明 FlareMo 已达到完整 Memos 协议或 server parity。
 
-## 记录模板
+## FlareMo 自己的已实现 / 已测试 surface
+
+| 工具或路径 | 类型 | FlareMo 状态 | 仓库测试证据 | 外部客户端结论 |
+| --- | --- | --- | --- | --- |
+| current REST script / curl | 通用 HTTP 脚本 | 已实现 | `memos-compatibility.test.ts`、`memos-social.test.ts`、`auth.test.ts` 覆盖 current DTO、memo/attachment/share、social、PAT、native auth、Origin 和标准错误；`memos-auth-golden.test.ts` 固定验证 FlareMo 自己的 JWT/refresh bytes。 | 已测试的是 FlareMo contract；没有独立客户端或线上实例 smoke，也不证明上游 token parity。 |
+| legacy REST script / curl | 兼容迁移脚本 | 已实现 | current/legacy OpenAPI 和 wire negotiation 有测试。 | 未对历史第三方脚本逐一重放。 |
+| generic Connect JSON client | HTTP unary client | 已实现子集 | `memos-transport.test.ts` 覆盖 Memo/Shortcut 及部分 Auth、Attachment/User/Instance/IdentityProvider JSON RPC。 | 尚未使用官方 generated Connect client 连接。 |
+| generic protobuf / gRPC-style client | HTTP binary client | 已实现子集 | `memos-protobuf.test.ts`、`memos-transport.test.ts` 覆盖 media type、部分 upstream field number、unary framing、gRPC-Web/text 和 error status。 | response 多数只做 frame/字节断言；generated schema roundtrip 未测。 |
+| FlareMo current MCP endpoint | MCP client | 已实现子集 | `mcp-streamable.test.ts`、`memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、`tools/call` 和工具错误 envelope。 | 根 `/mcp` 是无状态 JSON 子集；未测所有第三方 MCP client。 |
+| FlareMo legacy MCP endpoint | 旧 MCP JSON-RPC | 已实现子集 | `mcp-streamable.test.ts` 和 `auth.test.ts` 覆盖旧工具名/PAT 边界。 | 不能从旧 endpoint 推断完整 Memos MCP 兼容。 |
+| FlareMo SSE consumer | EventSource / SSE client | 已实现子集 | `memos-transport.test.ts` 覆盖 authenticated stream、connected/heartbeat、`Last-Event-ID` replay、visibility 和 cancellation。 | D1 polling 实现，未做第三方 EventSource smoke。 |
+| FlareMo Telegram Worker example | Telegram webhook adapter | 已实现示例 | `apps/telegram-bot/src/index.test.ts` 覆盖 PAT-only、可选 Access headers、secret 校验和 fail-closed。 | 不是真实 Telegram API 或生产 FlareMo smoke。 |
+| public share reader | 浏览器 / curl | 已实现 | `memos-compatibility.test.ts`、`api.test.ts` 覆盖 share token 隔离、撤销、过期/状态和附件读取。 | 仍需在实际部署域名上验证 Access bypass 规则；不绕过 FlareMo share 校验。 |
+
+## 官方 Memos Web：仅静态审计
+
+当前本地参考快照 `Temp/memos` 的 Web 代码和 generated proto client 已被用于协议面静态审计，不能作为真实互通证据。审计得到的关键事实是：
+
+- 官方 Web 使用 8 类 generated Connect client：Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI。
+- `connect.ts` 选择 binary format，并使用 `credentials: include`；认证生命周期包含 bearer access token、refresh cookie、Unauthenticated 后 refresh/retry。
+- 因此仅有 Connect JSON 或“HTTP 返回 200”不够；必须把 Attachment/User/Instance 等 response 交给同一 generated client 解码，并真实验证 refresh、signout、memo CRUD 和附件路径。
+
+当前结论：`仅静态审计`，没有官方 Web 指向 FlareMo 的真实请求、客户端版本记录或 smoke 结果。FlareMo 的手写 protobuf codec 仍有字段和 transport 边界，不能宣称官方 Web 已兼容。
+
+## 第三方客户端矩阵
+
+下面的“仅静态审计”表示从客户端源码、README 或依赖关系得到的候选结论，不代表已安装、已配置或已连接 FlareMo。
+
+| 工具 | 类型 | 仓库 | 当前证据级别 | 静态审计结论 | 真实状态 / 下一步 |
+| --- | --- | --- | --- | --- | --- |
+| `memos-extensions` | 浏览器插件 | https://github.com/yozi9257/memos-extensions | 仅静态审计 | 看起来走 modern REST，是最高优先级的 PAT/header 注入候选。 | 未测；先验证扩展权限、`Authorization` 注入、创建/列表 memo。 |
+| `memoflow` | Flutter / 移动端 | https://github.com/hzc073/memoflow | 仅静态审计 | 看起来依赖 modern REST/PAT，适合验证移动端基本 CRUD。 | 未测；需要 Flutter 环境和实际 base URL/PAT。 |
+| `notum` | 离线优先笔记 | https://github.com/nikita-popov/notum | 仅静态审计 | 看起来使用 modern REST/PAT；同步协议和附件行为仍需实连。 | 未测；先验证同步、冲突和附件路径。 |
+| `Dynos` | 移动端客户端 | https://github.com/HonKLam/Dynos | 仅静态审计 | 静态上存在 updateMask、connection check 等与 FlareMo 子集可能不一致的点。 | 未测；先记录第一条失败请求，不把静态 mismatch 直接写成“不支持”。 |
+| `memos_wmp` | 微信小程序 | https://github.com/Rabithua/memos_wmp | 仅静态审计 | 是否能注入 `Authorization` PAT 和自定义 Access headers 尚未证明。 | 未测；需要微信网络层和 header 能力验证。 |
+| `telegramMemoBot` | 第三方 Telegram bot | https://github.com/qazxcdswe123/telegramMemoBot | 仅静态审计 | 不能只验证 Cloudflare Access；必须确认它能使用 `memos_pat_` 或增加明确代理。 | 未测；区分该项目和 FlareMo 自带 Telegram Worker example。 |
+| `memos-raycast` | Raycast extension | https://github.com/JakeLaoyu/memos-raycast | 仅静态审计 | preferences、API base URL 和 PAT/header 注入需要实际检查。 | 未测；先验证创建/列表/删除 memo。 |
+| `mcp-server-memos` | 外部 MCP server | https://github.com/LeslieLeung/mcp-server-memos | 仅静态审计 | 它是另一个 adapter/server，不能从 FlareMo 自带 `/mcp` 推断互相兼容。 | 未测；验证其作为客户端连接 FlareMo 的 endpoint、认证和工具映射。 |
+| `memos-desktop` | 桌面客户端 | https://github.com/xudaolong/memos-desktop | 仅静态审计 | 默认启动自己的内置 Memos 的路径不能代表远程 FlareMo 连接。 | 未测；需要显式 API base URL、PAT 和远程 CRUD 配置。 |
+
+目前没有第三方条目可以标记为“可用”。“modern REST/PAT 候选”只表示值得优先 smoke，不是兼容承诺。
+
+## 服务器侧明确未实现或不应误判为兼容
+
+- 不是完整 Memos Server parity；不能把 current REST、Connect JSON、手写 protobuf 或 `/mcp` 子集合并成“完整兼容”。
+- `AIService/Transcribe`、Instance email test、OAuth2/IdentityProvider CRUD、User create/delete、linked identity CRUD、webhook CRUD、notification update/delete 当前明确未实现或返回 `501`。
+- User/Instance/Attachment 的部分方法虽然已经接入 route，但没有完整 generated-client binary roundtrip；不能把“JSON handler 存在”写成 binary 客户端可用。
+- public memo read 已接入 current REST 和 Connect 的明确 viewer policy：匿名只读 `PUBLIC + NORMAL`，private/protected/archived/trashed/deleted 不可见；comments、relations、attachments、reactions 会先检查 parent/read visibility。公开 share 仍是独立 token 入口，不等于普通 memo public ACL。
+- 没有完整 CEL、复杂分页/排序、全部 protobuf 字段、metadata/trailer、压缩、streaming、gRPC-Web trailer frame 或原生 HTTP/2 gRPC parity。
+- SSE 是 D1 outbox/polling/replay，不是上游 SSEHub；没有完整事件集、retention/pruning 和第三方 EventSource 实测。
+- 根 `/mcp` 没有有状态 MCP session，不承诺 SSE transport 或所有 MCP client 的 method surface。
+
+## 真实客户端标记为“可用”的验收标准
+
+在没有下列证据前，状态保持“未测”或“仅静态审计”：
+
+- 客户端仓库、commit/tag、测试日期和 FlareMo commit。
+- 实际配置 FlareMo base URL，并说明是 local、unprotected test 还是 protected production。
+- 用 cookie session 或 `memos_pat_` 完成应用层认证；生产启用 Access 时同时验证 Access Service Token。
+- 验证 cookie 状态变更的 trusted Origin；验证 PAT 无 Origin 可以工作，未授权 Origin 返回 `403`。
+- 至少完成 create、list、edit、archive/delete memo；客户端支持时再完成 attachment 和 share。
+- 记录实际请求 endpoint、HTTP/media type、认证方式、第一条失败请求、响应和已知缺口。
+
+## 实测记录模板
 
 ```markdown
 ### <client name>
 
-- 客户端版本：
+- 客户端版本 / commit：
 - FlareMo version / commit：
+- 测试日期：
 - 部署方式：local / protected production / unprotected test
-- 应用层 PAT：required / not required / unsupported
+- 应用层认证：cookie / memos_pat_ / unsupported
 - Access Service Token：required / not required / unsupported
-- 请求路径：
-- 结果：可用 / 部分可用 / 不支持
+- 实际请求路径和 media type：
+- 结果：已测试可用 / 部分可用 / 不支持 / 未测
 - 已验证：
+  - sign in / refresh / sign out:
   - create memo:
   - list memo:
   - edit memo:
   - archive/delete memo:
   - attachment:
   - share:
+- 第一条失败请求：
 - 缺口：
 ```
 
-## 当前自动化覆盖
-
-仓库里的 Memos 兼容测试覆盖 FlareMo 自己的 API contract：
-
-- `packages/memos/src/adapter.test.ts`
-- `apps/worker/src/memos-compatibility.test.ts`
-- `apps/worker/src/api.test.ts`
-
-这些测试证明 FlareMo 自己的 current/legacy 公开子集、Better Auth 认证边界、Connect/protobuf unary transport、有限 SSE cursor replay 和无状态 `/mcp` 协议切片，但不能替代真实 Memos 客户端兼容测试，也不能证明完整 Memos Server parity。真实客户端结果必须回写到本文；在没有实际连接、版本和日期证据前，第三方客户端保持“未测”。
-
-当前已知的 transport 兼容边界：binary error body 只提供简化 `google.rpc.Status`，没有完整 gRPC trailer/metadata；只接受单个未压缩 unary frame；没有 AttachmentService、UserService、InstanceService、AIService、IdentityProviderService 等完整上游 service；link metadata 只抓取受限 Open Graph surface，并受 SSRF/redirect/HTML 大小限制。生产环境还应控制 Worker 外连策略，以补足域名解析后的 DNS rebinding 风险。
+真实客户端结果必须写回本文；在没有版本、日期和请求证据前，不能把静态审计结论升级为“生态兼容”。

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   decodeBinaryRequest,
+  decodeBinaryResponse,
   detectBinaryTransport,
+  encodeBinaryError,
   encodeBinaryResponse,
 } from "./memos-protobuf";
 
@@ -57,5 +59,149 @@ describe("Memos protobuf transport", () => {
     expect(bytes[0]).toBe(0);
     expect(new DataView(bytes.buffer).getUint32(1)).toBe(bytes.length - 5);
     expect(new TextDecoder().decode(bytes)).toContain("memos/one");
+  });
+
+  it("uses upstream service field numbers for attachment and user requests", () => {
+    const content = Uint8Array.from([1, 2, 3]);
+    const attachment = Uint8Array.from([
+      0x1a,
+      5,
+      ...new TextEncoder().encode("a.txt"),
+      0x22,
+      content.length,
+      ...content,
+      0x32,
+      10,
+      ...new TextEncoder().encode("text/plain"),
+    ]);
+    const request = Uint8Array.from([0x0a, attachment.length, ...attachment]);
+    expect(
+      decodeBinaryRequest(
+        "memos.api.v1.AttachmentService",
+        "CreateAttachment",
+        request,
+        "connect-proto",
+      ),
+    ).toEqual({
+      attachment: {
+        filename: "a.txt",
+        content,
+        type: "text/plain",
+      },
+    });
+
+    const userName = new TextEncoder().encode("users/owner");
+    expect(
+      decodeBinaryRequest(
+        "memos.api.v1.UserService",
+        "GetUser",
+        Uint8Array.from([0x0a, userName.length, ...userName]),
+        "connect-proto",
+      ),
+    ).toEqual({ name: "users/owner" });
+  });
+
+  it("keeps protobuf error status code aligned with the transport status", () => {
+    expect(
+      Array.from(encodeBinaryError("unauthenticated", "connect-proto", 16)),
+    ).toEqual([
+      0x08,
+      0x10,
+      0x12,
+      15,
+      ...new TextEncoder().encode("unauthenticated"),
+    ]);
+  });
+
+  it("decodes unary responses for the expanded service subset", () => {
+    const attachmentResponse = encodeBinaryResponse(
+      "memos.api.v1.AttachmentService",
+      "ListAttachments",
+      {
+        attachments: [
+          {
+            name: "attachments/one",
+            filename: "one.txt",
+            type: "text/plain",
+            size: "3",
+            memo: "memos/one",
+          },
+        ],
+        totalSize: 1,
+      },
+      "grpc-web-proto",
+    );
+    expect(
+      decodeBinaryResponse(
+        "memos.api.v1.AttachmentService",
+        "ListAttachments",
+        attachmentResponse as Uint8Array,
+        "grpc-web-proto",
+      ),
+    ).toMatchObject({
+      attachments: [
+        {
+          name: "attachments/one",
+          filename: "one.txt",
+          type: "text/plain",
+          size: "3",
+          memo: "memos/one",
+        },
+      ],
+      totalSize: 1,
+    });
+
+    const settingsResponse = encodeBinaryResponse(
+      "memos.api.v1.InstanceService",
+      "BatchGetInstanceSettings",
+      {
+        settings: [
+          {
+            name: "instance/settings/GENERAL",
+            value: {
+              case: "generalSetting",
+              value: { disallowUserRegistration: true },
+            },
+          },
+        ],
+      },
+      "grpc-web-text-proto",
+    );
+    expect(
+      decodeBinaryResponse(
+        "memos.api.v1.InstanceService",
+        "BatchGetInstanceSettings",
+        new TextEncoder().encode(settingsResponse as string),
+        "grpc-web-text-proto",
+      ),
+    ).toEqual({
+      settings: [
+        {
+          name: "instance/settings/GENERAL",
+          value: {
+            case: "generalSetting",
+            value: { disallowUserRegistration: true },
+          },
+        },
+      ],
+    });
+
+    const usersResponse = encodeBinaryResponse(
+      "memos.api.v1.UserService",
+      "ListUsers",
+      { users: [{ name: "users/owner", username: "owner" }], totalSize: 1 },
+      "connect-proto",
+    );
+    expect(
+      decodeBinaryResponse(
+        "memos.api.v1.UserService",
+        "ListUsers",
+        usersResponse as Uint8Array,
+        "connect-proto",
+      ),
+    ).toMatchObject({
+      users: [{ name: "users/owner", username: "owner" }],
+      totalSize: 1,
+    });
   });
 });

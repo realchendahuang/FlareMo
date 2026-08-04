@@ -158,6 +158,67 @@ describe("Memos native auth and transport boundaries", () => {
   });
 
   it("serves the canonical Connect JSON unary subset and authenticated SSE stream", async () => {
+    const publicProfile = await request(
+      "/memos.api.v1.InstanceService/GetInstanceProfile",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+    expect(publicProfile.status).toBe(200);
+    const publicProfileBody = (await publicProfile.json()) as {
+      needsSetup: boolean;
+      admin?: { email?: string };
+    };
+    expect(publicProfileBody).toMatchObject({ needsSetup: false });
+    expect(publicProfileBody.admin?.email).toBeUndefined();
+    const publicProviders = await request(
+      "/memos.api.v1.IdentityProviderService/ListIdentityProviders",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+    expect(publicProviders.status).toBe(200);
+    expect(await publicProviders.json()).toEqual({ identityProviders: [] });
+    const publicSensitiveSettings = await request(
+      "/memos.api.v1.InstanceService/BatchGetInstanceSettings",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ names: ["instance/settings/STORAGE"] }),
+      },
+    );
+    expect(publicSensitiveSettings.status).toBe(401);
+    const publicWithWrongBearerOrigin = await request(
+      "/memos.api.v1.InstanceService/GetInstanceProfile",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          origin: "https://untrusted.example",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({}),
+      },
+    );
+    expect(publicWithWrongBearerOrigin.status).toBe(403);
+    const publicWithWrongCookieOrigin = await request(
+      "/memos.api.v1.InstanceService/GetInstanceProfile",
+      {
+        method: "POST",
+        headers: {
+          cookie: sessionCookie,
+          origin: "https://untrusted.example",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({}),
+      },
+    );
+    expect(publicWithWrongCookieOrigin.status).toBe(403);
+
     const connectPath = "/memos.api.v1.MemoService/CreateMemo";
     const unsupported = await request(connectPath, {
       method: "POST",
@@ -194,6 +255,55 @@ describe("Memos native auth and transport boundaries", () => {
     expect(created).toMatchObject({
       name: expect.stringMatching(/^memos\//),
       content: "Connect JSON memo",
+    });
+
+    const publicMemo = await connect("CreateMemo", {
+      memo: { content: "Connect public memo", visibility: "PUBLIC" },
+    });
+    const publicComment = await connect("CreateMemoComment", {
+      name: publicMemo.name,
+      comment: { content: "Public comment" },
+    });
+    const anonymousCurrentList = await request("/api/v1/memos");
+    expect(anonymousCurrentList.status).toBe(200);
+    const anonymousCurrentListBody = (await anonymousCurrentList.json()) as {
+      memos: Array<{ name: string }>;
+    };
+    expect(anonymousCurrentListBody.memos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: publicMemo.name }),
+      ]),
+    );
+    expect(anonymousCurrentListBody.memos).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: created.name })]),
+    );
+    const anonymousConnectMemo = await request(
+      "/memos.api.v1.MemoService/GetMemo",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: publicMemo.name }),
+      },
+    );
+    expect(anonymousConnectMemo.status).toBe(200);
+    expect(await anonymousConnectMemo.json()).toMatchObject({
+      name: publicMemo.name,
+    });
+    const anonymousConnectPrivate = await request(
+      "/memos.api.v1.MemoService/GetMemo",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: created.name }),
+      },
+    );
+    expect(anonymousConnectPrivate.status).toBe(404);
+    const anonymousComments = await request(
+      `/api/v1/${publicMemo.name}/comments`,
+    );
+    expect(anonymousComments.status).toBe(200);
+    expect(await anonymousComments.json()).toMatchObject({
+      memos: [expect.objectContaining({ name: publicComment.name })],
     });
 
     const listed = await connect("ListMemos", {
@@ -307,7 +417,78 @@ describe("Memos native auth and transport boundaries", () => {
     });
     expect(shared.status).toBe(200);
     expect(await shared.json()).toMatchObject({ name: created.name });
+    const canonicalShared = await request(
+      "/memos.api.v1.MemoService/GetMemoByShare",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ shareId: shareToken }),
+      },
+    );
+    expect(canonicalShared.status).toBe(200);
+    expect(await canonicalShared.json()).toMatchObject({ name: created.name });
     await connect("DeleteMemoShare", { name: share.name });
+
+    const profile = await connectService(
+      "InstanceService",
+      "GetInstanceProfile",
+      {},
+    );
+    expect(profile).toMatchObject({
+      demo: false,
+      needsSetup: false,
+      admin: { name: "users/owner" },
+    });
+    const instanceSettings = await connectService(
+      "InstanceService",
+      "BatchGetInstanceSettings",
+      {
+        names: ["instance/settings/GENERAL", "instance/settings/MEMO_RELATED"],
+      },
+    );
+    expect(instanceSettings.settings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "instance/settings/GENERAL",
+          value: expect.objectContaining({ case: "generalSetting" }),
+        }),
+      ]),
+    );
+
+    const listedUsers = await connectService("UserService", "ListUsers", {});
+    expect(listedUsers).toMatchObject({
+      users: [expect.objectContaining({ name: "users/owner" })],
+      totalSize: 1,
+    });
+    const userSettings = await connectService(
+      "UserService",
+      "ListUserSettings",
+      {
+        parent: "users/owner",
+      },
+    );
+    expect(userSettings.settings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "users/owner/settings/GENERAL" }),
+      ]),
+    );
+    const providers = await connectService(
+      "IdentityProviderService",
+      "ListIdentityProviders",
+      {},
+    );
+    expect(providers).toEqual({ identityProviders: [] });
+
+    const connectAttachments = await connectService(
+      "AttachmentService",
+      "ListAttachments",
+      { pageSize: 10 },
+    );
+    expect(connectAttachments.attachments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: attachmentBody.name }),
+      ]),
+    );
 
     const invalidLink = await request(
       "/memos.api.v1.MemoService/GetLinkMetadata",
@@ -453,6 +634,17 @@ describe("Memos native auth and transport boundaries", () => {
     });
     expect(compressed.status).toBe(400);
 
+    const unauthenticatedBinary = await request(
+      "/memos.api.v1.UserService/ListUsers",
+      {
+        method: "POST",
+        headers: { "content-type": "application/grpc+proto" },
+        body: frameProto(new Uint8Array()),
+      },
+    );
+    expect(unauthenticatedBinary.status).toBe(401);
+    expect(unauthenticatedBinary.headers.get("grpc-status")).toBe("16");
+
     const deleted = await connect("DeleteMemo", {
       name: created.name,
       force: true,
@@ -495,7 +687,15 @@ describe("Memos native auth and transport boundaries", () => {
 });
 
 async function connect(method: string, body: Record<string, unknown>) {
-  const response = await request(`/memos.api.v1.MemoService/${method}`, {
+  return connectService("MemoService", method, body);
+}
+
+async function connectService(
+  service: string,
+  method: string,
+  body: Record<string, unknown>,
+) {
+  const response = await request(`/memos.api.v1.${service}/${method}`, {
     method: "POST",
     headers: {
       authorization: `Bearer ${accessToken}`,
