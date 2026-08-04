@@ -2,7 +2,7 @@
 
 > 矩阵快照：2026-08-05。本页按当前工作树、当前 `git diff` 和仓库测试整理；它描述的是 FlareMo 的兼容边界，不是对任意 Memos 客户端的线上承诺。
 
-FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos Server 的 Go fork。它的定位是“内核不同、对外协议尽量兼容”：应用层使用 Better Auth，数据由 D1/Drizzle 和 R2 承载，并提供 Memos 风格 current camelCase REST、旧 FlareMo legacy wire、canonical Connect/protobuf unary adapter、有限 SSE 和无状态 Streamable HTTP MCP。官方 Memos generated Connect client 已在隔离的本地 Wrangler Worker 上完成一次 binary unary smoke；这仍不是完整 Memos Server parity 或官方 Web/第三方客户端线上兼容证明。
+FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos Server 的 Go fork。它的定位是“内核不同、对外协议尽量兼容”：应用层使用 Better Auth，数据由 D1/Drizzle 和 R2 承载，并提供 Memos 风格 current camelCase REST、旧 FlareMo legacy wire、canonical Connect/protobuf unary adapter、有限 SSE 和无状态 Streamable HTTP MCP。官方 Memos generated Connect client 已在隔离的本地 Wrangler Worker 上完成 binary unary smoke，并对生产域名完成匿名 `ListMemos` binary smoke；这仍不是完整 Memos Server parity 或官方 Web/第三方客户端线上兼容证明。
 
 当前可以准确地说 FlareMo 已经有 Better Auth 原生鉴权、Memos 风格 access/refresh token、可撤销 `memos_pat_` PAT，以及 Memo/Auth/Shortcut 为主并扩展到 Attachment、单用户 User、Instance 和空 IdentityProvider 列表的兼容基础。不能宣称已经完成完整 Memos Server parity，也不能把仓库 contract tests 写成官方 Web 或第三方客户端已经可用。
 
@@ -28,7 +28,7 @@ FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos 
 | protobuf / gRPC-style / gRPC-Web unary | 部分实现 | 部分已测试 | 有手写 codec 和 framing；部分请求/响应已测，未达到 generated schema/runtime parity。 |
 | SSE | 已实现 | 已测试 | D1 outbox + polling + cursor replay 的 FlareMo 实现；不是上游进程内 SSEHub parity。 |
 | Streamable HTTP MCP | 已实现 | 已测试 | 根 `/mcp` 是无状态 JSON 子集；不承诺有状态 session、SSE 或完整工具面。 |
-| 官方 Memos generated Connect client | 已验证子集 | 已测（隔离 local E2E） | 使用 pinned `Temp/memos` generated client、`useBinaryFormat: true`，已解码 Auth、Memo/social、Attachment、Shortcut、User、Instance 的列出 unary 方法；不是生产验证或完整 parity。 |
+| 官方 Memos generated Connect client | 已验证子集 | 已测（local + production anonymous smoke） | 使用 pinned `Temp/memos` generated client、`useBinaryFormat: true`，local 已解码 Auth、Memo/social、Attachment、Shortcut、User、Instance 的列出 unary 方法；生产仅验证匿名 `MemoService/ListMemos`，不是完整 parity。 |
 | 官方 Memos Web、第三方客户端 | 未验证 | 未测 | 官方 Web 仍只有源码静态审计；第三方候选见 [memos-ecosystem.md](./memos-ecosystem.md)，没有真实客户端 smoke 记录。 |
 | 完整 Memos Server parity | 未实现 | 未验证 | 当前明确不能宣称完成。 |
 
@@ -134,7 +134,7 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 
 ## 仅静态审计与明确未实现
 
-对当前参考快照 `Temp/memos` 的 proto 和 generated Web Connect client 做过静态审计，并在 2026-08-05 使用 commit `daa71d0456d07a25ff5ea435e46577d31d030728` 生成的 client 做过一次隔离 local binary smoke。静态审计确认上游参考面包含 Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI 八类 service，并确认官方 Web 使用 binary Connect、cookie credentials 和 bearer/refresh 生命周期；local smoke 只证明列出的 generated unary 子集能解码，不证明官方 Web 或全部服务已互通。
+对当前参考快照 `Temp/memos` 的 proto 和 generated Web Connect client 做过静态审计，并在 2026-08-05 使用 commit `daa71d0456d07a25ff5ea435e46577d31d030728` 生成的 client 做过一次隔离 local binary smoke；同日以同一 pinned client 连接 `https://flaremo.chendahuang.com`，匿名 `MemoService/ListMemos` binary response 也由 generated decoder 成功解码。静态审计确认上游参考面包含 Auth、Memo、Shortcut、Attachment、User、Instance、IdentityProvider、AI 八类 service，并确认官方 Web 使用 binary Connect、cookie credentials 和 bearer/refresh 生命周期；production smoke 只证明一个匿名 unary 方法，local smoke 只证明列出的 generated unary 子集，不证明官方 Web 或全部服务已互通。
 
 当前明确未实现或未验证的能力：
 
