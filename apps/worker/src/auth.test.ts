@@ -643,6 +643,7 @@ async function createTestRuntime() {
     "0003_equal_maximus.sql",
     "0004_complex_the_enforcers.sql",
     "0005_confused_masque.sql",
+    "0007_flat_phil_sheldon.sql",
   ]) {
     const migration = await readFile(
       resolve(import.meta.dirname, `../../../migrations/${filename}`),

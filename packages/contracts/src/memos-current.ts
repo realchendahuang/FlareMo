@@ -45,6 +45,24 @@ export const currentLocationSchema = z
   })
   .passthrough();
 
+export const currentReactionSchema = z
+  .object({
+    name: z.string(),
+    creator: z.string(),
+    contentId: z.string(),
+    reactionType: z.string().min(1),
+    createTime: z.string().datetime(),
+  })
+  .passthrough();
+
+export const currentShortcutSchema = z
+  .object({
+    name: z.string(),
+    title: z.string(),
+    filter: z.string().optional(),
+  })
+  .passthrough();
+
 export const currentAttachmentSchema = z
   .object({
     name: z.string(),
@@ -75,8 +93,9 @@ export const currentMemoSchema = z
     pinned: z.boolean(),
     attachments: z.array(currentAttachmentSchema).optional(),
     relations: z.array(currentMemoRelationSchema).optional(),
-    reactions: z.array(z.record(z.string(), z.unknown())).optional(),
+    reactions: z.array(currentReactionSchema).optional(),
     property: currentMemoPropertySchema.optional(),
+    parent: z.string().optional(),
     snippet: z.string().optional(),
     location: currentLocationSchema.optional(),
   })
@@ -92,6 +111,41 @@ export const currentUpdateMemoRequestSchema = z.object({
   updateMask: z.string(),
 });
 
+export const currentCreateMemoCommentRequestSchema = z.object({
+  comment: currentMemoSchema.partial().extend({ content: z.string() }),
+  commentId: z.string().optional(),
+});
+
+export const currentListMemoCommentsRequestSchema = z.object({
+  pageSize: z.number().int().positive().optional(),
+  pageToken: z.string().optional(),
+  orderBy: z.string().optional(),
+});
+
+export const currentListMemoReactionsRequestSchema = z.object({
+  pageSize: z.number().int().positive().optional(),
+  pageToken: z.string().optional(),
+});
+
+export const currentUpsertMemoReactionRequestSchema = z.object({
+  reaction: currentReactionSchema.partial().extend({
+    contentId: z.string().optional(),
+    reactionType: z.string().min(1),
+  }),
+});
+
+export const currentCreateShortcutRequestSchema = z.object({
+  shortcut: currentShortcutSchema
+    .partial()
+    .extend({ title: z.string().min(1) }),
+  validateOnly: z.boolean().optional(),
+});
+
+export const currentUpdateShortcutRequestSchema = z.object({
+  shortcut: currentShortcutSchema.partial().extend({ name: z.string() }),
+  updateMask: z.string().optional(),
+});
+
 export const currentListMemosResponseSchema = z.object({
   memos: z.array(currentMemoSchema),
   nextPageToken: z.string().optional(),
@@ -101,6 +155,20 @@ export const currentListAttachmentsResponseSchema = z.object({
   attachments: z.array(currentAttachmentSchema),
   nextPageToken: z.string().optional(),
   totalSize: z.number().int().nonnegative().optional(),
+});
+
+export const currentListMemoCommentsResponseSchema = z.object({
+  memos: z.array(currentMemoSchema),
+  nextPageToken: z.string().optional(),
+});
+
+export const currentListMemoReactionsResponseSchema = z.object({
+  reactions: z.array(currentReactionSchema),
+  nextPageToken: z.string().optional(),
+});
+
+export const currentListShortcutsResponseSchema = z.object({
+  shortcuts: z.array(currentShortcutSchema),
 });
 
 export const currentMemoShareSchema = z
@@ -143,7 +211,9 @@ export const currentStandardErrorSchema = z.object({
 
 export type CurrentMemo = z.infer<typeof currentMemoSchema>;
 export type CurrentAttachment = z.infer<typeof currentAttachmentSchema>;
+export type CurrentReaction = z.infer<typeof currentReactionSchema>;
 export type CurrentMemoRelation = z.infer<typeof currentMemoRelationSchema>;
+export type CurrentShortcut = z.infer<typeof currentShortcutSchema>;
 export type CurrentMemoShare = z.infer<typeof currentMemoShareSchema>;
 export type CurrentUser = z.infer<typeof currentUserSchema>;
 export type CurrentPersonalAccessToken = z.infer<

@@ -554,28 +554,90 @@ describe("Memos-compatible API contract", () => {
       },
     });
 
+    const signInClaims = decodeJwtForTest(signIn.accessToken);
+    expect(signInClaims.header).toEqual({
+      alg: "HS256",
+      kid: "v1",
+      typ: "JWT",
+    });
+    expect(signInClaims.payload).toMatchObject({
+      type: "access",
+      role: "ADMIN",
+      status: "NORMAL",
+      username: "owner",
+      iss: "memos",
+      sub: "1",
+      aud: ["user.access-token"],
+    });
+    const accessPayloadJson = new TextDecoder().decode(
+      decodeBase64UrlForTest(signIn.accessToken.split(".")[1] ?? ""),
+    );
+    expect(accessPayloadJson).toMatch(
+      /^\{"type":"access","role":"ADMIN","status":"NORMAL","username":"owner","iss":"memos","sub":"1","aud":\["user\.access-token"\],"exp":\d+,"iat":\d+\}$/,
+    );
+
     const bearer = { authorization: `Bearer ${signIn.accessToken}` };
-    const refreshWithoutOrigin = await fetchCurrent(
+    const signInCookie = extractCookieHeader(signInResponse);
+    const refreshWithoutCookie = await fetchCurrent(
       "http://flaremo.test/api/v1/auth/refresh",
       { method: "POST", headers: bearer },
       { authenticated: false },
     );
-    expect(refreshWithoutOrigin.status).toBe(200);
-    expect(refreshWithoutOrigin.headers.get("cache-control")).toBe("no-store");
-    expect(await refreshWithoutOrigin.json()).toEqual({
-      accessToken: signIn.accessToken,
-      expiresAt: signIn.accessTokenExpiresAt,
-    });
+    expect(refreshWithoutCookie.status).toBe(401);
 
     const refreshWithUntrustedOrigin = await fetchCurrent(
       "http://flaremo.test/api/v1/auth/refresh",
       {
         method: "POST",
-        headers: { ...bearer, origin: "https://untrusted.example" },
+        headers: {
+          ...bearer,
+          cookie: signInCookie,
+          origin: "https://untrusted.example",
+        },
       },
       { authenticated: false },
     );
     expect(refreshWithUntrustedOrigin.status).toBe(403);
+
+    const refreshResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/refresh",
+      {
+        method: "POST",
+        headers: {
+          ...bearer,
+          cookie: signInCookie,
+          origin: "http://flaremo.test",
+        },
+      },
+      { authenticated: false },
+    );
+    expect(refreshResponse.status).toBe(200);
+    expect(refreshResponse.headers.get("cache-control")).toBe("no-store");
+    const refreshed = (await refreshResponse.json()) as {
+      accessToken: string;
+      expiresAt: string;
+    };
+    expect(refreshed.accessToken).toEqual(expect.any(String));
+    expect(extractCookieHeader(refreshResponse)).not.toBe(signInCookie);
+    expect(decodeJwtForTest(refreshed.accessToken).payload).toMatchObject({
+      type: "access",
+      sub: "1",
+      aud: ["user.access-token"],
+    });
+
+    const oldRefreshCookieReuse = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/refresh",
+      {
+        method: "POST",
+        headers: {
+          ...bearer,
+          cookie: signInCookie,
+          origin: "http://flaremo.test",
+        },
+      },
+      { authenticated: false },
+    );
+    expect(oldRefreshCookieReuse.status).toBe(401);
 
     const meResponse = await fetchCurrent(
       "http://flaremo.test/api/v1/auth/me",
@@ -883,6 +945,195 @@ describe("Memos-compatible API contract", () => {
       },
     });
 
+    const commentCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 5,
+        method: "tools/call",
+        params: {
+          name: "memo_create_memo_comment",
+          arguments: { name: created.name, content: "MCP comment" },
+        },
+      }),
+    });
+    const commentBody = (await commentCall.json()) as {
+      result: { structuredContent: { name: string; parent: string } };
+    };
+    expect(commentBody.result.structuredContent).toMatchObject({
+      name: expect.stringMatching(/^memos\//),
+      parent: created.name,
+    });
+
+    const commentsCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 6,
+        method: "tools/call",
+        params: {
+          name: "memo_list_memo_comments",
+          arguments: { name: created.name },
+        },
+      }),
+    });
+    expect(await commentsCall.json()).toMatchObject({
+      result: {
+        structuredContent: {
+          memos: [expect.objectContaining({ content: "MCP comment" })],
+        },
+      },
+    });
+
+    const reactionCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 7,
+        method: "tools/call",
+        params: {
+          name: "memo_upsert_memo_reaction",
+          arguments: { name: created.name, reactionType: "👍" },
+        },
+      }),
+    });
+    const reactionBody = (await reactionCall.json()) as {
+      result: { structuredContent: { name: string; reactionType: string } };
+    };
+    expect(reactionBody.result.structuredContent).toMatchObject({
+      name: expect.stringContaining("/reactions/"),
+      reactionType: "👍",
+    });
+
+    const reactionListCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 8,
+        method: "tools/call",
+        params: {
+          name: "memo_list_memo_reactions",
+          arguments: { name: created.name },
+        },
+      }),
+    });
+    expect(await reactionListCall.json()).toMatchObject({
+      result: {
+        structuredContent: {
+          reactions: [expect.objectContaining({ reactionType: "👍" })],
+        },
+      },
+    });
+
+    const shortcutCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 9,
+        method: "tools/call",
+        params: {
+          name: "shortcut_create_shortcut",
+          arguments: {
+            title: "MCP shortcut",
+            filter: 'content.contains("MCP")',
+          },
+        },
+      }),
+    });
+    const shortcutBody = (await shortcutCall.json()) as {
+      result: { structuredContent: { name: string; title: string } };
+    };
+    expect(shortcutBody.result.structuredContent).toMatchObject({
+      name: expect.stringMatching(/^users\/owner\/shortcuts\//),
+      title: "MCP shortcut",
+    });
+
+    const shortcutName = shortcutBody.result.structuredContent.name;
+    const shortcutUpdateCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 10,
+        method: "tools/call",
+        params: {
+          name: "shortcut_update_shortcut",
+          arguments: {
+            name: shortcutName,
+            title: "Updated MCP shortcut",
+            updateMask: "title",
+          },
+        },
+      }),
+    });
+    expect(await shortcutUpdateCall.json()).toMatchObject({
+      result: {
+        structuredContent: {
+          name: shortcutName,
+          title: "Updated MCP shortcut",
+        },
+      },
+    });
+
+    const shortcutGetCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 11,
+        method: "tools/call",
+        params: {
+          name: "shortcut_get_shortcut",
+          arguments: { name: shortcutName },
+        },
+      }),
+    });
+    expect(await shortcutGetCall.json()).toMatchObject({
+      result: { structuredContent: { name: shortcutName } },
+    });
+
+    const shortcutDeleteCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 12,
+        method: "tools/call",
+        params: {
+          name: "shortcut_delete_shortcut",
+          arguments: { name: shortcutName },
+        },
+      }),
+    });
+    expect(await shortcutDeleteCall.json()).toMatchObject({
+      result: { structuredContent: { ok: true } },
+    });
+
+    const reactionId = reactionBody.result.structuredContent.name
+      .split("/")
+      .at(-1);
+    const reactionDeleteCall = await fetchCurrent("http://flaremo.test/mcp", {
+      method: "POST",
+      headers: mcpHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 13,
+        method: "tools/call",
+        params: {
+          name: "memo_delete_memo_reaction",
+          arguments: { name: created.name, reaction: reactionId },
+        },
+      }),
+    });
+    expect(await reactionDeleteCall.json()).toMatchObject({
+      result: { structuredContent: { ok: true } },
+    });
+
     const toolError = await fetchCurrent("http://flaremo.test/mcp", {
       method: "POST",
       headers: mcpHeaders,
@@ -1110,6 +1361,8 @@ async function createTestRuntime(suffix: string) {
     "0003_equal_maximus.sql",
     "0004_complex_the_enforcers.sql",
     "0005_confused_masque.sql",
+    "0006_silent_kylun.sql",
+    "0007_flat_phil_sheldon.sql",
   ]) {
     await applyMigration(
       db,
@@ -1134,4 +1387,31 @@ async function createTestRuntime(suffix: string) {
       FLAREMO_BOOTSTRAP_SECRET: TEST_BOOTSTRAP_SECRET,
     } as Env,
   };
+}
+
+function decodeJwtForTest(token: string) {
+  const [encodedHeader, encodedPayload] = token.split(".");
+  if (!encodedHeader || !encodedPayload) throw new Error("invalid test JWT");
+  const decode = (value: string) =>
+    JSON.parse(
+      Buffer.from(
+        value.replace(/-/g, "+").replace(/_/g, "/"),
+        "base64",
+      ).toString("utf8"),
+    ) as Record<string, unknown>;
+  return { header: decode(encodedHeader), payload: decode(encodedPayload) };
+}
+
+function decodeBase64UrlForTest(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
 }

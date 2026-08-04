@@ -6,6 +6,22 @@ const json = (schema: JsonSchema) => ({
   "application/json": { schema },
 });
 
+const binaryMessage = {
+  schema: { type: "string", format: "binary" },
+};
+
+const connectContent = (schema: JsonSchema) => ({
+  ...json(schema),
+  "application/proto": binaryMessage,
+  "application/grpc+proto": binaryMessage,
+  "application/grpc-web+proto": binaryMessage,
+  "application/grpc-web-text+proto": binaryMessage,
+});
+
+const connectResponseContent = (schema: JsonSchema) => ({
+  ...connectContent(schema),
+});
+
 const response = (description: string, schema: JsonSchema) => ({
   description,
   content: json(schema),
@@ -66,7 +82,11 @@ const currentMemo = {
       type: "array",
       items: { $ref: "#/components/schemas/MemoRelation" },
     },
-    reactions: { type: "array", items: { type: "object" } },
+    reactions: {
+      type: "array",
+      items: { $ref: "#/components/schemas/MemoReaction" },
+    },
+    parent: { type: "string" },
     property: { $ref: "#/components/schemas/MemoProperty" },
     snippet: { type: "string" },
     location: { $ref: "#/components/schemas/Location" },
@@ -134,6 +154,28 @@ const currentUser = {
   },
 };
 
+const memoReaction = {
+  type: "object",
+  required: ["name", "creator", "contentId", "reactionType", "createTime"],
+  properties: {
+    name: { type: "string" },
+    creator: { type: "string" },
+    contentId: { type: "string" },
+    reactionType: { type: "string" },
+    createTime: { type: "string", format: "date-time" },
+  },
+};
+
+const shortcut = {
+  type: "object",
+  required: ["name", "title"],
+  properties: {
+    name: { type: "string" },
+    title: { type: "string" },
+    filter: { type: "string" },
+  },
+};
+
 const error = {
   type: "object",
   required: ["code", "message", "details"],
@@ -146,8 +188,50 @@ const error = {
 
 const secured = (input: Record<string, unknown>) => ({
   ...input,
-  security: bearerSecurity,
+  security: input.security ?? bearerSecurity,
 });
+
+const connectOperation = (
+  operationId: string,
+  summary: string,
+  security: unknown[] | undefined = undefined,
+) =>
+  secured({
+    operationId,
+    summary,
+    tags: ["Connect"],
+    ...(security ? { security } : {}),
+    parameters: [
+      {
+        name: "connect-protocol-version",
+        in: "header",
+        required: false,
+        schema: { type: "string", example: "1" },
+        description:
+          "Accepted for compatibility metadata. The current implementation supports JSON plus unary protobuf, gRPC, and gRPC-Web protobuf transports for the documented method subset.",
+      },
+    ],
+    requestBody: {
+      required: true,
+      content: connectContent({ type: "object", additionalProperties: true }),
+    },
+    responses: {
+      "200": {
+        description: "Connect response message.",
+        content: connectResponseContent({
+          type: "object",
+          additionalProperties: true,
+        }),
+      },
+      "400": response("Invalid argument.", error),
+      "401": response("Unauthenticated.", error),
+      "415": response(
+        "Only the documented JSON or protobuf unary media types are supported.",
+        error,
+      ),
+      "501": response("Method is not implemented.", error),
+    },
+  });
 
 export function createCurrentOpenApiDocument() {
   return {
@@ -156,7 +240,7 @@ export function createCurrentOpenApiDocument() {
       title: "FlareMo current Memos-compatible API",
       version: FLAREMO_API_VERSION,
       description:
-        "The default /api/v1 wire format is the current Memos camelCase/protobuf-JSON subset. FlareMo uses Better Auth cookie sessions and opaque session-backed access tokens or memos_pat_ PATs. The legacy FlareMo snake_case wire is available only with X-FlareMo-Wire: legacy or application/vnd.flaremo.legacy+json.",
+        "The default /api/v1 wire format is the current Memos camelCase/protobuf-JSON subset. Better Auth remains the identity source; the Memos-compatible signin facade issues an HS256 native Memos access JWT and a rotating memos_refresh HttpOnly cookie. Existing Better Auth session bearers and memos_pat_ PATs remain accepted. This is not a claim of complete Memos Server, protobuf Connect, native gRPC, or third-party-client parity. The legacy FlareMo snake_case wire is available only with X-FlareMo-Wire: legacy or application/vnd.flaremo.legacy+json.",
     },
     servers: [{ url: "/" }],
     tags: [
@@ -164,6 +248,9 @@ export function createCurrentOpenApiDocument() {
       { name: "Memos" },
       { name: "Attachments" },
       { name: "Relations" },
+      { name: "Social" },
+      { name: "Realtime" },
+      { name: "Connect" },
       { name: "Shares" },
       { name: "Users" },
       { name: "MCP" },
@@ -206,14 +293,21 @@ export function createCurrentOpenApiDocument() {
             }),
           },
           responses: {
-            "200": response("Signed-in user and opaque access token.", {
-              type: "object",
-              properties: {
-                user: { $ref: "#/components/schemas/User" },
-                accessToken: { type: "string" },
-                accessTokenExpiresAt: { type: "string", format: "date-time" },
+            "200": response(
+              "Signed-in user, native Memos HS256 access JWT, and a memos_refresh HttpOnly cookie.",
+              {
+                type: "object",
+                properties: {
+                  user: { $ref: "#/components/schemas/User" },
+                  accessToken: {
+                    type: "string",
+                    description:
+                      "Native Memos-compatible JWT with issuer memos and user.access-token audience.",
+                  },
+                  accessTokenExpiresAt: { type: "string", format: "date-time" },
+                },
               },
-            }),
+            ),
             "401": response("Invalid credentials.", error),
           },
         },
@@ -221,14 +315,28 @@ export function createCurrentOpenApiDocument() {
       "/api/v1/auth/refresh": {
         post: secured({
           operationId: "refreshToken",
-          summary: "Refresh the Better Auth-backed session facade",
+          summary: "Rotate the native Memos refresh cookie",
           tags: ["Auth"],
+          security: [
+            { memosRefreshCookie: [] },
+            { bearerAuth: [] },
+            { cookieAuth: [] },
+          ],
           responses: {
-            "200": response("Access token.", {
+            "200": response("Rotated native Memos access token.", {
               type: "object",
               properties: {
-                accessToken: { type: "string" },
-                expiresAt: { type: "string", format: "date-time" },
+                accessToken: {
+                  type: "string",
+                  description:
+                    "Native Memos-compatible HS256 JWT. The refresh token itself is never returned in JSON.",
+                },
+                accessTokenExpiresAt: { type: "string", format: "date-time" },
+                expiresAt: {
+                  type: "string",
+                  format: "date-time",
+                  deprecated: true,
+                },
               },
             }),
             "401": response("Unauthenticated.", error),
@@ -441,6 +549,130 @@ export function createCurrentOpenApiDocument() {
           responses: { "200": emptyResponse("Relations replaced.") },
         }),
       },
+      "/api/v1/memos/{memo}/comments": {
+        get: secured({
+          operationId: "listMemoCommentsCurrent",
+          summary: "List comments represented as child memos",
+          tags: ["Social"],
+          parameters: [
+            memoName,
+            {
+              name: "pageSize",
+              in: "query",
+              schema: { type: "integer", minimum: 1, maximum: 1000 },
+            },
+            { name: "pageToken", in: "query", schema: { type: "string" } },
+            {
+              name: "orderBy",
+              in: "query",
+              schema: { type: "string", example: "create_time desc" },
+            },
+          ],
+          responses: {
+            "200": response("Comment memos.", {
+              type: "object",
+              properties: {
+                memos: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Memo" },
+                },
+                nextPageToken: { type: "string" },
+              },
+            }),
+          },
+        }),
+        post: secured({
+          operationId: "createMemoCommentCurrent",
+          summary: "Create a comment memo",
+          tags: ["Social"],
+          parameters: [memoName],
+          requestBody: {
+            required: true,
+            content: json({
+              type: "object",
+              required: ["content"],
+              properties: {
+                content: { type: "string" },
+                visibility: { type: "string" },
+                payload: { type: "object", additionalProperties: true },
+                commentId: { type: "string" },
+              },
+            }),
+          },
+          responses: {
+            "200": response("Created comment memo.", {
+              $ref: "#/components/schemas/Memo",
+            }),
+          },
+        }),
+      },
+      "/api/v1/memos/{memo}/reactions": {
+        get: secured({
+          operationId: "listMemoReactionsCurrent",
+          summary: "List reactions on a memo",
+          tags: ["Social"],
+          parameters: [
+            memoName,
+            {
+              name: "pageSize",
+              in: "query",
+              schema: { type: "integer", minimum: 1, maximum: 1000 },
+            },
+            { name: "pageToken", in: "query", schema: { type: "string" } },
+          ],
+          responses: {
+            "200": response("Memo reactions.", {
+              type: "object",
+              properties: {
+                reactions: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/MemoReaction" },
+                },
+                nextPageToken: { type: "string" },
+              },
+            }),
+          },
+        }),
+        post: secured({
+          operationId: "upsertMemoReactionCurrent",
+          summary: "Create or upsert the current user's reaction",
+          tags: ["Social"],
+          parameters: [memoName],
+          requestBody: {
+            required: true,
+            content: json({
+              type: "object",
+              required: ["reactionType"],
+              properties: {
+                contentId: { type: "string" },
+                reactionType: { type: "string" },
+              },
+            }),
+          },
+          responses: {
+            "200": response("Reaction.", {
+              $ref: "#/components/schemas/MemoReaction",
+            }),
+          },
+        }),
+      },
+      "/api/v1/memos/{memo}/reactions/{reaction}": {
+        delete: secured({
+          operationId: "deleteMemoReactionCurrent",
+          summary: "Delete the current user's reaction",
+          tags: ["Social"],
+          parameters: [
+            memoName,
+            {
+              name: "reaction",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: { "200": emptyResponse("Reaction deleted.") },
+        }),
+      },
       "/api/v1/memos/{memo}/shares": {
         get: secured({
           operationId: "listMemoSharesCurrent",
@@ -639,6 +871,126 @@ export function createCurrentOpenApiDocument() {
           },
         }),
       },
+      "/api/v1/users/{user}/shortcuts": {
+        get: secured({
+          operationId: "listShortcutsCurrent",
+          summary: "List shortcuts for the current user",
+          tags: ["Social"],
+          parameters: [userName],
+          responses: {
+            "200": response("Shortcuts.", {
+              type: "object",
+              properties: {
+                shortcuts: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Shortcut" },
+                },
+              },
+            }),
+          },
+        }),
+        post: secured({
+          operationId: "createShortcutCurrent",
+          summary: "Create or validate a shortcut",
+          tags: ["Social"],
+          parameters: [
+            userName,
+            {
+              name: "validateOnly",
+              in: "query",
+              schema: { type: "boolean" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: json({
+              type: "object",
+              required: ["title"],
+              properties: {
+                title: { type: "string" },
+                filter: { type: "string" },
+              },
+            }),
+          },
+          responses: {
+            "200": response("Shortcut.", {
+              $ref: "#/components/schemas/Shortcut",
+            }),
+          },
+        }),
+      },
+      "/api/v1/users/{user}/shortcuts/{shortcut}": {
+        get: secured({
+          operationId: "getShortcutCurrent",
+          summary: "Get a shortcut",
+          tags: ["Social"],
+          parameters: [
+            userName,
+            {
+              name: "shortcut",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "200": response("Shortcut.", {
+              $ref: "#/components/schemas/Shortcut",
+            }),
+          },
+        }),
+        patch: secured({
+          operationId: "updateShortcutCurrent",
+          summary: "Update a shortcut",
+          tags: ["Social"],
+          parameters: [
+            userName,
+            {
+              name: "shortcut",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+            {
+              name: "updateMask",
+              in: "query",
+              required: true,
+              schema: { type: "string", example: "title,filter" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: json({
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                title: { type: "string" },
+                filter: { type: "string" },
+              },
+            }),
+          },
+          responses: {
+            "200": response("Updated shortcut.", {
+              $ref: "#/components/schemas/Shortcut",
+            }),
+          },
+        }),
+        delete: secured({
+          operationId: "deleteShortcutCurrent",
+          summary: "Delete a shortcut",
+          tags: ["Social"],
+          parameters: [
+            userName,
+            {
+              name: "shortcut",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: { "200": emptyResponse("Shortcut deleted.") },
+        }),
+      },
       "/api/v1/users/{user}/personalAccessTokens": {
         get: secured({
           operationId: "listPersonalAccessTokensCurrent",
@@ -703,6 +1055,144 @@ export function createCurrentOpenApiDocument() {
           responses: { "200": emptyResponse("Token revoked.") },
         }),
       },
+      "/api/v1/sse": {
+        get: secured({
+          operationId: "memoSseCurrent",
+          summary: "Open the authenticated Memos-compatible SSE stream",
+          tags: ["Realtime"],
+          responses: {
+            "200": {
+              description:
+                "Authenticated text/event-stream backed by a D1 event outbox. New connections start at the current cursor; Last-Event-ID requests replay the currently retained memo/comment/reaction event subset. The Worker polls D1 and sends connected/heartbeat comments.",
+              content: {
+                "text/event-stream": {
+                  schema: { type: "string" },
+                },
+              },
+            },
+            "401": response("Unauthenticated.", error),
+          },
+        }),
+      },
+      "/memos.api.v1.MemoService/CreateMemo": {
+        post: connectOperation("connectCreateMemo", "Create a memo"),
+      },
+      "/memos.api.v1.MemoService/ListMemos": {
+        post: connectOperation("connectListMemos", "List memos"),
+      },
+      "/memos.api.v1.MemoService/GetMemo": {
+        post: connectOperation("connectGetMemo", "Get a memo"),
+      },
+      "/memos.api.v1.MemoService/UpdateMemo": {
+        post: connectOperation("connectUpdateMemo", "Update a memo"),
+      },
+      "/memos.api.v1.MemoService/DeleteMemo": {
+        post: connectOperation("connectDeleteMemo", "Delete a memo"),
+      },
+      "/memos.api.v1.MemoService/SetMemoAttachments": {
+        post: connectOperation(
+          "connectSetMemoAttachments",
+          "Replace memo attachments",
+        ),
+      },
+      "/memos.api.v1.MemoService/ListMemoAttachments": {
+        post: connectOperation(
+          "connectListMemoAttachments",
+          "List memo attachments",
+        ),
+      },
+      "/memos.api.v1.MemoService/SetMemoRelations": {
+        post: connectOperation(
+          "connectSetMemoRelations",
+          "Replace memo relations",
+        ),
+      },
+      "/memos.api.v1.MemoService/ListMemoRelations": {
+        post: connectOperation(
+          "connectListMemoRelations",
+          "List memo relations",
+        ),
+      },
+      "/memos.api.v1.MemoService/CreateMemoComment": {
+        post: connectOperation(
+          "connectCreateMemoComment",
+          "Create a memo comment",
+        ),
+      },
+      "/memos.api.v1.MemoService/ListMemoComments": {
+        post: connectOperation("connectListMemoComments", "List memo comments"),
+      },
+      "/memos.api.v1.MemoService/ListMemoReactions": {
+        post: connectOperation(
+          "connectListMemoReactions",
+          "List memo reactions",
+        ),
+      },
+      "/memos.api.v1.MemoService/UpsertMemoReaction": {
+        post: connectOperation(
+          "connectUpsertMemoReaction",
+          "Upsert a memo reaction",
+        ),
+      },
+      "/memos.api.v1.MemoService/DeleteMemoReaction": {
+        post: connectOperation(
+          "connectDeleteMemoReaction",
+          "Delete a memo reaction",
+        ),
+      },
+      "/memos.api.v1.MemoService/CreateMemoShare": {
+        post: connectOperation("connectCreateMemoShare", "Create a memo share"),
+      },
+      "/memos.api.v1.MemoService/ListMemoShares": {
+        post: connectOperation("connectListMemoShares", "List memo shares"),
+      },
+      "/memos.api.v1.MemoService/DeleteMemoShare": {
+        post: connectOperation("connectDeleteMemoShare", "Delete a memo share"),
+      },
+      "/memos.api.v1.MemoService/GetSharedMemo": {
+        post: connectOperation("connectGetSharedMemo", "Get a shared memo", []),
+      },
+      "/memos.api.v1.MemoService/GetLinkMetadata": {
+        post: connectOperation(
+          "connectGetLinkMetadata",
+          "Get link metadata",
+          [],
+        ),
+      },
+      "/memos.api.v1.MemoService/BatchGetLinkMetadata": {
+        post: connectOperation(
+          "connectBatchGetLinkMetadata",
+          "Get link metadata for multiple URLs",
+          [],
+        ),
+      },
+      "/memos.api.v1.AuthService/GetCurrentUser": {
+        post: connectOperation("connectGetCurrentUser", "Get the current user"),
+      },
+      "/memos.api.v1.AuthService/SignIn": {
+        post: connectOperation("connectSignIn", "Sign in", []),
+      },
+      "/memos.api.v1.AuthService/RefreshToken": {
+        post: connectOperation("connectRefreshToken", "Refresh token", []),
+      },
+      "/memos.api.v1.AuthService/SignOut": {
+        post: connectOperation("connectSignOut", "Sign out"),
+      },
+      "/memos.api.v1.ShortcutService/ListShortcuts": {
+        post: connectOperation("connectListShortcuts", "List shortcuts"),
+      },
+      "/memos.api.v1.ShortcutService/GetShortcut": {
+        post: connectOperation("connectGetShortcut", "Get a shortcut"),
+      },
+      "/memos.api.v1.ShortcutService/CreateShortcut": {
+        post: connectOperation("connectCreateShortcut", "Create a shortcut"),
+      },
+      "/memos.api.v1.ShortcutService/UpdateShortcut": {
+        post: connectOperation("connectUpdateShortcut", "Update a shortcut"),
+      },
+      "/memos.api.v1.ShortcutService/DeleteShortcut": {
+        post: connectOperation("connectDeleteShortcut", "Delete a shortcut"),
+      },
       "/mcp": {
         post: secured({
           operationId: "mcpStreamableHttp",
@@ -732,12 +1222,20 @@ export function createCurrentOpenApiDocument() {
         bearerAuth: {
           type: "http",
           scheme: "bearer",
-          bearerFormat: "memos_pat_ or Better Auth session token",
+          bearerFormat:
+            "Memos native HS256 JWT, memos_pat_ PAT, or legacy Better Auth session bearer",
         },
         cookieAuth: {
           type: "apiKey",
           in: "cookie",
           name: "flaremo.session_token",
+        },
+        memosRefreshCookie: {
+          type: "apiKey",
+          in: "cookie",
+          name: "memos_refresh",
+          description:
+            "HttpOnly rotating Memos refresh JWT cookie. It is set by signin and consumed by refresh; the refresh token is never returned in JSON.",
         },
       },
       schemas: {
@@ -784,6 +1282,8 @@ export function createCurrentOpenApiDocument() {
             },
           },
         },
+        MemoReaction: memoReaction,
+        Shortcut: shortcut,
         MemoShare: {
           type: "object",
           properties: {

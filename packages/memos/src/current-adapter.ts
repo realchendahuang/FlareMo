@@ -2,7 +2,9 @@ import type {
   AttachmentRow,
   AuthUserRow,
   MemoRow,
+  ReactionRow,
   ShareRow,
+  ShortcutRow,
   UserRow,
 } from "@flaremo/db";
 
@@ -25,6 +27,8 @@ export function currentMemoToDto(
   options: {
     attachments?: AttachmentRow[];
     relations?: CurrentMemoRelation[];
+    reactions?: ReactionRow[];
+    parent?: string | null;
   } = {},
 ) {
   const payload = isRecord(memo.payload) ? memo.payload : {};
@@ -47,8 +51,9 @@ export function currentMemoToDto(
       ? { attachments: options.attachments.map(currentAttachmentToDto) }
       : {}),
     ...(options.relations ? { relations: options.relations } : {}),
-    reactions: [],
+    reactions: (options.reactions ?? []).map(currentReactionToDto),
     ...(property ? { property } : {}),
+    ...(options.parent ? { parent: options.parent } : {}),
     snippet: memoSnippet(memo.content),
     ...(location ? { location } : {}),
   };
@@ -58,6 +63,8 @@ export function currentMemosToListResponse(input: {
   memos: MemoRow[];
   user: UserRow;
   attachmentsByMemo?: ReadonlyMap<string, AttachmentRow[]>;
+  reactionsByMemo?: ReadonlyMap<string, ReactionRow[]>;
+  parentsByMemo?: ReadonlyMap<string, string>;
   nextPageToken?: string;
 }) {
   return {
@@ -66,10 +73,27 @@ export function currentMemosToListResponse(input: {
         ...(input.attachmentsByMemo
           ? { attachments: input.attachmentsByMemo.get(memo.id) ?? [] }
           : {}),
+        ...(input.reactionsByMemo
+          ? { reactions: input.reactionsByMemo.get(memo.id) ?? [] }
+          : {}),
+        ...(input.parentsByMemo
+          ? { parent: input.parentsByMemo.get(memo.id) }
+          : {}),
       }),
     ),
     ...(input.nextPageToken ? { nextPageToken: input.nextPageToken } : {}),
   };
+}
+
+export function currentMemoCommentsToListResponse(input: {
+  memos: MemoRow[];
+  user: UserRow;
+  attachmentsByMemo?: ReadonlyMap<string, AttachmentRow[]>;
+  reactionsByMemo?: ReadonlyMap<string, ReactionRow[]>;
+  parentsByMemo?: ReadonlyMap<string, string>;
+  nextPageToken?: string;
+}) {
+  return currentMemosToListResponse(input);
 }
 
 export function currentAttachmentToDto(attachment: AttachmentRow) {
@@ -82,6 +106,39 @@ export function currentAttachmentToDto(attachment: AttachmentRow) {
     size: String(attachment.size),
     ...(attachment.memoId ? { memo: attachment.memoId } : {}),
   };
+}
+
+export function currentReactionToDto(reaction: ReactionRow) {
+  const contentId = reaction.contentId.startsWith("memos/")
+    ? reaction.contentId
+    : `memos/${reaction.contentId}`;
+  const reactionId = reaction.id
+    .replace(/^reactions\//, "")
+    .split("/")
+    .at(-1);
+  return {
+    name: `${contentId}/reactions/${reactionId ?? reaction.id}`,
+    creator: reaction.creatorId,
+    contentId,
+    reactionType: reaction.reactionType,
+    createTime: reaction.createdAt,
+  };
+}
+
+export function currentShortcutToDto(shortcut: ShortcutRow) {
+  const shortcutId = shortcut.id
+    .replace(/^shortcuts\//, "")
+    .split("/")
+    .at(-1);
+  return {
+    name: `${shortcut.userId}/shortcuts/${shortcutId ?? shortcut.id}`,
+    title: shortcut.title,
+    ...(shortcut.filter ? { filter: shortcut.filter } : {}),
+  };
+}
+
+export function currentShortcutsToListResponse(shortcuts: ShortcutRow[]) {
+  return { shortcuts: shortcuts.map(currentShortcutToDto) };
 }
 
 export function currentAttachmentsToListResponse(

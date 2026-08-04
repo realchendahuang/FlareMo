@@ -54,7 +54,7 @@ curl "$FLAREMO_URL/api/v1/memos" \
 
 Public share routes need a separate Access bypass policy. The content must still be protected by FlareMo share tokens.
 
-The default `/api/v1` wire is the current camelCase/protobuf-JSON subset. `X-FlareMo-Wire: legacy` selects the older snake_case wire. The root `/mcp` endpoint is a stateless Streamable HTTP MCP subset; it is not a claim of complete Memos Server parity. The auth facade's `accessToken` is an opaque Better Auth session-backed token, not a native Memos JWT.
+The default `/api/v1` wire is the current camelCase/protobuf-JSON subset. `X-FlareMo-Wire: legacy` selects the older snake_case wire. Better Auth remains the identity source while the auth facade issues a Memos-style HS256 access JWT and rotates the `memos_refresh` HttpOnly cookie. The current release also exposes social REST resources, a Connect JSON unary subset, and an authenticated heartbeat SSE stream. The root `/mcp` endpoint is a stateless Streamable HTTP subset; this is not a claim of complete Memos Server, protobuf/gRPC, or third-party-client parity.
 
 ## Common Failures
 

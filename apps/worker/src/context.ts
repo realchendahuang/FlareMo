@@ -12,6 +12,7 @@ import {
   MEMOS_PAT_CONFIG_ID,
 } from "./auth";
 import type { FlareMoEnv } from "./env";
+import { authenticateMemosAccessToken } from "./memos-native-auth";
 
 export type HonoBindings = {
   Bindings: FlareMoEnv;
@@ -27,6 +28,23 @@ export async function getRequestContext(c: Context<HonoBindings>) {
   if (token) {
     assertTrustedBearerOrigin(c);
     if (!token.startsWith("memos_pat_")) {
+      const nativeAccess = await authenticateMemosAccessToken({
+        db,
+        env: c.env,
+        token,
+      });
+      if (nativeAccess) {
+        return {
+          db,
+          user: nativeAccess.user,
+          authUserId: nativeAccess.authUserId,
+          credential: "session" as const,
+          bearerSession: false,
+          nativeAccessToken: true,
+          session: null,
+        };
+      }
+
       const session = await getFlaremoUserByAuthSessionToken(db, token);
       if (!session) throw new UnauthorizedError();
 
@@ -36,6 +54,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
         authUserId: session.authUserId,
         credential: "session" as const,
         bearerSession: true,
+        nativeAccessToken: false,
         session: session.session,
       };
     }
@@ -61,6 +80,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
       authUserId: verification.key.referenceId,
       credential: "pat" as const,
       bearerSession: false,
+      nativeAccessToken: false,
       session: null,
     };
   }
@@ -97,6 +117,7 @@ export async function getBrowserRequestContext(
     authUserId: session.user.id,
     credential: "session" as const,
     bearerSession: false,
+    nativeAccessToken: false,
     session: null,
   };
 }

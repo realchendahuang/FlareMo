@@ -88,12 +88,20 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const sseEvents = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0007_flat_phil_sheldon.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
     await applyMigration(db, offlineCapture);
     await applyMigration(db, offlineAttachments);
     await applyMigration(db, nativeAuth);
+    await applyMigration(db, sseEvents);
     sessionCookie = await bootstrapAndSignIn();
   });
 

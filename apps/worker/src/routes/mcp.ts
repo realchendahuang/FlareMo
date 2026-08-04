@@ -9,23 +9,35 @@ import type { AttachmentRow, MemoRow, UserRow } from "@flaremo/db";
 import {
   bindMemoAttachments,
   createMemo,
+  createMemoComment,
+  createShortcut,
+  deleteMemoReaction,
+  deleteShortcut,
   finalizeAttachmentDelete,
   getAttachmentById,
   getMemoById,
+  getShortcut,
   hardDeleteMemo,
   listAttachments,
   listMemoAttachments,
+  listMemoComments,
+  listMemoReactions,
   listMemoRelations,
   listMemos,
+  listShortcuts,
   markAttachmentDeleting,
   markMemoAttachmentsDeleting,
   moveMemoToTrash,
   replaceMemoRelations,
   updateMemo,
+  updateShortcut,
+  upsertMemoReaction,
 } from "@flaremo/domain";
 import {
   currentAttachmentToDto,
   currentMemoToDto,
+  currentReactionToDto,
+  currentShortcutToDto,
   currentUserToDto,
   memosToListResponse,
   memoToDto,
@@ -345,7 +357,7 @@ const streamableTools: Array<{
         filter: {
           type: "string",
           description:
-            "Not implemented by FlareMo; use q for full-text and scope filters.",
+            "A Memos CEL expression evaluated against the memo resource.",
         },
         showDeleted: { type: "boolean" },
         q: { type: "string" },
@@ -529,6 +541,150 @@ const streamableTools: Array<{
           },
         },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "memo_list_memo_comments",
+    description: "List comments attached to one memo.",
+    inputSchema: {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: resourceNameInput,
+        memo: resourceNameInput,
+        pageSize: { type: "integer", minimum: 1, maximum: 100 },
+        pageToken: { type: "string" },
+        orderBy: { type: "string", example: "create_time desc" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "memo_create_memo_comment",
+    description: "Create a comment memo attached to one parent memo.",
+    inputSchema: {
+      type: "object",
+      required: ["name", "content"],
+      properties: {
+        name: resourceNameInput,
+        memo: resourceNameInput,
+        body: { type: "object", additionalProperties: true },
+        comment: { type: "object", additionalProperties: true },
+        content: { type: "string" },
+        visibility: { type: "string" },
+        payload: { type: "object", additionalProperties: true },
+        source: { type: "string" },
+        commentId: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "memo_list_memo_reactions",
+    description: "List reactions attached to one memo.",
+    inputSchema: {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: resourceNameInput,
+        memo: resourceNameInput,
+        pageSize: { type: "integer", minimum: 1, maximum: 100 },
+        pageToken: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "memo_upsert_memo_reaction",
+    description: "Create or idempotently upsert the current user's reaction.",
+    inputSchema: {
+      type: "object",
+      required: ["name", "reactionType"],
+      properties: {
+        name: resourceNameInput,
+        memo: resourceNameInput,
+        reaction: { type: "object", additionalProperties: true },
+        contentId: { type: "string" },
+        reactionType: { type: "string" },
+        reaction_type: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "memo_delete_memo_reaction",
+    description: "Delete one reaction owned by the current user.",
+    inputSchema: {
+      type: "object",
+      required: ["name", "reaction"],
+      properties: {
+        name: resourceNameInput,
+        memo: resourceNameInput,
+        reaction: resourceNameInput,
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "shortcut_list_shortcuts",
+    description: "List shortcuts for the authenticated current user.",
+    inputSchema: {
+      type: "object",
+      properties: { parent: resourceNameInput, user: resourceNameInput },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "shortcut_create_shortcut",
+    description: "Create or validate a shortcut for the current user.",
+    inputSchema: {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: { type: "string" },
+        filter: { type: "string" },
+        shortcut: { type: "object", additionalProperties: true },
+        validateOnly: { type: "boolean" },
+        validate_only: { type: "boolean" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "shortcut_get_shortcut",
+    description: "Get one shortcut by its resource name.",
+    inputSchema: {
+      type: "object",
+      required: ["name"],
+      properties: { name: resourceNameInput },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "shortcut_update_shortcut",
+    description: "Update a shortcut using an optional updateMask.",
+    inputSchema: {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: resourceNameInput,
+        shortcut: { type: "object", additionalProperties: true },
+        title: { type: "string" },
+        filter: { type: "string" },
+        updateMask: { type: "string" },
+        update_mask: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "shortcut_delete_shortcut",
+    description: "Delete one shortcut owned by the current user.",
+    inputSchema: {
+      type: "object",
+      required: ["name"],
+      properties: { name: resourceNameInput },
       additionalProperties: false,
     },
   },
@@ -787,6 +943,26 @@ async function callStreamableTool(
       return streamableListMemoRelations(context, args);
     case "memo_set_memo_relations":
       return streamableSetMemoRelations(context, args);
+    case "memo_list_memo_comments":
+      return streamableListMemoComments(context, args);
+    case "memo_create_memo_comment":
+      return streamableCreateMemoComment(context, args);
+    case "memo_list_memo_reactions":
+      return streamableListMemoReactions(context, args);
+    case "memo_upsert_memo_reaction":
+      return streamableUpsertMemoReaction(context, args);
+    case "memo_delete_memo_reaction":
+      return streamableDeleteMemoReaction(context, args);
+    case "shortcut_list_shortcuts":
+      return streamableListShortcuts(context, args);
+    case "shortcut_create_shortcut":
+      return streamableCreateShortcut(context, args);
+    case "shortcut_get_shortcut":
+      return streamableGetShortcut(context, args);
+    case "shortcut_update_shortcut":
+      return streamableUpdateShortcut(context, args);
+    case "shortcut_delete_shortcut":
+      return streamableDeleteShortcut(context, args);
     case "attachment_list_attachments":
       return streamableListAttachments(context, args);
     case "attachment_get_attachment":
@@ -805,11 +981,6 @@ async function streamableListMemos(
   args: JsonObject,
 ) {
   const filter = optionalString(args, "filter");
-  if (filter) {
-    throw new Error(
-      "The current Memos filter expression is not supported; use q for FlareMo search filters.",
-    );
-  }
 
   const query = listMemosQuerySchema.parse({
     page_size: pageSize(args),
@@ -820,6 +991,7 @@ async function streamableListMemos(
     state: normalizeMemoState(optionalString(args, "state")),
     q: optionalString(args, "q"),
     tag: optionalString(args, "tag"),
+    filter,
     include_deleted:
       optionalBoolean(args, "showDeleted") ??
       optionalBoolean(args, "include_deleted") ??
@@ -1029,6 +1201,171 @@ async function streamableSetMemoRelations(
   return { ok: true };
 }
 
+async function streamableListMemoComments(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const parentName = normalizeMemoName(resourceName(args, "memo", "name"));
+  const result = await listMemoComments(context.db, context.user, parentName, {
+    pageSize: pageSize(args),
+    pageToken: optionalString(args, "pageToken", "page_token"),
+    orderBy: optionalString(args, "orderBy", "order_by"),
+  });
+  return {
+    memos: result.memos.map((memo) =>
+      currentMemoToDto(memo, context.user, { parent: parentName }),
+    ),
+    ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
+  };
+}
+
+async function streamableCreateMemoComment(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const parentName = normalizeMemoName(resourceName(args, "memo", "name"));
+  const input = mergedResourceInput(args, "body", "comment");
+  const content = requiredString(input.content, "content");
+  const created = await createMemoComment(
+    context.db,
+    context.user,
+    parentName,
+    {
+      content,
+      visibility: normalizeVisibility(input.visibility),
+      payload: memoPayloadFromInput(input),
+      source: optionalString(input, "source") ?? "mcp",
+      ...(optionalString(input, "commentId", "comment_id")
+        ? { commentId: optionalString(input, "commentId", "comment_id") }
+        : {}),
+    },
+  );
+  return currentMemoToDto(created, context.user, { parent: parentName });
+}
+
+async function streamableListMemoReactions(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const memoName = normalizeMemoName(resourceName(args, "memo", "name"));
+  const result = await listMemoReactions(context.db, context.user, memoName, {
+    pageSize: pageSize(args),
+    pageToken: optionalString(args, "pageToken", "page_token"),
+  });
+  return {
+    reactions: result.reactions.map(currentReactionToDto),
+    ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
+  };
+}
+
+async function streamableUpsertMemoReaction(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const memoName = normalizeMemoName(resourceName(args, "memo", "name"));
+  const input = mergedResourceInput(args, "reaction");
+  const reactionType = requiredString(
+    firstDefined(input.reactionType, input.reaction_type),
+    "reactionType",
+  );
+  const contentId = optionalString(input, "contentId", "content_id");
+  const reaction = await upsertMemoReaction(
+    context.db,
+    context.user,
+    memoName,
+    {
+      reactionType,
+      ...(contentId ? { contentId } : {}),
+    },
+  );
+  return currentReactionToDto(reaction);
+}
+
+async function streamableDeleteMemoReaction(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const memoName = normalizeMemoName(resourceName(args, "memo", "name"));
+  const reactionId = requiredString(args.reaction, "reaction");
+  const reactionName = reactionId.includes("/reactions/")
+    ? reactionId
+    : `${memoName}/reactions/${reactionId.replace(/^reactions\//, "")}`;
+  await deleteMemoReaction(context.db, context.user, {
+    name: reactionName,
+    memoName,
+  });
+  return { ok: true };
+}
+
+async function streamableListShortcuts(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const parentName = optionalString(args, "parent", "user") ?? context.user.id;
+  const shortcuts = await listShortcuts(context.db, context.user, {
+    parentName,
+  });
+  return { shortcuts: shortcuts.map(currentShortcutToDto) };
+}
+
+async function streamableCreateShortcut(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const input = mergedResourceInput(args, "shortcut");
+  const title = requiredString(input.title, "title");
+  const filter = optionalString(input, "filter") ?? "";
+  const validateOnly =
+    optionalBoolean(args, "validateOnly") ??
+    optionalBoolean(args, "validate_only") ??
+    false;
+  const shortcut = await createShortcut(context.db, context.user, {
+    parentName: context.user.id,
+    title,
+    filter,
+    validateOnly,
+  });
+  return currentShortcutToDto(shortcut);
+}
+
+async function streamableGetShortcut(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const name = resourceName(args, "name", "shortcut");
+  return currentShortcutToDto(
+    await getShortcut(context.db, context.user, { name }),
+  );
+}
+
+async function streamableUpdateShortcut(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  const input = mergedResourceInput(args, "shortcut");
+  const name = requiredString(firstDefined(args.name, input.name), "name");
+  const title = optionalString(input, "title");
+  const filter = optionalString(input, "filter");
+  const updateMask = optionalString(args, "updateMask", "update_mask");
+  const shortcut = await updateShortcut(context.db, context.user, {
+    name,
+    ...(title !== undefined ? { title } : {}),
+    ...(filter !== undefined ? { filter } : {}),
+    ...(updateMask !== undefined ? { updateMask } : {}),
+  });
+  return currentShortcutToDto(shortcut);
+}
+
+async function streamableDeleteShortcut(
+  context: ReturnTypeOfRequestContext,
+  args: JsonObject,
+) {
+  await deleteShortcut(context.db, context.user, {
+    name: resourceName(args, "name", "shortcut"),
+  });
+  return { ok: true };
+}
+
 async function streamableListAttachments(
   context: ReturnTypeOfRequestContext,
   args: JsonObject,
@@ -1085,6 +1422,19 @@ function mergedMemoInput(args: JsonObject): JsonObject {
     ...memoObject,
     ...(isJsonObject(body) ? body : {}),
   };
+}
+
+function mergedResourceInput(args: JsonObject, ...keys: string[]): JsonObject {
+  const result = { ...args };
+  for (const key of keys) {
+    const value = args[key];
+    if (value === undefined) continue;
+    if (!isJsonObject(value)) {
+      throw new Error(`${key} must be an object.`);
+    }
+    Object.assign(result, value);
+  }
+  return result;
 }
 
 function assertUnsupportedMemoCollections(input: JsonObject) {
@@ -1301,7 +1651,14 @@ function firstDefined<T>(...values: Array<T | undefined>) {
   return values.find((value) => value !== undefined);
 }
 
-function normalizeVisibility(value: unknown, optional = false) {
+function normalizeMemoName(value: string) {
+  return value.startsWith("memos/") ? value : `memos/${value}`;
+}
+
+function normalizeVisibility(
+  value: unknown,
+  optional = false,
+): "private" | "protected" | "public" | undefined {
   if (value === undefined || value === null) {
     if (optional) return undefined;
     return "private";
@@ -1311,7 +1668,11 @@ function normalizeVisibility(value: unknown, optional = false) {
   const normalized = value.toLowerCase();
   if (normalized === "visibility_unspecified")
     return optional ? undefined : "private";
-  if (["private", "protected", "public"].includes(normalized))
+  if (
+    normalized === "private" ||
+    normalized === "protected" ||
+    normalized === "public"
+  )
     return normalized;
   throw new Error(`Unsupported visibility "${value}".`);
 }

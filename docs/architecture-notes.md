@@ -208,7 +208,7 @@ FlareMo 对外暴露 Memos-compatible `/api/v1`。公共兼容面包括：
 
 - 应用层由 Better Auth cookie session 或 `memos_pat_` PAT 负责认证。
 - 默认 `/api/v1` 使用 current camelCase/protobuf-JSON subset；旧 snake_case wire 通过 `X-FlareMo-Wire: legacy` 或 legacy vendor `Accept` 显式选择。
-- current auth facade 的 `accessToken` 是 opaque Better Auth session-backed token，不是 Memos 原生 JWT。
+- current auth facade 由 Better Auth 提供身份事实源，并返回 Memos 风格 HS256 access JWT；`memos_refresh` 是 HttpOnly、轮换并可撤销的 refresh cookie。旧 opaque Better Auth session bearer 仍保留兼容。
 - Cloudflare Access 是可选的外层 policy；启用时脚本和工具要同时携带 Access Service Token 与 FlareMo PAT。
 - 常见分页参数：`page_size`、`page_token`。
 - 常见排序参数：`order_by`。
@@ -237,7 +237,7 @@ Authorization: Bearer <memos_pat_...>
 - 基于 OpenAPI 暴露 MCP endpoint。
 - 响应字段在支持范围内保持 Memos-compatible。
 - Webhooks 作为自动化生态能力进入整体设计。
-- current camelCase wire、Better Auth-backed auth facade、字段/错误翻译、PAT 资源和根 `/mcp` 无状态 Streamable HTTP MCP 子集已实现并有仓库测试；`accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。
+- current camelCase wire、Better Auth-backed identity、native JWT/refresh facade、字段/错误翻译、PAT/social 资源、Connect JSON unary subset、heartbeat SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集已实现并有仓库测试；这些仍不等于完整 Memos Server、protobuf/gRPC 或第三方客户端 parity。
 
 ### 兼容边界
 
