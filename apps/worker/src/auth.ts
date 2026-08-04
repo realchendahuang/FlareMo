@@ -334,6 +334,15 @@ function getRequiredBetterAuthSecret(env: FlareMoEnv): string {
   return value;
 }
 
+/**
+ * The Memos-compatible JWT layer signs with the same secret that configures
+ * Better Auth. Exporting this narrow accessor keeps secret validation in one
+ * place without exposing the secret through any response or log path.
+ */
+export function getBetterAuthSecret(env: FlareMoEnv): string {
+  return getRequiredBetterAuthSecret(env);
+}
+
 function isLocalDevelopmentHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||

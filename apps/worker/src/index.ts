@@ -22,10 +22,13 @@ import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
 import { mcpApi, mcpStreamableApi } from "./routes/mcp";
 import { memosApi } from "./routes/memos-api";
+import { memosConnectApi } from "./routes/memos-connect-api";
 import {
   isLegacyWireRequest,
   memosCurrentApi,
 } from "./routes/memos-current-api";
+import { memosSocialApi } from "./routes/memos-social-api";
+import { memosSseApi } from "./routes/memos-sse";
 import { publicApi } from "./routes/public-api";
 
 const app = new Hono<HonoBindings>();
@@ -71,6 +74,22 @@ app.use(
   }),
 );
 
+app.use(
+  "/memos.api.v1.*",
+  cors({
+    origin: (origin, c) => {
+      try {
+        return getTrustedOrigins(c.env).includes(origin) ? origin : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    credentials: true,
+    allowHeaders: ["content-type", "authorization", "connect-protocol-version"],
+    allowMethods: ["POST", "OPTIONS"],
+  }),
+);
+
 // Better Auth's own handler also mutates the browser session. Keep its
 // endpoints under the same exact-origin contract as the application routes;
 // the handler's trustedOrigins setting is not a substitute for requiring an
@@ -90,6 +109,9 @@ app.route("/api/app/account", accountApi);
 app.route("/api/app", appApi);
 app.route("/api/public", publicApi);
 app.route("/mcp", mcpStreamableApi);
+app.route("/", memosConnectApi);
+app.route("/", memosSseApi);
+app.route("/api/v1", memosSocialApi);
 app.route("/api/v1", memosCurrentApi);
 app.route("/api/v1", memosApi);
 app.route("/api/v1", mcpApi);

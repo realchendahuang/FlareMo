@@ -73,6 +73,8 @@ export const listMemosQuerySchema = z.object({
       "Full-text terms plus optional filters: has:attachment, is:pinned, before:YYYY-MM-DD, after:YYYY-MM-DD, and in:timeline|archive|trash. Without state or in:, queries search timeline and archived memos; use in:trash for trashed memos. Date filters use memo creation dates in UTC; after is inclusive and before is exclusive. Invalid filter-like terms remain text.",
     ),
   tag: z.string().optional(),
+  /** Current Memos API CEL expression. Legacy `q` remains independent. */
+  filter: z.string().trim().max(4_096).optional(),
   include_deleted: z.coerce.boolean().default(false),
 });
 

@@ -307,6 +307,61 @@ export const memoRelations = sqliteTable(
   ],
 );
 
+// Memos reactions are first-class resources. `content_id` stores the memo
+// resource name (`memos/...`) so the compatibility layer can reconstruct the
+// upstream reaction resource name without introducing a second memo model.
+export const reactions = sqliteTable(
+  "reactions",
+  {
+    id: text("id").primaryKey(),
+    creatorId: text("creator_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    contentId: text("content_id")
+      .notNull()
+      .references(() => memos.id, { onDelete: "cascade" }),
+    reactionType: text("reaction_type").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("reactions_creator_content_type_idx").on(
+      table.creatorId,
+      table.contentId,
+      table.reactionType,
+    ),
+    index("reactions_content_created_id_idx").on(
+      table.contentId,
+      table.createdAt,
+      table.id,
+    ),
+    index("reactions_creator_idx").on(table.creatorId),
+  ],
+);
+
+// Shortcuts are stored as rows rather than encoded in the generic settings
+// JSON. This preserves stable resource names and gives future multi-user
+// deployments an ownership boundary that is independent of auth storage.
+export const shortcuts = sqliteTable(
+  "shortcuts",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    filter: text("filter").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("shortcuts_user_created_id_idx").on(
+      table.userId,
+      table.createdAt,
+      table.id,
+    ),
+  ],
+);
+
 export const attachments = sqliteTable(
   "attachments",
   {
@@ -415,5 +470,7 @@ export type MemoRow = typeof memos.$inferSelect;
 export type NewMemoRow = typeof memos.$inferInsert;
 export type MemoTagRow = typeof memoTags.$inferSelect;
 export type MemoRevisionRow = typeof memoRevisions.$inferSelect;
+export type ReactionRow = typeof reactions.$inferSelect;
+export type ShortcutRow = typeof shortcuts.$inferSelect;
 export type AttachmentRow = typeof attachments.$inferSelect;
 export type ShareRow = typeof shares.$inferSelect;

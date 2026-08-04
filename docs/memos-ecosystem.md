@@ -1,6 +1,6 @@
 # Memos 生态兼容记录
 
-FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。当前工作树已经提供 current camelCase REST 子集、Better Auth-backed auth facade、PAT 资源基础和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
+FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。当前工作树已经提供 Better Auth-backed identity、Memos-style HS256 access JWT/rotating `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT 资源、Connect JSON unary subset、heartbeat/polling SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
 
 生产实例迁移期建议放在 Cloudflare Access 后面。第三方工具访问私有 FlareMo 时，必须满足应用层认证：
 
@@ -39,10 +39,12 @@ Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 
 | 工具 / 路径 | 类型 | 测试版本 | 请求路径 | 应用层认证 | 当前状态 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- |
 | curl / HTTP script | 通用脚本 | 当前工作树 | `/api/v1/memos`、`/api/v1/attachments`、`/api/v1/export`、`/api/v1/import` | `memos_pat_`；Access 开启时再加 Access headers | 可用（Worker contract） | `apps/worker/src/auth.test.ts` 和 `apps/worker/src/api.test.ts` 覆盖 cookie、PAT、memo CRUD、分页、搜索、附件、分享、revisions、export/import。 |
-| current REST script | 通用脚本 | 当前工作树 | `/api/v1/auth/*`、`/api/v1/memos`、`/api/v1/attachments`、`/api/v1/users/*`、`/api/v1/shares/*` | Better Auth cookie/session bearer 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（current contract） | `apps/worker/src/memos-compatibility.test.ts` 覆盖 camelCase DTO、current enum、updateMask、PAT、标准错误和匿名 share read；`accessToken` 是 opaque session-backed token。 |
+| current REST script | 通用脚本 | 当前工作树 | `/api/v1/auth/*`、`/api/v1/memos`、`/api/v1/memos/{memo}/comments`、`reactions`、`/api/v1/users/*/shortcuts`、`/api/v1/attachments`、`/api/v1/shares/*` | Better Auth cookie/session bearer、native Memos access JWT 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（FlareMo contract） | `apps/worker/src/memos-compatibility.test.ts`、`memos-social.test.ts` 覆盖 current DTO、enum、updateMask、PAT、native JWT claims/rotation、social 资源、标准错误和匿名 share read；不是第三方客户端 smoke。 |
 | OpenAPI consumers | API schema 工具 | 当前工作树 | `/openapi.json` | OpenAPI 描述可公开读取；私有 API 请求需 PAT | 可用（schema surface） | `apps/worker/src/memos-compatibility.test.ts` 断言默认 current OpenAPI 和显式 legacy OpenAPI。 |
 | FlareMo legacy MCP endpoint | MCP 客户端 | 当前工作树 | `/api/v1/mcp` | `memos_pat_`；Access 开启时再加 Access headers | 部分可用（旧式 JSON-RPC） | `apps/worker/src/auth.test.ts` 覆盖 PAT `tools/list`；保留给已有 FlareMo 客户端。 |
-| FlareMo current MCP endpoint | MCP 客户端 | 当前工作树 | `/mcp` | Better Auth cookie/session bearer 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（stateless protocol subset） | `apps/worker/src/mcp-streamable.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、`tools/call` 和工具错误 envelope；未验证所有第三方 MCP client。 |
+| FlareMo current MCP endpoint | MCP 客户端 | 当前工作树 | `/mcp` | Better Auth cookie/session bearer、native Memos access JWT 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（stateless protocol subset） | `apps/worker/src/mcp-streamable.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、memo/social/attachment tool calls 和工具错误 envelope；未验证所有第三方 MCP client。 |
+| Connect JSON client | HTTP unary client | 当前工作树 | `/memos.api.v1.MemoService/*` | Cookie session、native Memos access JWT 或 `memos_pat_` | 部分可用（JSON subset） | Worker route 与 OpenAPI 描述 memo CRUD、attachments、relations 的 application/json subset；protobuf binary/native gRPC 未实现，第三方 Connect client 未测。 |
+| Memos SSE consumer | SSE client | 当前工作树 | `/api/v1/sse` | Cookie session、native Memos access JWT 或 `memos_pat_` | 部分可用（heartbeat/polling） | Worker contract 只证明 authenticated stream、connected/heartbeat 和 cancellation；mutation event outbox、replay、第三方消费端未测。 |
 | FlareMo Telegram Worker example | Telegram Bot | 当前工作树 | Telegram webhook -> `/api/v1/memos` | 必须使用 PAT；Access headers 仅在生产仍启用 Access 时成对追加 | contract-tested subset | Worker tests cover PAT-only native auth, optional Access headers, fail-closed secret configuration, and webhook validation；不等于真实 Telegram/生产 smoke。 |
 | Public share reader | 浏览器 / curl | 当前工作树 | `/share/*`、`/api/public/shares/*` | 不需要 session/PAT；Access 开启时需 bypass | 可用（share contract） | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
 

@@ -20,9 +20,9 @@ Better Auth 是应用层认证事实源，Cloudflare Access 只能作为可选�
 | 入口 | 当前认证方式 | 兼容说明 |
 | --- | --- | --- |
 | Web / Better Auth | 用户名 + 密码，登录后使用 `HttpOnly` cookie session | 当前是一套单用户 bootstrap；公共 signup 关闭，数据模型保留未来用户映射边界。 |
-| current auth facade | `POST /api/v1/auth/signin`、`refresh`、`signout`，以及 `GET /api/v1/auth/me` | 由 Better Auth session/account 数据驱动；`accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。 |
+| current auth facade | `POST /api/v1/auth/signin`、`refresh`、`signout`，以及 `GET /api/v1/auth/me` | Better Auth 提供身份和账户事实源；signin 返回 Memos 风格 HS256 access JWT，并设置轮换的 `memos_refresh` HttpOnly cookie。旧 Better Auth session bearer 仍保留兼容。 |
 | `/api/v1/*` 私有 API | cookie session，或 `Authorization: Bearer memos_pat_...` | PAT 由已登录账户创建、只在创建时显示一次、可撤销，并由 Better Auth API key/plugin 数据承载。 |
-| current PAT 资源 | `/api/v1/users/{user}/personalAccessTokens` | 提供当前用户的 list/create/revoke 基础；要求 cookie session 或 Better Auth session bearer，`memos_pat_` 本身不能管理 PAT；不是 Memos 原生 JWT/refresh-token parity。 |
+| current PAT 资源 | `/api/v1/users/{user}/personalAccessTokens` | 提供当前用户的 list/create/revoke 基础；要求 cookie session 或 Better Auth session bearer，`memos_pat_` 本身不能管理 PAT。PAT 与 native JWT 是两种明确的应用凭据。 |
 | root `/mcp` | cookie session、Better Auth session bearer，或 `memos_pat_` PAT | Streamable HTTP 是无状态 JSON 响应子集，不创建 MCP session。 |
 | Origin policy | cookie session 状态变更必须携带并精确匹配 `FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS`；PAT 可无 Origin，带 Origin 时同样必须匹配 | 缺失或不可信 Origin 返回 `403`；Access headers 不替代应用层 Origin。 |
 | Cloudflare Access | 可选外层 policy / Service Auth | Access 只解决外层网络门禁；启用时仍要提供上面的 cookie、session bearer 或 PAT。 |
@@ -34,20 +34,23 @@ Better Auth 是应用层认证事实源，Cloudflare Access 只能作为可选�
 | 能力 | 状态 | current 路径 / 说明 |
 | --- | --- | --- |
 | current 用户 | 已实现 | `GET /api/v1/auth/me`、`GET /api/v1/users`、`GET /api/v1/users/{user}`。 |
-| Better Auth 登录 facade | 已实现子集 | `POST /api/v1/auth/signin`、`POST /api/v1/auth/refresh`、`POST /api/v1/auth/signout`；返回 Better Auth-backed opaque token。 |
+| Better Auth / native Memos auth facade | 已实现子集 | `POST /api/v1/auth/signin`、`POST /api/v1/auth/refresh`、`POST /api/v1/auth/signout`；Better Auth 负责身份，返回 `iss=memos`、`aud=user.access-token` 的 HS256 access JWT，并通过 `memos_refresh` cookie 做 refresh rotation。 |
 | 创建/列表 memo | 已实现子集 | `POST /api/v1/memos`、`GET /api/v1/memos`；支持 `pageSize`、`pageToken`、有限 `orderBy` 和有限 filter。 |
 | memo 详情/更新/删除 | 已实现子集 | `GET/PATCH/DELETE /api/v1/memos/{memo}`；支持 current `{ memo: {...} }` body wrapper、`updateMask` 和 `memoId` 明确拒绝。 |
 | memo 状态与可见性 | 已实现映射 | `NORMAL`、`ARCHIVED`、`PRIVATE`、`PROTECTED`、`PUBLIC`；FlareMo 的 trash/deleted 与 current Memos 状态模型不完全相同。 |
 | memo 属性 | 已实现子集 | `tags`、`property`、`location`、`snippet` 以及基本字段映射。 |
 | memo 附件绑定 | 已实现子集 | `GET/PATCH /api/v1/memos/{memo}/attachments`；PATCH 主要是替换 memo 的附件集合，不是完整 Attachment update parity。 |
 | memo relations | 已实现子集 | `GET/PATCH /api/v1/memos/{memo}/relations`；返回 nested `memo` / `relatedMemo` DTO 和 current relation enum。 |
+| memo comments | 已实现子集 | `GET/POST /api/v1/memos/{memo}/comments`；comment 是带 `COMMENT` relation 的 memo，返回 current camelCase memo DTO。 |
+| memo reactions | 已实现子集 | `GET/POST /api/v1/memos/{memo}/reactions`、`DELETE /api/v1/memos/{memo}/reactions/{reaction}`；按 creator/content/type 做幂等 upsert。 |
+| shortcuts | 已实现子集 | `GET/POST /api/v1/users/{user}/shortcuts`、`GET/PATCH/DELETE /api/v1/users/{user}/shortcuts/{shortcut}`；支持 CEL filter 校验、`validateOnly` 和 `updateMask`。 |
 | memo shares | 已实现子集 | `GET/POST /api/v1/memos/{memo}/shares`、`DELETE /api/v1/memos/{memo}/shares/{share}`；current share name 使用 `memos/{id}/shares/{token}` 兼容形态。 |
 | 匿名 share 读取 | 已实现 | `GET /api/v1/shares/{share_id}`；仍由 share token、过期时间和 memo 状态控制。 |
 | 附件资源 | 已实现子集 | `GET/POST /api/v1/attachments`、`GET/PATCH/DELETE /api/v1/attachments/{attachment}`；支持 current `{ attachment: {...} }` wrapper，`attachmentId` 明确拒绝。 |
 | 附件列表 | 已实现子集 | 返回 `attachments`、可选 `nextPageToken`；`size` 按 protobuf JSON 以十进制字符串输出。 |
 | PAT 资源 | 已实现基础 | `GET/POST /api/v1/users/{user}/personalAccessTokens`、`DELETE /api/v1/users/{user}/personalAccessTokens/{token}`。 |
 | 标准错误 | 已实现 | current 错误使用 `{ code, message, details }`，不把 FlareMo 内部异常直接暴露给客户端。 |
-| current OpenAPI | 已实现 | `GET /openapi.json`、认证后 `GET /api/v1/openapi.json`；文档显式描述 current/legacy wire、认证和 `/mcp`。 |
+| current OpenAPI | 已实现 | `GET /openapi.json`、认证后 `GET /api/v1/openapi.json`；文档描述 current/legacy wire、native JWT/refresh cookie、social 路由、SSE、Connect JSON subset 和 `/mcp`。 |
 
 ### 有限 filter / order 支持
 
@@ -71,7 +74,13 @@ visibility == "PUBLIC"
 - `tools/list`
 - `tools/call`
 
-current 工具名使用 `memo_`、`attachment_`、`auth_` 前缀，覆盖 memo CRUD、memo attachments、memo relations、附件 list/get/delete 和 current user。成功结果同时提供 text content 与 object-shaped `structuredContent`；工具执行失败保留在 MCP result 的 `isError: true` 中。
+current 工具名使用 `memo_`、`attachment_`、`shortcut_`、`auth_` 前缀，覆盖 memo CRUD、attachments、relations、comments、reactions、shortcuts、附件 list/get/delete 和 current user。成功结果同时提供 text content 与 object-shaped `structuredContent`；工具执行失败保留在 MCP result 的 `isError: true` 中。
+
+### Connect JSON 与 SSE
+
+Worker 还提供 canonical `memos.api.v1.MemoService/*` 的 HTTP unary JSON subset，覆盖 memo CRUD、attachments 和 relations。它只接受 `application/json`；不支持 protobuf binary、原生 gRPC、完整 Connect metadata/trailer 或其他 Memos service。
+
+`GET /api/v1/sse` 提供 authenticated `text/event-stream` 握手、连接注释和 heartbeat，并正确处理 abort/cancel。当前没有跨 isolate mutation event outbox、`Last-Event-ID` replay 或完整 Memos SSE event hub，因此文档只称 heartbeat/polling-compatible stream。
 
 `/mcp` 当前是无状态 JSON response，不承诺 SSE、MCP session、完整 method surface 或所有第三方 MCP client 的实测兼容。旧的 `POST /api/v1/mcp` JSON-RPC 工具名继续保留，供已有 FlareMo 客户端使用。
 
@@ -82,9 +91,10 @@ current 工具名使用 `memo_`、`attachment_`、`auth_` 前缀，覆盖 memo C
 - 完整 Memos Server parity，以及完整 Connect/gRPC parity。
 - 完整 CEL filter、复杂分页/排序和附件 filter/order/page-token 语义。
 - current attachment batch delete，以及超出 memo binding subset 的 Attachment update。
-- Memos comments、reactions、shortcuts、notifications、admin/instance surfaces。
-- SSE 和有状态 MCP session 行为。
-- Memos 原生 JWT、refresh token 及其字节级认证 parity；FlareMo `accessToken` 是 opaque Better Auth session-backed token。
+- comments、reactions、shortcuts 的完整上游 service/wire parity，以及 notifications、admin/instance surfaces。
+- 完整 SSE event hub、replay 和有状态 MCP session 行为。
+- Memos 原生 JWT/refresh-token 的字节级、版本级 parity；当前只验证 FlareMo 自己的 HS256 facade claims、rotation 和 revoke 行为。
+- Connect protobuf binary、原生 gRPC/gRPC-Web，以及未覆盖的 Memos service。
 - 官方 Memos 客户端、MemoFlow、Dynos、Raycast、浏览器插件等第三方客户端的真实 smoke test。
 - Cloudflare Access policy 本身的配置正确性；它是部署环境外层策略，不是 FlareMo 应用协议。
 
@@ -101,5 +111,6 @@ current 工具名使用 `memo_`、`attachment_`、`auth_` 前缀，覆盖 memo C
 - OpenAPI current/legacy wire negotiation。
 - Better Auth cookie、session bearer、PAT Bearer、PAT 撤销和公开分享边界。
 - `/mcp` initialize、tools/list、tools/call 和工具错误 envelope。
+- native JWT header/claims、refresh cookie attributes、rotation/reuse rejection、Connect JSON transport 和 SSE handshake/cancel。
 
 这些仓库测试证明的是 FlareMo 自己的协议契约，不等于第三方客户端已经可用。第三方连接结果必须回写到 [memos-ecosystem.md](./memos-ecosystem.md)，未真实连接的客户端只能标记为“未测”。

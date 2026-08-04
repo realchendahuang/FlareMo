@@ -12,6 +12,7 @@ import { attachments, memoRevisions, memos, memoTags } from "@flaremo/db";
 import { and, asc, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
+import { compileMemoFilter } from "./memo-filter";
 
 export type MemoListResult = {
   memos: MemoRow[];
@@ -90,6 +91,7 @@ export async function listMemos(
   query: ListMemosQuery,
 ): Promise<MemoListResult> {
   const search = parseMemoSearchQuery(query.q);
+  const celFilter = compileMemoFilter(query.filter);
   const cursor = query.page_token
     ? decodePageToken(query.page_token, query.order_by)
     : undefined;
@@ -184,7 +186,7 @@ export async function listMemos(
     if (cursorFilter) filters.push(cursorFilter);
   }
 
-  const rows = await db
+  const orderedQuery = db
     .select()
     .from(memos)
     .where(and(...filters.filter(Boolean)))
@@ -192,8 +194,10 @@ export async function listMemos(
       desc(memos.pinned),
       direction === "asc" ? asc(orderColumn) : desc(orderColumn),
       direction === "asc" ? asc(memos.id) : desc(memos.id),
-    )
-    .limit(query.page_size + 1);
+    );
+  const rows = celFilter
+    ? (await orderedQuery).filter((memo) => celFilter(memo, user))
+    : await orderedQuery.limit(query.page_size + 1);
 
   const page = rows.slice(0, query.page_size);
   const next = rows.length > query.page_size ? page.at(-1) : undefined;
