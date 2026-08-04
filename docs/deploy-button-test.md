@@ -104,7 +104,7 @@ Deploy Button 自动处理：
 - D1 database 和 R2 bucket 能由部署流程新建并绑定：通过。
 - 部署命令可以自动执行远端 D1 migrations：通过。
 - 首次 Worker 部署和后续 push 自动部署：通过。
-- 生产访问由 Cloudflare Access 接管，FlareMo 不要求应用内 Bearer token：部署后由使用者配置 Access。
+- 生产访问可以由 Cloudflare Access 作为外层防线，但 FlareMo 私有 API 仍要求 Better Auth cookie/session bearer 或 `memos_pat_` PAT。
 
 ## 部署后仍需人工确认
 

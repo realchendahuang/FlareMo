@@ -43,7 +43,7 @@ Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 
 | OpenAPI consumers | API schema 工具 | 当前工作树 | `/openapi.json` | OpenAPI 描述可公开读取；私有 API 请求需 PAT | 可用（schema surface） | `apps/worker/src/memos-compatibility.test.ts` 断言默认 current OpenAPI 和显式 legacy OpenAPI。 |
 | FlareMo legacy MCP endpoint | MCP 客户端 | 当前工作树 | `/api/v1/mcp` | `memos_pat_`；Access 开启时再加 Access headers | 部分可用（旧式 JSON-RPC） | `apps/worker/src/auth.test.ts` 覆盖 PAT `tools/list`；保留给已有 FlareMo 客户端。 |
 | FlareMo current MCP endpoint | MCP 客户端 | 当前工作树 | `/mcp` | Better Auth cookie/session bearer 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（stateless protocol subset） | `apps/worker/src/mcp-streamable.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、`tools/call` 和工具错误 envelope；未验证所有第三方 MCP client。 |
-| FlareMo Telegram Worker example | Telegram Bot | 当前工作树 | Telegram webhook -> `/api/v1/memos` | 需要 PAT；现有示例的 Access-only 发送路径需单独更新 | 部分可用 / 待回归 | 现有示例测试覆盖 webhook 和 Access headers，但不证明新的应用层 PAT 已接通。 |
+| FlareMo Telegram Worker example | Telegram Bot | 当前工作树 | Telegram webhook -> `/api/v1/memos` | 必须使用 PAT；Access headers 仅在生产仍启用 Access 时成对追加 | contract-tested subset | Worker tests cover PAT-only native auth, optional Access headers, fail-closed secret configuration, and webhook validation；不等于真实 Telegram/生产 smoke。 |
 | Public share reader | 浏览器 / curl | 当前工作树 | `/share/*`、`/api/public/shares/*` | 不需要 session/PAT；Access 开启时需 bypass | 可用（share contract） | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
 
 ## 第三方客户端待测矩阵

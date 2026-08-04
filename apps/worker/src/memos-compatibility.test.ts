@@ -538,6 +538,7 @@ describe("Memos-compatible API contract", () => {
     );
     expect(signInResponse.status).toBe(200);
     expect(signInResponse.headers.get("set-cookie")).toBeTruthy();
+    expect(signInResponse.headers.get("cache-control")).toBe("no-store");
     const signIn = (await signInResponse.json()) as {
       accessToken: string;
       user: { name: string; role: string; username: string };
@@ -554,6 +555,28 @@ describe("Memos-compatible API contract", () => {
     });
 
     const bearer = { authorization: `Bearer ${signIn.accessToken}` };
+    const refreshWithoutOrigin = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/refresh",
+      { method: "POST", headers: bearer },
+      { authenticated: false },
+    );
+    expect(refreshWithoutOrigin.status).toBe(200);
+    expect(refreshWithoutOrigin.headers.get("cache-control")).toBe("no-store");
+    expect(await refreshWithoutOrigin.json()).toEqual({
+      accessToken: signIn.accessToken,
+      expiresAt: signIn.accessTokenExpiresAt,
+    });
+
+    const refreshWithUntrustedOrigin = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/refresh",
+      {
+        method: "POST",
+        headers: { ...bearer, origin: "https://untrusted.example" },
+      },
+      { authenticated: false },
+    );
+    expect(refreshWithUntrustedOrigin.status).toBe(403);
+
     const meResponse = await fetchCurrent(
       "http://flaremo.test/api/v1/auth/me",
       { headers: bearer },
@@ -748,6 +771,7 @@ describe("Memos-compatible API contract", () => {
       },
     );
     expect(patCreate.status).toBe(200);
+    expect(patCreate.headers.get("cache-control")).toBe("no-store");
     const pat = (await patCreate.json()) as {
       personalAccessToken: { name: string };
       token: string;
@@ -883,6 +907,49 @@ describe("Memos-compatible API contract", () => {
     );
     expect(unauthenticated.status).toBe(401);
     expect(await unauthenticated.json()).toMatchObject({ code: 16 });
+  });
+
+  it("clears the cookie session when current signout receives both credentials", async () => {
+    const signInResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/signin",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          passwordCredentials: {
+            username: "owner",
+            password: TEST_PASSWORD,
+          },
+        }),
+      },
+      { authenticated: false },
+    );
+    const signIn = (await signInResponse.json()) as { accessToken: string };
+    const cookie = extractCookieHeader(signInResponse);
+
+    const signout = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/signout",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${signIn.accessToken}`,
+          cookie,
+          origin: "http://flaremo.test",
+        },
+      },
+      { authenticated: false },
+    );
+    expect(signout.status).toBe(200);
+
+    const cookieOnly = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/me",
+      { headers: { cookie } },
+      { authenticated: false },
+    );
+    expect(cookieOnly.status).toBe(401);
   });
 });
 

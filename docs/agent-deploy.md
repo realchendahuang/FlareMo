@@ -9,9 +9,10 @@
 - Wrangler 已登录目标 Cloudflare 账号。
 - `wrangler.jsonc` 里的 D1、R2 binding 指向目标资源。
 - `wrangler.jsonc` 的 `FLAREMO_PUBLIC_URL` 已设置为生产 canonical origin；需要时设置 `FLAREMO_TRUSTED_ORIGINS`。
-- `BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 已通过 Wrangler secret 或 Cloudflare 控制台配置。`FLAREMO_RECOVERY_SECRET` 只在明确批准的 break-glass recovery 窗口临时配置。Agent 不得要求用户把 secret、密码、cookie 或 PAT 粘贴到聊天中。
+- `BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 已通过 Wrangler secret 或 Cloudflare 控制台配置，且各至少 32 个字符。`FLAREMO_RECOVERY_SECRET` 只在明确批准的 break-glass recovery 窗口临时配置。Agent 不得要求用户把 secret、密码、cookie 或 PAT 粘贴到聊天中。
 - `FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 公开变量；它们不是 Better Auth 登录身份、用户名、密码或 bootstrap 输入。初始认证身份以部署者在生产 `/setup` 页面提交的值为准。
 - Cloudflare Access 可以作为可选外层防线，但不替代 FlareMo 应用层认证。
+- 生产 Cloudflare WAF/Rate Limiting 已覆盖登录、bootstrap 和 operator recovery 路径；Worker 内置限流只作为单 isolate 补充。
 
 ## 禁止事项
 
@@ -80,7 +81,7 @@ curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
 
 首次安装必须由部署者在浏览器打开 `https://<your-flaremo-origin>/setup`，并在生产 HTTPS 页面手动输入 `FLAREMO_BOOTSTRAP_SECRET`、初始用户名、显示名、邮箱和 12–128 个字符的初始密码。如果启用了 Cloudflare Access，先通过外层 policy 再打开 `/setup`。Agent 不得要求用户把这些值粘贴到聊天、命令行、shell history、issue、日志或 Agent 输出，也不得代用户调用 bootstrap endpoint；部署者完成页面提交后，Agent 只能检查 bootstrap status 和登录结果。
 
-bootstrap endpoint 只保留给明确批准的受控初始化流程；本 runbook 不提供把 secret 或密码放进环境变量、命令行参数或非交互 `curl` 的示例。已完成 bootstrap 后的密码破窗恢复使用单独的 `FLAREMO_RECOVERY_SECRET`，重置现有 owner、撤销全部 session/PAT，不创建第二个 owner；恢复成功后立即轮换或删除该 secret。
+bootstrap endpoint 只保留给明确批准的受控初始化流程；本 runbook 不提供把 secret 或密码放进环境变量、命令行参数或非交互 `curl` 的示例。已完成 bootstrap 后的密码破窗恢复使用单独的 `FLAREMO_RECOVERY_SECRET`，重置现有 owner、撤销全部 session/PAT，不创建第二个 owner；恢复成功后立即轮换或删除该 secret。若 bootstrap 因部分写入进入 `recovery_required`，使用同一 secret 调用 operator-only `POST /api/auth/flaremo/recover-bootstrap` 只协调既有身份映射；该接口不接受用户名、密码，不会重新开放 signup，遇到多个身份或 link 会返回 `409`。
 
 然后验证 cookie session，登录后创建并安全保存 `memos_pat_` PAT，再用 PAT 访问私有 API。PAT 明文只在创建时显示一次。
 

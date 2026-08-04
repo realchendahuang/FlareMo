@@ -258,6 +258,11 @@ export function getPublicUrl(env: FlareMoEnv): string {
       "FLAREMO_PUBLIC_URL must use http or https.",
     );
   }
+  if (url.protocol === "http:" && !isLocalDevelopmentHostname(url.hostname)) {
+    throw new AuthConfigurationError(
+      "FLAREMO_PUBLIC_URL must use HTTPS outside local development.",
+    );
+  }
   if (url.pathname !== "/" || url.search || url.hash) {
     throw new AuthConfigurationError(
       "FLAREMO_PUBLIC_URL must be an origin without a path, query, or fragment.",
@@ -304,7 +309,8 @@ export function getTrustedOrigins(
 
 export function getBootstrapSecret(env: FlareMoEnv): string | null {
   const value = env.FLAREMO_BOOTSTRAP_SECRET?.trim();
-  return value || null;
+  if (!value || value.length < 32) return null;
+  return value;
 }
 
 /**
@@ -326,4 +332,13 @@ function getRequiredBetterAuthSecret(env: FlareMoEnv): string {
     );
   }
   return value;
+}
+
+function isLocalDevelopmentHostname(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".test")
+  );
 }

@@ -200,6 +200,7 @@ memosCurrentApi.post("/auth/signin", async (c, next) => {
       200,
     );
     copyHeaders(response.headers, result.headers);
+    response.headers.set("cache-control", "no-store");
     return response;
   } catch (error) {
     return currentJsonError(c, error);
@@ -212,19 +213,20 @@ memosCurrentApi.post("/auth/refresh", async (c, next) => {
     const authorization = c.req.header("authorization");
     if (authorization) {
       const token = parseBearerToken(authorization);
-      if (token.startsWith("memos_pat_")) {
+      const authContext = await getRequestContext(c);
+      // Resolve every bearer credential through the shared request context so
+      // session refresh gets the same expiry, PAT rejection, and exact
+      // trusted-Origin checks as the rest of the current API. A Memos PAT is
+      // an application credential, not a refreshable browser session.
+      if (!authContext.bearerSession || !authContext.session) {
         throw new UnauthorizedCurrentError();
       }
-      const authContext = await createAuthContext(c);
-      const session = await getFlaremoUserByAuthSessionToken(
-        authContext.db,
-        token,
+      return noStoreResponse(
+        c.json({
+          accessToken: token,
+          expiresAt: authContext.session.expiresAt.toISOString(),
+        }),
       );
-      if (!session) throw new UnauthorizedCurrentError();
-      return c.json({
-        accessToken: token,
-        expiresAt: session.session.expiresAt.toISOString(),
-      });
     }
 
     if (!authorization) assertTrustedCookieMutation(c);
@@ -234,10 +236,12 @@ memosCurrentApi.post("/auth/refresh", async (c, next) => {
       query: { disableCookieCache: true },
     });
     if (!result) throw new UnauthorizedCurrentError();
-    return c.json({
-      accessToken: result.session.token,
-      expiresAt: result.session.expiresAt.toISOString(),
-    });
+    return noStoreResponse(
+      c.json({
+        accessToken: result.session.token,
+        expiresAt: result.session.expiresAt.toISOString(),
+      }),
+    );
   } catch (error) {
     return currentJsonError(c, error);
   }
@@ -252,20 +256,22 @@ memosCurrentApi.post("/auth/signout", async (c, next) => {
       if (token.startsWith("memos_pat_")) {
         // A PAT does not have a browser session to clear, but it still must be
         // valid. Do not return success for arbitrary bearer strings.
-        await getRequestContext(c);
+        const context = await getRequestContext(c);
+        if (c.req.raw.headers.get("cookie")) {
+          return signOutCookieSession(c, context.db);
+        }
         return c.body(null, 200);
       }
       const context = await getRequestContext(c);
       await revokeAuthSessionByToken(context.db, token);
+      if (c.req.raw.headers.get("cookie")) {
+        return signOutCookieSession(c, context.db);
+      }
       return c.body(null, 200);
     }
 
     const context = await getRequestContext(c);
-    const request = new Request(new URL("/api/auth/sign-out", c.req.url), {
-      method: "POST",
-      headers: c.req.raw.headers,
-    });
-    return createFlareMoAuth(c.env, context.db).handler(request);
+    return signOutCookieSession(c, context.db);
   } catch (error) {
     return currentJsonError(c, error);
   }
@@ -736,10 +742,12 @@ memosCurrentApi.post("/users/:user/personalAccessTokens", async (c, next) => {
             : body.expiresInDays * 24 * 60 * 60,
       },
     });
-    return c.json({
-      personalAccessToken: currentPatToDto(created, context.user.id),
-      token: created.key,
-    });
+    return noStoreResponse(
+      c.json({
+        personalAccessToken: currentPatToDto(created, context.user.id),
+        token: created.key,
+      }),
+    );
   } catch (error) {
     return currentJsonError(c, error);
   }
@@ -1170,6 +1178,24 @@ function copyHeaders(target: Headers, source: Headers) {
   source.forEach((value, key) => {
     target.append(key, value);
   });
+}
+
+function noStoreResponse(response: Response) {
+  response.headers.set("cache-control", "no-store");
+  return response;
+}
+
+function signOutCookieSession(
+  c: Parameters<typeof getRequestContext>[0],
+  db: ReturnType<typeof createDb>,
+) {
+  const headers = new Headers(c.req.raw.headers);
+  headers.delete("authorization");
+  const request = new Request(new URL("/api/auth/sign-out", c.req.url), {
+    method: "POST",
+    headers,
+  });
+  return createFlareMoAuth(c.env, db).handler(request);
 }
 
 function currentJsonError(

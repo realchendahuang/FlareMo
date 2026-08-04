@@ -43,7 +43,7 @@ If the instance is protected by Cloudflare Access, unauthenticated requests shou
 curl -sSL "$FLAREMO_URL" | rg "Log in|Cloudflare Access|FlareMo"
 ```
 
-Scripts need an Access Service Token:
+Scripts need a FlareMo `memos_pat_` application token. If the deployment still uses Cloudflare Access, they also need an Access Service Token:
 
 ```bash
 curl "$FLAREMO_URL/api/v1/memos" \

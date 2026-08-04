@@ -6,6 +6,7 @@ import {
   getOwnerAuthUserId,
   listMemosPersonalAccessTokens,
   markOwnerBootstrapRecoveryRequired,
+  reconcileOwnerBootstrap,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -233,6 +234,44 @@ authApi.post(
     }
   },
 );
+
+/**
+ * Reconcile a partial owner bootstrap without accepting credentials or
+ * caller-supplied identity data. The separate recovery secret keeps this
+ * operator-only path closed by default and prevents it from becoming a second
+ * signup flow.
+ */
+authApi.post("/recover-bootstrap", async (c) => {
+  const recoverySecret = getRecoverySecret(c.env);
+  if (!recoverySecret) {
+    return c.json(
+      { error: { message: "Operator recovery is not configured." } },
+      503,
+    );
+  }
+
+  const suppliedSecret = c.req.header("x-flaremo-recovery-secret");
+  if (!(await secretsMatch(suppliedSecret, recoverySecret))) {
+    return c.json(
+      { error: { message: "Operator recovery is not authorized." } },
+      403,
+    );
+  }
+
+  const db = createDb(c.env.DB);
+  try {
+    await reconcileOwnerBootstrap(db);
+    console.log(
+      JSON.stringify({
+        level: "info",
+        message: "FlareMo owner bootstrap recovery completed",
+      }),
+    );
+    return c.json({ ok: true });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 async function secretsMatch(
   supplied: string | undefined,

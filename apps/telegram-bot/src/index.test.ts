@@ -4,6 +4,7 @@ import { handleTelegramWebhook, type TelegramBotEnv } from "./index";
 const env: TelegramBotEnv = {
   FLAREMO_ACCESS_CLIENT_ID: "access-id",
   FLAREMO_ACCESS_CLIENT_SECRET: "access-secret",
+  FLAREMO_MEMOS_PAT: "memos_pat_test-only-telegram-credential",
   FLAREMO_URL: "https://flaremo.example.workers.dev/",
   TELEGRAM_ALLOWED_CHAT_IDS: "42, 84",
   TELEGRAM_WEBHOOK_SECRET: "telegram-secret",
@@ -37,6 +38,9 @@ describe("Telegram ingestion example", () => {
     const headers = new Headers(init?.headers);
     expect(headers.get("CF-Access-Client-Id")).toBe("access-id");
     expect(headers.get("CF-Access-Client-Secret")).toBe("access-secret");
+    expect(headers.get("Authorization")).toBe(
+      "Bearer memos_pat_test-only-telegram-credential",
+    );
     expect(JSON.parse(String(init?.body))).toMatchObject({
       content: "A useful link https://example.com/article",
       source: "telegram",
@@ -67,6 +71,69 @@ describe("Telegram ingestion example", () => {
     );
     expect(deniedChat.status).toBe(403);
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("supports native FlareMo auth without Cloudflare Access headers", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Response.json({ name: "memos/native" }, { status: 201 }),
+    );
+    const nativeEnv: TelegramBotEnv = {
+      ...env,
+      FLAREMO_ACCESS_CLIENT_ID: undefined,
+      FLAREMO_ACCESS_CLIENT_SECRET: undefined,
+    };
+    const response = await handleTelegramWebhook(
+      telegramRequest({
+        update_id: 1002,
+        message: { chat: { id: 42 }, message_id: 8, text: "native auth" },
+      }),
+      nativeEnv,
+      fetcher,
+    );
+
+    expect(response.status).toBe(200);
+    const [, init] = fetcher.mock.calls[0] ?? [];
+    const headers = new Headers(init?.headers);
+    expect(headers.get("Authorization")).toBe(
+      "Bearer memos_pat_test-only-telegram-credential",
+    );
+    expect(headers.get("CF-Access-Client-Id")).toBeNull();
+    expect(headers.get("CF-Access-Client-Secret")).toBeNull();
+  });
+
+  it("fails closed when the application PAT or Access pair is misconfigured", async () => {
+    const fetcher = vi.fn();
+    const missingPat = await handleTelegramWebhook(
+      telegramRequest({
+        update_id: 1003,
+        message: { chat: { id: 42 }, message_id: 9, text: "missing pat" },
+      }),
+      { ...env, FLAREMO_MEMOS_PAT: undefined },
+      fetcher,
+    );
+    expect(missingPat.status).toBe(503);
+
+    const partialAccess = await handleTelegramWebhook(
+      telegramRequest({
+        update_id: 1004,
+        message: { chat: { id: 42 }, message_id: 10, text: "partial access" },
+      }),
+      { ...env, FLAREMO_ACCESS_CLIENT_SECRET: undefined },
+      fetcher,
+    );
+    expect(partialAccess.status).toBe(503);
+    expect(fetcher).not.toHaveBeenCalled();
+
+    const insecureUrl = await handleTelegramWebhook(
+      telegramRequest({
+        update_id: 1005,
+        message: { chat: { id: 42 }, message_id: 11, text: "insecure url" },
+      }),
+      { ...env, FLAREMO_URL: "http://flaremo.example.workers.dev" },
+      fetcher,
+    );
+    expect(insecureUrl.status).toBe(503);
   });
 });
 

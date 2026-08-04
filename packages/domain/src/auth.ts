@@ -13,6 +13,7 @@ import { ConflictError } from "./errors";
 import { ensureSingleUser, type SingleUserConfig } from "./users";
 
 const OWNER_BOOTSTRAP_ID = "bootstrap/owner";
+const OWNER_FLAREMO_USER_ID = "users/owner";
 
 export type AuthBootstrapState = "ready" | "complete" | "recovery_required";
 
@@ -24,22 +25,35 @@ export type AuthBootstrapStatus = {
 export async function getAuthBootstrapStatus(
   db: FlareMoDb,
 ): Promise<AuthBootstrapStatus> {
-  const [link, bootstrap, unlinkedAuthUser] = await Promise.all([
-    db.query.authUserLinks.findFirst(),
+  const [links, bootstrap, authUserRows] = await Promise.all([
+    db.select().from(authUserLinks),
     db.query.authBootstrap.findFirst({
       where: eq(authBootstrap.id, OWNER_BOOTSTRAP_ID),
     }),
-    db.query.authUsers.findFirst(),
+    db.select({ id: authUsers.id }).from(authUsers),
   ]);
 
-  if (link) {
+  const hasExactCompletedLink = Boolean(
+    bootstrap?.state === "complete" &&
+      bootstrap.authUserId &&
+      bootstrap.flaremoUserId === OWNER_FLAREMO_USER_ID &&
+      links.some(
+        (link) =>
+          link.authUserId === bootstrap.authUserId &&
+          link.flaremoUserId === bootstrap.flaremoUserId,
+      ),
+  );
+
+  if (hasExactCompletedLink) {
     return { initialized: true, state: "complete" };
   }
 
-  // An authentication identity without a FlareMo owner mapping can be the
-  // result of a partial bootstrap. Do not let a new request claim ownership;
-  // require a deliberate operator recovery instead.
-  if (unlinkedAuthUser || bootstrap) {
+  // An authentication identity, link, or bootstrap claim without a fully
+  // consistent completion record can be the result of a partial bootstrap.
+  // Do not let a new request claim ownership; require deliberate operator
+  // recovery instead. In particular, a future user link must not make the
+  // single-user owner bootstrap appear complete.
+  if (authUserRows.length > 0 || links.length > 0 || bootstrap) {
     return { initialized: false, state: "recovery_required" };
   }
 
@@ -102,6 +116,109 @@ export async function markOwnerBootstrapRecoveryRequired(
 }
 
 /**
+ * Reconcile a failed owner bootstrap without opening signup again.
+ *
+ * This deliberately accepts only a recovery-required singleton and only the
+ * shapes that can be proven unambiguous: one Better Auth user, zero or one
+ * auth-to-domain links, and (when present) an exact link to users/owner. It
+ * never creates a Better Auth identity and it does not accept caller-supplied
+ * user data.
+ */
+export async function reconcileOwnerBootstrap(db: FlareMoDb): Promise<UserRow> {
+  const [bootstrap, authUserRows, links] = await Promise.all([
+    db.query.authBootstrap.findFirst({
+      where: eq(authBootstrap.id, OWNER_BOOTSTRAP_ID),
+    }),
+    db.select().from(authUsers),
+    db.select().from(authUserLinks),
+  ]);
+
+  if (bootstrap?.state !== "recovery_required") {
+    throw new ConflictError(
+      "Owner bootstrap recovery requires a recovery-required state.",
+    );
+  }
+  if (authUserRows.length !== 1) {
+    throw new ConflictError(
+      "Owner bootstrap recovery requires exactly one authentication identity.",
+    );
+  }
+  if (links.length > 1) {
+    throw new ConflictError(
+      "Owner bootstrap recovery found an ambiguous identity mapping.",
+    );
+  }
+
+  const authUser = authUserRows[0];
+  if (!authUser) {
+    throw new ConflictError(
+      "Owner bootstrap recovery found no authentication identity.",
+    );
+  }
+
+  if (
+    (bootstrap.authUserId && bootstrap.authUserId !== authUser.id) ||
+    (bootstrap.flaremoUserId &&
+      bootstrap.flaremoUserId !== OWNER_FLAREMO_USER_ID)
+  ) {
+    throw new ConflictError(
+      "Owner bootstrap recovery found an inconsistent completion record.",
+    );
+  }
+
+  const existingLink = links[0];
+  if (
+    existingLink &&
+    (existingLink.authUserId !== authUser.id ||
+      existingLink.flaremoUserId !== OWNER_FLAREMO_USER_ID)
+  ) {
+    throw new ConflictError(
+      "Owner bootstrap recovery found an inconsistent identity mapping.",
+    );
+  }
+
+  const user = await ensureSingleUser(db, {
+    email: authUser.email,
+    name: authUser.name,
+  });
+
+  if (!existingLink) {
+    await db
+      .insert(authUserLinks)
+      .values({
+        authUserId: authUser.id,
+        flaremoUserId: user.id,
+        createdAt: new Date(),
+      })
+      .onConflictDoNothing();
+  }
+
+  const completed = await db
+    .update(authBootstrap)
+    .set({
+      state: "complete",
+      authUserId: authUser.id,
+      flaremoUserId: user.id,
+      completedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(authBootstrap.id, OWNER_BOOTSTRAP_ID),
+        eq(authBootstrap.state, "recovery_required"),
+      ),
+    )
+    .returning({ id: authBootstrap.id });
+
+  if (!completed[0]) {
+    throw new ConflictError(
+      "Owner bootstrap recovery was changed concurrently; retry the operation.",
+    );
+  }
+
+  return user;
+}
+
+/**
  * Return the already-linked owner identity for a completed single-user
  * bootstrap. Recovery must target this identity in place; it must never create
  * another Better Auth user or another domain owner.
@@ -115,7 +232,7 @@ export async function getOwnerAuthUserId(
   if (
     bootstrap?.state !== "complete" ||
     !bootstrap.authUserId ||
-    !bootstrap.flaremoUserId
+    bootstrap.flaremoUserId !== OWNER_FLAREMO_USER_ID
   ) {
     return null;
   }

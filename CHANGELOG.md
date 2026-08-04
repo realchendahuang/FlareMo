@@ -6,6 +6,33 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 后续变更将在下一次 release 汇总。
 
+## v0.4.2
+
+Better Auth 与 Memos-compatible 集成收口版本。这个版本不新增 D1 migration，重点修复 partial bootstrap、current auth facade 和渠道 Worker 的应用层认证边界。
+
+### 已修复
+
+- bootstrap status 只有在 `auth_bootstrap` 的完成状态、owner IDs 和精确 `auth_user_links` 映射全部一致时才报告 `complete`；未来用户 link 或 partial write 不会误开放 setup。
+- 增加默认关闭的 `POST /api/auth/flaremo/recover-bootstrap` operator recovery，只协调唯一既有 Better Auth 身份与 `users/owner`，不接受用户名/密码、不创建第二个认证用户；多身份或歧义映射 fail closed 返回 `409`。
+- current Memos `auth/refresh` 的 session bearer 统一经过共享认证 context，补齐过期、PAT 拒绝和 trusted Origin 校验；无 Origin 的机器 session bearer 仍可用。
+- credential-bearing current signin/refresh 与 PAT 创建响应设置 `Cache-Control: no-store`；current signout 在同时收到 bearer 和 cookie 时会同时撤销 session 并清理 cookie。
+- Telegram Worker 改为必须使用 Better Auth `memos_pat_` PAT；Cloudflare Access headers 仅在成对配置时追加，缺失/半配置 fail closed，FlareMo 目标 URL 强制为 HTTPS origin。
+- bootstrap secret 最少 32 个字符；生产 `FLAREMO_PUBLIC_URL` 强制 HTTPS，本地 `.test`/localhost HTTP 仅用于开发测试。
+
+### Cloudflare、数据库与兼容影响
+
+- 本版本不新增 D1 migration；现有认证表和 PAT 仍必须纳入备份、恢复和演练范围。
+- Cloudflare Access 仍是可选外层 policy，不能替代 Better Auth cookie/session bearer 或 PAT。公开分享是否能穿过 Access 仍取决于 Cloudflare 控制面的精确 bypass policy。
+- 登录、bootstrap 和 operator recovery 的跨 edge 失败/请求限流需要在 Cloudflare WAF/Rate Limiting 配置；Worker 内置限流只是单 isolate 补充。
+- 继续提供已记录的 Memos-compatible 子集，不宣称完整 Memos Server parity、原生 JWT parity 或所有第三方客户端已验证。
+
+### 升级说明
+
+- 保持现有 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS`、Better Auth secrets 和已创建的 PAT 配置；不要把任何 secret、密码、cookie 或 PAT 写入 Git、release notes、日志或聊天。
+- 尚未 bootstrap 的实例需要使用不少于 32 个字符的 bootstrap secret；生产 canonical URL 必须是 HTTPS。
+- 若 bootstrap status 为 `recovery_required`，仅在批准的 operator recovery 窗口临时配置 recovery secret，调用 `recover-bootstrap` 后立即轮换或删除该 secret。
+- Telegram Worker 新增必需的 `FLAREMO_MEMOS_PAT` secret；生产仍启用 Access 时，再配置成对的 Access client ID/secret。
+
 ## v0.4.1
 
 鉴权安全收口补丁。这个版本把 Better Auth、operator recovery 和 Memos-compatible auth facade 的安全边界收紧，同时不改变 D1 schema。
