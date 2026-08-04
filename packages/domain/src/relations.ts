@@ -1,10 +1,11 @@
 import type { PatchMemoRelationsInput } from "@flaremo/contracts";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { memoRelations, memos } from "@flaremo/db";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { NotFoundError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
+import { insertMemosSseEvent } from "./memos-sse";
 
 export async function listMemoRelations(
   db: FlareMoDb,
@@ -19,6 +20,31 @@ export async function listMemoRelations(
     .where(eq(memoRelations.memoId, normalizedMemoId));
 }
 
+/**
+ * List the complete relation set for a memo, including links where the memo
+ * is the related target. Memos' ListMemoRelations RPC exposes both directions
+ * while the legacy FlareMo relation helper historically returned only the
+ * rows owned by `memoId`; keep the two contracts explicit.
+ */
+export async function listMemoRelationsForViewer(
+  db: FlareMoDb,
+  user: UserRow | null,
+  memoId: string,
+) {
+  const normalizedMemoId = parseResourceName(memoId, "memos");
+  await getMemoByIdForViewer(db, user, normalizedMemoId);
+  return db
+    .select()
+    .from(memoRelations)
+    .where(
+      or(
+        eq(memoRelations.memoId, normalizedMemoId),
+        eq(memoRelations.relatedMemoId, normalizedMemoId),
+      ),
+    )
+    .orderBy(asc(memoRelations.createdAt), asc(memoRelations.memoId));
+}
+
 export async function replaceMemoRelations(
   db: FlareMoDb,
   user: UserRow,
@@ -26,7 +52,7 @@ export async function replaceMemoRelations(
   input: PatchMemoRelationsInput,
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, normalizedMemoId);
+  const memo = await getMemoById(db, user, normalizedMemoId);
 
   const rows: Array<{
     memoId: string;
@@ -66,10 +92,21 @@ export async function replaceMemoRelations(
   const deleteStatement = db
     .delete(memoRelations)
     .where(eq(memoRelations.memoId, normalizedMemoId));
+  const eventStatement = insertMemosSseEvent(db, {
+    type: "memo.updated",
+    name: memo.id,
+    visibility: memo.visibility,
+    creatorId: memo.userId,
+    createdAt: now,
+  });
   if (rows.length > 0) {
-    await db.batch([deleteStatement, db.insert(memoRelations).values(rows)]);
+    await db.batch([
+      deleteStatement,
+      db.insert(memoRelations).values(rows),
+      eventStatement,
+    ]);
   } else {
-    await deleteStatement;
+    await db.batch([deleteStatement, eventStatement]);
   }
 
   return listMemoRelations(db, user, normalizedMemoId);

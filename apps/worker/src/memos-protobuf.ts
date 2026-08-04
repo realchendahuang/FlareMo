@@ -135,7 +135,10 @@ export function encodeBinaryResponse(
 ): Uint8Array | string {
   const payload = encodeResponseMessage(service, method, value);
   if (transport === "connect-proto") return payload;
-  const framed = encodeGrpcUnaryFrame(payload);
+  const framed =
+    transport === "grpc-web-proto" || transport === "grpc-web-text-proto"
+      ? encodeGrpcWebResponse(payload, 0)
+      : encodeGrpcUnaryFrame(payload);
   return transport === "grpc-web-text-proto" ? encodeBase64(framed) : framed;
 }
 
@@ -150,7 +153,13 @@ export function encodeBinaryError(
   // INVALID_ARGUMENT.
   const status = new ProtoWriter().int32(1, code).string(2, message).finish();
   if (transport === "connect-proto") return status;
-  const framed = encodeGrpcUnaryFrame(status);
+  // gRPC-Web application errors are carried in a trailers-only frame. A
+  // protobuf google.rpc.Status data frame would be interpreted as a normal
+  // response message by generated browser clients.
+  const framed =
+    transport === "grpc-web-proto" || transport === "grpc-web-text-proto"
+      ? encodeGrpcWebTrailerFrame(code, message)
+      : encodeGrpcUnaryFrame(status);
   return transport === "grpc-web-text-proto" ? encodeBase64(framed) : framed;
 }
 
@@ -170,9 +179,11 @@ export function decodeBinaryResponse(
   const payload =
     transport === "connect-proto"
       ? input
-      : decodeGrpcUnaryFrame(
-          transport === "grpc-web-text-proto" ? decodeBase64(input) : input,
-        );
+      : transport === "grpc-web-proto" || transport === "grpc-web-text-proto"
+        ? decodeGrpcWebUnaryResponse(
+            transport === "grpc-web-text-proto" ? decodeBase64(input) : input,
+          )
+        : decodeGrpcUnaryFrame(input);
   return decodeResponseMessage(service, method, payload);
 }
 
@@ -2505,6 +2516,71 @@ function encodeGrpcUnaryFrame(payload: Uint8Array) {
   new DataView(frame.buffer).setUint32(1, payload.length);
   frame.set(payload, 5);
   return frame;
+}
+
+function decodeGrpcWebUnaryResponse(input: Uint8Array) {
+  let offset = 0;
+  let data: Uint8Array | undefined;
+  while (offset < input.length) {
+    if (input.length - offset < 5) {
+      throw new ProtoCodecError("Truncated gRPC-Web frame");
+    }
+    const flags = input[offset] ?? 255;
+    const length = new DataView(
+      input.buffer,
+      input.byteOffset + offset,
+      input.byteLength - offset,
+    ).getUint32(1);
+    offset += 5;
+    if (length > input.length - offset) {
+      throw new ProtoCodecError("Truncated gRPC-Web frame payload");
+    }
+    const payload = input.subarray(offset, offset + length);
+    offset += length;
+
+    if (flags === 0) {
+      if (data) throw new ProtoCodecError("Expected one gRPC-Web data frame");
+      data = payload;
+      continue;
+    }
+    if ((flags & 0x80) !== 0) continue;
+    throw new ProtoCodecError("Unsupported gRPC-Web frame flags");
+  }
+  return data ?? new Uint8Array();
+}
+
+function encodeGrpcWebResponse(payload: Uint8Array, code: number) {
+  return concatBytes(
+    encodeGrpcWebFrame(0, payload),
+    encodeGrpcWebTrailerFrame(code),
+  );
+}
+
+function encodeGrpcWebTrailerFrame(code: number, message?: string) {
+  const lines = [`grpc-status: ${code}`];
+  if (message) lines.push(`grpc-message: ${encodeURIComponent(message)}`);
+  const payload = new TextEncoder().encode(`${lines.join("\r\n")}\r\n`);
+  return encodeGrpcWebFrame(0x80, payload);
+}
+
+function encodeGrpcWebFrame(flags: number, payload: Uint8Array) {
+  const frame = new Uint8Array(payload.length + 5);
+  frame[0] = flags;
+  new DataView(frame.buffer).setUint32(1, payload.length);
+  frame.set(payload, 5);
+  return frame;
+}
+
+function concatBytes(...values: Uint8Array[]) {
+  const output = new Uint8Array(
+    values.reduce((length, value) => length + value.length, 0),
+  );
+  let offset = 0;
+  for (const value of values) {
+    output.set(value, offset);
+    offset += value.length;
+  }
+  return output;
 }
 
 function decodeBase64(input: Uint8Array) {

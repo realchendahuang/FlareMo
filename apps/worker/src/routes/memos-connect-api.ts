@@ -29,7 +29,7 @@ import {
   listMemoAttachmentsForViewer,
   listMemoComments,
   listMemoReactions,
-  listMemoRelations,
+  listMemoRelationsForViewer,
   listMemoShares,
   listMemos,
   listMemosForViewer,
@@ -409,11 +409,15 @@ async function connectShortcutMethod(
     }
     case "UpdateShortcut": {
       const shortcut = record(body.shortcut);
+      const updateMask = optionalString(body.updateMask);
+      if (!updateMask?.trim()) {
+        throw new ConnectInputError("updateMask is required");
+      }
       const updated = await updateShortcut(context.db, context.user, {
         name: requiredString(shortcut.name, "shortcut.name"),
         title: optionalString(shortcut.title),
         filter: optionalString(shortcut.filter),
-        updateMask: optionalString(body.updateMask),
+        updateMask,
       });
       return connectValue(c, currentShortcutToDto(updated), transport);
     }
@@ -1276,17 +1280,24 @@ async function connectPublicMemoRead(
     }
     case "ListMemoRelations": {
       const memoId = normalizeMemoName(requiredString(body.name, "name"));
-      const memo = await getMemoByIdForViewer(context.db, context.user, memoId);
-      const rows = await listMemoRelations(context.db, context.user, memoId);
+      await getMemoByIdForViewer(context.db, context.user, memoId);
+      const rows = await listMemoRelationsForViewer(
+        context.db,
+        context.user,
+        memoId,
+      );
       const relations = await Promise.all(
         rows.map(async (relation) => {
           try {
-            const relatedMemo = await getMemoByIdForViewer(
-              context.db,
-              context.user,
-              relation.relatedMemoId,
-            );
-            return currentRelationToDto(relation, memo, relatedMemo);
+            const [relationMemo, relatedMemo] = await Promise.all([
+              getMemoByIdForViewer(context.db, context.user, relation.memoId),
+              getMemoByIdForViewer(
+                context.db,
+                context.user,
+                relation.relatedMemoId,
+              ),
+            ]);
+            return currentRelationToDto(relation, relationMemo, relatedMemo);
           } catch {
             return null;
           }
@@ -1323,17 +1334,20 @@ async function connectPublicMemoWithDetails(
   const [attachments, reactions, relationRows] = await Promise.all([
     listMemoAttachmentsForViewer(context.db, context.user, memo.id),
     listMemoReactions(context.db, context.user, memo.id, { pageSize: 1_000 }),
-    listMemoRelations(context.db, context.user, memo.id),
+    listMemoRelationsForViewer(context.db, context.user, memo.id),
   ]);
   const relations = await Promise.all(
     relationRows.map(async (relation) => {
       try {
-        const relatedMemo = await getMemoByIdForViewer(
-          context.db,
-          context.user,
-          relation.relatedMemoId,
-        );
-        return currentRelationToDto(relation, memo, relatedMemo);
+        const [relationMemo, relatedMemo] = await Promise.all([
+          getMemoByIdForViewer(context.db, context.user, relation.memoId),
+          getMemoByIdForViewer(
+            context.db,
+            context.user,
+            relation.relatedMemoId,
+          ),
+        ]);
+        return currentRelationToDto(relation, relationMemo, relatedMemo);
       } catch {
         return null;
       }
@@ -1596,16 +1610,22 @@ async function listConnectRelations(
   const memo = await getMemoById(context.db, context.user, memoId, {
     includeDeleted: true,
   });
-  const rows = await listMemoRelations(context.db, context.user, memo.id);
+  const rows = await listMemoRelationsForViewer(
+    context.db,
+    context.user,
+    memo.id,
+  );
   const relations = await Promise.all(
     rows.map(async (row) => {
-      const relatedMemo = await getMemoById(
-        context.db,
-        context.user,
-        row.relatedMemoId,
-        { includeDeleted: true },
-      );
-      return currentRelationToDto(row, memo, relatedMemo);
+      const [relationMemo, relatedMemo] = await Promise.all([
+        getMemoById(context.db, context.user, row.memoId, {
+          includeDeleted: true,
+        }),
+        getMemoById(context.db, context.user, row.relatedMemoId, {
+          includeDeleted: true,
+        }),
+      ]);
+      return currentRelationToDto(row, relationMemo, relatedMemo);
     }),
   );
   return { relations };
@@ -1622,7 +1642,7 @@ async function connectMemoWithDetails(
   );
   const [attachments, rows, reactionPage, parent] = await Promise.all([
     listMemoAttachments(context.db, context.user, memo.id),
-    listMemoRelations(context.db, context.user, memo.id),
+    listMemoRelationsForViewer(context.db, context.user, memo.id),
     listMemoReactions(context.db, context.user, {
       memoName: memo.id,
       pageSize: 1_000,
@@ -1631,13 +1651,15 @@ async function connectMemoWithDetails(
   ]);
   const relations = await Promise.all(
     rows.map(async (row) => {
-      const related = await getMemoById(
-        context.db,
-        context.user,
-        row.relatedMemoId,
-        { includeDeleted: true },
-      );
-      return currentRelationToDto(row, memo, related);
+      const [relationMemo, relatedMemo] = await Promise.all([
+        getMemoById(context.db, context.user, row.memoId, {
+          includeDeleted: true,
+        }),
+        getMemoById(context.db, context.user, row.relatedMemoId, {
+          includeDeleted: true,
+        }),
+      ]);
+      return currentRelationToDto(row, relationMemo, relatedMemo);
     }),
   );
   return currentMemoToDto(memo, context.user, {

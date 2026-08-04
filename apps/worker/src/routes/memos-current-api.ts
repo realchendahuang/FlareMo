@@ -18,7 +18,7 @@ import {
   listAttachments,
   listAttachmentsForMemosForViewer,
   listMemoAttachmentsForViewer,
-  listMemoRelations,
+  listMemoRelationsForViewer,
   listMemoShares,
   listMemosForViewer,
   listMemosPersonalAccessTokens,
@@ -898,19 +898,28 @@ async function currentRelations(
   context: Awaited<ReturnType<typeof getOptionalRequestContext>>,
   memoId: string,
 ) {
-  const memo = await getMemoByIdForViewer(context.db, context.user, memoId, {
+  await getMemoByIdForViewer(context.db, context.user, memoId, {
     includeDeleted: true,
   });
-  const rows = await listMemoRelations(context.db, context.user, memoId);
+  const rows = await listMemoRelationsForViewer(
+    context.db,
+    context.user,
+    memoId,
+  );
   const related = await Promise.all(
     rows.map(async (relation) => {
       try {
-        const relatedMemo = await getMemoByIdForViewer(
-          context.db,
-          context.user,
-          relation.relatedMemoId,
-          { includeDeleted: true },
-        );
+        const [memo, relatedMemo] = await Promise.all([
+          getMemoByIdForViewer(context.db, context.user, relation.memoId, {
+            includeDeleted: true,
+          }),
+          getMemoByIdForViewer(
+            context.db,
+            context.user,
+            relation.relatedMemoId,
+            { includeDeleted: true },
+          ),
+        ]);
         return currentRelationToDto(relation, memo, relatedMemo);
       } catch {
         return null;
@@ -921,7 +930,6 @@ async function currentRelations(
     (value): value is NonNullable<typeof value> => value !== null,
   );
 }
-
 async function currentMemoCreator(
   context: Awaited<ReturnType<typeof getOptionalRequestContext>>,
   memo: Awaited<ReturnType<typeof getMemoById>>,

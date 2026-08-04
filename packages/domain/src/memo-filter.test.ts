@@ -35,9 +35,27 @@ describe("Memos CEL filter", () => {
   it("supports timestamp and now/duration expressions", () => {
     expect(
       compileMemoFilter(
-        'created_ts > timestamp("2020-01-01T00:00:00Z") && updated_ts <= now',
+        'created_ts > timestamp(1704067200) && updated_ts <= now - duration("1h")',
       )?.(memo, user),
     ).toBe(true);
+  });
+
+  it("supports upstream size and timestamp accessor functions", () => {
+    expect(compileMemoFilter("size(content) == 25")?.(memo, user)).toBe(true);
+    expect(compileMemoFilter("content.size() > 20")?.(memo, user)).toBe(true);
+    expect(compileMemoFilter("size(tags) == 2")?.(memo, user)).toBe(true);
+    expect(
+      compileMemoFilter("created_ts.getFullYear() == 2026")?.(memo, user),
+    ).toBe(true);
+    expect(compileMemoFilter("created_ts.getMonth() == 7")?.(memo, user)).toBe(
+      true,
+    );
+    expect(() => compileMemoFilter('created_ts.getMonth("UTC") == 7')).toThrow(
+      /timezone argument/,
+    );
+    expect(() => compileMemoFilter("now.getFullYear() == 2026")).toThrow(
+      /timestamp fields/,
+    );
   });
 
   it("matches Memos creator identity, numeric id, and virtual tag membership", () => {
@@ -157,7 +175,10 @@ describe("Memos CEL filter", () => {
     expect(() =>
       compileMemoFilter('content.substring(0, 2) == "road"'),
     ).toThrow("Invalid Memos CEL filter");
-    expect(() => compileMemoFilter('created_ts.getHours("UTC") > 0')).toThrow(
+    expect(() => compileMemoFilter('created_ts.getHours("UTC") >= 0')).toThrow(
+      "timezone argument",
+    );
+    expect(() => compileMemoFilter("size(pinned)")).toThrow(
       "Invalid Memos CEL filter",
     );
   });

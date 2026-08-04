@@ -499,6 +499,17 @@ function visitMemoFilterAst(node: MemoFilterAst, boundIds: Set<string>) {
       visitMemoFilterAst(args[1], boundIds);
       return;
     }
+    case "+":
+    case "-":
+    case "*":
+    case "/":
+    case "%": {
+      const args = binaryAstArgs(node);
+      if (!args) rejectUnsupported(`${node.op} requires two operands`);
+      visitMemoFilterAst(args[0], boundIds);
+      visitMemoFilterAst(args[1], boundIds);
+      return;
+    }
     case "!_":
       if (!isAstNode(node.args))
         rejectUnsupported("NOT requires one condition");
@@ -539,11 +550,11 @@ function validateCallSurface(node: MemoFilterAst, boundIds: Set<string>) {
 
   if (parts.name === "size") {
     if (parts.args.length !== 1) {
-      rejectUnsupported("size is only supported for tags");
+      rejectUnsupported("size requires one argument");
     }
     const receiver = requireAstArg(parts.args, 0, "size");
-    if (identifierName(receiver) !== "tags") {
-      rejectUnsupported("size is only supported for tags");
+    if (!new Set(["content", "tags"]).has(identifierName(receiver) ?? "")) {
+      rejectUnsupported("size is only supported for content and tags");
     }
     visitMemoFilterAst(receiver, boundIds);
     return;
@@ -553,12 +564,23 @@ function validateCallSurface(node: MemoFilterAst, boundIds: Set<string>) {
     if (parts.args.length !== 1) {
       rejectUnsupported(`${parts.name} requires one literal`);
     }
-    const literal = stringLiteral(requireAstArg(parts.args, 0, parts.name));
-    if (literal === undefined) {
-      rejectUnsupported(`${parts.name} requires a literal string`);
+    const literal = requireAstArg(parts.args, 0, parts.name);
+    if (parts.name === "timestamp") {
+      const stringValue = stringLiteral(literal);
+      if (stringValue !== undefined) {
+        validateTimestampLiteral(stringValue);
+      } else if (!isIntegerLiteral(literal)) {
+        rejectUnsupported(
+          "timestamp requires an RFC3339 string or epoch integer",
+        );
+      }
+    } else {
+      const stringValue = stringLiteral(literal);
+      if (stringValue === undefined) {
+        rejectUnsupported("duration requires a literal string");
+      }
+      validateDurationLiteral(stringValue);
     }
-    if (parts.name === "timestamp") validateTimestampLiteral(literal);
-    else validateDurationLiteral(literal);
     return;
   }
 
@@ -599,6 +621,29 @@ function validateReceiverCallSurface(
     return;
   }
 
+  const receiverName = identifierName(parts.receiver);
+  if (parts.name === "size") {
+    if (parts.args.length !== 0) {
+      rejectUnsupported("size requires no arguments when used as a method");
+    }
+    if (receiverName !== "content" && receiverName !== "tags") {
+      rejectUnsupported("size is only supported for content and tags");
+    }
+    visitMemoFilterAst(parts.receiver, boundIds);
+    return;
+  }
+
+  if (memoFilterTimestampMethods.has(parts.name)) {
+    if (receiverName !== "created_ts" && receiverName !== "updated_ts") {
+      rejectUnsupported(`${parts.name} is only supported for timestamp fields`);
+    }
+    if (parts.args.length !== 0) {
+      rejectUnsupported(`${parts.name} does not accept a timezone argument`);
+    }
+    visitMemoFilterAst(parts.receiver, boundIds);
+    return;
+  }
+
   if (
     parts.name !== "flaremo_contains" &&
     parts.name !== "flaremo_startsWith" &&
@@ -607,7 +652,6 @@ function validateReceiverCallSurface(
   ) {
     rejectUnsupported(`method ${parts.name} is not supported`);
   }
-  const receiverName = identifierName(parts.receiver);
   if (receiverName !== "content" && !boundIds.has(receiverName ?? "")) {
     rejectUnsupported("text methods only support content and tag iterators");
   }
@@ -621,6 +665,18 @@ function validateReceiverCallSurface(
   if (parts.name === "flaremo_matches") validateRegexPattern(literal);
   visitMemoFilterAst(parts.receiver, boundIds);
 }
+
+const memoFilterTimestampMethods = new Set([
+  "getDate",
+  "getDayOfMonth",
+  "getDayOfWeek",
+  "getDayOfYear",
+  "getFullYear",
+  "getHours",
+  "getMinutes",
+  "getMonth",
+  "getSeconds",
+]);
 
 function requireAstArray(value: unknown, label: string): MemoFilterAst[] {
   if (!Array.isArray(value) || !value.every(isAstNode)) {
@@ -694,6 +750,14 @@ function stringLiteral(node: MemoFilterAst) {
   return node.op === "value" && typeof node.args === "string"
     ? node.args
     : undefined;
+}
+
+function isIntegerLiteral(node: MemoFilterAst) {
+  return (
+    node.op === "value" &&
+    ((typeof node.args === "number" && Number.isSafeInteger(node.args)) ||
+      typeof node.args === "bigint")
+  );
 }
 
 function identifierName(node: unknown) {

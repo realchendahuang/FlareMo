@@ -64,7 +64,13 @@ describe("Memos protobuf transport", () => {
     expect(response).toBeInstanceOf(Uint8Array);
     const bytes = response as Uint8Array;
     expect(bytes[0]).toBe(0);
-    expect(new DataView(bytes.buffer).getUint32(1)).toBe(bytes.length - 5);
+    const dataLength = new DataView(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength,
+    ).getUint32(1);
+    expect(dataLength).toBeLessThan(bytes.length - 5);
+    expect(bytes[5 + dataLength]).toBe(0x80);
     expect(new TextDecoder().decode(bytes)).toContain("memos/one");
   });
 
@@ -204,5 +210,41 @@ describe("Memos protobuf transport", () => {
       users: [{ name: "users/owner", username: "owner" }],
       totalSize: 1,
     });
+  });
+
+  it("adds and consumes standard gRPC-Web unary trailer frames", () => {
+    const response = encodeBinaryResponse(
+      "memos.api.v1.MemoService",
+      "GetMemo",
+      { name: "memos/one", content: "hello" },
+      "grpc-web-proto",
+    ) as Uint8Array;
+    expect(response[0]).toBe(0);
+    const trailerOffset = 5 + new DataView(response.buffer).getUint32(1);
+    expect(response[trailerOffset]).toBe(0x80);
+    expect(
+      new TextDecoder().decode(response.subarray(trailerOffset + 5)),
+    ).toContain("grpc-status: 0");
+    expect(
+      decodeBinaryResponse(
+        "memos.api.v1.MemoService",
+        "GetMemo",
+        response,
+        "grpc-web-proto",
+      ),
+    ).toMatchObject({ name: "memos/one", content: "hello" });
+
+    const error = encodeBinaryError(
+      "bad input",
+      "grpc-web-proto",
+      3,
+    ) as Uint8Array;
+    expect(error[0]).toBe(0x80);
+    expect(new TextDecoder().decode(error.subarray(5))).toContain(
+      "grpc-status: 3",
+    );
+    expect(new TextDecoder().decode(error.subarray(5))).toContain(
+      "grpc-message: bad%20input",
+    );
   });
 });

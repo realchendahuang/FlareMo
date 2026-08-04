@@ -11,7 +11,7 @@ import {
   listMemoAttachmentsForViewer,
   listMemoComments,
   listMemoReactions,
-  listMemoRelations,
+  listMemoRelationsForViewer,
   listShortcuts,
   updateShortcut,
   upsertMemoReaction,
@@ -353,19 +353,24 @@ async function memoToCurrentDto(
   );
   const [attachments, relationRows, reactionPage] = await Promise.all([
     listMemoAttachmentsForViewer(context.db, context.user, memo.id),
-    listMemoRelations(context.db, context.user, memo.id),
+    listMemoRelationsForViewer(context.db, context.user, memo.id),
     reactionPagePromise,
   ]);
   const relations = await Promise.all(
     relationRows.map(async (relation) => {
       try {
-        const relatedMemo = await getMemoByIdForViewer(
-          context.db,
-          context.user,
-          relation.relatedMemoId,
-          { includeDeleted: true },
-        );
-        return currentRelationToDto(relation, memo, relatedMemo);
+        const [relationMemo, relatedMemo] = await Promise.all([
+          getMemoByIdForViewer(context.db, context.user, relation.memoId, {
+            includeDeleted: true,
+          }),
+          getMemoByIdForViewer(
+            context.db,
+            context.user,
+            relation.relatedMemoId,
+            { includeDeleted: true },
+          ),
+        ]);
+        return currentRelationToDto(relation, relationMemo, relatedMemo);
       } catch {
         return null;
       }

@@ -59,9 +59,13 @@ content.contains("...")
 tags.exists(t, t == "...")
 pinned == true
 visibility == "PUBLIC"
+size(content) > 100
+created_ts.getFullYear() == 2026
+created_ts >= timestamp(1704067200)
+updated_ts < now - duration("1h")
 ```
 
-`orderBy` currently accepts only a single `create_time` or `update_time` field with `asc` or `desc`. Unsupported filters and orderings return a current standard error instead of silently changing the query semantics.
+The tested surface also includes `size(content)`, `size(tags)`, the pinned upstream timestamp accessors without timezone arguments, integer Unix timestamps, and `now`/`duration` arithmetic. `orderBy` currently accepts only a single `create_time` or `update_time` field with `asc` or `desc`. Unsupported filters and orderings return a current standard error instead of silently changing the query semantics.
 
 ### Root `/mcp`
 
@@ -76,26 +80,26 @@ The current tool names use `memo_`, `attachment_`, `shortcut_`, and `auth_` pref
 
 ### Connect JSON and SSE
 
-The Worker also exposes the canonical `memos.api.v1/{Service}/{Method}` HTTP unary adapter for the documented service subset. It accepts Connect JSON plus `application/proto`, `application/grpc`, `application/grpc+proto`, `application/grpc-web`, `application/grpc-web+proto`, `application/grpc-web-text`, and `application/grpc-web-text+proto`. Ordinary upstream methods use the pinned generated descriptors in `apps/worker/src/memos-generated/` and `@bufbuild/protobuf`; the hand-written codec remains only for the historical `GetSharedMemo` alias and error/status framing. This still does not provide native HTTP/2 gRPC, complete metadata/trailers, compression, streaming, or full Memos service/schema parity.
+The Worker also exposes the canonical `memos.api.v1/{Service}/{Method}` HTTP unary adapter for the documented service subset. It accepts Connect JSON plus `application/proto`, `application/grpc`, `application/grpc+proto`, `application/grpc-web`, `application/grpc-web+proto`, `application/grpc-web-text`, and `application/grpc-web-text+proto`. Ordinary upstream methods use the pinned generated descriptors in `apps/worker/src/memos-generated/` and `@bufbuild/protobuf`; the hand-written codec remains only for the historical `GetSharedMemo` alias and error/status framing. gRPC-Web unary responses now include a standard data frame followed by a trailer frame, and gRPC-Web application errors use a trailers-only frame. This still does not provide native HTTP/2 gRPC, complete metadata/trailers, compression, streaming, or full Memos service/schema parity.
 
 The pinned official generated-client smoke used the `Temp/memos` commit `daa71d0456d07a25ff5ea435e46577d31d030728`, `@bufbuild/protobuf@2.12.0`, `@connectrpc/connect@2.1.1`, `@connectrpc/connect-web@2.1.1`, and `useBinaryFormat: true` against `http://127.0.0.1:18787`. It successfully decoded the listed unary Auth, Memo/social, Attachment, Shortcut, User, and Instance responses. A separate production smoke used the same generated client for anonymous `MemoService/ListMemos` only. Neither result is an official-Web full smoke or complete Memos Server parity evidence.
 
-`GET /api/v1/sse` provides an authenticated `text/event-stream` handshake, connection comment, heartbeat, and abort/cancel handling. It does not yet provide a cross-isolate mutation outbox, `Last-Event-ID` replay, or a complete Memos SSE event hub, so it is documented as a heartbeat/polling-compatible stream.
+`GET /api/v1/sse` provides an authenticated `text/event-stream` handshake, a D1-backed mutation outbox, five-second polling, numeric `Last-Event-ID` replay, connection comments, a 30-second heartbeat, visibility filtering, and abort/cancel handling. Comment-created events identify the parent memo in `name`, matching the pinned upstream Memos behavior; relation and attachment-binding mutations atomically append `memo.updated` outbox events. It does not provide the upstream in-process SSEHub, complete event retention/stream semantics, or a third-party EventSource smoke.
 
-The endpoint is currently stateless JSON. SSE, MCP session state, the complete method surface, and every third-party MCP client's behavior are not promised. The older `POST /api/v1/mcp` JSON-RPC tool names remain available for existing FlareMo clients.
+The root MCP endpoint remains a stateless JSON Streamable HTTP subset. MCP session state, SSE MCP transport, the complete method surface, and every third-party MCP client's behavior are not promised. The older `POST /api/v1/mcp` JSON-RPC tool names remain available for existing FlareMo clients.
 
 ## Not complete or not verified
 
 Do not describe the following as complete compatibility:
 
 - Complete Memos Server parity or complete Connect/gRPC parity.
-- Full CEL, complex pagination/ordering, or complete attachment filter/order/page-token semantics; attachment list support is a bounded subset.
+- Full CEL/SQL-rendering parity, complex pagination/ordering, or complete attachment filter/order/page-token semantics; the current CEL implementation is a bounded Worker-side evaluator and attachment list support is a bounded subset.
 - The Memos Web `/file/attachments/{id}/{filename}` bridge supports private Better Auth/PAT/native-JWT reads and `share_token`-scoped public reads. `thumbnail=true` currently returns the original object; motion-media conversion and arbitrary `externalLink` persistence are not implemented.
 - Current attachment batch delete or Attachment updates beyond the memo-binding subset.
 - Complete upstream service/wire parity for comments, reactions, and shortcuts, plus notifications and admin/instance surfaces.
 - A complete SSE event hub/replay protocol and stateful MCP sessions.
 - Byte-level/version-level native Memos JWT/refresh-token parity; the current implementation only verifies FlareMo's own HS256 claims, rotation, and revocation behavior.
-- Uncovered Memos services, native HTTP/2 gRPC, complete gRPC-Web trailer/metadata behavior, compression, and streaming.
+- Uncovered Memos services, native HTTP/2 gRPC, complete gRPC-Web metadata behavior, compression, and streaming. The unary gRPC-Web data/trailer frame contract is covered locally, but not yet by an official browser transport or third-party client smoke.
 - Real smoke tests for the official Memos client, MemoFlow, Dynos, Raycast, browser extensions, or other third-party clients.
 - Cloudflare Access policy correctness; Access is a deployment-layer policy, not the FlareMo application protocol.
 
@@ -113,5 +117,6 @@ Every expanded compatibility promise needs tests for:
 - Better Auth cookie, session bearer, PAT bearer, PAT revocation, and public-share boundaries.
 - `/mcp` initialize, tools/list, tools/call, and tool-error envelopes.
 - Native JWT headers/claims, refresh-cookie attributes and reuse rejection, Connect JSON transport, and SSE handshake/cancel behavior.
+- Unary gRPC-Web data/trailer framing and trailers-only application errors.
 
 These tests prove FlareMo's own contract, not third-party client compatibility. Untested clients stay untested until a real connection, version, date, and result are recorded in the [ecosystem matrix](../memos-ecosystem.md).

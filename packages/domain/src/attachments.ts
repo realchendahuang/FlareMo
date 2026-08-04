@@ -16,6 +16,7 @@ import {
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
+import { insertMemosSseEvent } from "./memos-sse";
 
 export type CreateAttachmentMetadataInput = {
   memoId?: string | null;
@@ -430,7 +431,7 @@ export async function bindMemoAttachments(
   attachmentNames: string[],
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, normalizedMemoId);
+  const memo = await getMemoById(db, user, normalizedMemoId);
   const ids = attachmentNames.map((name) =>
     parseResourceName(name, "attachments"),
   );
@@ -455,7 +456,7 @@ export async function bindMemoAttachments(
     }
   }
 
-  await db
+  const clearExisting = db
     .update(attachments)
     .set({ memoId: null, updatedAt: now })
     .where(
@@ -466,12 +467,36 @@ export async function bindMemoAttachments(
     );
 
   if (ids.length > 0) {
-    await db
-      .update(attachments)
-      .set({ memoId: normalizedMemoId, updatedAt: now })
-      .where(
-        and(eq(attachments.userId, user.id), inArray(attachments.id, ids)),
-      );
+    // Attachment binding is a memo mutation in upstream Memos. Keep the
+    // durable outbox write in the same D1 batch so reconnecting SSE clients do
+    // not observe a successful update without its refresh event.
+    await db.batch([
+      clearExisting,
+      db
+        .update(attachments)
+        .set({ memoId: normalizedMemoId, updatedAt: now })
+        .where(
+          and(eq(attachments.userId, user.id), inArray(attachments.id, ids)),
+        ),
+      insertMemosSseEvent(db, {
+        type: "memo.updated",
+        name: memo.id,
+        visibility: memo.visibility,
+        creatorId: memo.userId,
+        createdAt: now,
+      }),
+    ]);
+  } else {
+    await db.batch([
+      clearExisting,
+      insertMemosSseEvent(db, {
+        type: "memo.updated",
+        name: memo.id,
+        visibility: memo.visibility,
+        creatorId: memo.userId,
+        createdAt: now,
+      }),
+    ]);
   }
 
   return listMemoAttachments(db, user, normalizedMemoId);
