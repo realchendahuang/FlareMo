@@ -8,6 +8,7 @@ This runbook is for Codex, Claude Code, Cursor Agent, and other command-capable 
 - `pnpm install` has completed, or the agent can run it.
 - Wrangler is logged in to the target Cloudflare account.
 - `wrangler.jsonc` points to the target D1 and R2 resources.
+- `wrangler.jsonc` Static Assets `run_worker_first` covers `/api/*`, `/file/*`, `/mcp`, `/openapi.json`, and `/memos.api.v1.*`; otherwise API, Memos Web attachment URLs, or Connect/gRPC-Web requests can be handled by the SPA fallback instead of the Worker.
 - Application authentication is handled by Better Auth. Cloudflare Access is optional outer policy and does not replace a FlareMo cookie session or `memos_pat_` PAT.
 - `BETTER_AUTH_SECRET` and `FLAREMO_BOOTSTRAP_SECRET` are configured as Wrangler secrets. `FLAREMO_RECOVERY_SECRET` is optional and must only be configured for an approved break-glass recovery window, then rotated or removed.
 

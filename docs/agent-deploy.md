@@ -8,7 +8,7 @@
 - `pnpm install` 已完成，或 Agent 可以执行它。
 - Wrangler 已登录目标 Cloudflare 账号。
 - `wrangler.jsonc` 里的 D1、R2 binding 指向目标资源。
-- `wrangler.jsonc` 的 Static Assets `run_worker_first` 必须覆盖 `/api/*`、`/mcp`、`/openapi.json` 和 `/memos.api.v1.*`；否则 Connect/gRPC-Web 路径会被静态资源 fallback 接管，返回 405 而不是进入 Worker。
+- `wrangler.jsonc` 的 Static Assets `run_worker_first` 必须覆盖 `/api/*`、`/file/*`、`/mcp`、`/openapi.json` 和 `/memos.api.v1.*`；否则 API、Memos Web 附件文件 URL 或 Connect/gRPC-Web 路径会被静态资源 fallback 接管，返回 SPA HTML 而不是进入 Worker。
 - `wrangler.jsonc` 的 `FLAREMO_PUBLIC_URL` 已设置为生产 canonical origin；需要时设置 `FLAREMO_TRUSTED_ORIGINS`。
 - `BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 已通过 Wrangler secret 或 Cloudflare 控制台配置，且各至少 32 个字符。`FLAREMO_RECOVERY_SECRET` 只在明确批准的 break-glass recovery 窗口临时配置。Agent 不得要求用户把 secret、密码、cookie 或 PAT 粘贴到聊天中。
 - `FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 公开变量；它们不是 Better Auth 登录身份、用户名、密码或 bootstrap 输入。初始认证身份以部署者在生产 `/setup` 页面提交的值为准。
