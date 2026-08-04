@@ -53,7 +53,7 @@ pnpm deploy
 3. 应用认证 migration 后部署 Worker，由部署者在生产 HTTPS 的 `/setup` 页面手动完成一次性 owner 初始化，再检查 bootstrap status、用户名登录、密码修改、session 撤销、PAT 创建/撤销和公开分享。
 4. 验证 cookie session 状态变更必须使用 allowlist 内的 Origin；无 Origin 或不可信 Origin 返回 `403`。同时验证无 Origin 的 PAT 请求可用，以及带不可信 Origin 的 PAT 请求返回 `403`。
 5. 第一轮发布保留 Cloudflare Access。Access 是可选外层，不得把 Access Service Token 单独当成 FlareMo 应用身份。
-6. 如果 release 声称扩大 Memos 兼容面，必须同时提供真实客户端证据；仓库 contract tests 证明的是 current camelCase REST、Better Auth-backed auth facade、PAT 资源和 `/mcp` 无状态 MCP 子集，不等于完整 Memos Server parity、原生 JWT parity 或第三方客户端已验证。
+6. 如果 release 声称扩大 Memos 兼容面，必须同时提供真实客户端证据；仓库 contract/generated-client tests 证明的是 current camelCase REST、social 与 UserService webhook/notification 资源子集、四类 memo 事件的 D1 outbox 投递/重试、Better Auth-backed auth facade、PAT 资源、Connect JSON/protobuf/gRPC-Web unary 子集和 `/mcp` 无状态 MCP 子集，不等于完整 Memos Server parity、完整上游 webhook 事件/egress 语义、完整多用户 ACL、原生 JWT parity 或第三方客户端已验证。
 
 ## 发版命令
 

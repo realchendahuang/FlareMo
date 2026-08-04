@@ -7,9 +7,12 @@ import {
   createMemoComment,
   createMemoShare,
   createShortcut,
+  createUserWebhook,
   type DomainError,
   deleteMemoReaction,
   deleteShortcut,
+  deleteUserNotification,
+  deleteUserWebhook,
   finalizeAttachmentDelete,
   getAttachmentById,
   getAuthBootstrapStatus,
@@ -23,6 +26,7 @@ import {
   getPublicShareByToken,
   getShortcut,
   getStoredSetting,
+  getUserWebhookSigningSecret,
   hardDeleteMemo,
   listAttachmentsPage,
   listMemoAttachments,
@@ -35,15 +39,20 @@ import {
   listMemosForViewer,
   listMemosPersonalAccessTokens,
   listShortcuts,
+  listUserNotifications,
+  listUserWebhooks,
   markAttachmentDeleting,
   markMemoAttachmentsDeleting,
   replaceMemoRelations,
   revokeAuthSessionByToken,
   revokeMemoShare,
+  type UserNotificationDto,
   updateAttachmentMemo,
   updateFlaremoUserProfile,
   updateMemo,
   updateShortcut,
+  updateUserNotification,
+  updateUserWebhook,
   upsertMemoReaction,
   upsertStoredSetting,
 } from "@flaremo/domain";
@@ -829,23 +838,168 @@ async function connectUserMethod(
     }
     case "ListUserWebhooks":
       assertConnectUserPath(body.parent, context.user.id);
-      return connectValue(c, { webhooks: [] }, transport);
-    case "ListUserNotifications":
-      assertConnectUserPath(body.parent, context.user.id);
-      return connectValue(c, { notifications: [] }, transport);
-    case "UpdateUserNotification":
-    case "DeleteUserNotification":
-    case "CreateUserWebhook":
-    case "UpdateUserWebhook":
-    case "DeleteUserWebhook":
-    case "GetUserWebhookSigningSecret":
-      return connectErrorForTransport(
+      return connectValue(
         c,
+        { webhooks: await listUserWebhooks(context.db, context.user) },
         transport,
-        "unimplemented",
-        "Webhooks and notifications are not configured on FlareMo",
-        501,
       );
+    case "CreateUserWebhook": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to create a webhook",
+          403,
+        );
+      }
+      assertConnectUserPath(body.parent, context.user.id);
+      const webhook = record(body.webhook);
+      const signingSecret = webhook.signingSecret;
+      if (signingSecret !== undefined && typeof signingSecret !== "string") {
+        throw new ConnectInputError("webhook.signingSecret must be a string");
+      }
+      return connectValue(
+        c,
+        {
+          ...(await createUserWebhook(context.db, context.user, {
+            url: requiredString(webhook.url, "webhook.url"),
+            displayName: optionalString(webhook.displayName) ?? "",
+            ...(signingSecret !== undefined ? { signingSecret } : {}),
+          })),
+        },
+        transport,
+      );
+    }
+    case "UpdateUserWebhook": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to update a webhook",
+          403,
+        );
+      }
+      const webhook = record(body.webhook);
+      const signingSecret = webhook.signingSecret;
+      if (signingSecret !== undefined && typeof signingSecret !== "string") {
+        throw new ConnectInputError("webhook.signingSecret must be a string");
+      }
+      return connectValue(
+        c,
+        await updateUserWebhook(context.db, context.user, {
+          name: requiredString(webhook.name, "webhook.name"),
+          ...(webhook.url !== undefined ? { url: String(webhook.url) } : {}),
+          ...(webhook.displayName !== undefined
+            ? { displayName: String(webhook.displayName) }
+            : {}),
+          ...(signingSecret !== undefined ? { signingSecret } : {}),
+          updateMask: fieldMaskPaths(body.updateMask),
+        }),
+        transport,
+      );
+    }
+    case "DeleteUserWebhook": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to delete a webhook",
+          403,
+        );
+      }
+      await deleteUserWebhook(
+        context.db,
+        context.user,
+        requiredString(body.name, "name"),
+      );
+      return connectValue(c, {}, transport);
+    }
+    case "GetUserWebhookSigningSecret": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to reveal a webhook secret",
+          403,
+        );
+      }
+      return connectValue(
+        c,
+        {
+          signingSecret: await getUserWebhookSigningSecret(
+            context.db,
+            context.user,
+            requiredString(body.name, "name"),
+          ),
+        },
+        transport,
+      );
+    }
+    case "ListUserNotifications": {
+      assertConnectUserPath(body.parent, context.user.id);
+      const result = await listUserNotifications(context.db, context.user, {
+        pageSize:
+          body.pageSize === undefined ? undefined : pageSize(body.pageSize),
+        pageToken: optionalString(body.pageToken),
+        filter: optionalString(body.filter),
+      });
+      return connectValue(
+        c,
+        {
+          notifications: result.notifications.map(connectNotificationToDto),
+          ...(result.nextPageToken
+            ? { nextPageToken: result.nextPageToken }
+            : {}),
+        },
+        transport,
+      );
+    }
+    case "UpdateUserNotification": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to update a notification",
+          403,
+        );
+      }
+      const notification = record(body.notification);
+      return connectValue(
+        c,
+        connectNotificationToDto(
+          await updateUserNotification(
+            context.db,
+            context.user,
+            requiredString(notification.name, "notification.name"),
+            notificationStatusFromDto(notification.status),
+            fieldMaskPaths(body.updateMask),
+          ),
+        ),
+        transport,
+      );
+    }
+    case "DeleteUserNotification": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to delete a notification",
+          403,
+        );
+      }
+      await deleteUserNotification(
+        context.db,
+        context.user,
+        requiredString(body.name, "name"),
+      );
+      return connectValue(c, {}, transport);
+    }
     default:
       return connectErrorForTransport(
         c,
@@ -2225,6 +2379,45 @@ function optionalTimestamp(value: unknown, field: string) {
     throw new ConnectInputError(`${field} must be a valid timestamp`);
   }
   return date.toISOString();
+}
+
+function connectNotificationToDto(notification: UserNotificationDto) {
+  const sender = notification.senderUser;
+  const senderUser = {
+    name: sender.id,
+    role: sender.role === "owner" ? "ADMIN" : "USER",
+    username: notification.senderUsername ?? sender.id.replace(/^users\//u, ""),
+    email: notification.senderEmail ?? sender.email,
+    displayName: sender.name,
+    ...(sender.avatarUrl ? { avatarUrl: sender.avatarUrl } : {}),
+    state: "NORMAL",
+    createTime: sender.createdAt,
+    updateTime: sender.updatedAt,
+  };
+  const payload = {
+    memo: notification.memo,
+    relatedMemo: notification.relatedMemo ?? "",
+    memoSnippet: notification.memoSnippet,
+    relatedMemoSnippet: notification.relatedMemoSnippet,
+  };
+  return {
+    name: notification.name,
+    sender: notification.sender,
+    senderUser,
+    status: notification.status === "unread" ? "UNREAD" : "ARCHIVED",
+    createTime: notification.createTime,
+    type:
+      notification.type === "memo_comment" ? "MEMO_COMMENT" : "MEMO_MENTION",
+    ...(notification.type === "memo_comment"
+      ? { memoComment: payload }
+      : { memoMention: payload }),
+  };
+}
+
+function notificationStatusFromDto(value: unknown) {
+  if (value === "UNREAD" || value === "unread") return "unread" as const;
+  if (value === "ARCHIVED" || value === "archived") return "archived" as const;
+  throw new ConnectInputError("notification.status must be UNREAD or ARCHIVED");
 }
 
 class ConnectInputError extends Error {

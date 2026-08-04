@@ -14,6 +14,8 @@ import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
 import { compileMemoFilter } from "./memo-filter";
 import { insertMemosSseEvent } from "./memos-sse";
+import { findMentionedUsers, insertMemoNotification } from "./memos-user";
+import { insertMemosWebhookEvent } from "./memos-webhooks";
 
 export type MemoListResult = {
   memos: MemoRow[];
@@ -63,6 +65,24 @@ export async function createMemo(
     creatorId: user.id,
     createdAt: now,
   });
+  const webhookEventStatement = insertMemosWebhookEvent(db, {
+    receiverId: user.id,
+    activityType: "memos.memo.created",
+    creator: user,
+    memo: row,
+    createdAt: now,
+  });
+  const notificationStatements = await buildMemoMentionNotifications(db, {
+    memoId: row.id,
+    relatedMemoId: null,
+    sourceEventId: row.id,
+    senderId: user.id,
+    content: row.content,
+    previousContent: "",
+    visibility: row.visibility,
+    previousVisibility: "private",
+    createdAt: now,
+  });
 
   const insertMemo = db.insert(memos).values(row);
   try {
@@ -78,9 +98,16 @@ export async function createMemo(
           })),
         ),
         eventStatement,
+        webhookEventStatement,
+        ...notificationStatements,
       ]);
     } else {
-      await db.batch([insertMemo, eventStatement]);
+      await db.batch([
+        insertMemo,
+        eventStatement,
+        webhookEventStatement,
+        ...notificationStatements,
+      ]);
     }
   } catch (error) {
     // A second tab can submit the same queued entry at the same time. The
@@ -431,6 +458,48 @@ export async function updateMemo(
     input.content !== undefined ||
     input.visibility !== undefined ||
     input.payload !== undefined;
+  const revisionId = shouldCreateRevision
+    ? createResourceId("revisions")
+    : undefined;
+  const nextVisibility = input.visibility ?? existing.visibility;
+  const nextMemo = {
+    ...existing,
+    content: nextContent,
+    visibility: nextVisibility,
+    status: status ?? existing.status,
+    pinned: input.pinned ?? existing.pinned,
+    payload: metadataChanged ? nextPayload : existing.payload,
+    updatedAt: now,
+    deletedAt:
+      status === "trashed" || status === "deleted"
+        ? now
+        : status === "normal" || status === "archived"
+          ? null
+          : existing.deletedAt,
+  };
+  const webhookEventStatement = insertMemosWebhookEvent(db, {
+    receiverId: user.id,
+    activityType:
+      status === "deleted" ? "memos.memo.deleted" : "memos.memo.updated",
+    creator: user,
+    memo: nextMemo,
+    createdAt: now,
+  });
+  const notificationStatements =
+    input.content !== undefined && nextContent !== existing.content
+      ? await buildMemoMentionNotifications(db, {
+          memoId: existing.id,
+          relatedMemoId: null,
+          sourceEventId: revisionId ?? `${existing.id}:${now}`,
+          senderId: user.id,
+          content: nextContent,
+          previousContent:
+            existing.visibility === "private" ? "" : existing.content,
+          visibility: nextVisibility,
+          previousVisibility: existing.visibility,
+          createdAt: now,
+        })
+      : [];
   const patch = {
     ...(input.content !== undefined ? { content: input.content } : {}),
     ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
@@ -457,7 +526,7 @@ export async function updateMemo(
     .set(patch)
     .where(and(eq(memos.id, id), eq(memos.userId, user.id)));
   const revisionStatement = db.insert(memoRevisions).values({
-    id: createResourceId("revisions"),
+    id: revisionId ?? createResourceId("revisions"),
     memoId: existing.id,
     userId: user.id,
     content: existing.content,
@@ -482,6 +551,8 @@ export async function updateMemo(
         })),
       ),
       eventStatement,
+      webhookEventStatement,
+      ...notificationStatements,
     ]);
   } else if (metadataChanged && shouldCreateRevision) {
     await db.batch([
@@ -489,11 +560,24 @@ export async function updateMemo(
       updateStatement,
       deleteTagsStatement,
       eventStatement,
+      webhookEventStatement,
+      ...notificationStatements,
     ]);
   } else if (shouldCreateRevision) {
-    await db.batch([revisionStatement, updateStatement, eventStatement]);
+    await db.batch([
+      revisionStatement,
+      updateStatement,
+      eventStatement,
+      webhookEventStatement,
+      ...notificationStatements,
+    ]);
   } else {
-    await db.batch([updateStatement, eventStatement]);
+    await db.batch([
+      updateStatement,
+      eventStatement,
+      webhookEventStatement,
+      ...notificationStatements,
+    ]);
   }
 
   return getMemoById(db, user, id, { includeDeleted: true });
@@ -513,20 +597,69 @@ export async function hardDeleteMemo(
   id: string,
 ): Promise<void> {
   const existing = await getMemoById(db, user, id, { includeDeleted: true });
+  const now = new Date().toISOString();
   const eventStatement = insertMemosSseEvent(db, {
     type: "memo.deleted",
     name: existing.id,
     visibility: existing.visibility,
     creatorId: user.id,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+  });
+  const webhookEventStatement = insertMemosWebhookEvent(db, {
+    receiverId: user.id,
+    activityType: "memos.memo.deleted",
+    creator: user,
+    memo: existing,
+    createdAt: now,
   });
   await db.batch([
     db
       .delete(attachments)
       .where(and(eq(attachments.memoId, id), eq(attachments.userId, user.id))),
     eventStatement,
+    webhookEventStatement,
     db.delete(memos).where(and(eq(memos.id, id), eq(memos.userId, user.id))),
   ]);
+}
+
+type MemoMentionNotificationInput = {
+  memoId: string;
+  relatedMemoId: string | null;
+  sourceEventId: string;
+  senderId: string;
+  content: string;
+  previousContent: string;
+  visibility: MemoRow["visibility"];
+  previousVisibility: MemoRow["visibility"];
+  createdAt: string;
+};
+
+async function buildMemoMentionNotifications(
+  db: FlareMoDb,
+  input: MemoMentionNotificationInput,
+) {
+  if (input.visibility === "private") return [];
+  const previousUsers =
+    input.previousVisibility === "private"
+      ? []
+      : await findMentionedUsers(db, input.previousContent, [input.senderId]);
+  const previousUserIds = new Set(previousUsers.map((user) => user.id));
+  const mentionedUsers = await findMentionedUsers(db, input.content, [
+    input.senderId,
+  ]);
+  return mentionedUsers
+    .filter((user) => !previousUserIds.has(user.id))
+    .map((user) =>
+      insertMemoNotification(db, {
+        receiverId: user.id,
+        senderId: input.senderId,
+        type: "memo_mention",
+        sourceEventId: input.sourceEventId,
+        memoId: input.memoId,
+        relatedMemoId: input.relatedMemoId,
+        createdAt: input.createdAt,
+      }),
+    );
 }
 
 export function normalizeMemoPayload(payload: unknown): MemoPayload {

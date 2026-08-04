@@ -30,6 +30,8 @@ import {
   normalizeMemoTags,
 } from "./memos";
 import { insertMemosSseEvent } from "./memos-sse";
+import { findMentionedUsers, insertMemoNotification } from "./memos-user";
+import { insertMemosWebhookEvent } from "./memos-webhooks";
 
 export type CreateMemoCommentInput = {
   parentMemoName?: string;
@@ -214,6 +216,46 @@ export async function createMemoComment(
     creatorId: parent.userId,
     createdAt: now,
   });
+  const webhookEventStatement = insertMemosWebhookEvent(db, {
+    receiverId: parent.userId,
+    activityType: "memos.memo.comment.created",
+    creator: user,
+    memo: row,
+    createdAt: now,
+  });
+  const notificationStatements = [];
+  if (parent.visibility !== "private") {
+    if (parent.userId !== user.id) {
+      notificationStatements.push(
+        insertMemoNotification(db, {
+          receiverId: parent.userId,
+          senderId: user.id,
+          type: "memo_comment",
+          sourceEventId: commentId,
+          memoId: commentId,
+          relatedMemoId: parentId,
+          createdAt: now,
+        }),
+      );
+    }
+    const mentionedUsers = await findMentionedUsers(db, content, [user.id]);
+    for (const mentionedUser of mentionedUsers) {
+      // The parent owner already receives MEMO_COMMENT. Avoid a duplicate
+      // inbox row when the comment also contains @owner.
+      if (mentionedUser.id === parent.userId) continue;
+      notificationStatements.push(
+        insertMemoNotification(db, {
+          receiverId: mentionedUser.id,
+          senderId: user.id,
+          type: "memo_mention",
+          sourceEventId: commentId,
+          memoId: commentId,
+          relatedMemoId: parentId,
+          createdAt: now,
+        }),
+      );
+    }
+  }
 
   try {
     if (tags.length > 0) {
@@ -229,12 +271,16 @@ export async function createMemoComment(
         ),
         db.insert(memoRelations).values(relation),
         eventStatement,
+        webhookEventStatement,
+        ...notificationStatements,
       ]);
     } else {
       await db.batch([
         db.insert(memos).values(row),
         db.insert(memoRelations).values(relation),
         eventStatement,
+        webhookEventStatement,
+        ...notificationStatements,
       ]);
     }
   } catch (error) {

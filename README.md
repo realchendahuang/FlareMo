@@ -86,7 +86,7 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - 记录详情、引用关系、反向链接和历史版本恢复。
 - 可撤销的公开分享链接。
 - 支持冲突策略的 Memos 数据导入导出。
-- Memos current camelCase / protobuf-JSON 风格的 `/api/v1` memo、attachment、relation、share、auth facade 和 PAT 资源子集；旧 snake_case wire 通过显式 header 保留。
+- Memos current camelCase / protobuf-JSON 风格的 `/api/v1` memo、attachment、relation、share、social、auth facade 和 PAT 资源子集；Connect JSON/protobuf/gRPC-Web 还覆盖单用户 UserService 的 webhook CRUD/signing-secret 与 notification list/update/delete（含 comment/mention payload）；旧 snake_case wire 通过显式 header 保留。
 - OpenAPI 输出。
 - MCP 端点。
 - 中英文界面。
@@ -205,7 +205,7 @@ curl "$FLAREMO_URL/mcp" \
 - `/api/public/shares/*`
 - `/assets/*`
 
-分享内容仍由 FlareMo 的 share token、过期时间和 memo 状态校验。当前 `/api/v1` 默认是 current camelCase wire，`/mcp` 是无状态 Streamable HTTP MCP 子集；旧 snake_case API 可通过 `X-FlareMo-Wire: legacy` 或 legacy vendor `Accept` 显式选择。Better Auth-backed auth facade 和 PAT 资源已提供，但 `accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。完整 Memos Server parity、完整 CEL/Connect/SSE、comments/reactions/shortcuts，以及第三方客户端逐一实测仍未完成，详见 [兼容矩阵](./docs/memos-compatibility.md) 和 [生态实测矩阵](./docs/memos-ecosystem.md)。
+分享内容仍由 FlareMo 的 share token、过期时间和 memo 状态校验。当前 `/api/v1` 默认是 current camelCase wire，`/mcp` 是无状态 Streamable HTTP MCP 子集；旧 snake_case API 可通过 `X-FlareMo-Wire: legacy` 或 legacy vendor `Accept` 显式选择。Better Auth-backed auth facade 和 PAT 资源已提供，但 `accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。当前已有 memo/social 的有限子集，以及 UserService webhook CRUD/signing-secret、notification list/update/delete、comment/mention notification payload 和四类 memo 事件的有界异步 webhook outbox 投递/重试；完整 Memos Server parity、完整 CEL/Connect/SSE、comments/reactions/shortcuts 的完整上游 service/wire parity、完整多用户 notification ACL、webhook 的完整上游事件语义/egress SSRF 防护，以及第三方客户端逐一实测仍未完成，详见 [兼容矩阵](./docs/memos-compatibility.md) 和 [生态实测矩阵](./docs/memos-ecosystem.md)。
 
 ---
 
@@ -274,7 +274,7 @@ FlareMo 保留 Memos 风格的核心实体，目标是复用 Memos 的客户端�
 - `GET /openapi.json`
 - `POST /api/v1/mcp`
 
-内部服务不复制原版 Memos 的多数据库抽象、本地文件假设、后台 runner、SSE、社交功能和实例管理后台。Memos 兼容范围见 [docs/memos-compatibility.md](./docs/memos-compatibility.md)，第三方客户端和工具的实测矩阵见 [docs/memos-ecosystem.md](./docs/memos-ecosystem.md)。
+内部服务不复制原版 Memos 的多数据库抽象、本地文件假设、后台 runner、SSE、完整社交功能和实例管理后台。Memos 兼容范围见 [docs/memos-compatibility.md](./docs/memos-compatibility.md)，第三方客户端和工具的实测矩阵见 [docs/memos-ecosystem.md](./docs/memos-ecosystem.md)。
 
 ---
 

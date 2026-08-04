@@ -231,6 +231,6 @@ docs/         # 结果型项目文档
 - KV 不是数据库替代品。
 - Memos 兼容 API 是 FlareMo 内部服务之上的 adapter。
 - Better Auth 是应用层认证边界；Cloudflare Access 只作为可选外层防线。
-- current camelCase/protobuf-JSON wire、Better Auth-backed identity、native HS256 JWT/refresh facade、PAT/social 资源、有限 CEL、Connect JSON unary subset、heartbeat SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集已实现；它们仍不等于完整 Memos Server parity、protobuf/gRPC、完整 CEL/SSE event hub 或第三方客户端已验证。Origin 安全方向参考 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp)。
+- current camelCase/protobuf-JSON wire、Better Auth-backed identity、native HS256 JWT/refresh facade、PAT/social 资源、UserService webhook/notification 生命周期子集、四类 memo 事件的 D1 outbox 投递/重试、有限 CEL、Connect JSON/protobuf/gRPC-Web unary subset、heartbeat SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集已实现；它们仍不等于完整 Memos Server parity、protobuf/gRPC、完整 CEL/SSE event hub、完整上游 webhook 事件/egress 语义、完整多用户 ACL 或第三方客户端已验证。Origin 安全方向参考 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp)。
 - 产品实现保持克制：围绕快速收集、时间线、搜索、标签、附件、导入导出、语义检索、AI 工作流和 Memos 兼容面展开，不做无关的社交和后台复杂度。
 - 不为了凑技术栈而添加 Cloudflare 产品。功能真的需要时再引入。

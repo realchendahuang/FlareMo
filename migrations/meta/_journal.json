@@ -57,6 +57,20 @@
       "when": 1785851584307,
       "tag": "0007_flat_phil_sheldon",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785881102383,
+      "tag": "0008_legal_scarecrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785882720381,
+      "tag": "0009_neat_iron_fist",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,8 @@ export * from "./memo-filter";
 export * from "./memos";
 export * from "./memos-social";
 export * from "./memos-sse";
+export * from "./memos-user";
+export * from "./memos-webhooks";
 export * from "./relations";
 export * from "./revisions";
 export * from "./settings";

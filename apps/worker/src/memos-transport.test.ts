@@ -1,7 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  createDb,
+  memosNotifications,
+  memosWebhookDeliveries,
+} from "@flaremo/db";
+import { dispatchMemosWebhookOutbox } from "@flaremo/domain";
 import { Miniflare } from "miniflare";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import app from "./index";
 import { buildMemosRefreshCookie } from "./memos-native-auth";
 
@@ -798,6 +804,259 @@ describe("Memos native auth and transport boundaries", () => {
     abortController.abort();
     await reader?.cancel();
   });
+
+  it("serves UserService webhook and notification lifecycle over Connect JSON", async () => {
+    for (const url of [
+      "http://127.0.0.1/hook",
+      "http://localhost/hook",
+      "http://service.local/hook",
+      "ftp://example.com/hook",
+      "https://user:password@example.com/hook",
+      "https://example.com/hook#fragment",
+    ]) {
+      const invalid = await request(
+        "/memos.api.v1.UserService/CreateUserWebhook",
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            parent: "users/owner",
+            webhook: { url },
+          }),
+        },
+      );
+      expect(invalid.status).toBe(400);
+    }
+    const invalidSecret = await request(
+      "/memos.api.v1.UserService/CreateUserWebhook",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          parent: "users/owner",
+          webhook: {
+            url: "https://example.com/invalid-secret",
+            signingSecret: "whsec_not-base64",
+          },
+        }),
+      },
+    );
+    expect(invalidSecret.status).toBe(400);
+
+    const webhook = await connectService("UserService", "CreateUserWebhook", {
+      parent: "users/owner",
+      webhook: {
+        url: "https://example.com/flaremo-hook",
+        displayName: "Compatibility hook",
+      },
+    });
+    expect(webhook).toMatchObject({
+      name: expect.stringMatching(/^users\/owner\/webhooks\/[0-9a-f-]+$/),
+      url: "https://example.com/flaremo-hook",
+      displayName: "Compatibility hook",
+      signingSecretSet: true,
+    });
+    expect(webhook.signingSecret).toBeUndefined();
+
+    const pat = await connectService(
+      "UserService",
+      "CreatePersonalAccessToken",
+      { parent: "users/owner", description: "transport lifecycle test" },
+    );
+    expect(pat.token).toEqual(expect.any(String));
+    const patMutation = await request(
+      "/memos.api.v1.UserService/CreateUserWebhook",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${String(pat.token)}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          parent: "users/owner",
+          webhook: { url: "https://example.com/pat-mutation" },
+        }),
+      },
+    );
+    expect(patMutation.status).toBe(403);
+
+    const listedWebhooks = await connectService(
+      "UserService",
+      "ListUserWebhooks",
+      { parent: "users/owner" },
+    );
+    expect(listedWebhooks.webhooks).toEqual([webhook]);
+
+    const webhookName = String(webhook.name);
+    const secret = await connectService(
+      "UserService",
+      "GetUserWebhookSigningSecret",
+      { name: webhookName },
+    );
+    expect(secret.signingSecret).toMatch(/^whsec_[A-Za-z0-9+/]+=*$/);
+
+    const updatedWebhook = await connectService(
+      "UserService",
+      "UpdateUserWebhook",
+      {
+        webhook: { name: webhookName, url: "https://example.com/updated" },
+        updateMask: "url",
+      },
+    );
+    expect(updatedWebhook).toMatchObject({
+      name: webhookName,
+      url: "https://example.com/updated",
+      signingSecretSet: true,
+    });
+
+    const memo = await connect("CreateMemo", {
+      memo: { content: "notification source memo" },
+    });
+    const now = new Date().toISOString();
+    await createDb(env.DB)
+      .insert(memosNotifications)
+      .values({
+        receiverId: "users/owner",
+        senderId: "users/owner",
+        type: "memo_comment",
+        status: "unread",
+        sourceEventId: "notification-fixture",
+        memoId: String(memo.name),
+        relatedMemoId: String(memo.name),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+    const listedNotifications = await connectService(
+      "UserService",
+      "ListUserNotifications",
+      { parent: "users/owner", pageSize: 10 },
+    );
+    const notification = (
+      listedNotifications.notifications as Array<Record<string, unknown>>
+    )[0];
+    expect(notification).toMatchObject({
+      name: expect.stringMatching(/^users\/owner\/notifications\/\d+$/),
+      sender: "users/owner",
+      status: "UNREAD",
+      type: "MEMO_COMMENT",
+      senderUser: { name: "users/owner", username: "owner" },
+      memoComment: {
+        memo: memo.name,
+        relatedMemo: memo.name,
+        memoSnippet: "notification source memo",
+      },
+    });
+
+    const archived = await connectService(
+      "UserService",
+      "UpdateUserNotification",
+      {
+        notification: { name: notification.name, status: "ARCHIVED" },
+        updateMask: "status",
+      },
+    );
+    expect(archived).toMatchObject({
+      name: notification.name,
+      status: "ARCHIVED",
+    });
+
+    await connectService("UserService", "DeleteUserNotification", {
+      name: notification.name,
+    });
+    await connectService("UserService", "DeleteUserWebhook", {
+      name: webhookName,
+    });
+    expect(
+      (
+        await connectService("UserService", "ListUserWebhooks", {
+          parent: "users/owner",
+        })
+      ).webhooks,
+    ).toEqual([]);
+  });
+
+  it("delivers memo webhooks from the durable outbox with Standard Webhooks headers", async () => {
+    const webhook = await connectService("UserService", "CreateUserWebhook", {
+      parent: "users/owner",
+      webhook: {
+        url: "https://example.com/outbox-hook",
+        displayName: "Outbox hook",
+        signingSecret: "transport-webhook-signing-secret",
+      },
+    });
+    const memo = await connect("CreateMemo", {
+      memo: { content: "outbox delivery memo" },
+    });
+    const requests: Request[] = [];
+    const fetchMock = vi
+      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        requests.push(new Request(input, init));
+        return new Response(JSON.stringify({ code: 0 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      })
+      .mockImplementationOnce(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          requests.push(new Request(input, init));
+          return new Response("retry later", { status: 503 });
+        },
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const attemptStart = new Date();
+    try {
+      await dispatchMemosWebhookOutbox(createDb(env.DB), attemptStart);
+      const retrying = await createDb(env.DB)
+        .select()
+        .from(memosWebhookDeliveries)
+        .all();
+      expect(retrying).toMatchObject([
+        { status: "pending", attempts: 1, lastError: "http_503" },
+      ]);
+      await dispatchMemosWebhookOutbox(
+        createDb(env.DB),
+        new Date(attemptStart.getTime() + 3_000),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const request = requests[1];
+    expect(request).toBeDefined();
+    expect(request.url).toBe("https://example.com/outbox-hook");
+    expect(request.headers.get("webhook-id")).toMatch(/^msg_\d+_\d+$/u);
+    expect(request.headers.get("webhook-timestamp")).toMatch(/^\d+$/u);
+    expect(request.headers.get("webhook-signature")).toMatch(
+      /^v1,[A-Za-z0-9+/]+=*$/u,
+    );
+    const body = (await request.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      url: "https://example.com/outbox-hook",
+      activityType: "memos.memo.created",
+      creator: "users/owner",
+      memo: { name: memo.name, content: "outbox delivery memo" },
+    });
+    expect(JSON.stringify(body)).not.toContain(
+      "transport-webhook-signing-secret",
+    );
+
+    const deliveries = await createDb(env.DB)
+      .select()
+      .from(memosWebhookDeliveries)
+      .all();
+    expect(deliveries).toMatchObject([
+      { status: "delivered", attempts: 2, deliveredAt: expect.any(String) },
+    ]);
+    expect(webhook.signingSecret).toBeUndefined();
+  });
 });
 
 async function connect(method: string, body: Record<string, unknown>) {
@@ -1023,6 +1282,8 @@ async function createTestRuntime() {
     "0005_confused_masque.sql",
     "0006_silent_kylun.sql",
     "0007_flat_phil_sheldon.sql",
+    "0008_legal_scarecrow.sql",
+    "0009_neat_iron_fist.sql",
   ]) {
     const sql = await readFile(
       resolve(import.meta.dirname, `../../../migrations/${filename}`),
