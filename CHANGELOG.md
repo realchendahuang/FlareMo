@@ -6,6 +6,28 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 后续变更将在下一次 release 汇总。
 
+## v0.4.3
+
+生产 Worker 路由收口补丁。这个版本把 Better Auth 和 Memos-compatible 入口在 Cloudflare Workers 静态资源回退下的路由边界正式收口，确保原生鉴权不依赖 Cloudflare Access 才能工作。
+
+### 已修复
+
+- `/api/*`、根 `/mcp` 和根 `/openapi.json` 明确优先进入 Worker；不会被 SPA 静态资源回退吞掉。
+- 未认证访问 `/api/app/health`、`/api/v1/openapi.json` 和 `/mcp` 返回 JSON `401`，而不是边缘路由导致的 `500` 或 HTML。
+- 根 OpenAPI 文档和 Streamable HTTP MCP 入口在生产自定义域名上保持 Worker 响应，继续复用 Better Auth cookie session、session bearer 或 `memos_pat_` PAT 的应用层身份边界。
+
+### Cloudflare、数据库与兼容影响
+
+- 本版本不新增 D1 migration，不改变 D1/R2 资源绑定；已完成 bootstrap 的实例不需要重新初始化。
+- Cloudflare Access 仍是可选的外层 policy，不是应用身份来源；生产主域名已通过 Better Auth 原生鉴权完成匿名 `401`、可信 Origin 和登录后的私有资源验证。
+- Memos 兼容面没有扩大：仍是已记录的 current camelCase REST、Better Auth-backed auth facade、PAT、legacy wire 和 `/mcp` 无状态 MCP 子集；不宣称完整 Memos Server parity、原生 JWT/refresh parity 或所有第三方客户端已验证。
+
+### 升级说明
+
+- 执行标准的 `pnpm verify`、`pnpm deploy:dry-run` 和 `pnpm deploy`；远端 D1 应显示没有待执行 migration。
+- 保持现有 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS`、`BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 和已创建 PAT 配置；不要把任何 secret、密码、cookie 或 PAT 写入 Git、release notes、日志或聊天。
+- 部署后重新验证登录页、bootstrap status、受保护 API 的 JSON `401`、可信/不可信 Origin、公开分享和 `/mcp`。若启用 Cloudflare Access，它只能作为额外 policy，客户端仍必须提供 FlareMo 应用层 session 或 PAT。
+
 ## v0.4.2
 
 Better Auth 与 Memos-compatible 集成收口版本。这个版本不新增 D1 migration，重点修复 partial bootstrap、current auth facade 和渠道 Worker 的应用层认证边界。
