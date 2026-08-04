@@ -55,6 +55,14 @@ export type MemosApiKey = {
 
 export type FlareMoAuth = {
   handler: (request: Request) => Response | Promise<Response>;
+  /**
+   * Reset a password through Better Auth's own reset-password endpoint. This
+   * is only used by the explicitly configured operator recovery route.
+   */
+  operatorResetPassword: (input: {
+    authUserId: string;
+    newPassword: string;
+  }) => Promise<void>;
   api: {
     createApiKey: (input: {
       body: {
@@ -125,7 +133,7 @@ export function createFlareMoAuth(
   const publicUrl = getPublicUrl(env);
   const isSecureDeployment = new URL(publicUrl).protocol === "https:";
 
-  return betterAuth({
+  const auth = betterAuth({
     appName: "FlareMo",
     baseURL: publicUrl,
     basePath: "/api/auth",
@@ -141,6 +149,9 @@ export function createFlareMoAuth(
       minPasswordLength: 12,
       maxPasswordLength: 128,
       autoSignIn: false,
+      // Password resets must invalidate every session, including sessions
+      // the operator cannot inspect in a browser.
+      revokeSessionsOnPasswordReset: true,
     },
     rateLimit: {
       // Local D1/Miniflare does not provide Cloudflare's trusted client-IP
@@ -190,6 +201,39 @@ export function createFlareMoAuth(
       }),
     ],
   });
+
+  return {
+    ...auth,
+    operatorResetPassword: async ({ authUserId, newPassword }) => {
+      // Better Auth's resetPassword API owns password validation, hashing,
+      // verification consumption, reset callbacks, and session revocation.
+      // Create only a short-lived, in-memory-referenced verification record so
+      // the operator path enters that same official flow without touching
+      // auth_accounts.password or exposing a reusable reset token.
+      const authContext = await auth.$context;
+      const token = crypto.randomUUID();
+      const identifier = `reset-password:${token}`;
+      await authContext.internalAdapter.createVerificationValue({
+        identifier,
+        value: authUserId,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      try {
+        const result = await auth.api.resetPassword({
+          body: { newPassword, token },
+        });
+        if (!result.status) {
+          throw new Error("Better Auth rejected the password reset.");
+        }
+      } catch (error) {
+        await authContext.internalAdapter
+          .deleteVerificationByIdentifier(identifier)
+          .catch(() => undefined);
+        throw error;
+      }
+    },
+  };
 }
 
 export function getPublicUrl(env: FlareMoEnv): string {
@@ -261,6 +305,17 @@ export function getTrustedOrigins(
 export function getBootstrapSecret(env: FlareMoEnv): string | null {
   const value = env.FLAREMO_BOOTSTRAP_SECRET?.trim();
   return value || null;
+}
+
+/**
+ * Break-glass recovery is intentionally separate from the one-time bootstrap
+ * secret. It should normally be absent and be configured only for an
+ * operator-approved recovery, then rotated or removed immediately afterward.
+ */
+export function getRecoverySecret(env: FlareMoEnv): string | null {
+  const value = env.FLAREMO_RECOVERY_SECRET?.trim();
+  if (!value || value.length < 32) return null;
+  return value;
 }
 
 function getRequiredBetterAuthSecret(env: FlareMoEnv): string {

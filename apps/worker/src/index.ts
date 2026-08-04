@@ -10,8 +10,13 @@ import {
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createFlareMoAuth, getTrustedOrigins } from "./auth";
-import { getRequestContext, type HonoBindings } from "./context";
+import {
+  assertTrustedCookieMutation,
+  getRequestContext,
+  type HonoBindings,
+} from "./context";
 import type { FlareMoEnv } from "./env";
+import { jsonError } from "./http";
 import { accountApi } from "./routes/account-api";
 import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
@@ -65,6 +70,19 @@ app.use(
     allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
   }),
 );
+
+// Better Auth's own handler also mutates the browser session. Keep its
+// endpoints under the same exact-origin contract as the application routes;
+// the handler's trustedOrigins setting is not a substitute for requiring an
+// Origin header on unsafe cookie requests.
+app.use("/api/auth/*", async (c, next) => {
+  try {
+    assertTrustedCookieMutation(c);
+    return await next();
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 app.route("/api/auth/flaremo", authApi);
 app.all("/api/auth/*", (c) => createFlareMoAuth(c.env).handler(c.req.raw));

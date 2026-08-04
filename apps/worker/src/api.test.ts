@@ -794,6 +794,7 @@ async function bootstrapAndSignIn() {
       headers: {
         "content-type": "application/json",
         "x-flaremo-bootstrap-secret": TEST_BOOTSTRAP_SECRET,
+        origin: "http://flaremo.test",
       },
       body: JSON.stringify({
         username: "owner",
@@ -809,7 +810,10 @@ async function bootstrapAndSignIn() {
   const signIn = await app.fetch(
     new Request("http://flaremo.test/api/auth/sign-in/username", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+      },
       body: JSON.stringify({
         username: "owner",
         password: TEST_PASSWORD,

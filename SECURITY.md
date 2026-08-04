@@ -24,10 +24,11 @@
 - FlareMo 应用层使用 Better Auth。浏览器会话使用 `HttpOnly`、`SameSite=Lax` 的 cookie；认证身份与既有 FlareMo `users/owner` 通过专用映射表关联。
 - 当前只开放一次性 owner bootstrap，不开放公共 signup。bootstrap 需要部署者配置的 `FLAREMO_BOOTSTRAP_SECRET`，成功后会被 D1 状态锁定；失败状态必须显式恢复，不能自动创建第二个 owner。
 - 密码由 Better Auth 处理，当前要求长度为 12–128 个字符。初始密码只通过 bootstrap 请求提交，不写入代码、文档、migration、日志或聊天。
+- 当前默认没有 email provider，因此“忘记密码”邮件流程保持关闭；已知当前密码时可通过 Better Auth 修改。已完成 bootstrap 的单用户实例可以在明确配置独立 `FLAREMO_RECOVERY_SECRET` 的短窗口内执行 break-glass recovery：它保留原 owner mapping、复用 Better Auth reset-password 流程、撤销所有 session 和 `memos_pat_`，成功后必须立即轮换或删除该 secret。
 - 脚本、MCP 和 Memos-compatible 客户端使用由已登录浏览器账户创建的 `memos_pat_` Personal Access Token。PAT 只在创建响应中返回一次，D1 只保存不可逆校验值；账户页可以列出和撤销 PAT。
 - Cloudflare Access 是可选的外层防线，生产迁移期建议保留。启用 Access 时，客户端必须同时通过 Access policy 和 FlareMo 应用层认证；Access Service Token 本身不等于 FlareMo 用户 session，也不能单独访问私有 API。
 - 公开分享路径可以 bypass Access，但分享内容仍由 FlareMo 的 share token、过期时间和 memo 状态校验。公开分享不接受浏览器 session 或 PAT 作为分享授权的替代物。
-- `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 不得放入 `wrangler.jsonc`、`.dev.vars.example` 的真实值、Git、issue、PR、日志或聊天；生产环境应使用 `wrangler secret put` 或 Cloudflare 控制台配置。
+- `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 和可选的 `FLAREMO_RECOVERY_SECRET` 不得放入 `wrangler.jsonc`、`.dev.vars.example` 的真实值、Git、issue、PR、日志或聊天；生产环境应使用 `wrangler secret put` 或 Cloudflare 控制台配置。
 
 ### Origin 与凭据类型
 

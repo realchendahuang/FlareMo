@@ -101,7 +101,7 @@ export async function getBrowserRequestContext(
   };
 }
 
-function assertTrustedCookieMutation(c: Context<HonoBindings>) {
+export function assertTrustedCookieMutation(c: Context<HonoBindings>) {
   if (!isUnsafeMethod(c.req.method)) return;
 
   const origin = c.req.header("origin");
