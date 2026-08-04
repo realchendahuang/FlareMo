@@ -1,6 +1,18 @@
 import type { AttachmentRow, FlareMoDb, UserRow } from "@flaremo/db";
 import { attachments } from "@flaremo/db";
-import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
@@ -20,6 +32,32 @@ export type CreateAttachmentMetadataInput = {
 export type ListAttachmentsInput = {
   memoId?: string;
   pageSize?: number;
+};
+
+export type AttachmentListFilter = {
+  memoId?: string;
+  filenameEquals?: string;
+  filenameContains?: string;
+  contentType?: string;
+};
+
+export type ListAttachmentsPageInput = ListAttachmentsInput & {
+  pageToken?: string;
+  filter?: AttachmentListFilter;
+  orderBy?: string;
+};
+
+export type AttachmentListResult = {
+  attachments: AttachmentRow[];
+  nextPageToken?: string;
+  totalSize: number;
+};
+
+type AttachmentCursor = {
+  id: string;
+  sortValue: string;
+  orderBy: string;
+  scopeKey: string;
 };
 
 export async function createAttachmentMetadata(
@@ -94,6 +132,116 @@ export async function listAttachments(
     .where(and(...filters))
     .orderBy(desc(attachments.createdAt))
     .limit(input.pageSize ?? 50);
+}
+
+/**
+ * List attachments using the upstream AttachmentService cursor contract.
+ *
+ * The current Memos service accepts rich CEL filters, but accepting arbitrary
+ * expressions in a Worker would make both cost and authorization behavior
+ * difficult to bound. The route parses a deliberately small filter subset
+ * into this typed input, while this domain function owns the user/deleted/R2
+ * visibility boundary and the stable cursor semantics.
+ */
+export async function listAttachmentsPage(
+  db: FlareMoDb,
+  user: UserRow,
+  input: ListAttachmentsPageInput = {},
+): Promise<AttachmentListResult> {
+  const pageSize = normalizeAttachmentPageSize(input.pageSize);
+  const orderBy = normalizeAttachmentOrderBy(input.orderBy);
+  const memoId = input.memoId
+    ? parseResourceName(input.memoId, "memos")
+    : undefined;
+  const filterMemoId = input.filter?.memoId
+    ? parseResourceName(input.filter.memoId, "memos")
+    : undefined;
+  if (memoId && filterMemoId && memoId !== filterMemoId) {
+    throw new ValidationError("Attachment memo filters must match");
+  }
+  const scopeKey = JSON.stringify({
+    memoId: memoId ?? filterMemoId ?? null,
+    filter: input.filter ?? null,
+  });
+  const cursor = input.pageToken
+    ? decodeAttachmentPageToken(input.pageToken, orderBy, scopeKey)
+    : undefined;
+  const filters = [
+    eq(attachments.userId, user.id),
+    isNull(attachments.deletedAt),
+    eq(attachments.state, "ready"),
+  ];
+  const scopedMemoId = memoId ?? filterMemoId;
+  if (scopedMemoId) filters.push(eq(attachments.memoId, scopedMemoId));
+  if (input.filter?.filenameEquals !== undefined) {
+    filters.push(eq(attachments.filename, input.filter.filenameEquals));
+  }
+  if (input.filter?.filenameContains !== undefined) {
+    filters.push(
+      sql`${attachments.filename} LIKE ${`%${escapeAttachmentLike(input.filter.filenameContains)}%`} ESCAPE '\\'`,
+    );
+  }
+  if (input.filter?.contentType !== undefined) {
+    filters.push(eq(attachments.contentType, input.filter.contentType));
+  }
+
+  const sortColumn = orderBy.startsWith("filename")
+    ? attachments.filename
+    : attachments.createdAt;
+  const direction = orderBy.endsWith(" asc") ? "asc" : "desc";
+  const baseWhere = and(...filters);
+  if (cursor) {
+    const cursorFilter =
+      direction === "asc"
+        ? or(
+            gt(sortColumn, cursor.sortValue),
+            and(
+              eq(sortColumn, cursor.sortValue),
+              gt(attachments.id, cursor.id),
+            ),
+          )
+        : or(
+            lt(sortColumn, cursor.sortValue),
+            and(
+              eq(sortColumn, cursor.sortValue),
+              lt(attachments.id, cursor.id),
+            ),
+          );
+    if (cursorFilter) filters.push(cursorFilter);
+  }
+
+  const [rows, total] = await Promise.all([
+    db
+      .select()
+      .from(attachments)
+      .where(and(...filters))
+      .orderBy(
+        direction === "asc" ? asc(sortColumn) : desc(sortColumn),
+        direction === "asc" ? asc(attachments.id) : desc(attachments.id),
+      )
+      .limit(pageSize + 1),
+    db
+      .select({ count: count(attachments.id) })
+      .from(attachments)
+      .where(baseWhere)
+      .get(),
+  ]);
+  const page = rows.slice(0, pageSize);
+  const next = rows.length > pageSize ? page.at(-1) : undefined;
+  return {
+    attachments: page,
+    totalSize: Number(total?.count ?? 0),
+    nextPageToken: next
+      ? encodeAttachmentPageToken({
+          id: next.id,
+          sortValue: orderBy.startsWith("filename")
+            ? next.filename
+            : next.createdAt,
+          orderBy,
+          scopeKey,
+        })
+      : undefined,
+  };
 }
 
 export async function listMemoAttachments(
@@ -424,4 +572,62 @@ export async function finalizeAttachmentCleanup(db: FlareMoDb, id: string) {
     .update(attachments)
     .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
     .where(eq(attachments.id, parseResourceName(id, "attachments")));
+}
+
+function normalizeAttachmentPageSize(value: number | undefined) {
+  if (value === undefined) return 50;
+  if (!Number.isInteger(value) || value < 1) {
+    throw new ValidationError(
+      "Attachment page size must be a positive integer",
+    );
+  }
+  return Math.min(value, 1_000);
+}
+
+function normalizeAttachmentOrderBy(value: string | undefined) {
+  const normalized = (
+    value?.trim().toLowerCase() || "create_time desc"
+  ).replace("createtime", "create_time");
+  const [field = "create_time", direction = "desc"] = normalized.split(/\s+/);
+  if (
+    !["create_time", "filename"].includes(field) ||
+    !["asc", "desc"].includes(direction)
+  ) {
+    throw new ValidationError(
+      "Attachment order_by only supports create_time or filename asc/desc",
+    );
+  }
+  return `${field} ${direction}`;
+}
+
+function encodeAttachmentPageToken(cursor: AttachmentCursor) {
+  return btoa(JSON.stringify(cursor));
+}
+
+function decodeAttachmentPageToken(
+  token: string,
+  orderBy: string,
+  scopeKey: string,
+): AttachmentCursor {
+  try {
+    const cursor = JSON.parse(atob(token)) as Partial<AttachmentCursor>;
+    if (
+      typeof cursor.id === "string" &&
+      typeof cursor.sortValue === "string" &&
+      cursor.orderBy === orderBy &&
+      cursor.scopeKey === scopeKey
+    ) {
+      return cursor as AttachmentCursor;
+    }
+  } catch {
+    // Fall through to one stable validation error.
+  }
+  throw new ValidationError("Invalid attachment page token");
+}
+
+function escapeAttachmentLike(value: string) {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("%", "\\%")
+    .replaceAll("_", "\\_");
 }

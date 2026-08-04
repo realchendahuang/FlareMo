@@ -364,6 +364,76 @@ describe("Memos native auth and transport boundaries", () => {
       expect.objectContaining({ name: attachmentBody.name }),
     ]);
 
+    const secondAttachment = await request("/api/v1/attachments", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        attachment: {
+          filename: "second-connect.txt",
+          content: "c2Vjb25k",
+          type: "text/plain",
+          memo: created.name,
+        },
+      }),
+    });
+    expect(secondAttachment.status).toBe(200);
+    const secondAttachmentBody = (await secondAttachment.json()) as {
+      name: string;
+    };
+
+    const firstAttachmentPage = await connectService(
+      "AttachmentService",
+      "ListAttachments",
+      { pageSize: 1, orderBy: "filename asc" },
+    );
+    expect(firstAttachmentPage.attachments).toHaveLength(1);
+    expect(firstAttachmentPage.totalSize).toBeGreaterThanOrEqual(2);
+    expect(firstAttachmentPage.nextPageToken).toEqual(expect.any(String));
+
+    const secondAttachmentPage = await connectService(
+      "AttachmentService",
+      "ListAttachments",
+      {
+        pageSize: 1,
+        orderBy: "filename asc",
+        pageToken: firstAttachmentPage.nextPageToken,
+      },
+    );
+    expect(secondAttachmentPage.attachments).toHaveLength(1);
+    expect(secondAttachmentPage.nextPageToken).toBeUndefined();
+    expect(secondAttachmentPage.attachments[0]?.name).toBe(
+      secondAttachmentBody.name,
+    );
+
+    const mismatchedAttachmentToken = await request(
+      "/memos.api.v1.AttachmentService/ListAttachments",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          pageSize: 1,
+          orderBy: "create_time desc",
+          pageToken: firstAttachmentPage.nextPageToken,
+        }),
+      },
+    );
+    expect(mismatchedAttachmentToken.status).toBe(400);
+
+    const filteredAttachments = await connectService(
+      "AttachmentService",
+      "ListAttachments",
+      { filter: 'filename.contains("second-connect")' },
+    );
+    expect(filteredAttachments.attachments).toEqual([
+      expect.objectContaining({ name: secondAttachmentBody.name }),
+    ]);
+
     const comment = await connect("CreateMemoComment", {
       name: created.name,
       comment: { content: "Connect comment" },

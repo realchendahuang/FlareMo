@@ -51,6 +51,15 @@ const attachmentName = {
   description: "An attachment resource name or attachment id.",
 };
 
+const attachmentFilename = {
+  name: "filename",
+  in: "path",
+  required: true,
+  schema: { type: "string" },
+  description:
+    "The filename segment used by the official Memos Web URL; object lookup uses the attachment resource name.",
+};
+
 const userName = {
   name: "user",
   in: "path",
@@ -850,6 +859,48 @@ export function createCurrentOpenApiDocument() {
           tags: ["Attachments"],
           parameters: [attachmentName],
           responses: { "200": emptyResponse("Deleted.") },
+        }),
+      },
+      "/file/attachments/{attachment}/{filename}": {
+        get: secured({
+          operationId: "getMemosAttachmentFile",
+          summary: "Serve a Memos Web-compatible attachment file URL",
+          description:
+            "Private requests require Better Auth/PAT/native access authentication. An unauthenticated request is allowed only when share_token identifies a valid, unexpired share for the attachment's memo. The filename is a compatibility path segment and is not used to select an R2 object.",
+          tags: ["Attachments"],
+          security: optionalReadSecurity,
+          parameters: [
+            attachmentName,
+            attachmentFilename,
+            {
+              name: "share_token",
+              in: "query",
+              schema: { type: "string" },
+              description:
+                "Optional public-share token used by the Memos Web share view.",
+            },
+            {
+              name: "thumbnail",
+              in: "query",
+              schema: { type: "boolean" },
+              description:
+                "Currently returns the original object; image thumbnail generation is not implemented.",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Attachment bytes.",
+              content: { "application/octet-stream": binaryMessage },
+            },
+            "206": {
+              description:
+                "Partial attachment bytes for a valid Range request.",
+              content: { "application/octet-stream": binaryMessage },
+            },
+            "304": emptyResponse("Attachment has not changed."),
+            "401": response("Authentication required.", error),
+            "404": response("Attachment or share not found.", error),
+          },
         }),
       },
       "/api/v1/users": {

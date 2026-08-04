@@ -63,7 +63,7 @@ Better Auth 是应用层认证事实源，Cloudflare Access 只能作为可选�
 | memo 创建、列表、详情、更新、删除 | 已实现 | 已测试 | `POST/GET /api/v1/memos`、`GET/PATCH/DELETE /api/v1/memos/{memo}`；支持 current `{ memo: {...} }` wrapper、有限 `pageSize`、`pageToken`、`orderBy`、filter 和 `updateMask`。 |
 | memo 字段、状态、可见性、tags、property、location | 已实现 | 已测试 | 已做 DTO/枚举映射；FlareMo 的 trash/deleted 与 current Memos 状态模型并非完全相同。 |
 | memo 附件、relations、comments、reactions | 已实现 | 已测试 | `memos/{memo}/attachments`、`relations`、`comments`、`reactions` 的 current 子集；完整上游资源语义仍未证明。 |
-| attachment 资源 | 已实现 | 已测试 | `GET/POST /api/v1/attachments`、`GET/PATCH/DELETE /api/v1/attachments/{attachment}`；支持 current wrapper、R2 blob 和 memo 绑定，客户端指定 `attachmentId` 仍明确拒绝。 |
+| attachment 资源 | 已实现子集 | 已测试 | `GET/POST /api/v1/attachments`、`GET/PATCH/DELETE /api/v1/attachments/{attachment}`；支持 current wrapper、R2 blob 和 memo 绑定，客户端指定 `attachmentId` 仍明确拒绝。官方 Memos Web 预期的 `/file/attachments/{id}/{filename}` 私有/分享读取也已接入；任意 `externalLink` 持久化、缩略图和 motion 转换仍未实现。 |
 | shortcuts | 已实现 | 已测试 | `GET/POST /api/v1/users/{user}/shortcuts` 及单项 CRUD；覆盖有限 CEL 校验、`validateOnly` 和 `updateMask`。 |
 | memo shares | 已实现 | 已测试 | `GET/POST /api/v1/memos/{memo}/shares`、`DELETE`；匿名读取仍由 share token、过期时间和 memo 状态控制。 |
 | current PAT 资源 | 已实现 | 已测试 | `/api/v1/users/{user}/personalAccessTokens` 的 list/create/revoke；PAT 不能反过来管理 PAT。 |
@@ -103,7 +103,7 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 | `MemoService` | `CreateMemo`、`ListMemos`、`GetMemo`、`UpdateMemo`、`DeleteMemo`；附件 binding；relations；comments；reactions；shares；`GetMemoByShare`；旧 `GetSharedMemo` alias；`GetLinkMetadata`、`BatchGetLinkMetadata` | 已实现子集 | 已测试 | JSON unary 和 generated protobuf/gRPC-Web framing 有覆盖；canonical `GetMemoByShare` 已有 JSON 测试。普通 memo RPC 仍需应用凭据。 |
 | `AuthService` | `GetCurrentUser`、`SignIn`、`RefreshToken`、`SignOut` | 已实现子集 | 已测（generated binary 子集） | Better Auth 是身份事实源；native JWT/refresh 是 facade，不是上游 token 的字节级 parity；官方 generated client 已完成列出方法的 binary roundtrip。 |
 | `ShortcutService` | `ListShortcuts`、`GetShortcut`、`CreateShortcut`、`UpdateShortcut`、`DeleteShortcut` | 已实现 | 已测试 | 有 JSON、gRPC-Web framing 和 social contract 覆盖；filter 仍是有限 CEL。 |
-| `AttachmentService` | `CreateAttachment`、`ListAttachments`、`GetAttachment`、`UpdateAttachment`、`DeleteAttachment`、`BatchDeleteAttachments` | 已实现子集 | 已测（generated binary 子集） | 官方 generated client 已完成 create/list/get/delete；update/batch delete、完整字段和上传语义仍未完成。只允许有限 memo 字段更新；外链、客户端指定 `attachmentId` 等能力明确拒绝。 |
+| `AttachmentService` | `CreateAttachment`、`ListAttachments`、`GetAttachment`、`UpdateAttachment`、`DeleteAttachment`、`BatchDeleteAttachments` | 已实现子集 | 已测（generated binary 子集） | 官方 generated client 已完成 create/list/get/delete；`ListAttachments` 支持有限 `pageToken`、`orderBy` 和 filename/mime/memo 过滤；update/batch delete、完整字段和上传语义仍未完成。只允许有限 memo 字段更新；外链、客户端指定 `attachmentId` 等能力明确拒绝。 |
 | `UserService` | current user list/batch/get/update；stats；user settings；空的 linked identities/webhooks/notifications list；PAT list/create/delete | 已实现子集 | 已测（generated binary 子集） | 官方 generated client 已完成 list/get/stats/settings/notifications/webhooks 的列出方法；单用户生命周期、多用户语义、完整 settings oneof 和 mutation 方法仍未完成。 |
 | `InstanceService` | `GetInstanceProfile`、`GetInstanceSetting`、`BatchGetInstanceSettings`、`UpdateInstanceSetting`、`GetInstanceStats`；`TestInstanceEmailSetting` 明确返回 `501` | 部分实现 | 已测（generated binary 子集） | 官方 generated client 已完成 profile、batch settings、stats；Storage/Tags/AI 等 setting oneof、更新和 email delivery 未完成。 |
 | `IdentityProviderService` | `ListIdentityProviders` 返回空列表 | 仅有限实现 | 已测试（空列表） | 没有 OAuth2 provider CRUD 或 linked identity 流程；其余方法明确返回 `501`。 |
@@ -120,7 +120,8 @@ Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter
 
 - Worker generated codec 已对 `InstanceSetting`/`UserSetting` oneof、notification payload、attachment `motionMedia` / `externalLink` 等字段做 focused roundtrip；这些字段对应的完整业务持久化和 handler 语义仍未完成。
 - memo create/update 的完整时间、initial attachments/relations/location、完整 update mask、pagination token，以及 comments/reactions 的完整 response schema。
-- Attachment update/batch delete、User/Instance/IdentityProvider 的未覆盖方法和完整 generated-client schema roundtrip；本次 smoke 只覆盖列出的 unary 子集。
+- Attachment update/batch delete、User/Instance/IdentityProvider 的未覆盖方法和完整 generated-client schema roundtrip；本次 smoke 只覆盖列出的 unary 子集。Attachment 列表的分页/排序/过滤是 FlareMo 的有限子集，不是完整 CEL parity。
+- 官方 Memos Web 的 `/file/attachments/{id}/{filename}` 文件 URL bridge 已实现，支持 Better Auth/PAT/native access JWT 私有读取和 `share_token` 绑定的公开读取；`thumbnail=true` 目前返回原始对象，motion media 转换和任意 `externalLink` 持久化仍未完成。
 - 原生 gRPC HTTP/2、完整 metadata/trailer、gRPC-Web trailer frame、压缩、streaming RPC、取消和 deadline 语义。
 - 官方 Memos Web 的真实浏览器请求、第三方客户端连接，以及 native HTTP/2 gRPC 的真实客户端验证。
 
