@@ -50,7 +50,7 @@ accountApi.post(
             : null,
         },
       });
-      return c.json(
+      const response = c.json(
         {
           personal_access_token: toPersonalAccessTokenDto(created),
           // Better Auth only returns this plaintext value at creation time.
@@ -58,6 +58,8 @@ accountApi.post(
         },
         201,
       );
+      response.headers.set("cache-control", "no-store");
+      return response;
     } catch (error) {
       return jsonError(c, error);
     }

@@ -65,6 +65,8 @@ FlareMo 的应用层认证由 Better Auth 提供。当前是“单用户完整�
 
 Cloudflare Access 可以作为额外的外层防线，但 Access 身份或 Access Service Token 不会自动映射为 FlareMo 用户。启用 Access 时必须同时满足外层 policy 和下面的应用层认证。
 
+生产还应在 Cloudflare WAF/Rate Limiting 中为 `/api/auth/sign-in/*`、`/api/auth/flaremo/bootstrap`、`/api/auth/flaremo/recover` 和 `/api/auth/flaremo/recover-bootstrap` 配置按 IP/入口的失败或请求速率限制。Better Auth 的 Worker 内置限流是单 isolate 的补充，不是跨边缘位置的唯一 credential-stuffing 防护；bootstrap/recovery 自定义路由也不自动进入 Better Auth handler 的限流范围。
+
 ### 1. 配置公开变量
 
 在 `wrangler.jsonc` 的 `vars` 中设置：
@@ -99,7 +101,7 @@ pnpm exec wrangler secret put BETTER_AUTH_SECRET --config ./wrangler.jsonc
 pnpm exec wrangler secret put FLAREMO_BOOTSTRAP_SECRET --config ./wrangler.jsonc
 ```
 
-`BETTER_AUTH_SECRET` 至少需要 32 个字符。`BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 应由部署者在密码管理器或安全随机数工具中生成，不能写入 `wrangler.jsonc`、`.dev.vars.example`、Git、issue、PR、日志或聊天记录。`FLAREMO_RECOVERY_SECRET` 是可选的独立 break-glass secret，也至少需要 32 个字符；正常运行时可以不配置，只在明确批准的 operator recovery 窗口临时配置，成功后立即轮换或删除。
+`BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 都至少需要 32 个字符。两者应由部署者在密码管理器或安全随机数工具中生成，不能写入 `wrangler.jsonc`、`.dev.vars.example`、Git、issue、PR、日志或聊天记录。`FLAREMO_RECOVERY_SECRET` 是可选的独立 break-glass secret，也至少需要 32 个字符；正常运行时可以不配置，只在明确批准的 operator recovery 窗口临时配置，成功后立即轮换或删除。生产 `FLAREMO_PUBLIC_URL` 必须使用 HTTPS；HTTP 只允许本地开发 origin。
 
 Wrangler secret 是写入式配置，部署者应把值保存在自己的密码管理器中；不要尝试通过命令回读、打印或把它传给 Agent。后续只验证 secret 已使 bootstrap status 显示 `setup_available: true`，不验证或输出 secret 本身。
 

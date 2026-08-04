@@ -39,7 +39,7 @@ The current `/api/v1` wire is the current Memos-style camelCase/protobuf-JSON su
 Recommended boundary:
 
 - Human access: `Allow` identity policy.
-- Scripts, MCP, and Memos-compatible clients: `Service Auth` policy plus Access Service Token.
+- Scripts, MCP, and Memos-compatible clients: FlareMo `memos_pat_` application token; if Access remains enabled, add a `Service Auth` policy plus Access Service Token.
 - Public shares and static assets: narrowly scoped `Bypass` policies.
 
 ### 1. Create an Access application
@@ -72,7 +72,7 @@ This policy protects the browser UI. Authenticated users receive a Cloudflare Ac
 
 ### 3. Create a Service Token
 
-Scripts, MCP, and Memos-compatible clients usually cannot complete a browser login flow. Use an Access Service Token for those clients.
+Scripts, MCP, and Memos-compatible clients usually cannot complete a browser login flow. Use a FlareMo `memos_pat_` application token for the Worker; if the deployment is behind Access, add an Access Service Token for the outer policy.
 
 In the Cloudflare Dashboard, go to `Zero Trust` -> `Access` -> `Service Auth` -> `Service Tokens`, then create a token such as:
 
@@ -180,7 +180,7 @@ curl -I "$FLAREMO_URL/api/public/shares/not-a-real-token"
 
 - The root hostname or Worker URL has a Cloudflare Access application.
 - Human access uses an `Allow` policy scoped to allowed users only.
-- Scripts, MCP, and Memos-compatible clients use a `Service Auth` policy and Access Service Token.
+- Scripts, MCP, and Memos-compatible clients use a FlareMo `memos_pat_` token, plus a `Service Auth` policy and Access Service Token when Access remains enabled.
 - The `Client Secret` is not committed to the repository, issues, PRs, or public logs.
 - `/share/*`, `/api/public/shares/*`, and `/assets/*` have explicit `Bypass` policies.
 - The root application, `/api/v1/*`, and `/openapi.json` are not bypassed.

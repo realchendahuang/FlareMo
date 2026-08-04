@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { createDb } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createFlareMoAuth } from "./auth";
+import type { FlareMoEnv } from "./env";
 import app from "./index";
 
 let runtime: Miniflare;
@@ -140,6 +143,106 @@ describe("FlareMo native authentication", () => {
     expect(ownerLinks?.count).toBe(1);
   });
 
+  it("does not mistake a partial link for complete and reconciles it in place", async () => {
+    await bootstrapOwner();
+    await db
+      .prepare(
+        "UPDATE auth_bootstrap SET state = ?, auth_user_id = NULL, flaremo_user_id = NULL, completed_at = NULL WHERE id = ?",
+      )
+      .bind("recovery_required", "bootstrap/owner")
+      .run();
+
+    const partialStatus = await json<{
+      initialized: boolean;
+      state: string;
+      setup_available: boolean;
+    }>(await fetchRaw("/api/auth/flaremo/bootstrap/status"));
+    expect(partialStatus).toEqual({
+      initialized: false,
+      state: "recovery_required",
+      setup_available: false,
+    });
+
+    const recovery = await fetchRaw("/api/auth/flaremo/recover-bootstrap", {
+      method: "POST",
+      headers: {
+        "x-flaremo-recovery-secret": TEST_RECOVERY_SECRET,
+        origin: "http://flaremo.test",
+      },
+    });
+    expect(recovery.status).toBe(200);
+    expect(await json(recovery)).toEqual({ ok: true });
+
+    const completedStatus = await json<{
+      initialized: boolean;
+      state: string;
+      setup_available: boolean;
+    }>(await fetchRaw("/api/auth/flaremo/bootstrap/status"));
+    expect(completedStatus).toEqual({
+      initialized: true,
+      state: "complete",
+      setup_available: false,
+    });
+
+    const counts = await Promise.all([
+      db
+        .prepare("SELECT COUNT(*) AS count FROM auth_users")
+        .first<{ count: number }>(),
+      db
+        .prepare("SELECT COUNT(*) AS count FROM auth_user_links")
+        .first<{ count: number }>(),
+      db
+        .prepare("SELECT COUNT(*) AS count FROM users WHERE id = ?")
+        .bind("users/owner")
+        .first<{ count: number }>(),
+    ]);
+    expect(counts[0]?.count).toBe(1);
+    expect(counts[1]?.count).toBe(1);
+    expect(counts[2]?.count).toBe(1);
+  });
+
+  it("fails closed when bootstrap recovery finds multiple identities", async () => {
+    await bootstrapOwner();
+    const auth = createFlareMoAuth(env as FlareMoEnv, createDb(db), {
+      allowBootstrapSignUp: true,
+    });
+    await auth.api.signUpEmail({
+      body: {
+        email: "second@example.com",
+        name: "Second",
+        password: INITIAL_PASSWORD,
+        username: "second",
+        displayUsername: "second",
+      },
+    });
+    await db
+      .prepare(
+        "UPDATE auth_bootstrap SET state = ?, auth_user_id = NULL, flaremo_user_id = NULL, completed_at = NULL WHERE id = ?",
+      )
+      .bind("recovery_required", "bootstrap/owner")
+      .run();
+
+    const recovery = await fetchRaw("/api/auth/flaremo/recover-bootstrap", {
+      method: "POST",
+      headers: {
+        "x-flaremo-recovery-secret": TEST_RECOVERY_SECRET,
+        origin: "http://flaremo.test",
+      },
+    });
+    expect(recovery.status).toBe(409);
+
+    const counts = await Promise.all([
+      db
+        .prepare("SELECT COUNT(*) AS count FROM auth_users")
+        .first<{ count: number }>(),
+      db
+        .prepare("SELECT COUNT(*) AS count FROM auth_user_links")
+        .first<{ count: number }>(),
+    ]);
+    expect(counts[0]?.count).toBe(2);
+    expect(counts[1]?.count).toBe(1);
+  });
+
   it("requires an exact Origin for cookie auth mutations and keeps Access outside app identity", async () => {
     await bootstrapOwner();
 
@@ -219,6 +322,7 @@ describe("FlareMo native authentication", () => {
       },
     );
     expect(createdPat.status).toBe(201);
+    expect(createdPat.headers.get("cache-control")).toBe("no-store");
     const pat = await json<{ token: string }>(createdPat);
 
     const recovery = await fetchRaw("/api/auth/flaremo/recover", {

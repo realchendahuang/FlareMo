@@ -1,6 +1,7 @@
 export type TelegramBotEnv = {
-  FLAREMO_ACCESS_CLIENT_ID: string;
-  FLAREMO_ACCESS_CLIENT_SECRET: string;
+  FLAREMO_ACCESS_CLIENT_ID?: string;
+  FLAREMO_ACCESS_CLIENT_SECRET?: string;
+  FLAREMO_MEMOS_PAT?: string;
   FLAREMO_URL: string;
   TELEGRAM_ALLOWED_CHAT_IDS: string;
   TELEGRAM_WEBHOOK_SECRET: string;
@@ -43,6 +44,23 @@ export async function handleTelegramWebhook(
     return json({ error: "Invalid Telegram webhook secret" }, 401);
   }
 
+  const memosPat = env.FLAREMO_MEMOS_PAT?.trim();
+  if (!memosPat?.startsWith("memos_pat_")) {
+    return json(
+      { error: "FlareMo application credential is not configured" },
+      503,
+    );
+  }
+  const accessClientId = env.FLAREMO_ACCESS_CLIENT_ID?.trim();
+  const accessClientSecret = env.FLAREMO_ACCESS_CLIENT_SECRET?.trim();
+  if (Boolean(accessClientId) !== Boolean(accessClientSecret)) {
+    return json({ error: "Cloudflare Access credentials are incomplete" }, 503);
+  }
+  const flaremoUrl = getFlaremoUrl(env.FLAREMO_URL);
+  if (!flaremoUrl) {
+    return json({ error: "FlareMo URL must be an HTTPS origin" }, 503);
+  }
+
   const update = (await request.json()) as TelegramUpdate;
   const message =
     update.message ??
@@ -67,31 +85,28 @@ export async function handleTelegramWebhook(
     return json({ ok: true, skipped: "empty_message" });
   }
 
-  const response = await fetcher(
-    `${env.FLAREMO_URL.replace(/\/$/, "")}/api/v1/memos`,
-    {
-      method: "POST",
-      headers: {
-        "CF-Access-Client-Id": env.FLAREMO_ACCESS_CLIENT_ID,
-        "CF-Access-Client-Secret": env.FLAREMO_ACCESS_CLIENT_SECRET,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        content,
-        visibility: "private",
-        source: "telegram",
-        payload: {
-          tags: ["telegram"],
-          client_id: `telegram:${update.update_id ?? message.message_id ?? "unknown"}`,
-          telegram: {
-            chat_id: String(chatId),
-            message_id: message.message_id,
-            forwarded: message.forward_origin !== undefined,
-          },
+  const response = await fetcher(`${flaremoUrl}/api/v1/memos`, {
+    method: "POST",
+    headers: flaremoHeaders({
+      memosPat,
+      accessClientId,
+      accessClientSecret,
+    }),
+    body: JSON.stringify({
+      content,
+      visibility: "private",
+      source: "telegram",
+      payload: {
+        tags: ["telegram"],
+        client_id: `telegram:${update.update_id ?? message.message_id ?? "unknown"}`,
+        telegram: {
+          chat_id: String(chatId),
+          message_id: message.message_id,
+          forwarded: message.forward_origin !== undefined,
         },
-      }),
-    },
-  );
+      },
+    }),
+  });
   if (!response.ok) {
     return json(
       {
@@ -107,4 +122,39 @@ export async function handleTelegramWebhook(
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status });
+}
+
+function flaremoHeaders(input: {
+  memosPat: string;
+  accessClientId?: string;
+  accessClientSecret?: string;
+}) {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${input.memosPat}`,
+    "content-type": "application/json",
+  };
+  if (input.accessClientId && input.accessClientSecret) {
+    headers["CF-Access-Client-Id"] = input.accessClientId;
+    headers["CF-Access-Client-Secret"] = input.accessClientSecret;
+  }
+  return headers;
+}
+
+function getFlaremoUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      (url.pathname !== "/" && url.pathname !== "") ||
+      url.search ||
+      url.hash
+    ) {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
 }

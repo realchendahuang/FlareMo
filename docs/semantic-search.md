@@ -116,7 +116,7 @@ Vectorize V2 的 mutation 可能不是立刻对查询可见，因此查询层必
 ## 隐私边界
 
 - 生产实例仍由 Cloudflare Access 保护。
-- 脚本、MCP 和 Memos-compatible 客户端仍使用 Access Service Token。
+- 脚本、MCP 和 Memos-compatible 客户端使用 FlareMo `memos_pat_` PAT；如果生产入口仍启用 Cloudflare Access，再附加 Access Service Token。Access Service Token 不能替代应用层 PAT。
 - embedding provider 只能接收必要的 memo 文本。
 - 不索引已删除 memo。
 - 私密 memo 可以进入私有语义索引，但查询必须限制在同一用户和同一 Access 边界内。
