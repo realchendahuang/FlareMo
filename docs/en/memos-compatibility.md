@@ -1,6 +1,6 @@
 # Memos Compatibility Matrix
 
-FlareMo is a Cloudflare-native personal knowledge system with a Memos-compatible adapter, not a fork of the Memos Go server. The default `/api/v1` wire is a current Memos-style camelCase / protobuf-JSON subset. The previous FlareMo snake_case wire remains available through an explicit legacy header, and the root `/mcp` endpoint provides a stateless Streamable HTTP MCP subset.
+FlareMo is a Cloudflare-native personal knowledge system with a Memos-compatible adapter, not a fork of the Memos Go server. The default `/api/v1` wire is a current Memos-style camelCase / protobuf-JSON subset. The previous FlareMo snake_case wire remains available through an explicit legacy header, and the root `/mcp` endpoint provides a stateless Streamable HTTP MCP subset. The pinned official Memos generated Connect client has completed one isolated binary-unary smoke against a local Wrangler Worker; this is not complete Memos Server parity or proof that the official Web and third-party clients work in production.
 
 This is an interoperability boundary, not a claim of complete Memos Server parity. Repository contract tests prove FlareMo's own surface; they do not replace real smoke tests against Memos clients. See the [ecosystem matrix](../memos-ecosystem.md) for third-party verification status.
 
@@ -76,7 +76,9 @@ The current tool names use `memo_`, `attachment_`, `shortcut_`, and `auth_` pref
 
 ### Connect JSON and SSE
 
-The Worker also exposes the canonical `memos.api.v1.MemoService/*` HTTP unary JSON subset for memo CRUD, attachments, and relations. It accepts `application/json` only; protobuf binary, native gRPC, complete Connect metadata/trailers, and other Memos services are not implemented.
+The Worker also exposes the canonical `memos.api.v1/{Service}/{Method}` HTTP unary adapter for the documented service subset. It accepts Connect JSON plus `application/proto`, `application/grpc`, `application/grpc+proto`, `application/grpc-web`, `application/grpc-web+proto`, `application/grpc-web-text`, and `application/grpc-web-text+proto`. This is still a hand-written protobuf codec: it does not provide native HTTP/2 gRPC, complete metadata/trailers, compression, streaming, or full Memos service/schema parity.
+
+The pinned official generated-client smoke used the `Temp/memos` commit `daa71d0456d07a25ff5ea435e46577d31d030728`, `@bufbuild/protobuf@2.12.0`, `@connectrpc/connect@2.1.1`, `@connectrpc/connect-web@2.1.1`, and `useBinaryFormat: true` against `http://127.0.0.1:18787`. It successfully decoded the listed unary Auth, Memo/social, Attachment, Shortcut, User, and Instance responses. This is an isolated local E2E result, not a production-domain or official-Web smoke.
 
 `GET /api/v1/sse` provides an authenticated `text/event-stream` handshake, connection comment, heartbeat, and abort/cancel handling. It does not yet provide a cross-isolate mutation outbox, `Last-Event-ID` replay, or a complete Memos SSE event hub, so it is documented as a heartbeat/polling-compatible stream.
 
@@ -92,7 +94,7 @@ Do not describe the following as complete compatibility:
 - Complete upstream service/wire parity for comments, reactions, and shortcuts, plus notifications and admin/instance surfaces.
 - A complete SSE event hub/replay protocol and stateful MCP sessions.
 - Byte-level/version-level native Memos JWT/refresh-token parity; the current implementation only verifies FlareMo's own HS256 claims, rotation, and revocation behavior.
-- Connect protobuf binary, native gRPC/gRPC-Web, and uncovered Memos services.
+- Uncovered Memos services, native HTTP/2 gRPC, complete gRPC-Web trailer/metadata behavior, compression, and streaming.
 - Real smoke tests for the official Memos client, MemoFlow, Dynos, Raycast, browser extensions, or other third-party clients.
 - Cloudflare Access policy correctness; Access is a deployment-layer policy, not the FlareMo application protocol.
 

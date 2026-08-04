@@ -570,6 +570,23 @@ describe("Memos native auth and transport boundaries", () => {
       "Connect JSON memo",
     );
 
+    const nativeGrpcList = await request(
+      "/memos.api.v1.MemoService/ListMemos",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/grpc",
+        },
+        body: frameProto(encodeListMemosProto()),
+      },
+    );
+    expect(nativeGrpcList.status).toBe(200);
+    expect(nativeGrpcList.headers.get("grpc-status")).toBe("0");
+    expect(
+      new TextDecoder().decode(await nativeGrpcList.arrayBuffer()),
+    ).toContain("Connect JSON memo");
+
     const binaryGet = await request("/memos.api.v1.MemoService/GetMemo", {
       method: "POST",
       headers: {
@@ -623,6 +640,20 @@ describe("Memos native auth and transport boundaries", () => {
     expect(new TextDecoder().decode(await authBinary.arrayBuffer())).toContain(
       "users/owner",
     );
+
+    const binarySignOut = await request("/memos.api.v1.AuthService/SignOut", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        cookie: refreshCookie,
+        "content-type": "application/proto",
+        origin: "http://flaremo.test",
+      },
+      body: new Uint8Array(),
+    });
+    expect(binarySignOut.status).toBe(200);
+    expect(binarySignOut.headers.get("content-type")).toBe("application/proto");
+    expect(new Uint8Array(await binarySignOut.arrayBuffer())).toHaveLength(0);
 
     const compressed = await request("/memos.api.v1.MemoService/CreateMemo", {
       method: "POST",

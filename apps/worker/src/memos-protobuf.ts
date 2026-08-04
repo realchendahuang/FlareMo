@@ -21,9 +21,25 @@ export function detectBinaryTransport(
 ): BinaryTransport | undefined {
   const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase();
   if (mediaType === "application/proto") return "connect-proto";
-  if (mediaType === "application/grpc+proto") return "grpc-proto";
-  if (mediaType === "application/grpc-web+proto") return "grpc-web-proto";
-  if (mediaType === "application/grpc-web-text+proto") {
+  // Native gRPC commonly uses application/grpc while gRPC-Web uses the
+  // explicit +proto subtype. Memos uses protobuf as its wire codec, so both
+  // media-type forms select the same unary protobuf framing.
+  if (
+    mediaType === "application/grpc" ||
+    mediaType === "application/grpc+proto"
+  ) {
+    return "grpc-proto";
+  }
+  if (
+    mediaType === "application/grpc-web" ||
+    mediaType === "application/grpc-web+proto"
+  ) {
+    return "grpc-web-proto";
+  }
+  if (
+    mediaType === "application/grpc-web-text" ||
+    mediaType === "application/grpc-web-text+proto"
+  ) {
     return "grpc-web-text-proto";
   }
   return undefined;

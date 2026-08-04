@@ -1,0 +1,28 @@
+{
+  "reference": {
+    "memosCommit": "daa71d0456d07a25ff5ea435e46577d31d030728",
+    "releaseContext": "0.29.1-era",
+    "go": "1.26.2",
+    "jwt": "github.com/golang-jwt/jwt/v5@v5.3.1"
+  },
+  "input": {
+    "issuedAt": 1735689600,
+    "expiresAt": 1735690500,
+    "subject": "1",
+    "username": "owner",
+    "role": "ADMIN",
+    "status": "NORMAL",
+    "secret": "cross-language-fixture-secret-2026"
+  },
+  "serialization": {
+    "headerJson": "{\"alg\":\"HS256\",\"kid\":\"v1\",\"typ\":\"JWT\"}",
+    "payloadJson": "{\"type\":\"access\",\"role\":\"ADMIN\",\"status\":\"NORMAL\",\"username\":\"owner\",\"iss\":\"memos\",\"sub\":\"1\",\"aud\":[\"user.access-token\"],\"exp\":1735690500,\"iat\":1735689600}",
+    "encodedSegmentSha256": {
+      "header": "08c78c4576dba19dabf54432ec3613d12ee3bdb256a001a48d48808501d2b077",
+      "payload": "fe7affb5a0910da91db2c61478c777bbb23b8e54e47a532b62a527ee5e77d57c",
+      "signature": "7ee97cb1769406c81b05cafb1541e331e622456105ff9f267744f3625cc392de"
+    },
+    "tokenSha256": "f849ac9ef389c070d2bddabf1aedfc8e465cd769bcdd38799202c2754d282d0f",
+    "segmentLengths": [51, 207, 43]
+  }
+}

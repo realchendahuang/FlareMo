@@ -13,8 +13,11 @@ const binaryMessage = {
 const connectContent = (schema: JsonSchema) => ({
   ...json(schema),
   "application/proto": binaryMessage,
+  "application/grpc": binaryMessage,
   "application/grpc+proto": binaryMessage,
+  "application/grpc-web": binaryMessage,
   "application/grpc-web+proto": binaryMessage,
+  "application/grpc-web-text": binaryMessage,
   "application/grpc-web-text+proto": binaryMessage,
 });
 
