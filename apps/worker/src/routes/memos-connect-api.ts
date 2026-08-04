@@ -1,24 +1,67 @@
+import { createDb } from "@flaremo/db";
 import {
   bindMemoAttachments,
   createMemo,
+  createMemoComment,
+  createMemoShare,
+  createShortcut,
   type DomainError,
+  deleteMemoReaction,
+  deleteShortcut,
+  getAuthUserById,
+  getFlaremoUserByAuthSessionToken,
   getMemoById,
+  getMemoParent,
+  getPublicShareByToken,
+  getShortcut,
   hardDeleteMemo,
   listMemoAttachments,
+  listMemoComments,
+  listMemoReactions,
   listMemoRelations,
+  listMemoShares,
   listMemos,
+  listShortcuts,
   markMemoAttachmentsDeleting,
   replaceMemoRelations,
+  revokeMemoShare,
   updateMemo,
+  updateShortcut,
+  upsertMemoReaction,
 } from "@flaremo/domain";
 import {
   currentAttachmentToDto,
   currentMemoToDto,
+  currentReactionToDto,
   currentRelationToDto,
+  currentShareToDto,
+  currentShortcutsToListResponse,
+  currentShortcutToDto,
+  currentUserToDto,
 } from "@flaremo/memos";
 import { type Context, Hono } from "hono";
-import { getRequestContext, type HonoBindings } from "../context";
+import { createFlareMoAuth } from "../auth";
+import {
+  assertTrustedCookieMutation,
+  getRequestContext,
+  type HonoBindings,
+} from "../context";
 import type { FlareMoEnv } from "../env";
+import { fetchLinkMetadata } from "../memos-link-metadata";
+import {
+  clearMemosRefreshCookie,
+  issueMemosNativeTokens,
+  revokeMemosRefreshToken,
+  rotateMemosRefreshToken,
+} from "../memos-native-auth";
+import {
+  type BinaryTransport,
+  decodeBinaryRequest,
+  detectBinaryTransport,
+  encodeBinaryError,
+  encodeBinaryResponse,
+  ProtoCodecError,
+} from "../memos-protobuf";
 
 /**
  * Connect's JSON protocol is HTTP unary RPC: the request and response body are
@@ -26,30 +69,41 @@ import type { FlareMoEnv } from "../env";
  * Connect clients can use the canonical service/method paths without relying
  * on a vendor header or a REST-shaped URL.
  *
- * This Worker intentionally advertises JSON Connect only.  Native gRPC and
- * gRPC-Web require a different binary transport/server surface and are not
- * silently treated as equivalent.
+ * The core MemoService supports Connect JSON plus protobuf unary frames for
+ * Connect, gRPC, and gRPC-Web. Service coverage remains explicit below so an
+ * unimplemented upstream RPC cannot be mistaken for a generic transport win.
  */
 export const memosConnectApi = new Hono<HonoBindings>();
 type ConnectContext = Context<HonoBindings>;
 
-const service = "memos.api.v1.MemoService";
+const memoService = "memos.api.v1.MemoService";
 
-memosConnectApi.post(`/${service}/:method`, async (c) => {
+memosConnectApi.post("/:service/:method", async (c) => {
   const contentType = c.req.header("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("application/json")) {
+  const binaryTransport = detectBinaryTransport(contentType);
+  if (!contentType.includes("application/json") && !binaryTransport) {
     return connectError(
       c,
       "unsupported_media_type",
-      "Connect JSON is required",
+      "Connect JSON or protobuf is required",
       415,
     );
   }
 
   let body: unknown;
   try {
-    body = await c.req.json();
-  } catch {
+    body = binaryTransport
+      ? decodeBinaryRequest(
+          c.req.param("service"),
+          c.req.param("method"),
+          new Uint8Array(await c.req.raw.arrayBuffer()),
+          binaryTransport,
+        )
+      : await c.req.json();
+  } catch (error) {
+    if (binaryTransport) {
+      return connectBinaryError(c, binaryTransport, error);
+    }
     return connectError(
       c,
       "invalid_argument",
@@ -59,41 +113,406 @@ memosConnectApi.post(`/${service}/:method`, async (c) => {
   }
 
   try {
+    const service = c.req.param("service") ?? "";
+    const method = c.req.param("method") ?? "";
+    if (service === "memos.api.v1.AuthService" && method === "SignIn") {
+      return connectAuthSignIn(c, body, binaryTransport);
+    }
+    if (service === "memos.api.v1.AuthService" && method === "RefreshToken") {
+      return connectAuthRefresh(c, binaryTransport);
+    }
+    if (service === memoService && method === "GetSharedMemo") {
+      return await connectGetSharedMemo(c, body, binaryTransport);
+    }
+    if (service === memoService && method === "GetLinkMetadata") {
+      return await connectGetLinkMetadata(c, body, binaryTransport);
+    }
+    if (service === memoService && method === "BatchGetLinkMetadata") {
+      return await connectBatchGetLinkMetadata(c, body, binaryTransport);
+    }
     const context = await getRequestContext(c);
-    switch (c.req.param("method")) {
+    if (service === "memos.api.v1.AuthService" && method === "GetCurrentUser") {
+      const authUser = await getAuthUserForContext(context);
+      return connectValue(
+        c,
+        { user: currentUserToDto(context.user, authUser) },
+        binaryTransport,
+      );
+    }
+    if (service === "memos.api.v1.AuthService" && method === "SignOut") {
+      return connectAuthSignOut(c, context, binaryTransport);
+    }
+    if (service === "memos.api.v1.ShortcutService") {
+      return connectShortcutMethod(c, context, method, body, binaryTransport);
+    }
+    if (service !== memoService) {
+      return connectErrorForTransport(
+        c,
+        binaryTransport,
+        "unimplemented",
+        `Memos Connect service is not implemented: ${service}`,
+        501,
+      );
+    }
+    switch (method) {
       case "CreateMemo":
-        return connectJson(c, await createConnectMemo(context, body));
+        return connectValue(
+          c,
+          await createConnectMemo(context, body),
+          binaryTransport,
+        );
       case "ListMemos":
-        return connectJson(c, await listConnectMemos(context, body));
+        return connectValue(
+          c,
+          await listConnectMemos(context, body),
+          binaryTransport,
+        );
       case "GetMemo":
-        return connectJson(c, await getConnectMemo(context, body));
+        return connectValue(
+          c,
+          await getConnectMemo(context, body),
+          binaryTransport,
+        );
       case "UpdateMemo":
-        return connectJson(c, await updateConnectMemo(context, body));
+        return connectValue(
+          c,
+          await updateConnectMemo(context, body),
+          binaryTransport,
+        );
       case "DeleteMemo":
         await deleteConnectMemo(context, c.env, body);
-        return connectJson(c, {});
+        return connectValue(c, {}, binaryTransport);
       case "SetMemoAttachments":
         await setConnectAttachments(context, body);
-        return connectJson(c, {});
+        return connectValue(c, {}, binaryTransport);
       case "ListMemoAttachments":
-        return connectJson(c, await listConnectAttachments(context, body));
+        return connectValue(
+          c,
+          await listConnectAttachments(context, body),
+          binaryTransport,
+        );
       case "SetMemoRelations":
         await setConnectRelations(context, body);
-        return connectJson(c, {});
+        return connectValue(c, {}, binaryTransport);
       case "ListMemoRelations":
-        return connectJson(c, await listConnectRelations(context, body));
-      default:
-        return connectError(
+        return connectValue(
           c,
+          await listConnectRelations(context, body),
+          binaryTransport,
+        );
+      case "CreateMemoComment":
+        return connectValue(
+          c,
+          await createConnectMemoComment(context, body),
+          binaryTransport,
+        );
+      case "ListMemoComments":
+        return connectValue(
+          c,
+          await listConnectMemoComments(context, body),
+          binaryTransport,
+        );
+      case "ListMemoReactions":
+        return connectValue(
+          c,
+          await listConnectMemoReactions(context, body),
+          binaryTransport,
+        );
+      case "UpsertMemoReaction":
+        return connectValue(
+          c,
+          await upsertConnectMemoReaction(context, body),
+          binaryTransport,
+        );
+      case "DeleteMemoReaction":
+        await deleteConnectMemoReaction(context, body);
+        return connectValue(c, {}, binaryTransport);
+      case "CreateMemoShare":
+        return connectValue(
+          c,
+          await createConnectMemoShare(context, body),
+          binaryTransport,
+        );
+      case "ListMemoShares":
+        return connectValue(
+          c,
+          await listConnectMemoShares(context, body),
+          binaryTransport,
+        );
+      case "DeleteMemoShare":
+        await deleteConnectMemoShare(context, body);
+        return connectValue(c, {}, binaryTransport);
+      default:
+        return connectErrorForTransport(
+          c,
+          binaryTransport,
           "unimplemented",
-          `Memos Connect method is not implemented: ${c.req.param("method")}`,
+          `Memos Connect method is not implemented: ${method}`,
           501,
         );
     }
   } catch (error) {
+    if (binaryTransport) return connectBinaryError(c, binaryTransport, error);
     return connectDomainError(c, error);
   }
 });
+
+async function connectShortcutMethod(
+  c: ConnectContext,
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  method: string,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  switch (method) {
+    case "ListShortcuts": {
+      const parent = optionalString(body.parent) ?? context.user.id;
+      const shortcuts = await listShortcuts(context.db, context.user, parent);
+      return connectValue(
+        c,
+        currentShortcutsToListResponse(shortcuts),
+        transport,
+      );
+    }
+    case "GetShortcut":
+      return connectValue(
+        c,
+        currentShortcutToDto(
+          await getShortcut(
+            context.db,
+            context.user,
+            requiredString(body.name, "name"),
+          ),
+        ),
+        transport,
+      );
+    case "CreateShortcut": {
+      const shortcut = record(body.shortcut);
+      const created = await createShortcut(context.db, context.user, {
+        parentName: optionalString(body.parent),
+        title: optionalString(shortcut.title),
+        filter: optionalString(shortcut.filter),
+        validateOnly: body.validateOnly === true,
+      });
+      return connectValue(c, currentShortcutToDto(created), transport);
+    }
+    case "UpdateShortcut": {
+      const shortcut = record(body.shortcut);
+      const updated = await updateShortcut(context.db, context.user, {
+        name: requiredString(shortcut.name, "shortcut.name"),
+        title: optionalString(shortcut.title),
+        filter: optionalString(shortcut.filter),
+        updateMask: optionalString(body.updateMask),
+      });
+      return connectValue(c, currentShortcutToDto(updated), transport);
+    }
+    case "DeleteShortcut":
+      await deleteShortcut(context.db, context.user, {
+        name: requiredString(body.name, "name"),
+      });
+      return connectValue(c, {}, transport);
+    default:
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        `Shortcut method is not implemented: ${method}`,
+        501,
+      );
+  }
+}
+
+async function createConnectMemoComment(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  const comment = record(body.comment);
+  const created = await createMemoComment(
+    context.db,
+    context.user,
+    normalizeMemoName(requiredString(body.name, "name")),
+    {
+      content: requiredString(comment.content, "comment.content"),
+      payload: currentPayload(comment),
+      source: "memos-connect",
+      ...(optionalString(body.commentId)
+        ? { commentId: optionalString(body.commentId) }
+        : {}),
+    },
+  );
+  return connectMemoWithDetails(context, created.id);
+}
+
+async function listConnectMemoComments(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  const result = await listMemoComments(context.db, context.user, {
+    memoName: normalizeMemoName(requiredString(body.name, "name")),
+    pageSize: pageSize(body.pageSize),
+    ...(optionalString(body.pageToken)
+      ? { pageToken: optionalString(body.pageToken) }
+      : {}),
+    orderBy: optionalString(body.orderBy) ?? "create_time desc",
+  });
+  const comments = await Promise.all(
+    result.memos.map((memo) => connectMemoWithDetails(context, memo.id)),
+  );
+  return {
+    memos: comments,
+    ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
+  };
+}
+
+async function listConnectMemoReactions(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  const result = await listMemoReactions(context.db, context.user, {
+    memoName: normalizeMemoName(requiredString(body.name, "name")),
+    pageSize: pageSize(body.pageSize),
+    ...(optionalString(body.pageToken)
+      ? { pageToken: optionalString(body.pageToken) }
+      : {}),
+  });
+  return {
+    reactions: result.reactions.map(currentReactionToDto),
+    ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
+  };
+}
+
+async function upsertConnectMemoReaction(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  const reaction = record(body.reaction);
+  const memoName = normalizeMemoName(requiredString(body.name, "name"));
+  const contentId = normalizeMemoName(
+    optionalString(reaction.contentId) ?? memoName,
+  );
+  const created = await upsertMemoReaction(context.db, context.user, {
+    memoName,
+    contentId,
+    reactionType: requiredString(
+      reaction.reactionType,
+      "reaction.reactionType",
+    ),
+  });
+  return currentReactionToDto(created);
+}
+
+async function deleteConnectMemoReaction(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  const name = requiredString(body.name, "name");
+  await deleteMemoReaction(context.db, context.user, {
+    name,
+    memoName: normalizeMemoName(reactionMemoName(name)),
+  });
+}
+
+async function createConnectMemoShare(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  const memoShare = record(body.memoShare);
+  const expireTime = optionalTimestamp(
+    memoShare.expireTime ?? memoShare.expire_time,
+    "memoShare.expireTime",
+  );
+  const share = await createMemoShare(
+    context.db,
+    context.user,
+    normalizeMemoName(requiredString(body.parent, "parent")),
+    { expires_at: expireTime },
+  );
+  return currentShareToDto(share);
+}
+
+async function listConnectMemoShares(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  const shares = await listMemoShares(
+    context.db,
+    context.user,
+    normalizeMemoName(requiredString(body.parent, "parent")),
+  );
+  return { memoShares: shares.map(currentShareToDto) };
+}
+
+async function deleteConnectMemoShare(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  value: unknown,
+) {
+  const body = record(value);
+  await revokeMemoShare(
+    context.db,
+    context.user,
+    shareTokenFromName(requiredString(body.name, "name")),
+  );
+}
+
+async function connectGetSharedMemo(
+  c: ConnectContext,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  const db = createDb(c.env.DB);
+  const shared = await getPublicShareByToken(
+    db,
+    requiredString(body.shareToken, "shareToken"),
+  );
+  const reactions = await listMemoReactions(db, shared.user, shared.memo.id, {
+    pageSize: 1_000,
+  });
+  return connectValue(
+    c,
+    currentMemoToDto(shared.memo, shared.user, {
+      attachments: shared.attachments,
+      reactions: reactions.reactions,
+    }),
+    transport,
+  );
+}
+
+async function connectGetLinkMetadata(
+  c: ConnectContext,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  return connectValue(
+    c,
+    await fetchLinkMetadata(requiredString(body.url, "url")),
+    transport,
+  );
+}
+
+async function connectBatchGetLinkMetadata(
+  c: ConnectContext,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  const urls = list(body.urls).map((url) => requiredString(url, "urls[]"));
+  if (urls.length === 0) throw new ConnectInputError("urls are required");
+  if (urls.length > 10) throw new ConnectInputError("too many urls (max 10)");
+  const linkMetadata = await Promise.all(
+    urls.map((url) => fetchLinkMetadata(url)),
+  );
+  return connectValue(c, { linkMetadata }, transport);
+}
 
 async function createConnectMemo(
   context: Awaited<ReturnType<typeof getRequestContext>>,
@@ -130,10 +549,15 @@ async function listConnectMemos(
     context,
     result.memos.map((memo) => memo.id),
   );
+  const reactions = await listMemoReactionsForPage(
+    context,
+    result.memos.map((memo) => memo.id),
+  );
   return {
     memos: result.memos.map((memo) =>
       currentMemoToDto(memo, context.user, {
         attachments: attachments.get(memo.id) ?? [],
+        reactions: reactions.get(memo.id) ?? [],
       }),
     ),
     ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
@@ -311,9 +735,14 @@ async function connectMemoWithDetails(
     context.user,
     normalizeMemoName(id),
   );
-  const [attachments, rows] = await Promise.all([
+  const [attachments, rows, reactionPage, parent] = await Promise.all([
     listMemoAttachments(context.db, context.user, memo.id),
     listMemoRelations(context.db, context.user, memo.id),
+    listMemoReactions(context.db, context.user, {
+      memoName: memo.id,
+      pageSize: 1_000,
+    }),
+    getMemoParent(context.db, context.user, memo.id),
   ]);
   const relations = await Promise.all(
     rows.map(async (row) => {
@@ -326,7 +755,12 @@ async function connectMemoWithDetails(
       return currentRelationToDto(row, memo, related);
     }),
   );
-  return currentMemoToDto(memo, context.user, { attachments, relations });
+  return currentMemoToDto(memo, context.user, {
+    attachments,
+    relations,
+    reactions: reactionPage.reactions,
+    parent,
+  });
 }
 
 async function listMemoAttachmentsForPage(
@@ -340,6 +774,26 @@ async function listMemoAttachmentsForPage(
   await Promise.all(
     memoIds.map(async (id) => {
       result.set(id, await listMemoAttachments(context.db, context.user, id));
+    }),
+  );
+  return result;
+}
+
+async function listMemoReactionsForPage(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  memoIds: string[],
+) {
+  const result = new Map<
+    string,
+    Awaited<ReturnType<typeof listMemoReactions>>["reactions"]
+  >();
+  await Promise.all(
+    memoIds.map(async (id) => {
+      const page = await listMemoReactions(context.db, context.user, {
+        memoName: id,
+        pageSize: 1_000,
+      });
+      result.set(id, page.reactions);
     }),
   );
   return result;
@@ -419,6 +873,26 @@ function normalizeMemoName(value: string) {
   return value.startsWith("memos/") ? value : `memos/${value}`;
 }
 
+function reactionMemoName(value: string) {
+  const parts = value.split("/").filter(Boolean);
+  const marker = parts.lastIndexOf("reactions");
+  if (marker <= 0 || marker + 2 !== parts.length) {
+    throw new ConnectInputError("Invalid reaction name");
+  }
+  return parts.slice(0, marker).join("/");
+}
+
+function shareTokenFromName(value: string) {
+  const parts = value.split("/").filter(Boolean);
+  const marker = parts.lastIndexOf("shares");
+  if (marker < 0 || marker + 2 !== parts.length) {
+    throw new ConnectInputError("Invalid share name");
+  }
+  const token = parts[marker + 1];
+  if (!token) throw new ConnectInputError("Invalid share name");
+  return token;
+}
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
@@ -438,6 +912,16 @@ function requiredString(value: unknown, field: string) {
   return value.trim();
 }
 
+function optionalTimestamp(value: unknown, field: string) {
+  if (value === null || value === undefined || value === "") return null;
+  const normalized = requiredString(value, field);
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    throw new ConnectInputError(`${field} must be a valid timestamp`);
+  }
+  return date.toISOString();
+}
+
 class ConnectInputError extends Error {
   constructor(message: string) {
     super(message);
@@ -449,6 +933,149 @@ function connectJson(c: ConnectContext, value: unknown) {
   return c.json(value, 200, { "content-type": "application/json" });
 }
 
+function connectValue(
+  c: ConnectContext,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  if (!transport) return connectJson(c, value);
+  const encoded = encodeBinaryResponse(
+    c.req.param("service") ?? "",
+    c.req.param("method") ?? "",
+    value,
+    transport,
+  );
+  const headers = new Headers({
+    "cache-control": "no-store",
+    "content-type": binaryContentType(transport),
+  });
+  if (transport !== "connect-proto") headers.set("grpc-status", "0");
+  return new Response(encoded as unknown as BodyInit, { status: 200, headers });
+}
+
+async function connectAuthSignIn(
+  c: ConnectContext,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  try {
+    assertTrustedCookieMutation(c);
+    const credentials = record(record(value).passwordCredentials);
+    const username = requiredString(credentials.username, "username");
+    const password = requiredString(credentials.password, "password");
+    const db = createDb(c.env.DB);
+    const auth = createFlareMoAuth(c.env, db);
+    const result = await auth.api.signInUsername({
+      body: { username, password, rememberMe: true },
+      headers: c.req.raw.headers,
+      asResponse: false,
+      returnHeaders: true,
+    });
+    const session = await getFlaremoUserByAuthSessionToken(
+      db,
+      result.response.token,
+    );
+    if (!session) throw new Error("Better Auth session could not be resolved");
+    const nativeTokens = await issueMemosNativeTokens({
+      db,
+      env: c.env,
+      authUserId: session.authUserId,
+      user: session.user,
+      request: c.req.raw,
+    });
+    const response = connectValue(
+      c,
+      {
+        user: currentUserToDto(
+          session.user,
+          await getAuthUserById(db, session.authUserId),
+        ),
+        accessToken: nativeTokens.accessToken,
+        accessTokenExpiresAt: nativeTokens.accessTokenExpiresAt.toISOString(),
+      },
+      transport,
+    );
+    copyResponseHeaders(response.headers, result.headers);
+    response.headers.append("set-cookie", nativeTokens.refreshCookie);
+    response.headers.set("cache-control", "no-store");
+    return response;
+  } catch (error) {
+    return transport
+      ? connectBinaryError(c, transport, error)
+      : connectDomainError(c, error);
+  }
+}
+
+async function connectAuthRefresh(
+  c: ConnectContext,
+  transport?: BinaryTransport,
+) {
+  try {
+    if (c.req.raw.headers.get("cookie")) assertTrustedCookieMutation(c);
+    const db = createDb(c.env.DB);
+    const rotated = await rotateMemosRefreshToken({
+      db,
+      env: c.env,
+      request: c.req.raw,
+    });
+    if (!rotated) {
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unauthenticated",
+        "Refresh token is invalid or expired",
+        401,
+      );
+    }
+    const response = connectValue(
+      c,
+      {
+        accessToken: rotated.accessToken,
+        expiresAt: rotated.accessTokenExpiresAt.toISOString(),
+      },
+      transport,
+    );
+    response.headers.append("set-cookie", rotated.refreshCookie);
+    response.headers.set("cache-control", "no-store");
+    return response;
+  } catch (error) {
+    return transport
+      ? connectBinaryError(c, transport, error)
+      : connectDomainError(c, error);
+  }
+}
+
+async function connectAuthSignOut(
+  c: ConnectContext,
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+  transport?: BinaryTransport,
+) {
+  try {
+    if (c.req.raw.headers.get("cookie")) assertTrustedCookieMutation(c);
+    await revokeMemosRefreshToken({
+      db: context.db,
+      env: c.env,
+      headers: c.req.raw.headers,
+      expectedAuthUserId: context.authUserId,
+    });
+    const response = connectValue(c, {}, transport);
+    response.headers.append("set-cookie", clearMemosRefreshCookie(c.req.raw));
+    response.headers.set("cache-control", "no-store");
+    return response;
+  } catch (error) {
+    return transport
+      ? connectBinaryError(c, transport, error)
+      : connectDomainError(c, error);
+  }
+}
+
+function copyResponseHeaders(target: Headers, source: Headers) {
+  for (const [name, value] of source.entries()) {
+    if (name === "set-cookie") target.append(name, value);
+    else target.set(name, value);
+  }
+}
+
 function connectError(
   c: ConnectContext,
   code: string,
@@ -458,6 +1085,95 @@ function connectError(
   return c.json({ code, message }, status, {
     "content-type": "application/json",
   });
+}
+
+function connectErrorForTransport(
+  c: ConnectContext,
+  transport: BinaryTransport | undefined,
+  code: string,
+  message: string,
+  status: 400 | 401 | 403 | 404 | 409 | 415 | 500 | 501,
+) {
+  if (!transport) return connectError(c, code, message, status);
+  const headers = new Headers({
+    "cache-control": "no-store",
+    "content-type": binaryContentType(transport),
+    "grpc-message": encodeURIComponent(message),
+    "grpc-status": String(grpcStatusForCode(code)),
+  });
+  return new Response(encodeBinaryError(message, transport), {
+    status,
+    headers,
+  });
+}
+
+function connectBinaryError(
+  c: ConnectContext,
+  transport: BinaryTransport,
+  error: unknown,
+) {
+  if (error instanceof ProtoCodecError) {
+    return connectErrorForTransport(
+      c,
+      transport,
+      "invalid_argument",
+      error.message,
+      400,
+    );
+  }
+  if (isDomainError(error)) {
+    const status = error.status;
+    return connectErrorForTransport(
+      c,
+      transport,
+      domainCode(status),
+      error.message,
+      status === 401 || status === 403 || status === 404 || status === 409
+        ? status
+        : status >= 500
+          ? 500
+          : 400,
+    );
+  }
+  return connectErrorForTransport(
+    c,
+    transport,
+    "internal",
+    "Internal error",
+    500,
+  );
+}
+
+function binaryContentType(transport: BinaryTransport) {
+  if (transport === "connect-proto") return "application/proto";
+  if (transport === "grpc-proto") return "application/grpc+proto";
+  if (transport === "grpc-web-proto") return "application/grpc-web+proto";
+  return "application/grpc-web-text+proto";
+}
+
+function grpcStatusForCode(code: string) {
+  switch (code) {
+    case "invalid_argument":
+      return 3;
+    case "unauthenticated":
+      return 16;
+    case "permission_denied":
+      return 7;
+    case "not_found":
+      return 5;
+    case "already_exists":
+      return 6;
+    case "unimplemented":
+      return 12;
+    default:
+      return 13;
+  }
+}
+
+async function getAuthUserForContext(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+) {
+  return getAuthUserById(context.db, context.authUserId);
 }
 
 function connectDomainError(c: ConnectContext, error: unknown) {

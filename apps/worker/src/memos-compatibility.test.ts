@@ -569,6 +569,12 @@ describe("Memos-compatible API contract", () => {
       sub: "1",
       aud: ["user.access-token"],
     });
+    const accessPayloadJson = new TextDecoder().decode(
+      decodeBase64UrlForTest(signIn.accessToken.split(".")[1] ?? ""),
+    );
+    expect(accessPayloadJson).toMatch(
+      /^\{"type":"access","role":"ADMIN","status":"NORMAL","username":"owner","iss":"memos","sub":"1","aud":\["user\.access-token"\],"exp":\d+,"iat":\d+\}$/,
+    );
 
     const bearer = { authorization: `Bearer ${signIn.accessToken}` };
     const signInCookie = extractCookieHeader(signInResponse);
@@ -1356,6 +1362,7 @@ async function createTestRuntime(suffix: string) {
     "0004_complex_the_enforcers.sql",
     "0005_confused_masque.sql",
     "0006_silent_kylun.sql",
+    "0007_flat_phil_sheldon.sql",
   ]) {
     await applyMigration(
       db,
@@ -1393,4 +1400,18 @@ function decodeJwtForTest(token: string) {
       ).toString("utf8"),
     ) as Record<string, unknown>;
   return { header: decode(encodedHeader), payload: decode(encodedPayload) };
+}
+
+function decodeBase64UrlForTest(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
 }

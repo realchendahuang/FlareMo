@@ -13,6 +13,7 @@ import { and, asc, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
 import { compileMemoFilter } from "./memo-filter";
+import { insertMemosSseEvent } from "./memos-sse";
 
 export type MemoListResult = {
   memos: MemoRow[];
@@ -55,6 +56,13 @@ export async function createMemo(
     updatedAt: now,
     deletedAt: null,
   };
+  const eventStatement = insertMemosSseEvent(db, {
+    type: "memo.created",
+    name: row.id,
+    visibility: row.visibility,
+    creatorId: user.id,
+    createdAt: now,
+  });
 
   const insertMemo = db.insert(memos).values(row);
   try {
@@ -69,9 +77,10 @@ export async function createMemo(
             createdAt: now,
           })),
         ),
+        eventStatement,
       ]);
     } else {
-      await insertMemo;
+      await db.batch([insertMemo, eventStatement]);
     }
   } catch (error) {
     // A second tab can submit the same queued entry at the same time. The
@@ -400,6 +409,13 @@ export async function updateMemo(
       ? { deletedAt: null }
       : {}),
   };
+  const eventStatement = insertMemosSseEvent(db, {
+    type: status === "deleted" ? "memo.deleted" : "memo.updated",
+    name: existing.id,
+    visibility: input.visibility ?? existing.visibility,
+    creatorId: user.id,
+    createdAt: now,
+  });
 
   const updateStatement = db
     .update(memos)
@@ -430,13 +446,19 @@ export async function updateMemo(
           createdAt: now,
         })),
       ),
+      eventStatement,
     ]);
   } else if (metadataChanged && shouldCreateRevision) {
-    await db.batch([revisionStatement, updateStatement, deleteTagsStatement]);
+    await db.batch([
+      revisionStatement,
+      updateStatement,
+      deleteTagsStatement,
+      eventStatement,
+    ]);
   } else if (shouldCreateRevision) {
-    await db.batch([revisionStatement, updateStatement]);
+    await db.batch([revisionStatement, updateStatement, eventStatement]);
   } else {
-    await updateStatement;
+    await db.batch([updateStatement, eventStatement]);
   }
 
   return getMemoById(db, user, id, { includeDeleted: true });
@@ -455,11 +477,19 @@ export async function hardDeleteMemo(
   user: UserRow,
   id: string,
 ): Promise<void> {
-  await getMemoById(db, user, id, { includeDeleted: true });
+  const existing = await getMemoById(db, user, id, { includeDeleted: true });
+  const eventStatement = insertMemosSseEvent(db, {
+    type: "memo.deleted",
+    name: existing.id,
+    visibility: existing.visibility,
+    creatorId: user.id,
+    createdAt: new Date().toISOString(),
+  });
   await db.batch([
     db
       .delete(attachments)
       .where(and(eq(attachments.memoId, id), eq(attachments.userId, user.id))),
+    eventStatement,
     db.delete(memos).where(and(eq(memos.id, id), eq(memos.userId, user.id))),
   ]);
 }

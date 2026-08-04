@@ -1,6 +1,6 @@
 # Memos 兼容矩阵
 
-FlareMo 是一个运行在 Cloudflare Workers 上的 Memos-compatible 个人知识系统，不是 Memos Server 的 Go fork。当前默认公开的是 current Memos 风格的 camelCase / protobuf-JSON REST 子集，同时保留旧 FlareMo snake_case wire 作为显式兼容模式；根路径 `/mcp` 提供无状态 Streamable HTTP MCP 子集。
+FlareMo 是一个运行在 Cloudflare Workers 上的 Memos-compatible 个人知识系统，不是 Memos Server 的 Go fork。当前默认公开的是 current Memos 风格的 camelCase / protobuf-JSON REST 子集，同时保留旧 FlareMo snake_case wire 作为显式兼容模式；canonical service/method 路径还提供 Connect JSON、protobuf unary、gRPC unary、gRPC-Web protobuf/text 的已实现子集；根路径 `/mcp` 提供无状态 Streamable HTTP MCP 子集。
 
 这意味着当前可以把 FlareMo 当作“内核不同、对外协议尽量兼容”的实现，但不能宣称已经完成完整 Memos Server parity。第三方客户端、Memos 官方客户端和周边工具仍必须逐一真实连接验证；仓库自己的 contract tests 不能替代真实客户端 smoke test。实测记录见 [memos-ecosystem.md](./memos-ecosystem.md)。
 
@@ -12,6 +12,8 @@ FlareMo 是一个运行在 Cloudflare Workers 上的 Memos-compatible 个人知�
 | legacy | `X-FlareMo-Wire: legacy`；或 `Accept: application/vnd.flaremo.legacy+json` | 保留既有 FlareMo snake_case API，供旧脚本和旧客户端迁移使用。 |
 
 current REST 的资源名仍使用 Memos 风格，例如 `memos/{id}`、`attachments/{id}`、`users/{id}`。`GET /openapi.json` 默认返回 current OpenAPI；显式 legacy wire 时返回旧文档。
+
+Connect 和 protobuf transport 目前只实现 unary 请求/响应，服务端一次返回一个未压缩消息帧。它覆盖 `MemoService` 的 memo、attachment binding、relation、comment、reaction、share、shared-memo 和 link-metadata 子集，`AuthService` 的 current-user/sign-in/refresh/sign-out 子集，以及 `ShortcutService` 的 CRUD 子集。具体方法和未覆盖服务见下文；transport 可用不等于完整 Memos Server 或完整 gRPC parity。
 
 ## 认证边界
 
@@ -46,11 +48,12 @@ Better Auth 是应用层认证事实源，Cloudflare Access 只能作为可选�
 | shortcuts | 已实现子集 | `GET/POST /api/v1/users/{user}/shortcuts`、`GET/PATCH/DELETE /api/v1/users/{user}/shortcuts/{shortcut}`；支持 CEL filter 校验、`validateOnly` 和 `updateMask`。 |
 | memo shares | 已实现子集 | `GET/POST /api/v1/memos/{memo}/shares`、`DELETE /api/v1/memos/{memo}/shares/{share}`；current share name 使用 `memos/{id}/shares/{token}` 兼容形态。 |
 | 匿名 share 读取 | 已实现 | `GET /api/v1/shares/{share_id}`；仍由 share token、过期时间和 memo 状态控制。 |
+| link metadata | 已实现子集 | Connect `GetLinkMetadata` / `BatchGetLinkMetadata` 提供受限 Open Graph title/description/image 抓取；只接受 HTTP(S)，限制 redirect、HTML 大小和内网字面量地址。 |
 | 附件资源 | 已实现子集 | `GET/POST /api/v1/attachments`、`GET/PATCH/DELETE /api/v1/attachments/{attachment}`；支持 current `{ attachment: {...} }` wrapper，`attachmentId` 明确拒绝。 |
 | 附件列表 | 已实现子集 | 返回 `attachments`、可选 `nextPageToken`；`size` 按 protobuf JSON 以十进制字符串输出。 |
 | PAT 资源 | 已实现基础 | `GET/POST /api/v1/users/{user}/personalAccessTokens`、`DELETE /api/v1/users/{user}/personalAccessTokens/{token}`。 |
 | 标准错误 | 已实现 | current 错误使用 `{ code, message, details }`，不把 FlareMo 内部异常直接暴露给客户端。 |
-| current OpenAPI | 已实现 | `GET /openapi.json`、认证后 `GET /api/v1/openapi.json`；文档描述 current/legacy wire、native JWT/refresh cookie、social 路由、SSE、Connect JSON subset 和 `/mcp`。 |
+| current OpenAPI | 已实现 | `GET /openapi.json`、认证后 `GET /api/v1/openapi.json`；文档描述 current/legacy wire、native JWT/refresh cookie、social 路由、SSE、Connect/protobuf subset 和 `/mcp`。 |
 
 ### 有限 filter / order 支持
 
@@ -76,11 +79,27 @@ visibility == "PUBLIC"
 
 current 工具名使用 `memo_`、`attachment_`、`shortcut_`、`auth_` 前缀，覆盖 memo CRUD、attachments、relations、comments、reactions、shortcuts、附件 list/get/delete 和 current user。成功结果同时提供 text content 与 object-shaped `structuredContent`；工具执行失败保留在 MCP result 的 `isError: true` 中。
 
-### Connect JSON 与 SSE
+### Connect、protobuf、gRPC-Web 与 SSE
 
-Worker 还提供 canonical `memos.api.v1.MemoService/*` 的 HTTP unary JSON subset，覆盖 memo CRUD、attachments 和 relations。它只接受 `application/json`；不支持 protobuf binary、原生 gRPC、完整 Connect metadata/trailer 或其他 Memos service。
+Worker 提供 canonical `memos.api.v1/{Service}/{Method}` 的 HTTP unary adapter，接受以下 media type：
 
-`GET /api/v1/sse` 提供 authenticated `text/event-stream` 握手、连接注释和 heartbeat，并正确处理 abort/cancel。当前没有跨 isolate mutation event outbox、`Last-Event-ID` replay 或完整 Memos SSE event hub，因此文档只称 heartbeat/polling-compatible stream。
+- `application/json`：Connect JSON message。
+- `application/proto`：Connect protobuf unary message。
+- `application/grpc+proto`：单个未压缩 gRPC unary frame。
+- `application/grpc-web+proto`：单个未压缩 gRPC-Web protobuf frame。
+- `application/grpc-web-text+proto`：上面 frame 的 base64 文本形式。
+
+当前 binary/Connect service 子集包括：
+
+- `MemoService`：`CreateMemo`、`ListMemos`、`GetMemo`、`UpdateMemo`、`DeleteMemo`、`SetMemoAttachments`、`ListMemoAttachments`、`SetMemoRelations`、`ListMemoRelations`、`CreateMemoComment`、`ListMemoComments`、`ListMemoReactions`、`UpsertMemoReaction`、`DeleteMemoReaction`、`CreateMemoShare`、`ListMemoShares`、`DeleteMemoShare`、`GetSharedMemo`、`GetLinkMetadata`、`BatchGetLinkMetadata`。
+- `AuthService`：`GetCurrentUser`、`SignIn`、`RefreshToken`、`SignOut`。
+- `ShortcutService`：`ListShortcuts`、`GetShortcut`、`CreateShortcut`、`UpdateShortcut`、`DeleteShortcut`。
+
+`GetSharedMemo` 和 link metadata RPC 可以匿名调用；其余资源 RPC 仍需要 Better Auth cookie/session bearer、native Memos access JWT 或 `memos_pat_`。binary 错误体是简化的 `google.rpc.Status` protobuf；当前没有完整 gRPC trailer/metadata、压缩 frame、streaming RPC 或所有上游 service 的 schema/wire coverage。
+
+`GET /api/v1/sse` 提供 authenticated `text/event-stream`，由 D1 `memos_sse_events` outbox 跨 Worker isolate 保存 mutation cursor。新连接从当前最新 event 开始；带 `Last-Event-ID` 时按 `id` replay，事件帧包含 `id` 和 JSON data；当前覆盖 memo create/update/delete、comment create、reaction upsert/delete，并提供连接注释与 30 秒 heartbeat。Worker 以 D1 polling 方式读取，流断开后客户端应使用最后一个 event id 重连。
+
+这仍不是完整上游 SSEHub：当前没有 Durable Object broadcaster、retention/pruning、所有资源事件（如关系、附件、shortcut 等）或第三方 EventSource smoke。
 
 `/mcp` 当前是无状态 JSON response，不承诺 SSE、MCP session、完整 method surface 或所有第三方 MCP client 的实测兼容。旧的 `POST /api/v1/mcp` JSON-RPC 工具名继续保留，供已有 FlareMo 客户端使用。
 
@@ -92,9 +111,10 @@ Worker 还提供 canonical `memos.api.v1.MemoService/*` 的 HTTP unary JSON subs
 - 完整 CEL filter、复杂分页/排序和附件 filter/order/page-token 语义。
 - current attachment batch delete，以及超出 memo binding subset 的 Attachment update。
 - comments、reactions、shortcuts 的完整上游 service/wire parity，以及 notifications、admin/instance surfaces。
-- 完整 SSE event hub、replay 和有状态 MCP session 行为。
+- Durable Object 级别的完整 SSE event hub、retention/pruning、全部资源事件和有状态 MCP session 行为；当前已有 D1 outbox、cursor replay 和有限事件集。
 - Memos 原生 JWT/refresh-token 的字节级、版本级 parity；当前只验证 FlareMo 自己的 HS256 facade claims、rotation 和 revoke 行为。
-- Connect protobuf binary、原生 gRPC/gRPC-Web，以及未覆盖的 Memos service。
+- 未覆盖的 Memos service、完整 protobuf schema、完整 gRPC metadata/trailer、压缩/streaming frame，以及超出当前 unary 子集的原生 gRPC/gRPC-Web parity。
+- link metadata 的完整上游行为、缓存策略和 DNS pinning；当前只提供受限抓取，域名解析后的 DNS rebinding 防护仍需 Cloudflare egress/network policy。
 - 官方 Memos 客户端、MemoFlow、Dynos、Raycast、浏览器插件等第三方客户端的真实 smoke test。
 - Cloudflare Access policy 本身的配置正确性；它是部署环境外层策略，不是 FlareMo 应用协议。
 
@@ -111,6 +131,6 @@ Worker 还提供 canonical `memos.api.v1.MemoService/*` 的 HTTP unary JSON subs
 - OpenAPI current/legacy wire negotiation。
 - Better Auth cookie、session bearer、PAT Bearer、PAT 撤销和公开分享边界。
 - `/mcp` initialize、tools/list、tools/call 和工具错误 envelope。
-- native JWT header/claims、refresh cookie attributes、rotation/reuse rejection、Connect JSON transport 和 SSE handshake/cancel。
+- native JWT header/claims、refresh cookie attributes、rotation/reuse rejection、Connect JSON/protobuf/gRPC-Web transport、binary error boundary、link metadata 输入限制和 SSE handshake/cursor replay/cancel。
 
 这些仓库测试证明的是 FlareMo 自己的协议契约，不等于第三方客户端已经可用。第三方连接结果必须回写到 [memos-ecosystem.md](./memos-ecosystem.md)，未真实连接的客户端只能标记为“未测”。

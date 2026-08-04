@@ -164,7 +164,19 @@ describe("Memos native auth and transport boundaries", () => {
       headers: { "content-type": "application/proto" },
       body: "binary-not-supported",
     });
-    expect(unsupported.status).toBe(415);
+    expect(unsupported.status).toBe(400);
+
+    const binaryCreate = await request(connectPath, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/proto",
+      },
+      body: encodeCreateMemoProto("Connect protobuf memo"),
+    });
+    expect(binaryCreate.status).toBe(200);
+    expect(binaryCreate.headers.get("content-type")).toBe("application/proto");
+    expect((await binaryCreate.arrayBuffer()).byteLength).toBeGreaterThan(0);
 
     const missingOriginCookieMutation = await request(connectPath, {
       method: "POST",
@@ -242,6 +254,195 @@ describe("Memos native auth and transport boundaries", () => {
       expect.objectContaining({ name: attachmentBody.name }),
     ]);
 
+    const comment = await connect("CreateMemoComment", {
+      name: created.name,
+      comment: { content: "Connect comment" },
+    });
+    expect(comment).toMatchObject({
+      content: "Connect comment",
+      parent: created.name,
+    });
+    const comments = await connect("ListMemoComments", {
+      name: created.name,
+      pageSize: 10,
+    });
+    expect(comments.memos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: comment.name, parent: created.name }),
+      ]),
+    );
+
+    const reaction = await connect("UpsertMemoReaction", {
+      name: created.name,
+      reaction: { contentId: created.name, reactionType: "👍" },
+    });
+    expect(reaction).toMatchObject({
+      contentId: created.name,
+      reactionType: "👍",
+    });
+    const reactions = await connect("ListMemoReactions", {
+      name: created.name,
+    });
+    expect(reactions.reactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: reaction.name }),
+      ]),
+    );
+    await connect("DeleteMemoReaction", { name: reaction.name });
+
+    const share = await connect("CreateMemoShare", {
+      parent: created.name,
+      memoShare: {},
+    });
+    expect(share.name).toMatch(new RegExp(`^${created.name}/shares/[^/]+$`));
+    const shares = await connect("ListMemoShares", { parent: created.name });
+    expect(shares.memoShares).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: share.name })]),
+    );
+    const shareToken = String(share.name).split("/").at(-1);
+    const shared = await request("/memos.api.v1.MemoService/GetSharedMemo", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ shareToken }),
+    });
+    expect(shared.status).toBe(200);
+    expect(await shared.json()).toMatchObject({ name: created.name });
+    await connect("DeleteMemoShare", { name: share.name });
+
+    const invalidLink = await request(
+      "/memos.api.v1.MemoService/GetLinkMetadata",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: "http://127.0.0.1/" }),
+      },
+    );
+    expect(invalidLink.status).toBe(400);
+    const emptyBatch = await request(
+      "/memos.api.v1.MemoService/BatchGetLinkMetadata",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ urls: [] }),
+      },
+    );
+    expect(emptyBatch.status).toBe(400);
+
+    const grpcWebCreate = await request(
+      "/memos.api.v1.MemoService/CreateMemo",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/grpc+proto",
+        },
+        body: frameProto(encodeCreateMemoProto("gRPC framed memo")),
+      },
+    );
+    expect(grpcWebCreate.status).toBe(200);
+    expect(grpcWebCreate.headers.get("grpc-status")).toBe("0");
+    expect(
+      new TextDecoder().decode(await grpcWebCreate.arrayBuffer()),
+    ).toContain("gRPC framed memo");
+
+    const grpcWebTextCreate = await request(
+      "/memos.api.v1.MemoService/CreateMemo",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/grpc-web-text+proto",
+        },
+        body: encodeBase64(
+          frameProto(encodeCreateMemoProto("gRPC-Web text memo")),
+        ),
+      },
+    );
+    expect(grpcWebTextCreate.status).toBe(200);
+    expect(grpcWebTextCreate.headers.get("content-type")).toBe(
+      "application/grpc-web-text+proto",
+    );
+    expect(atob(await grpcWebTextCreate.text())).toContain(
+      "gRPC-Web text memo",
+    );
+
+    const binaryList = await request("/memos.api.v1.MemoService/ListMemos", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/grpc+proto",
+      },
+      body: frameProto(encodeListMemosProto()),
+    });
+    expect(binaryList.status).toBe(200);
+    expect(new TextDecoder().decode(await binaryList.arrayBuffer())).toContain(
+      "Connect JSON memo",
+    );
+
+    const binaryGet = await request("/memos.api.v1.MemoService/GetMemo", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/proto",
+      },
+      body: encodeGetMemoProto(created.name),
+    });
+    expect(binaryGet.status).toBe(200);
+    expect(new TextDecoder().decode(await binaryGet.arrayBuffer())).toContain(
+      created.name,
+    );
+
+    const binaryUpdate = await request("/memos.api.v1.MemoService/UpdateMemo", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/proto",
+      },
+      body: encodeUpdateMemoProto(created.name),
+    });
+    expect(binaryUpdate.status).toBe(200);
+    const updatedAfterBinary = await connect("GetMemo", { name: created.name });
+    expect(updatedAfterBinary.pinned).toBe(true);
+
+    const binaryShortcut = await request(
+      "/memos.api.v1.ShortcutService/CreateShortcut",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/grpc-web+proto",
+        },
+        body: frameProto(encodeCreateShortcutProto()),
+      },
+    );
+    expect(binaryShortcut.status).toBe(200);
+    expect(
+      new TextDecoder().decode(await binaryShortcut.arrayBuffer()),
+    ).toContain("Transport shortcut");
+
+    const authBinary = await request("/memos.api.v1.AuthService/SignIn", {
+      method: "POST",
+      headers: {
+        "content-type": "application/proto",
+        origin: "http://flaremo.test",
+      },
+      body: encodeSignInProto(),
+    });
+    expect(authBinary.status).toBe(200);
+    expect(new TextDecoder().decode(await authBinary.arrayBuffer())).toContain(
+      "users/owner",
+    );
+
+    const compressed = await request("/memos.api.v1.MemoService/CreateMemo", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/grpc+proto",
+      },
+      body: Uint8Array.of(1, 0, 0, 0, 0),
+    });
+    expect(compressed.status).toBe(400);
+
     const deleted = await connect("DeleteMemo", {
       name: created.name,
       force: true,
@@ -262,7 +463,10 @@ describe("Memos native auth and transport boundaries", () => {
 
     const abortController = new AbortController();
     const sse = await request("/api/v1/sse", {
-      headers: { authorization: `Bearer ${accessToken}` },
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "last-event-id": "0",
+      },
       signal: abortController.signal,
     });
     expect(sse.status).toBe(200);
@@ -271,6 +475,10 @@ describe("Memos native auth and transport boundaries", () => {
     expect(reader).toBeTruthy();
     const first = await reader?.read();
     expect(new TextDecoder().decode(first?.value)).toContain(": connected");
+    const replay = await reader?.read();
+    expect(new TextDecoder().decode(replay?.value)).toMatch(
+      /id: \d+\ndata: \{"type":"memo\.created","name":"memos\//,
+    );
     abortController.abort();
     await reader?.cancel();
   });
@@ -372,6 +580,104 @@ function findCookie(cookies: string[], name: string) {
   return cookie;
 }
 
+function encodeCreateMemoProto(content: string) {
+  const contentBytes = new TextEncoder().encode(content);
+  const memo = Uint8Array.from([
+    0x3a,
+    contentBytes.length,
+    ...contentBytes,
+    0x48,
+    1,
+  ]);
+  return Uint8Array.from([0x0a, memo.length, ...memo]);
+}
+
+function encodeListMemosProto() {
+  return Uint8Array.of(0x08, 0x0a);
+}
+
+function encodeGetMemoProto(name: string) {
+  return encodeStringField(1, name);
+}
+
+function encodeUpdateMemoProto(name: string) {
+  const memo = concat(encodeStringField(1, name), Uint8Array.of(0x58, 0x01));
+  const updateMask = encodeStringField(1, "pinned");
+  return concat(encodeMessageField(1, memo), encodeMessageField(2, updateMask));
+}
+
+function encodeCreateShortcutProto() {
+  const shortcut = concat(
+    encodeStringField(2, "Transport shortcut"),
+    encodeStringField(3, "pinned == true"),
+  );
+  return concat(
+    encodeStringField(1, "users/owner"),
+    encodeMessageField(2, shortcut),
+  );
+}
+
+function encodeSignInProto() {
+  const credentials = concat(
+    encodeStringField(1, "owner"),
+    encodeStringField(2, TEST_PASSWORD),
+  );
+  return encodeMessageField(1, credentials);
+}
+
+function encodeStringField(field: number, value: string) {
+  const bytes = new TextEncoder().encode(value);
+  return concat(
+    encodeVarint((field << 3) | 2),
+    encodeVarint(bytes.length),
+    bytes,
+  );
+}
+
+function encodeMessageField(field: number, value: Uint8Array) {
+  return concat(
+    encodeVarint((field << 3) | 2),
+    encodeVarint(value.length),
+    value,
+  );
+}
+
+function encodeVarint(value: number) {
+  const output: number[] = [];
+  let current = BigInt(value);
+  while (current > 127n) {
+    output.push(Number((current & 127n) | 128n));
+    current >>= 7n;
+  }
+  output.push(Number(current));
+  return Uint8Array.from(output);
+}
+
+function frameProto(payload: Uint8Array) {
+  const frame = new Uint8Array(payload.length + 5);
+  new DataView(frame.buffer).setUint32(1, payload.length);
+  frame.set(payload, 5);
+  return frame;
+}
+
+function encodeBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function concat(...values: Uint8Array[]) {
+  const output = new Uint8Array(
+    values.reduce((length, value) => length + value.length, 0),
+  );
+  let offset = 0;
+  for (const value of values) {
+    output.set(value, offset);
+    offset += value.length;
+  }
+  return output;
+}
+
 async function createTestRuntime() {
   const runtime = new Miniflare({
     script: "export default { fetch() { return new Response('ok') } }",
@@ -392,6 +698,7 @@ async function createTestRuntime() {
     "0004_complex_the_enforcers.sql",
     "0005_confused_masque.sql",
     "0006_silent_kylun.sql",
+    "0007_flat_phil_sheldon.sql",
   ]) {
     const sql = await readFile(
       resolve(import.meta.dirname, `../../../migrations/${filename}`),

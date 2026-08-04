@@ -464,8 +464,8 @@ async function signAccessToken(input: {
       iss: MEMOS_ISSUER,
       sub: String(input.identity.subject),
       aud: [MEMOS_ACCESS_AUDIENCE],
-      iat: input.issuedAt,
       exp: input.expiresAt,
+      iat: input.issuedAt,
     },
     input.secret,
   );
@@ -490,8 +490,8 @@ async function signRefreshToken(input: {
       iss: MEMOS_ISSUER,
       sub: String(input.identity.subject),
       aud: [MEMOS_REFRESH_AUDIENCE],
-      iat: input.issuedAt,
       exp: input.expiresAt,
+      iat: input.issuedAt,
     },
     input.secret,
   );

@@ -7,6 +7,7 @@ export * from "./memo-context";
 export * from "./memo-filter";
 export * from "./memos";
 export * from "./memos-social";
+export * from "./memos-sse";
 export * from "./relations";
 export * from "./revisions";
 export * from "./shares";

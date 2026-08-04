@@ -1,6 +1,6 @@
 # Memos 生态兼容记录
 
-FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。当前工作树已经提供 Better Auth-backed identity、Memos-style HS256 access JWT/rotating `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT 资源、Connect JSON unary subset、heartbeat/polling SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
+FlareMo 的目标是复用 Memos 生态，但兼容必须被验证。这个文档记录第三方客户端、脚本和工具对 FlareMo 的真实可用性，不把“接口长得像”当成“已经兼容”。当前工作树已经提供 Better Auth-backed identity、Memos-style HS256 access JWT/rotating `memos_refresh` cookie、current camelCase REST 的 memo/social 子集、PAT 资源、Connect JSON/protobuf/gRPC-Web unary 子集、D1 outbox/cursor replay SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整 Memos Server parity 和第三方客户端实测仍未完成。
 
 生产实例迁移期建议放在 Cloudflare Access 后面。第三方工具访问私有 FlareMo 时，必须满足应用层认证：
 
@@ -43,8 +43,8 @@ Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 
 | OpenAPI consumers | API schema 工具 | 当前工作树 | `/openapi.json` | OpenAPI 描述可公开读取；私有 API 请求需 PAT | 可用（schema surface） | `apps/worker/src/memos-compatibility.test.ts` 断言默认 current OpenAPI 和显式 legacy OpenAPI。 |
 | FlareMo legacy MCP endpoint | MCP 客户端 | 当前工作树 | `/api/v1/mcp` | `memos_pat_`；Access 开启时再加 Access headers | 部分可用（旧式 JSON-RPC） | `apps/worker/src/auth.test.ts` 覆盖 PAT `tools/list`；保留给已有 FlareMo 客户端。 |
 | FlareMo current MCP endpoint | MCP 客户端 | 当前工作树 | `/mcp` | Better Auth cookie/session bearer、native Memos access JWT 或 `memos_pat_`；Access 开启时再加 Access headers | 可用（stateless protocol subset） | `apps/worker/src/mcp-streamable.test.ts` 和 `apps/worker/src/memos-compatibility.test.ts` 覆盖 `initialize`、`notifications/initialized`、`tools/list`、memo/social/attachment tool calls 和工具错误 envelope；未验证所有第三方 MCP client。 |
-| Connect JSON client | HTTP unary client | 当前工作树 | `/memos.api.v1.MemoService/*` | Cookie session、native Memos access JWT 或 `memos_pat_` | 部分可用（JSON subset） | Worker route 与 OpenAPI 描述 memo CRUD、attachments、relations 的 application/json subset；protobuf binary/native gRPC 未实现，第三方 Connect client 未测。 |
-| Memos SSE consumer | SSE client | 当前工作树 | `/api/v1/sse` | Cookie session、native Memos access JWT 或 `memos_pat_` | 部分可用（heartbeat/polling） | Worker contract 只证明 authenticated stream、connected/heartbeat 和 cancellation；mutation event outbox、replay、第三方消费端未测。 |
+| Connect / protobuf client | HTTP unary client | 当前工作树 | `/memos.api.v1/{Service}/{Method}` | Cookie session、native Memos access JWT 或 `memos_pat_`；`GetSharedMemo` 和 link metadata 可匿名 | 部分可用（当前 service/transport subset） | 支持 `application/json`、`application/proto`、`application/grpc+proto`、`application/grpc-web+proto`、`application/grpc-web-text+proto`；覆盖 Memo/Auth/Shortcut 的明确 unary 方法集、comments/reactions/shares 和 link metadata；完整 gRPC metadata/trailer、压缩/streaming、其他 service 和第三方 Connect client 仍未测。 |
+| Memos SSE consumer | SSE client | 当前工作树 | `/api/v1/sse` | Cookie session、native Memos access JWT 或 `memos_pat_` | 部分可用（D1 outbox/replay subset） | Worker contract 覆盖 authenticated stream、connected/heartbeat、`id`/`Last-Event-ID` replay、private/public visibility filter 和 cancellation；当前使用 D1 polling，事件集有限，第三方消费端未测。 |
 | FlareMo Telegram Worker example | Telegram Bot | 当前工作树 | Telegram webhook -> `/api/v1/memos` | 必须使用 PAT；Access headers 仅在生产仍启用 Access 时成对追加 | contract-tested subset | Worker tests cover PAT-only native auth, optional Access headers, fail-closed secret configuration, and webhook validation；不等于真实 Telegram/生产 smoke。 |
 | Public share reader | 浏览器 / curl | 当前工作树 | `/share/*`、`/api/public/shares/*` | 不需要 session/PAT；Access 开启时需 bypass | 可用（share contract） | Worker 测试覆盖 token 隔离、撤销和附件读取。 |
 
@@ -112,4 +112,6 @@ Access Service Token 只通过外层 Access policy，不会自动变成 FlareMo 
 - `apps/worker/src/memos-compatibility.test.ts`
 - `apps/worker/src/api.test.ts`
 
-这些测试证明 FlareMo 自己的 current/legacy 公开子集、Better Auth 认证边界和无状态 `/mcp` 协议切片，但不能替代真实 Memos 客户端兼容测试，也不能证明完整 Memos Server parity。真实客户端结果必须回写到本文；在没有实际连接、版本和日期证据前，第三方客户端保持“未测”。
+这些测试证明 FlareMo 自己的 current/legacy 公开子集、Better Auth 认证边界、Connect/protobuf unary transport、有限 SSE cursor replay 和无状态 `/mcp` 协议切片，但不能替代真实 Memos 客户端兼容测试，也不能证明完整 Memos Server parity。真实客户端结果必须回写到本文；在没有实际连接、版本和日期证据前，第三方客户端保持“未测”。
+
+当前已知的 transport 兼容边界：binary error body 只提供简化 `google.rpc.Status`，没有完整 gRPC trailer/metadata；只接受单个未压缩 unary frame；没有 AttachmentService、UserService、InstanceService、AIService、IdentityProviderService 等完整上游 service；link metadata 只抓取受限 Open Graph surface，并受 SSRF/redirect/HTML 大小限制。生产环境还应控制 Worker 外连策略，以补足域名解析后的 DNS rebinding 风险。

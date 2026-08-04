@@ -6,6 +6,22 @@ const json = (schema: JsonSchema) => ({
   "application/json": { schema },
 });
 
+const binaryMessage = {
+  schema: { type: "string", format: "binary" },
+};
+
+const connectContent = (schema: JsonSchema) => ({
+  ...json(schema),
+  "application/proto": binaryMessage,
+  "application/grpc+proto": binaryMessage,
+  "application/grpc-web+proto": binaryMessage,
+  "application/grpc-web-text+proto": binaryMessage,
+});
+
+const connectResponseContent = (schema: JsonSchema) => ({
+  ...connectContent(schema),
+});
+
 const response = (description: string, schema: JsonSchema) => ({
   description,
   content: json(schema),
@@ -175,11 +191,16 @@ const secured = (input: Record<string, unknown>) => ({
   security: input.security ?? bearerSecurity,
 });
 
-const connectOperation = (operationId: string, summary: string) =>
+const connectOperation = (
+  operationId: string,
+  summary: string,
+  security: unknown[] | undefined = undefined,
+) =>
   secured({
     operationId,
     summary,
     tags: ["Connect"],
+    ...(security ? { security } : {}),
     parameters: [
       {
         name: "connect-protocol-version",
@@ -187,21 +208,27 @@ const connectOperation = (operationId: string, summary: string) =>
         required: false,
         schema: { type: "string", example: "1" },
         description:
-          "Accepted for compatibility metadata; this endpoint only implements Connect JSON.",
+          "Accepted for compatibility metadata. The current implementation supports JSON plus unary protobuf, gRPC, and gRPC-Web protobuf transports for the documented method subset.",
       },
     ],
     requestBody: {
       required: true,
-      content: json({ type: "object", additionalProperties: true }),
+      content: connectContent({ type: "object", additionalProperties: true }),
     },
     responses: {
-      "200": response("Connect JSON response message.", {
-        type: "object",
-        additionalProperties: true,
-      }),
+      "200": {
+        description: "Connect response message.",
+        content: connectResponseContent({
+          type: "object",
+          additionalProperties: true,
+        }),
+      },
       "400": response("Invalid argument.", error),
       "401": response("Unauthenticated.", error),
-      "415": response("Only application/json is supported.", error),
+      "415": response(
+        "Only the documented JSON or protobuf unary media types are supported.",
+        error,
+      ),
       "501": response("Method is not implemented.", error),
     },
   });
@@ -1036,7 +1063,7 @@ export function createCurrentOpenApiDocument() {
           responses: {
             "200": {
               description:
-                "Authenticated text/event-stream. Current Worker implementation sends connected and heartbeat comments; mutation replay is not provided.",
+                "Authenticated text/event-stream backed by a D1 event outbox. New connections start at the current cursor; Last-Event-ID requests replay the currently retained memo/comment/reaction event subset. The Worker polls D1 and sends connected/heartbeat comments.",
               content: {
                 "text/event-stream": {
                   schema: { type: "string" },
@@ -1085,6 +1112,86 @@ export function createCurrentOpenApiDocument() {
           "connectListMemoRelations",
           "List memo relations",
         ),
+      },
+      "/memos.api.v1.MemoService/CreateMemoComment": {
+        post: connectOperation(
+          "connectCreateMemoComment",
+          "Create a memo comment",
+        ),
+      },
+      "/memos.api.v1.MemoService/ListMemoComments": {
+        post: connectOperation("connectListMemoComments", "List memo comments"),
+      },
+      "/memos.api.v1.MemoService/ListMemoReactions": {
+        post: connectOperation(
+          "connectListMemoReactions",
+          "List memo reactions",
+        ),
+      },
+      "/memos.api.v1.MemoService/UpsertMemoReaction": {
+        post: connectOperation(
+          "connectUpsertMemoReaction",
+          "Upsert a memo reaction",
+        ),
+      },
+      "/memos.api.v1.MemoService/DeleteMemoReaction": {
+        post: connectOperation(
+          "connectDeleteMemoReaction",
+          "Delete a memo reaction",
+        ),
+      },
+      "/memos.api.v1.MemoService/CreateMemoShare": {
+        post: connectOperation("connectCreateMemoShare", "Create a memo share"),
+      },
+      "/memos.api.v1.MemoService/ListMemoShares": {
+        post: connectOperation("connectListMemoShares", "List memo shares"),
+      },
+      "/memos.api.v1.MemoService/DeleteMemoShare": {
+        post: connectOperation("connectDeleteMemoShare", "Delete a memo share"),
+      },
+      "/memos.api.v1.MemoService/GetSharedMemo": {
+        post: connectOperation("connectGetSharedMemo", "Get a shared memo", []),
+      },
+      "/memos.api.v1.MemoService/GetLinkMetadata": {
+        post: connectOperation(
+          "connectGetLinkMetadata",
+          "Get link metadata",
+          [],
+        ),
+      },
+      "/memos.api.v1.MemoService/BatchGetLinkMetadata": {
+        post: connectOperation(
+          "connectBatchGetLinkMetadata",
+          "Get link metadata for multiple URLs",
+          [],
+        ),
+      },
+      "/memos.api.v1.AuthService/GetCurrentUser": {
+        post: connectOperation("connectGetCurrentUser", "Get the current user"),
+      },
+      "/memos.api.v1.AuthService/SignIn": {
+        post: connectOperation("connectSignIn", "Sign in", []),
+      },
+      "/memos.api.v1.AuthService/RefreshToken": {
+        post: connectOperation("connectRefreshToken", "Refresh token", []),
+      },
+      "/memos.api.v1.AuthService/SignOut": {
+        post: connectOperation("connectSignOut", "Sign out"),
+      },
+      "/memos.api.v1.ShortcutService/ListShortcuts": {
+        post: connectOperation("connectListShortcuts", "List shortcuts"),
+      },
+      "/memos.api.v1.ShortcutService/GetShortcut": {
+        post: connectOperation("connectGetShortcut", "Get a shortcut"),
+      },
+      "/memos.api.v1.ShortcutService/CreateShortcut": {
+        post: connectOperation("connectCreateShortcut", "Create a shortcut"),
+      },
+      "/memos.api.v1.ShortcutService/UpdateShortcut": {
+        post: connectOperation("connectUpdateShortcut", "Update a shortcut"),
+      },
+      "/memos.api.v1.ShortcutService/DeleteShortcut": {
+        post: connectOperation("connectDeleteShortcut", "Delete a shortcut"),
       },
       "/mcp": {
         post: secured({

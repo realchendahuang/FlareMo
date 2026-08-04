@@ -28,6 +28,7 @@ import {
   normalizeMemoPayload,
   normalizeMemoTags,
 } from "./memos";
+import { insertMemosSseEvent } from "./memos-sse";
 
 export type CreateMemoCommentInput = {
   parentMemoName?: string;
@@ -203,6 +204,13 @@ export async function createMemoComment(
     type: "comment" as const,
     createdAt: now,
   };
+  const eventStatement = insertMemosSseEvent(db, {
+    type: "memo.comment.created",
+    name: parentId,
+    visibility: parent.visibility,
+    creatorId: parent.userId,
+    createdAt: now,
+  });
 
   try {
     if (tags.length > 0) {
@@ -217,11 +225,13 @@ export async function createMemoComment(
           })),
         ),
         db.insert(memoRelations).values(relation),
+        eventStatement,
       ]);
     } else {
       await db.batch([
         db.insert(memos).values(row),
         db.insert(memoRelations).values(relation),
+        eventStatement,
       ]);
     }
   } catch (error) {
@@ -372,30 +382,39 @@ export async function upsertMemoReaction(
   if (contentId !== parseResourceName(memoId, "memos")) {
     throw new ValidationError("Reaction contentId must match the memo name");
   }
-  await getMemoById(db, user, contentId);
+  const memo = await getMemoById(db, user, contentId);
   const reactionType = effectiveInput.reactionType.trim();
   if (!reactionType || reactionType.length > 128) {
     throw new ValidationError("Reaction type is required");
   }
 
   const now = new Date().toISOString();
-  await db
-    .insert(reactions)
-    .values({
-      id: createSocialResourceId("reactions"),
-      creatorId: user.id,
-      contentId,
-      reactionType,
+  await db.batch([
+    db
+      .insert(reactions)
+      .values({
+        id: createSocialResourceId("reactions"),
+        creatorId: user.id,
+        contentId,
+        reactionType,
+        createdAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [
+          reactions.creatorId,
+          reactions.contentId,
+          reactions.reactionType,
+        ],
+        set: { reactionType },
+      }),
+    insertMemosSseEvent(db, {
+      type: "reaction.upserted",
+      name: contentId,
+      visibility: memo.visibility,
+      creatorId: memo.userId,
       createdAt: now,
-    })
-    .onConflictDoUpdate({
-      target: [
-        reactions.creatorId,
-        reactions.contentId,
-        reactions.reactionType,
-      ],
-      set: { reactionType },
-    });
+    }),
+  ]);
 
   const row = await db
     .select()
@@ -513,9 +532,21 @@ export async function deleteMemoReaction(
   if (parsed.contentId && parsed.contentId !== row.contentId) {
     throw new NotFoundError("Reaction not found");
   }
-  await db
-    .delete(reactions)
-    .where(and(eq(reactions.id, row.id), eq(reactions.creatorId, user.id)));
+  const memo = await getMemoById(db, user, row.contentId, {
+    includeDeleted: true,
+  });
+  await db.batch([
+    db
+      .delete(reactions)
+      .where(and(eq(reactions.id, row.id), eq(reactions.creatorId, user.id))),
+    insertMemosSseEvent(db, {
+      type: "reaction.deleted",
+      name: row.contentId,
+      visibility: memo.visibility,
+      creatorId: memo.userId,
+      createdAt: new Date().toISOString(),
+    }),
+  ]);
 }
 
 export function memoReactionName(reaction: ReactionRow) {

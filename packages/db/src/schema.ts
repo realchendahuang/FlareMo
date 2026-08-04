@@ -235,6 +235,31 @@ export const memos = sqliteTable(
   ],
 );
 
+// D1 is shared by independent Worker isolates, so the Memos SSE stream needs
+// a durable event cursor rather than an in-memory broadcaster. Event rows are
+// deliberately not foreign-keyed to a memo: delete events must remain
+// replayable after the resource itself has been removed.
+export const memosSseEvents = sqliteTable(
+  "memos_sse_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    type: text("type").notNull(),
+    name: text("name").notNull(),
+    parent: text("parent"),
+    visibility: text("visibility", {
+      enum: ["private", "protected", "public"],
+    }).notNull(),
+    creatorId: text("creator_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("memos_sse_events_created_id_idx").on(table.createdAt, table.id),
+    index("memos_sse_events_creator_id_idx").on(table.creatorId, table.id),
+  ],
+);
+
 export const memoTags = sqliteTable(
   "memo_tags",
   {
@@ -468,6 +493,7 @@ export type AuthApiKeyRow = typeof authApiKeys.$inferSelect;
 export type AuthBootstrapRow = typeof authBootstrap.$inferSelect;
 export type MemoRow = typeof memos.$inferSelect;
 export type NewMemoRow = typeof memos.$inferInsert;
+export type MemosSseEventRow = typeof memosSseEvents.$inferSelect;
 export type MemoTagRow = typeof memoTags.$inferSelect;
 export type MemoRevisionRow = typeof memoRevisions.$inferSelect;
 export type ReactionRow = typeof reactions.$inferSelect;
