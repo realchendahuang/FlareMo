@@ -9,16 +9,18 @@ import {
   getAttachmentById,
   getAuthUserById,
   getFlaremoUserByAuthSessionToken,
-  getMemoById,
+  getFlaremoUserById,
+  type getMemoById,
+  getMemoByIdForViewer,
   getMemosPersonalAccessToken,
   getPublicShareByToken,
   hardDeleteMemo,
   listAttachments,
-  listAttachmentsForMemos,
-  listMemoAttachments,
+  listAttachmentsForMemosForViewer,
+  listMemoAttachmentsForViewer,
   listMemoRelations,
   listMemoShares,
-  listMemos,
+  listMemosForViewer,
   listMemosPersonalAccessTokens,
   markAttachmentDeleting,
   moveMemoToTrash,
@@ -44,6 +46,7 @@ import {
 import { createFlareMoAuth } from "../auth";
 import {
   assertTrustedCookieMutation,
+  getOptionalRequestContext,
   getRequestContext,
   type HonoBindings,
 } from "../context";
@@ -361,13 +364,13 @@ memosCurrentApi.post("/auth/signout", async (c, next) => {
 memosCurrentApi.get("/memos", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
-    const context = await getRequestContext(c);
-    const result = await listMemos(
+    const context = await getOptionalRequestContext(c);
+    const result = await listMemosForViewer(
       context.db,
       context.user,
       currentListQuery(c),
     );
-    const attachments = await listAttachmentsForMemos(
+    const attachments = await listAttachmentsForMemosForViewer(
       context.db,
       context.user,
       result.memos.map((memo) => memo.id),
@@ -380,10 +383,12 @@ memosCurrentApi.get("/memos", async (c, next) => {
       byMemo.set(attachment.memoId, values);
     }
     return c.json({
-      memos: result.memos.map((memo) =>
-        currentMemoToDto(memo, context.user, {
-          attachments: byMemo.get(memo.id) ?? [],
-        }),
+      memos: await Promise.all(
+        result.memos.map(async (memo) =>
+          currentMemoToDto(memo, await currentMemoCreator(context, memo), {
+            attachments: byMemo.get(memo.id) ?? [],
+          }),
+        ),
       ),
       ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
     });
@@ -422,8 +427,8 @@ memosCurrentApi.post("/memos", async (c, next) => {
 memosCurrentApi.get("/memos/:memo", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
-    const context = await getRequestContext(c);
-    const memo = await getMemoById(
+    const context = await getOptionalRequestContext(c);
+    const memo = await getMemoByIdForViewer(
       context.db,
       context.user,
       normalizeMemoName(c.req.param("memo")),
@@ -476,8 +481,8 @@ memosCurrentApi.delete("/memos/:memo", async (c, next) => {
 memosCurrentApi.get("/memos/:memo/attachments", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
-    const context = await getRequestContext(c);
-    const attachments = await listMemoAttachments(
+    const context = await getOptionalRequestContext(c);
+    const attachments = await listMemoAttachmentsForViewer(
       context.db,
       context.user,
       normalizeMemoName(c.req.param("memo")),
@@ -513,7 +518,7 @@ memosCurrentApi.patch("/memos/:memo/attachments", async (c, next) => {
 memosCurrentApi.get("/memos/:memo/relations", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
-    const context = await getRequestContext(c);
+    const context = await getOptionalRequestContext(c);
     const relations = await currentRelations(
       context,
       normalizeMemoName(c.req.param("memo")),
@@ -876,28 +881,31 @@ memosCurrentApi.get("/users/:user", async (c, next) => {
 });
 
 async function currentMemoWithDetails(
-  context: Awaited<ReturnType<typeof getRequestContext>>,
+  context: Awaited<ReturnType<typeof getOptionalRequestContext>>,
   memo: Awaited<ReturnType<typeof getMemoById>>,
 ) {
   const [attachments, relations] = await Promise.all([
-    listMemoAttachments(context.db, context.user, memo.id),
+    listMemoAttachmentsForViewer(context.db, context.user, memo.id),
     currentRelations(context, memo.id),
   ]);
-  return currentMemoToDto(memo, context.user, { attachments, relations });
+  return currentMemoToDto(memo, await currentMemoCreator(context, memo), {
+    attachments,
+    relations,
+  });
 }
 
 async function currentRelations(
-  context: Awaited<ReturnType<typeof getRequestContext>>,
+  context: Awaited<ReturnType<typeof getOptionalRequestContext>>,
   memoId: string,
 ) {
-  const memo = await getMemoById(context.db, context.user, memoId, {
+  const memo = await getMemoByIdForViewer(context.db, context.user, memoId, {
     includeDeleted: true,
   });
   const rows = await listMemoRelations(context.db, context.user, memoId);
   const related = await Promise.all(
     rows.map(async (relation) => {
       try {
-        const relatedMemo = await getMemoById(
+        const relatedMemo = await getMemoByIdForViewer(
           context.db,
           context.user,
           relation.relatedMemoId,
@@ -912,6 +920,16 @@ async function currentRelations(
   return related.filter(
     (value): value is NonNullable<typeof value> => value !== null,
   );
+}
+
+async function currentMemoCreator(
+  context: Awaited<ReturnType<typeof getOptionalRequestContext>>,
+  memo: Awaited<ReturnType<typeof getMemoById>>,
+) {
+  if (context.user?.id === memo.userId) return context.user;
+  const creator = await getFlaremoUserById(context.db, memo.userId);
+  if (!creator) throw new Error("Memo creator not found");
+  return creator;
 }
 
 async function currentUserForContext(context: {
@@ -1272,6 +1290,7 @@ function currentJsonError(
 function currentErrorStatus(error: unknown) {
   if (error instanceof CurrentHttpError) return error.status;
   if (isDomainError(error)) return error.status;
+  if (isBetterAuthCredentialError(error)) return 400;
   if (isRecord(error) && typeof error.statusCode === "number")
     return error.statusCode;
   if (isRecord(error) && typeof error.status === "number") return error.status;
@@ -1289,6 +1308,8 @@ function currentErrorStatus(error: unknown) {
 function currentErrorMessage(error: unknown) {
   if (error instanceof CurrentHttpError) return error.message;
   if (isDomainError(error)) return error.message;
+  if (isBetterAuthCredentialError(error))
+    return "unmatched username and password";
   if (isRecord(error) && typeof error.message === "string")
     return error.message;
   if (isRecord(error) && Array.isArray(error.issues)) {
@@ -1301,6 +1322,10 @@ function currentErrorMessage(error: unknown) {
       .join("; ");
   }
   return "Internal server error";
+}
+
+function isBetterAuthCredentialError(error: unknown) {
+  return isRecord(error) && error.code === "INVALID_USERNAME_OR_PASSWORD";
 }
 
 function currentErrorCode(status: number) {

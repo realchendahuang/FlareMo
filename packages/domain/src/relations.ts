@@ -4,15 +4,15 @@ import { memoRelations, memos } from "@flaremo/db";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { NotFoundError } from "./errors";
 import { parseResourceName } from "./ids";
-import { getMemoById } from "./memos";
+import { getMemoById, getMemoByIdForViewer } from "./memos";
 
 export async function listMemoRelations(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow | null,
   memoId: string,
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, normalizedMemoId);
+  await getMemoByIdForViewer(db, user, normalizedMemoId);
   return db
     .select()
     .from(memoRelations)

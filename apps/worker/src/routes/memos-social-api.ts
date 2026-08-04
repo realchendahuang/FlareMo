@@ -5,9 +5,10 @@ import {
   type DomainError,
   deleteMemoReaction,
   deleteShortcut,
-  getMemoById,
+  getFlaremoUserById,
+  getMemoByIdForViewer,
   getShortcut,
-  listMemoAttachments,
+  listMemoAttachmentsForViewer,
   listMemoComments,
   listMemoReactions,
   listMemoRelations,
@@ -24,7 +25,7 @@ import {
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { HonoBindings } from "../context";
-import { getRequestContext } from "../context";
+import { getOptionalRequestContext, getRequestContext } from "../context";
 
 /**
  * Mount this app at `/api/v1`, before the legacy Memos app:
@@ -74,7 +75,7 @@ export const memosSocialApi = new Hono<HonoBindings>();
 
 memosSocialApi.get("/memos/:memo/comments", async (c) => {
   try {
-    const context = await getRequestContext(c);
+    const context = await getOptionalRequestContext(c);
     const memoName = normalizeMemoName(c.req.param("memo"));
     const page = readPageOptions(c, "create_time desc");
     const result: MemoCommentPage = await listMemoComments(
@@ -133,7 +134,7 @@ memosSocialApi.post("/memos/:memo/comments", async (c) => {
 
 memosSocialApi.get("/memos/:memo/reactions", async (c) => {
   try {
-    const context = await getRequestContext(c);
+    const context = await getOptionalRequestContext(c);
     const memoName = normalizeMemoName(c.req.param("memo"));
     const page = readPageOptions(c);
     const result: MemoReactionPage = await listMemoReactions(
@@ -338,7 +339,7 @@ memosSocialApi.delete("/users/:user/shortcuts/:shortcut", async (c) => {
 });
 
 async function memoToCurrentDto(
-  context: Awaited<ReturnType<typeof getRequestContext>>,
+  context: Awaited<ReturnType<typeof getOptionalRequestContext>>,
   memo: MemoRow,
   parentName?: string,
 ) {
@@ -351,14 +352,14 @@ async function memoToCurrentDto(
     },
   );
   const [attachments, relationRows, reactionPage] = await Promise.all([
-    listMemoAttachments(context.db, context.user, memo.id),
+    listMemoAttachmentsForViewer(context.db, context.user, memo.id),
     listMemoRelations(context.db, context.user, memo.id),
     reactionPagePromise,
   ]);
   const relations = await Promise.all(
     relationRows.map(async (relation) => {
       try {
-        const relatedMemo = await getMemoById(
+        const relatedMemo = await getMemoByIdForViewer(
           context.db,
           context.user,
           relation.relatedMemoId,
@@ -370,8 +371,13 @@ async function memoToCurrentDto(
       }
     }),
   );
+  const creator =
+    context.user?.id === memo.userId
+      ? context.user
+      : await getFlaremoUserById(context.db, memo.userId);
+  if (!creator) throw new Error("Memo creator not found");
   return {
-    ...currentMemoToDto(memo, context.user, {
+    ...currentMemoToDto(memo, creator, {
       attachments,
       relations: relations.filter(
         (value): value is NonNullable<typeof value> => value !== null,

@@ -194,6 +194,19 @@ export function currentUserToDto(user: UserRow, authUser?: AuthUserRow | null) {
   };
 }
 
+export function publicUserToDto(user: UserRow, username?: string) {
+  return {
+    name: user.id,
+    role: user.role === "owner" ? "ADMIN" : "USER",
+    username: username ?? user.id.replace(/^users\//, ""),
+    displayName: user.name,
+    ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
+    state: "NORMAL",
+    createTime: user.createdAt,
+    updateTime: user.updatedAt,
+  };
+}
+
 export function currentMemoState(
   value: MemoRow["status"],
 ): "STATE_UNSPECIFIED" | "NORMAL" | "ARCHIVED" {

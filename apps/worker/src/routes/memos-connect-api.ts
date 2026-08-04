@@ -1,6 +1,8 @@
+import type { UserRow } from "@flaremo/db";
 import { createDb } from "@flaremo/db";
 import {
   bindMemoAttachments,
+  createAttachmentMetadata,
   createMemo,
   createMemoComment,
   createMemoShare,
@@ -8,28 +10,45 @@ import {
   type DomainError,
   deleteMemoReaction,
   deleteShortcut,
+  finalizeAttachmentDelete,
+  getAttachmentById,
+  getAuthBootstrapStatus,
   getAuthUserById,
   getFlaremoUserByAuthSessionToken,
+  getFlaremoUserById,
   getMemoById,
+  getMemoByIdForViewer,
   getMemoParent,
+  getMemoStats,
   getPublicShareByToken,
   getShortcut,
+  getStoredSetting,
   hardDeleteMemo,
+  listAttachments,
   listMemoAttachments,
+  listMemoAttachmentsForViewer,
   listMemoComments,
   listMemoReactions,
   listMemoRelations,
   listMemoShares,
   listMemos,
+  listMemosForViewer,
+  listMemosPersonalAccessTokens,
   listShortcuts,
+  markAttachmentDeleting,
   markMemoAttachmentsDeleting,
   replaceMemoRelations,
+  revokeAuthSessionByToken,
   revokeMemoShare,
+  updateAttachmentMemo,
+  updateFlaremoUserProfile,
   updateMemo,
   updateShortcut,
   upsertMemoReaction,
+  upsertStoredSetting,
 } from "@flaremo/domain";
 import {
+  currentAttachmentsToListResponse,
   currentAttachmentToDto,
   currentMemoToDto,
   currentReactionToDto,
@@ -38,11 +57,18 @@ import {
   currentShortcutsToListResponse,
   currentShortcutToDto,
   currentUserToDto,
+  publicUserToDto,
 } from "@flaremo/memos";
 import { type Context, Hono } from "hono";
+import {
+  createAttachmentObjectKey,
+  MAX_ATTACHMENT_BYTES,
+} from "../attachment-http";
 import { createFlareMoAuth } from "../auth";
 import {
+  assertRequestCredentialBoundary,
   assertTrustedCookieMutation,
+  getOptionalRequestContext,
   getRequestContext,
   type HonoBindings,
 } from "../context";
@@ -113,6 +139,7 @@ memosConnectApi.post("/:service/:method", async (c) => {
   }
 
   try {
+    assertRequestCredentialBoundary(c);
     const service = c.req.param("service") ?? "";
     const method = c.req.param("method") ?? "";
     if (service === "memos.api.v1.AuthService" && method === "SignIn") {
@@ -121,7 +148,10 @@ memosConnectApi.post("/:service/:method", async (c) => {
     if (service === "memos.api.v1.AuthService" && method === "RefreshToken") {
       return connectAuthRefresh(c, binaryTransport);
     }
-    if (service === memoService && method === "GetSharedMemo") {
+    if (
+      service === memoService &&
+      (method === "GetMemoByShare" || method === "GetSharedMemo")
+    ) {
       return await connectGetSharedMemo(c, body, binaryTransport);
     }
     if (service === memoService && method === "GetLinkMetadata") {
@@ -129,6 +159,40 @@ memosConnectApi.post("/:service/:method", async (c) => {
     }
     if (service === memoService && method === "BatchGetLinkMetadata") {
       return await connectBatchGetLinkMetadata(c, body, binaryTransport);
+    }
+    if (service === memoService && isPublicMemoReadMethod(method)) {
+      return await connectPublicMemoRead(
+        c,
+        await getOptionalRequestContext(c),
+        method,
+        body,
+        binaryTransport,
+      );
+    }
+    if (
+      service === "memos.api.v1.IdentityProviderService" &&
+      method === "ListIdentityProviders"
+    ) {
+      return connectValue(c, { identityProviders: [] }, binaryTransport);
+    }
+    if (
+      service === "memos.api.v1.InstanceService" &&
+      [
+        "GetInstanceProfile",
+        "GetInstanceSetting",
+        "BatchGetInstanceSettings",
+      ].includes(method)
+    ) {
+      const optionalContext = await getOptionalRequestContext(c);
+      return connectInstanceMethod(
+        c,
+        optionalContext.user
+          ? (optionalContext as ConnectRequestContext)
+          : await getPublicInstanceContext(c),
+        method,
+        body,
+        binaryTransport,
+      );
     }
     const context = await getRequestContext(c);
     if (service === "memos.api.v1.AuthService" && method === "GetCurrentUser") {
@@ -141,6 +205,33 @@ memosConnectApi.post("/:service/:method", async (c) => {
     }
     if (service === "memos.api.v1.AuthService" && method === "SignOut") {
       return connectAuthSignOut(c, context, binaryTransport);
+    }
+    if (service === "memos.api.v1.AttachmentService") {
+      return connectAttachmentMethod(c, context, method, body, binaryTransport);
+    }
+    if (service === "memos.api.v1.UserService") {
+      return connectUserMethod(c, context, method, body, binaryTransport);
+    }
+    if (service === "memos.api.v1.InstanceService") {
+      return connectInstanceMethod(c, context, method, body, binaryTransport);
+    }
+    if (service === "memos.api.v1.IdentityProviderService") {
+      return connectIdentityProviderMethod(
+        c,
+        context,
+        method,
+        body,
+        binaryTransport,
+      );
+    }
+    if (service === "memos.api.v1.AIService") {
+      return connectErrorForTransport(
+        c,
+        binaryTransport,
+        "unimplemented",
+        "AI transcription is not configured on FlareMo",
+        501,
+      );
     }
     if (service === "memos.api.v1.ShortcutService") {
       return connectShortcutMethod(c, context, method, body, binaryTransport);
@@ -323,6 +414,574 @@ async function connectShortcutMethod(
   }
 }
 
+type ConnectRequestContext = Awaited<ReturnType<typeof getRequestContext>>;
+
+async function connectAttachmentMethod(
+  c: ConnectContext,
+  context: ConnectRequestContext,
+  method: string,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  switch (method) {
+    case "CreateAttachment": {
+      const attachment = await createConnectAttachment(
+        c.env,
+        context,
+        record(body.attachment),
+        optionalString(body.attachmentId),
+      );
+      return connectValue(c, currentAttachmentToDto(attachment), transport);
+    }
+    case "ListAttachments": {
+      const filter = optionalString(body.filter);
+      const memoId = filter ? parseAttachmentMemoFilter(filter) : undefined;
+      const attachments = await listAttachments(context.db, context.user, {
+        memoId,
+        pageSize: pageSize(body.pageSize),
+      });
+      return connectValue(
+        c,
+        currentAttachmentsToListResponse(attachments, {
+          totalSize: attachments.length,
+        }),
+        transport,
+      );
+    }
+    case "GetAttachment": {
+      const attachment = await getAttachmentById(
+        context.db,
+        context.user,
+        normalizeAttachmentName(requiredString(body.name, "name")),
+      );
+      return connectValue(c, currentAttachmentToDto(attachment), transport);
+    }
+    case "UpdateAttachment": {
+      const attachment = record(body.attachment);
+      const fields = fieldMaskPaths(body.updateMask);
+      if (fields.length !== 1 || fields[0] !== "memo") {
+        throw new ConnectInputError(
+          "Only the attachment memo field is mutable",
+        );
+      }
+      const updated = await updateAttachmentMemo(
+        context.db,
+        context.user,
+        normalizeAttachmentName(
+          requiredString(attachment.name, "attachment.name"),
+        ),
+        optionalString(attachment.memo) ?? null,
+      );
+      return connectValue(c, currentAttachmentToDto(updated), transport);
+    }
+    case "DeleteAttachment": {
+      await deleteConnectAttachment(
+        c.env,
+        context,
+        requiredString(body.name, "name"),
+      );
+      return connectValue(c, {}, transport);
+    }
+    case "BatchDeleteAttachments": {
+      const names = list(body.names).map((name) =>
+        requiredString(name, "names[]"),
+      );
+      for (const name of names) {
+        await deleteConnectAttachment(c.env, context, name);
+      }
+      return connectValue(c, {}, transport);
+    }
+    default:
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        `Attachment method is not implemented: ${method}`,
+        501,
+      );
+  }
+}
+
+async function createConnectAttachment(
+  env: FlareMoEnv,
+  context: ConnectRequestContext,
+  attachment: Record<string, unknown>,
+  attachmentId?: string,
+) {
+  if (attachmentId) {
+    throw new ConnectInputError(
+      "attachmentId is not supported; FlareMo generates attachment resource names",
+    );
+  }
+  if (optionalString(attachment.externalLink)) {
+    throw new ConnectInputError(
+      "External attachments are not supported by FlareMo",
+    );
+  }
+  const filename = requiredString(attachment.filename, "attachment.filename");
+  const type = requiredString(attachment.type, "attachment.type");
+  const bytes = attachmentBytes(attachment.content);
+  if (bytes.byteLength === 0) {
+    throw new ConnectInputError("attachment.content is required");
+  }
+  if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
+    throw new ConnectInputError("Attachment exceeds the 25 MiB limit");
+  }
+  const objectKey = createAttachmentObjectKey(
+    context.user.id,
+    filename,
+    "memos",
+  );
+  const object = await env.ATTACHMENTS.put(objectKey, bytes, {
+    httpMetadata: { contentType: type },
+  });
+  try {
+    return await createAttachmentMetadata(context.db, context.user, {
+      memoId: optionalString(attachment.memo) ?? null,
+      filename,
+      contentType: type,
+      size: bytes.byteLength,
+      r2Key: objectKey,
+      etag: object.httpEtag,
+    });
+  } catch (error) {
+    await env.ATTACHMENTS.delete(objectKey);
+    throw error;
+  }
+}
+
+async function deleteConnectAttachment(
+  env: FlareMoEnv,
+  context: ConnectRequestContext,
+  name: string,
+) {
+  const attachment = await markAttachmentDeleting(
+    context.db,
+    context.user,
+    normalizeAttachmentName(name),
+  );
+  await env.ATTACHMENTS.delete(attachment.r2Key);
+  await finalizeAttachmentDelete(context.db, context.user, attachment.id);
+}
+
+async function connectUserMethod(
+  c: ConnectContext,
+  context: ConnectRequestContext,
+  method: string,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  const authUser = await getAuthUserById(context.db, context.authUserId);
+  const currentUser = currentUserToDto(context.user, authUser);
+  switch (method) {
+    case "ListUsers": {
+      const filter = optionalString(body.filter);
+      if (filter && !filter.includes(currentUser.username)) {
+        return connectValue(c, { users: [], totalSize: 0 }, transport);
+      }
+      return connectValue(c, { users: [currentUser], totalSize: 1 }, transport);
+    }
+    case "BatchGetUsers": {
+      const usernames = list(body.usernames).filter(
+        (username): username is string => typeof username === "string",
+      );
+      const users =
+        usernames.length === 0 || usernames.includes(currentUser.username)
+          ? [currentUser]
+          : [];
+      return connectValue(c, { users }, transport);
+    }
+    case "GetUser":
+      assertConnectUserPath(body.name, context.user.id);
+      return connectValue(c, currentUser, transport);
+    case "CreateUser":
+    case "DeleteUser":
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        "FlareMo is single-user and does not expose user creation or deletion",
+        501,
+      );
+    case "UpdateUser": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to update the user",
+          403,
+        );
+      }
+      const user = record(body.user);
+      assertConnectUserPath(user.name, context.user.id);
+      const fields = fieldMaskPaths(body.updateMask);
+      if (fields.length === 0)
+        throw new ConnectInputError("updateMask is required");
+      let nextAuthUser = authUser;
+      if (fields.includes("username")) {
+        const username = requiredString(user.username, "user.username");
+        await updateBetterAuthUsername(c, context, username);
+        nextAuthUser = await getAuthUserById(context.db, context.authUserId);
+      }
+      const updatedUser = await updateFlaremoUserProfile(
+        context.db,
+        context.user,
+        {
+          ...(fields.includes("displayName")
+            ? { name: requiredString(user.displayName, "user.displayName") }
+            : {}),
+          ...(fields.includes("avatarUrl")
+            ? { avatarUrl: optionalString(user.avatarUrl) ?? null }
+            : {}),
+        },
+      );
+      return connectValue(
+        c,
+        currentUserToDto(updatedUser, nextAuthUser),
+        transport,
+      );
+    }
+    case "GetUserStats": {
+      assertConnectUserPath(body.name, context.user.id);
+      const stats = await getMemoStats(context.db, context.user, {
+        time_zone: "UTC",
+      });
+      return connectValue(
+        c,
+        userStatsFromMemoStats(context.user.id, stats),
+        transport,
+      );
+    }
+    case "ListAllUserStats": {
+      const stats = await getMemoStats(context.db, context.user, {
+        time_zone: "UTC",
+      });
+      return connectValue(
+        c,
+        { stats: [userStatsFromMemoStats(context.user.id, stats)] },
+        transport,
+      );
+    }
+    case "GetUserSetting": {
+      assertConnectUserSettingPath(body.name, context.user.id);
+      return connectValue(
+        c,
+        userSettingResponse(context, requiredString(body.name, "name")),
+        transport,
+      );
+    }
+    case "ListUserSettings": {
+      assertConnectUserPath(body.parent, context.user.id);
+      const settings = await listConnectUserSettings(context);
+      return connectValue(
+        c,
+        { settings, totalSize: settings.length },
+        transport,
+      );
+    }
+    case "UpdateUserSetting": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to update settings",
+          403,
+        );
+      }
+      const setting = record(body.setting);
+      assertConnectUserSettingPath(setting.name, context.user.id);
+      const key = userSettingKey(requiredString(setting.name, "setting.name"));
+      await upsertStoredSetting(
+        context.db,
+        context.user,
+        `memos.user.${key}`,
+        setting.value,
+      );
+      return connectValue(c, setting, transport);
+    }
+    case "ListLinkedIdentities":
+      assertConnectUserPath(body.parent, context.user.id);
+      return connectValue(c, { linkedIdentities: [] }, transport);
+    case "CreateLinkedIdentity":
+    case "GetLinkedIdentity":
+    case "DeleteLinkedIdentity":
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        "SSO linked identities are not configured on FlareMo",
+        501,
+      );
+    case "ListPersonalAccessTokens": {
+      assertConnectUserPath(body.parent, context.user.id);
+      const tokens = await listMemosPersonalAccessTokens(
+        context.db,
+        context.authUserId,
+      );
+      return connectValue(
+        c,
+        {
+          personalAccessTokens: tokens.map((token) =>
+            connectPatToDto(token, context.user.id),
+          ),
+          totalSize: tokens.length,
+        },
+        transport,
+      );
+    }
+    case "CreatePersonalAccessToken": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to create a PAT",
+          403,
+        );
+      }
+      assertConnectUserPath(body.parent, context.user.id);
+      const expiresInDays =
+        body.expiresInDays === undefined ? 0 : Number(body.expiresInDays);
+      if (
+        !Number.isInteger(expiresInDays) ||
+        expiresInDays < 0 ||
+        expiresInDays > 365
+      ) {
+        throw new ConnectInputError(
+          "expiresInDays must be an integer between 0 and 365",
+        );
+      }
+      const created = await createFlareMoAuth(
+        c.env,
+        context.db,
+      ).api.createApiKey({
+        body: {
+          configId: "memos",
+          userId: context.authUserId,
+          name: optionalString(body.description) ?? "Memos API token",
+          expiresIn: expiresInDays === 0 ? null : expiresInDays * 24 * 60 * 60,
+        },
+      });
+      return connectValue(
+        c,
+        {
+          personalAccessToken: connectPatToDto(created, context.user.id),
+          token: created.key,
+        },
+        transport,
+      );
+    }
+    case "DeletePersonalAccessToken": {
+      if (context.credential === "pat") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to revoke a PAT",
+          403,
+        );
+      }
+      assertConnectPatPath(body.name, context.user.id);
+      const tokenId = requiredString(body.name, "name").split("/").at(-1) ?? "";
+      const token = (
+        await listMemosPersonalAccessTokens(context.db, context.authUserId)
+      ).find((item) => item.id === tokenId);
+      if (!token)
+        throw new ConnectInputError("Personal access token not found");
+      await createFlareMoAuth(c.env, context.db).api.updateApiKey({
+        body: {
+          configId: "memos",
+          keyId: token.id,
+          userId: context.authUserId,
+          enabled: false,
+        },
+      });
+      return connectValue(c, {}, transport);
+    }
+    case "ListUserWebhooks":
+      assertConnectUserPath(body.parent, context.user.id);
+      return connectValue(c, { webhooks: [] }, transport);
+    case "ListUserNotifications":
+      assertConnectUserPath(body.parent, context.user.id);
+      return connectValue(c, { notifications: [] }, transport);
+    case "UpdateUserNotification":
+    case "DeleteUserNotification":
+    case "CreateUserWebhook":
+    case "UpdateUserWebhook":
+    case "DeleteUserWebhook":
+    case "GetUserWebhookSigningSecret":
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        "Webhooks and notifications are not configured on FlareMo",
+        501,
+      );
+    default:
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        `User method is not implemented: ${method}`,
+        501,
+      );
+  }
+}
+
+async function connectInstanceMethod(
+  c: ConnectContext,
+  context: ConnectRequestContext,
+  method: string,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  switch (method) {
+    case "GetInstanceProfile": {
+      const bootstrap = await getAuthBootstrapStatus(context.db);
+      const admin = context.authUserId
+        ? currentUserToDto(
+            context.user,
+            await getAuthUserById(context.db, context.authUserId),
+          )
+        : publicUserToDto(context.user);
+      return connectValue(
+        c,
+        {
+          version: "0.4.3",
+          demo: false,
+          instanceUrl: c.env.FLAREMO_PUBLIC_URL ?? new URL(c.req.url).origin,
+          admin,
+          needsSetup: bootstrap.state !== "complete",
+        },
+        transport,
+      );
+    }
+    case "GetInstanceSetting": {
+      const name = requiredString(body.name, "name");
+      if (!context.authUserId && !isPublicInstanceSettingKey(name)) {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "unauthenticated",
+          "This instance setting requires authentication",
+          401,
+        );
+      }
+      return connectValue(
+        c,
+        await instanceSettingResponse(context, name),
+        transport,
+      );
+    }
+    case "BatchGetInstanceSettings": {
+      const names = list(body.names).map((name) =>
+        requiredString(name, "names[]"),
+      );
+      if (names.length > 20) {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "invalid_argument",
+          "A maximum of 20 instance settings may be requested",
+          400,
+        );
+      }
+      if (
+        !context.authUserId &&
+        names.some((name) => !isPublicInstanceSettingKey(name))
+      ) {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "unauthenticated",
+          "One or more instance settings require authentication",
+          401,
+        );
+      }
+      const settings = await Promise.all(
+        names.map((name) => instanceSettingResponse(context, name)),
+      );
+      return connectValue(c, { settings }, transport);
+    }
+    case "UpdateInstanceSetting": {
+      if (context.credential === "pat" || context.user.role !== "owner") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A session credential is required to update instance settings",
+          403,
+        );
+      }
+      const setting = record(body.setting);
+      const name = requiredString(setting.name, "setting.name");
+      const key = instanceSettingKey(name);
+      await upsertStoredSetting(
+        context.db,
+        context.user,
+        `memos.instance.${key}`,
+        setting.value,
+      );
+      return connectValue(c, setting, transport);
+    }
+    case "GetInstanceStats": {
+      const stats = await getMemoStats(context.db, context.user, {
+        time_zone: "UTC",
+      });
+      return connectValue(
+        c,
+        {
+          database: { driver: "sqlite", sizeBytes: "-1" },
+          localStorageBytes: "-1",
+          generatedTime: new Date().toISOString(),
+          memoCount: stats.counts.total,
+        },
+        transport,
+      );
+    }
+    case "TestInstanceEmailSetting":
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        "Email delivery is not configured on FlareMo",
+        501,
+      );
+    default:
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        `Instance method is not implemented: ${method}`,
+        501,
+      );
+  }
+}
+
+async function connectIdentityProviderMethod(
+  c: ConnectContext,
+  _context: ConnectRequestContext,
+  method: string,
+  _value: unknown,
+  transport?: BinaryTransport,
+) {
+  if (method === "ListIdentityProviders") {
+    return connectValue(c, { identityProviders: [] }, transport);
+  }
+  return connectErrorForTransport(
+    c,
+    transport,
+    "unimplemented",
+    "Identity providers are not configured on FlareMo",
+    501,
+  );
+}
+
 async function createConnectMemoComment(
   context: Awaited<ReturnType<typeof getRequestContext>>,
   value: unknown,
@@ -363,6 +1022,7 @@ async function listConnectMemoComments(
   );
   return {
     memos: comments,
+    totalSize: comments.length,
     ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
   };
 }
@@ -381,6 +1041,7 @@ async function listConnectMemoReactions(
   });
   return {
     reactions: result.reactions.map(currentReactionToDto),
+    totalSize: result.reactions.length,
     ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
   };
 }
@@ -471,7 +1132,7 @@ async function connectGetSharedMemo(
   const db = createDb(c.env.DB);
   const shared = await getPublicShareByToken(
     db,
-    requiredString(body.shareToken, "shareToken"),
+    requiredString(body.shareId ?? body.shareToken, "shareId"),
   );
   const reactions = await listMemoReactions(db, shared.user, shared.memo.id, {
     pageSize: 1_000,
@@ -484,6 +1145,209 @@ async function connectGetSharedMemo(
     }),
     transport,
   );
+}
+
+type ConnectReadContext = Awaited<ReturnType<typeof getOptionalRequestContext>>;
+
+async function connectPublicMemoRead(
+  c: ConnectContext,
+  context: ConnectReadContext,
+  method: string,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  const body = record(value);
+  switch (method) {
+    case "ListMemos": {
+      const result = await listMemosForViewer(context.db, context.user, {
+        page_size: pageSize(body.pageSize),
+        page_token: optionalString(body.pageToken),
+        order_by: normalizeOrderBy(
+          optionalString(body.orderBy) ?? "create_time desc",
+        ),
+        state: stateToLegacy(optionalString(body.state)),
+        filter: optionalString(body.filter),
+        include_deleted: body.showDeleted === true,
+      });
+      const memos = await Promise.all(
+        result.memos.map((memo) =>
+          connectPublicMemoWithDetails(context, memo.id),
+        ),
+      );
+      return connectValue(
+        c,
+        {
+          memos,
+          ...(result.nextPageToken
+            ? { nextPageToken: result.nextPageToken }
+            : {}),
+        },
+        transport,
+      );
+    }
+    case "GetMemo":
+      return connectValue(
+        c,
+        await connectPublicMemoWithDetails(
+          context,
+          requiredString(body.name, "name"),
+        ),
+        transport,
+      );
+    case "ListMemoComments": {
+      const parentName = normalizeMemoName(requiredString(body.name, "name"));
+      const result = await listMemoComments(context.db, context.user, {
+        memoName: parentName,
+        pageSize: pageSize(body.pageSize),
+        ...(optionalString(body.pageToken)
+          ? { pageToken: optionalString(body.pageToken) }
+          : {}),
+        orderBy: optionalString(body.orderBy) ?? "create_time desc",
+      });
+      const memos = await Promise.all(
+        result.memos.map((memo) =>
+          connectPublicMemoWithDetails(context, memo.id, parentName),
+        ),
+      );
+      return connectValue(
+        c,
+        {
+          memos,
+          totalSize: memos.length,
+          ...(result.nextPageToken
+            ? { nextPageToken: result.nextPageToken }
+            : {}),
+        },
+        transport,
+      );
+    }
+    case "ListMemoReactions": {
+      const result = await listMemoReactions(context.db, context.user, {
+        memoName: normalizeMemoName(requiredString(body.name, "name")),
+        pageSize: pageSize(body.pageSize),
+        ...(optionalString(body.pageToken)
+          ? { pageToken: optionalString(body.pageToken) }
+          : {}),
+      });
+      return connectValue(
+        c,
+        {
+          reactions: result.reactions.map(currentReactionToDto),
+          totalSize: result.reactions.length,
+          ...(result.nextPageToken
+            ? { nextPageToken: result.nextPageToken }
+            : {}),
+        },
+        transport,
+      );
+    }
+    case "ListMemoAttachments": {
+      const attachments = await listMemoAttachmentsForViewer(
+        context.db,
+        context.user,
+        normalizeMemoName(requiredString(body.name, "name")),
+      );
+      return connectValue(
+        c,
+        { attachments: attachments.map(currentAttachmentToDto) },
+        transport,
+      );
+    }
+    case "ListMemoRelations": {
+      const memoId = normalizeMemoName(requiredString(body.name, "name"));
+      const memo = await getMemoByIdForViewer(context.db, context.user, memoId);
+      const rows = await listMemoRelations(context.db, context.user, memoId);
+      const relations = await Promise.all(
+        rows.map(async (relation) => {
+          try {
+            const relatedMemo = await getMemoByIdForViewer(
+              context.db,
+              context.user,
+              relation.relatedMemoId,
+            );
+            return currentRelationToDto(relation, memo, relatedMemo);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return connectValue(
+        c,
+        {
+          relations: relations.filter(
+            (relation): relation is NonNullable<typeof relation> =>
+              relation !== null,
+          ),
+        },
+        transport,
+      );
+    }
+    default:
+      return connectErrorForTransport(
+        c,
+        transport,
+        "unimplemented",
+        `Public Memos read method is not implemented: ${method}`,
+        501,
+      );
+  }
+}
+
+async function connectPublicMemoWithDetails(
+  context: ConnectReadContext,
+  memoId: string,
+  parent?: string,
+) {
+  const memo = await getMemoByIdForViewer(context.db, context.user, memoId);
+  const [attachments, reactions, relationRows] = await Promise.all([
+    listMemoAttachmentsForViewer(context.db, context.user, memo.id),
+    listMemoReactions(context.db, context.user, memo.id, { pageSize: 1_000 }),
+    listMemoRelations(context.db, context.user, memo.id),
+  ]);
+  const relations = await Promise.all(
+    relationRows.map(async (relation) => {
+      try {
+        const relatedMemo = await getMemoByIdForViewer(
+          context.db,
+          context.user,
+          relation.relatedMemoId,
+        );
+        return currentRelationToDto(relation, memo, relatedMemo);
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const creator = await getMemoCreatorForViewer(context, memo);
+  return currentMemoToDto(memo, creator, {
+    attachments,
+    reactions: reactions.reactions,
+    relations: relations.filter(
+      (relation): relation is NonNullable<typeof relation> => relation !== null,
+    ),
+    ...(parent ? { parent } : {}),
+  });
+}
+
+async function getMemoCreatorForViewer(
+  context: ConnectReadContext,
+  memo: Awaited<ReturnType<typeof getMemoByIdForViewer>>,
+) {
+  if (context.user?.id === memo.userId) return context.user;
+  const creator = await getFlaremoUserById(context.db, memo.userId);
+  if (!creator) throw new Error("Memo creator not found");
+  return creator;
+}
+
+function isPublicMemoReadMethod(method: string) {
+  return [
+    "GetMemo",
+    "ListMemos",
+    "ListMemoComments",
+    "ListMemoReactions",
+    "ListMemoAttachments",
+    "ListMemoRelations",
+  ].includes(method);
 }
 
 async function connectGetLinkMetadata(
@@ -893,6 +1757,362 @@ function shareTokenFromName(value: string) {
   return token;
 }
 
+function normalizeAttachmentName(value: string) {
+  return value.startsWith("attachments/") ? value : `attachments/${value}`;
+}
+
+async function getPublicInstanceContext(
+  c: ConnectContext,
+): Promise<ConnectRequestContext> {
+  const db = createDb(c.env.DB);
+  const user =
+    (await getFlaremoUserById(db, "users/owner")) ??
+    publicOwnerFallback(c.env.FLAREMO_SINGLE_USER_NAME);
+  return {
+    db,
+    user,
+    authUserId: "",
+    credential: "session",
+    bearerSession: false,
+    nativeAccessToken: false,
+    session: null,
+  };
+}
+
+function publicOwnerFallback(name: string | undefined): UserRow {
+  const timestamp = new Date(0).toISOString();
+  return {
+    id: "users/owner",
+    email: "",
+    name: name?.trim() || "Owner",
+    avatarUrl: null,
+    role: "owner",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function attachmentBytes(value: unknown) {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (typeof value === "string") {
+    try {
+      const binary = atob(value);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return bytes;
+    } catch {
+      throw new ConnectInputError("attachment.content must be valid base64");
+    }
+  }
+  return new Uint8Array();
+}
+
+function parseAttachmentMemoFilter(value: string) {
+  const match = /^memo\s*(?:==|=)\s*["']([^"']+)["']$/i.exec(value.trim());
+  if (!match?.[1]) {
+    throw new ConnectInputError(
+      'Attachment filter only supports memo == "memos/{id}"',
+    );
+  }
+  return match[1];
+}
+
+function fieldMaskPaths(value: unknown) {
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((field) => field.trim())
+      .filter(Boolean);
+  }
+  const paths = record(value).paths;
+  return Array.isArray(paths)
+    ? paths.filter(
+        (path): path is string =>
+          typeof path === "string" && Boolean(path.trim()),
+      )
+    : [];
+}
+
+function assertConnectUserPath(value: unknown, currentUserId: string) {
+  const name = requiredString(value, "user");
+  const normalized = name.startsWith("users/") ? name : `users/${name}`;
+  if (normalized !== currentUserId) {
+    throw new ConnectInputError("Only the current FlareMo user is available");
+  }
+}
+
+function assertConnectUserSettingPath(value: unknown, currentUserId: string) {
+  const name = requiredString(value, "setting");
+  const prefix = `${currentUserId}/settings/`;
+  if (!name.startsWith(prefix) || name.slice(prefix.length).includes("/")) {
+    throw new ConnectInputError(
+      "Only the current FlareMo user settings are available",
+    );
+  }
+}
+
+function assertConnectPatPath(value: unknown, currentUserId: string) {
+  const name = requiredString(value, "name");
+  if (!name.startsWith(`${currentUserId}/personalAccessTokens/`)) {
+    throw new ConnectInputError(
+      "Only the current FlareMo user's PATs are available",
+    );
+  }
+}
+
+function userSettingKey(name: string) {
+  return name.split("/").at(-1) ?? "GENERAL";
+}
+
+async function userSettingResponse(
+  context: ConnectRequestContext,
+  name: string,
+) {
+  const key = userSettingKey(name);
+  const stored = await getStoredSetting(
+    context.db,
+    context.user,
+    `memos.user.${key}`,
+  );
+  return {
+    name,
+    value:
+      stored?.value && typeof stored.value === "object"
+        ? stored.value
+        : { case: "generalSetting", value: {} },
+  };
+}
+
+async function listConnectUserSettings(context: ConnectRequestContext) {
+  const username =
+    (await getAuthUserById(context.db, context.authUserId))?.username ??
+    "owner";
+  const generalName = `${context.user.id}/settings/GENERAL`;
+  const stored = await getStoredSetting(
+    context.db,
+    context.user,
+    "memos.user.GENERAL",
+  );
+  return [
+    {
+      name: generalName.replace(context.user.id, `users/${username}`),
+      value:
+        stored?.value && typeof stored.value === "object"
+          ? stored.value
+          : { case: "generalSetting", value: {} },
+    },
+  ];
+}
+
+function instanceSettingKey(name: string) {
+  const key = name.split("/").at(-1)?.toUpperCase();
+  if (!key || !/^[A-Z_]+$/.test(key)) {
+    throw new ConnectInputError("Invalid instance setting name");
+  }
+  return key;
+}
+
+async function instanceSettingResponse(
+  context: ConnectRequestContext,
+  name: string,
+) {
+  if (!name.startsWith("instance/settings/")) {
+    throw new ConnectInputError("Invalid instance setting name");
+  }
+  const key = instanceSettingKey(name);
+  const stored = await getStoredSetting(
+    context.db,
+    context.user,
+    `memos.instance.${key}`,
+  );
+  if (!context.authUserId) {
+    return {
+      name,
+      value: publicInstanceSettingValue(key, stored?.value),
+    };
+  }
+  return {
+    name,
+    value:
+      stored?.value && typeof stored.value === "object"
+        ? stored.value
+        : defaultInstanceSetting(key),
+  };
+}
+
+function isPublicInstanceSettingKey(name: string) {
+  if (!name.startsWith("instance/settings/")) return false;
+  const key = name.split("/").at(-1)?.toUpperCase();
+  return key === "GENERAL" || key === "MEMO_RELATED";
+}
+
+function publicInstanceSettingValue(key: string, value: unknown) {
+  const stored = record(record(value).value);
+  if (key === "GENERAL") {
+    return {
+      case: "generalSetting",
+      value: {
+        disallowUserRegistration:
+          typeof stored.disallowUserRegistration === "boolean"
+            ? stored.disallowUserRegistration
+            : true,
+        disallowPasswordAuth:
+          typeof stored.disallowPasswordAuth === "boolean"
+            ? stored.disallowPasswordAuth
+            : false,
+        disallowChangeUsername:
+          typeof stored.disallowChangeUsername === "boolean"
+            ? stored.disallowChangeUsername
+            : false,
+        disallowChangeNickname:
+          typeof stored.disallowChangeNickname === "boolean"
+            ? stored.disallowChangeNickname
+            : false,
+      },
+    };
+  }
+  if (key === "MEMO_RELATED") {
+    const reactions = Array.isArray(stored.reactions)
+      ? stored.reactions.filter(
+          (reaction): reaction is string =>
+            typeof reaction === "string" && reaction.length <= 32,
+        )
+      : ["👍", "❤️", "😂", "😢", "😡"];
+    return {
+      case: "memoRelatedSetting",
+      value: {
+        contentLengthLimit:
+          typeof stored.contentLengthLimit === "number" &&
+          Number.isSafeInteger(stored.contentLengthLimit) &&
+          stored.contentLengthLimit > 0
+            ? Math.min(stored.contentLengthLimit, 10_000_000)
+            : 1_000_000,
+        enableDoubleClickEdit:
+          typeof stored.enableDoubleClickEdit === "boolean"
+            ? stored.enableDoubleClickEdit
+            : true,
+        reactions: reactions.slice(0, 64),
+      },
+    };
+  }
+  throw new ConnectInputError("This instance setting requires authentication");
+}
+
+function defaultInstanceSetting(key: string) {
+  switch (key) {
+    case "GENERAL":
+      return {
+        case: "generalSetting",
+        value: {
+          disallowUserRegistration: true,
+          disallowPasswordAuth: false,
+          disallowChangeUsername: false,
+          disallowChangeNickname: false,
+        },
+      };
+    case "MEMO_RELATED":
+      return {
+        case: "memoRelatedSetting",
+        value: {
+          contentLengthLimit: 1_000_000,
+          enableDoubleClickEdit: true,
+          reactions: ["👍", "❤️", "😂", "😢", "😡"],
+        },
+      };
+    case "STORAGE":
+      return {
+        case: "storageSetting",
+        value: {
+          storageType: "S3",
+          filepathTemplate: "memos/{timestamp}_{filename}",
+        },
+      };
+    case "NOTIFICATION":
+      return {
+        case: "notificationSetting",
+        value: { email: { enabled: false } },
+      };
+    case "AI":
+      return { case: "aiSetting", value: { providers: [] } };
+    case "TAGS":
+      return { case: "tagsSetting", value: { tags: {} } };
+    default:
+      throw new ConnectInputError(`Unsupported instance setting: ${key}`);
+  }
+}
+
+function userStatsFromMemoStats(
+  userId: string,
+  stats: Awaited<ReturnType<typeof getMemoStats>>,
+) {
+  return {
+    name: userId,
+    memoTypeStats: { linkCount: 0, codeCount: 0, todoCount: 0, undoCount: 0 },
+    tagCount: Object.fromEntries(
+      stats.tags.map((tag) => [tag.name, tag.count]),
+    ),
+    totalMemoCount: stats.counts.total,
+    pinnedMemos: [],
+    memoCreatedTimestamps: [],
+    memoUpdatedTimestamps: [],
+  };
+}
+
+function connectPatToDto(
+  token: {
+    id: string;
+    name: string | null;
+    createdAt: Date;
+    expiresAt: Date | null;
+    lastRequest: Date | null;
+  },
+  userId: string,
+) {
+  return {
+    name: `${userId}/personalAccessTokens/${token.id}`,
+    ...(token.name ? { description: token.name } : {}),
+    createdAt: token.createdAt.toISOString(),
+    ...(token.expiresAt ? { expiresAt: token.expiresAt.toISOString() } : {}),
+    ...(token.lastRequest
+      ? { lastUsedAt: token.lastRequest.toISOString() }
+      : {}),
+  };
+}
+
+async function updateBetterAuthUsername(
+  c: ConnectContext,
+  context: ConnectRequestContext,
+  username: string,
+) {
+  if (!c.req.raw.headers.get("cookie")) {
+    throw new ConnectInputError(
+      "A Better Auth cookie session is required to update the username",
+    );
+  }
+  const headers = new Headers(c.req.raw.headers);
+  headers.set("content-type", "application/json");
+  const request = new Request(new URL("/api/auth/update-user", c.req.url), {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ username }),
+  });
+  const response = await createFlareMoAuth(c.env, context.db).handler(request);
+  if (response.ok) return;
+  let message = "Better Auth rejected the username update";
+  try {
+    const payload = (await response.json()) as { message?: unknown };
+    if (typeof payload.message === "string" && payload.message) {
+      message = payload.message;
+    }
+  } catch {
+    // Keep the stable compatibility error when Better Auth did not return JSON.
+  }
+  throw new ConnectInputError(message);
+}
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
@@ -1000,6 +2220,22 @@ async function connectAuthSignIn(
     response.headers.set("cache-control", "no-store");
     return response;
   } catch (error) {
+    if (isBetterAuthCredentialError(error)) {
+      return transport
+        ? connectErrorForTransport(
+            c,
+            transport,
+            "invalid_argument",
+            "unmatched username and password",
+            400,
+          )
+        : connectError(
+            c,
+            "invalid_argument",
+            "unmatched username and password",
+            400,
+          );
+    }
     return transport
       ? connectBinaryError(c, transport, error)
       : connectDomainError(c, error);
@@ -1059,6 +2295,21 @@ async function connectAuthSignOut(
       expectedAuthUserId: context.authUserId,
     });
     const response = connectValue(c, {}, transport);
+    const bearer = c.req.header("authorization");
+    if (context.bearerSession && bearer) {
+      await revokeAuthSessionByToken(context.db, parseBearerForSignOut(bearer));
+    }
+    if (c.req.raw.headers.get("cookie")) {
+      const headers = new Headers(c.req.raw.headers);
+      headers.delete("authorization");
+      const authResponse = await createFlareMoAuth(c.env, context.db).handler(
+        new Request(new URL("/api/auth/sign-out", c.req.url), {
+          method: "POST",
+          headers,
+        }),
+      );
+      copyResponseHeaders(response.headers, authResponse.headers);
+    }
     response.headers.append("set-cookie", clearMemosRefreshCookie(c.req.raw));
     response.headers.set("cache-control", "no-store");
     return response;
@@ -1101,10 +2352,13 @@ function connectErrorForTransport(
     "grpc-message": encodeURIComponent(message),
     "grpc-status": String(grpcStatusForCode(code)),
   });
-  return new Response(encodeBinaryError(message, transport), {
-    status,
-    headers,
-  });
+  return new Response(
+    encodeBinaryError(message, transport, grpcStatusForCode(code)),
+    {
+      status,
+      headers,
+    },
+  );
 }
 
 function connectBinaryError(
@@ -1221,4 +2475,17 @@ function domainCode(status: number) {
   if (status === 404) return "not_found";
   if (status === 409) return "already_exists";
   return "invalid_argument";
+}
+
+function isBetterAuthCredentialError(error: unknown) {
+  const value = record(error);
+  return value.code === "INVALID_USERNAME_OR_PASSWORD";
+}
+
+function parseBearerForSignOut(value: string) {
+  const parts = value.trim().split(/\s+/);
+  if (parts.length !== 2 || parts[0]?.toLowerCase() !== "bearer" || !parts[1]) {
+    throw new ConnectInputError("Invalid authorization header");
+  }
+  return parts[1];
 }

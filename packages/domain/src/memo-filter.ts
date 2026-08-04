@@ -10,7 +10,10 @@ const MAX_MEMO_FILTER_AST_NODES = 512;
  * the domain package so REST, Connect-shaped JSON, and MCP all evaluate the
  * same expression against the same resource context.
  */
-export type CompiledMemoFilter = (memo: MemoRow, user: UserRow) => boolean;
+export type CompiledMemoFilter = (
+  memo: MemoRow,
+  user: UserRow | null,
+) => boolean;
 
 const memoFilterEnvironment = new Environment({
   // Memos filters are user supplied. Keep the parser bounded even before the
@@ -116,7 +119,7 @@ export function compileMemoFilter(
 
 export function memoFilterContext(
   memo: MemoRow,
-  user: UserRow,
+  user: UserRow | null,
   now = new Date(),
 ) {
   const payload = isRecord(memo.payload) ? memo.payload : {};
@@ -130,8 +133,8 @@ export function memoFilterContext(
   return {
     name: memo.id,
     content: memo.content,
-    creator: user.id,
-    creator_id: memoCreatorId(user.id),
+    creator: user?.id ?? memo.userId,
+    creator_id: memoCreatorId(user?.id ?? memo.userId),
     created_ts: new Date(memo.createdAt),
     updated_ts: new Date(memo.updatedAt),
     pinned: memo.pinned,

@@ -99,6 +99,19 @@ export async function listMemos(
   user: UserRow,
   query: ListMemosQuery,
 ): Promise<MemoListResult> {
+  return listMemosForViewer(db, user, query);
+}
+
+/**
+ * List memos using the same visibility boundary as the Memos API. An
+ * anonymous viewer is intentionally restricted to normal public memos; the
+ * authenticated single-user path retains the existing owner-scoped behavior.
+ */
+export async function listMemosForViewer(
+  db: FlareMoDb,
+  user: UserRow | null,
+  query: ListMemosQuery,
+): Promise<MemoListResult> {
   const search = parseMemoSearchQuery(query.q);
   const celFilter = compileMemoFilter(query.filter);
   const cursor = query.page_token
@@ -108,7 +121,9 @@ export async function listMemos(
   const orderColumn = query.order_by.startsWith("updated_at")
     ? memos.updatedAt
     : memos.createdAt;
-  const filters = [eq(memos.userId, user.id)];
+  const filters = user
+    ? [eq(memos.userId, user.id)]
+    : [eq(memos.visibility, "public"), eq(memos.status, "normal")];
 
   // The established `state` query parameter wins over a search scope so that
   // Memos-compatible clients retain their existing filtering semantics.
@@ -143,7 +158,7 @@ export async function listMemos(
       sql`EXISTS (
         SELECT 1 FROM ${attachments}
         WHERE ${attachments.memoId} = ${memos.id}
-          AND ${attachments.userId} = ${user.id}
+          ${user ? sql`AND ${attachments.userId} = ${user.id}` : sql``}
           AND ${attachments.deletedAt} IS NULL
           AND ${attachments.state} = 'ready'
       )`,
@@ -171,7 +186,7 @@ export async function listMemos(
       sql`EXISTS (
         SELECT 1 FROM ${memoTags}
         WHERE ${memoTags.memoId} = ${memos.id}
-          AND ${memoTags.userId} = ${user.id}
+          ${user ? sql`AND ${memoTags.userId} = ${user.id}` : sql``}
           AND ${memoTags.tag} = ${tag}
       )`,
     );
@@ -322,7 +337,27 @@ export async function getMemoById(
   id: string,
   options: { includeDeleted?: boolean } = {},
 ): Promise<MemoRow> {
-  const filters = [eq(memos.id, id), eq(memos.userId, user.id)];
+  return getMemoByIdForViewer(db, user, id, options);
+}
+
+/**
+ * Resolve a memo for a read-only viewer without ever substituting the owner
+ * user for an anonymous request. This prevents a public request from
+ * inheriting the owner's private timeline by accident.
+ */
+export async function getMemoByIdForViewer(
+  db: FlareMoDb,
+  user: UserRow | null,
+  id: string,
+  options: { includeDeleted?: boolean } = {},
+): Promise<MemoRow> {
+  const filters = user
+    ? [eq(memos.id, id), eq(memos.userId, user.id)]
+    : [
+        eq(memos.id, id),
+        eq(memos.visibility, "public"),
+        eq(memos.status, "normal"),
+      ];
   if (!options.includeDeleted) {
     filters.push(inArray(memos.status, ["normal", "archived", "trashed"]));
   }

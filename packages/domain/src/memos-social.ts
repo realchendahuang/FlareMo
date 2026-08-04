@@ -24,6 +24,7 @@ import { createResourceId, parseResourceName } from "./ids";
 import { compileMemoFilter } from "./memo-filter";
 import {
   getMemoById,
+  getMemoByIdForViewer,
   normalizeMemoClientId,
   normalizeMemoPayload,
   normalizeMemoTags,
@@ -271,18 +272,18 @@ export async function getMemoParent(
 
 export function listMemoComments(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow | null,
   parentMemoId: string,
   input?: ListMemoCommentsInput,
 ): Promise<MemoCommentsResult>;
 export function listMemoComments(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow | null,
   input: ListMemoCommentsInput & { memoName: string },
 ): Promise<MemoCommentsResult>;
 export async function listMemoComments(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow | null,
   parentMemoOrInput: string | (ListMemoCommentsInput & { memoName: string }),
   input: ListMemoCommentsInput = {},
 ): Promise<MemoCommentsResult> {
@@ -293,7 +294,7 @@ export async function listMemoComments(
       ? parentMemoOrInput
       : parentMemoOrInput.memoName;
   const parentId = parseResourceName(parentMemoId, "memos");
-  await getMemoById(db, user, parentId);
+  await getMemoByIdForViewer(db, user, parentId);
   const order = normalizeCommentOrder(effectiveInput.orderBy);
   const pageSize = normalizePageSize(effectiveInput.pageSize);
   const cursor = effectiveInput.pageToken
@@ -309,8 +310,10 @@ export async function listMemoComments(
   const filters = [
     eq(memoRelations.relatedMemoId, parentId),
     eq(memoRelations.type, "comment"),
-    eq(memos.userId, user.id),
-    inArray(memos.status, ["normal", "archived"]),
+    ...(user ? [eq(memos.userId, user.id)] : [eq(memos.visibility, "public")]),
+    ...(user
+      ? [inArray(memos.status, ["normal", "archived"])]
+      : [eq(memos.status, "normal")]),
   ];
 
   if (cursor) {
@@ -433,18 +436,18 @@ export async function upsertMemoReaction(
 
 export function listMemoReactions(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow | null,
   memoId: string,
   input?: ListMemoReactionsInput,
 ): Promise<MemoReactionsResult>;
 export function listMemoReactions(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow | null,
   input: ListMemoReactionsInput & { memoName: string },
 ): Promise<MemoReactionsResult>;
 export async function listMemoReactions(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow | null,
   memoOrInput: string | (ListMemoReactionsInput & { memoName: string }),
   input: ListMemoReactionsInput = {},
 ): Promise<MemoReactionsResult> {
@@ -452,7 +455,7 @@ export async function listMemoReactions(
   const memoId =
     typeof memoOrInput === "string" ? memoOrInput : memoOrInput.memoName;
   const contentId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, contentId);
+  await getMemoByIdForViewer(db, user, contentId);
   const pageSize = normalizePageSize(effectiveInput.pageSize);
   const order = "create_time asc";
   const cursor = effectiveInput.pageToken

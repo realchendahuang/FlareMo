@@ -30,6 +30,7 @@ const response = (description: string, schema: JsonSchema) => ({
 const emptyResponse = (description: string) => ({ description });
 
 const bearerSecurity = [{ bearerAuth: [] }, { cookieAuth: [] }];
+const optionalReadSecurity = [...bearerSecurity, {}];
 
 const memoName = {
   name: "memo",
@@ -359,6 +360,7 @@ export function createCurrentOpenApiDocument() {
           operationId: "listMemosCurrent",
           summary: "List memos",
           tags: ["Memos"],
+          security: optionalReadSecurity,
           parameters: [
             {
               name: "pageSize",
@@ -420,6 +422,7 @@ export function createCurrentOpenApiDocument() {
           operationId: "getMemoCurrent",
           summary: "Get a memo",
           tags: ["Memos"],
+          security: optionalReadSecurity,
           parameters: [memoName],
           responses: {
             "200": response("Memo.", { $ref: "#/components/schemas/Memo" }),
@@ -474,6 +477,7 @@ export function createCurrentOpenApiDocument() {
           operationId: "listMemoAttachmentsCurrent",
           summary: "List memo attachments",
           tags: ["Attachments"],
+          security: optionalReadSecurity,
           parameters: [memoName],
           responses: {
             "200": response("Attachments.", {
@@ -514,6 +518,7 @@ export function createCurrentOpenApiDocument() {
           operationId: "listMemoRelationsCurrent",
           summary: "List memo relations",
           tags: ["Relations"],
+          security: optionalReadSecurity,
           parameters: [memoName],
           responses: {
             "200": response("Relations.", {
@@ -554,6 +559,7 @@ export function createCurrentOpenApiDocument() {
           operationId: "listMemoCommentsCurrent",
           summary: "List comments represented as child memos",
           tags: ["Social"],
+          security: optionalReadSecurity,
           parameters: [
             memoName,
             {
@@ -611,6 +617,7 @@ export function createCurrentOpenApiDocument() {
           operationId: "listMemoReactionsCurrent",
           summary: "List reactions on a memo",
           tags: ["Social"],
+          security: optionalReadSecurity,
           parameters: [
             memoName,
             {
@@ -1078,10 +1085,18 @@ export function createCurrentOpenApiDocument() {
         post: connectOperation("connectCreateMemo", "Create a memo"),
       },
       "/memos.api.v1.MemoService/ListMemos": {
-        post: connectOperation("connectListMemos", "List memos"),
+        post: connectOperation(
+          "connectListMemos",
+          "List memos",
+          optionalReadSecurity,
+        ),
       },
       "/memos.api.v1.MemoService/GetMemo": {
-        post: connectOperation("connectGetMemo", "Get a memo"),
+        post: connectOperation(
+          "connectGetMemo",
+          "Get a memo",
+          optionalReadSecurity,
+        ),
       },
       "/memos.api.v1.MemoService/UpdateMemo": {
         post: connectOperation("connectUpdateMemo", "Update a memo"),
@@ -1099,6 +1114,7 @@ export function createCurrentOpenApiDocument() {
         post: connectOperation(
           "connectListMemoAttachments",
           "List memo attachments",
+          optionalReadSecurity,
         ),
       },
       "/memos.api.v1.MemoService/SetMemoRelations": {
@@ -1111,6 +1127,7 @@ export function createCurrentOpenApiDocument() {
         post: connectOperation(
           "connectListMemoRelations",
           "List memo relations",
+          optionalReadSecurity,
         ),
       },
       "/memos.api.v1.MemoService/CreateMemoComment": {
@@ -1120,12 +1137,17 @@ export function createCurrentOpenApiDocument() {
         ),
       },
       "/memos.api.v1.MemoService/ListMemoComments": {
-        post: connectOperation("connectListMemoComments", "List memo comments"),
+        post: connectOperation(
+          "connectListMemoComments",
+          "List memo comments",
+          optionalReadSecurity,
+        ),
       },
       "/memos.api.v1.MemoService/ListMemoReactions": {
         post: connectOperation(
           "connectListMemoReactions",
           "List memo reactions",
+          optionalReadSecurity,
         ),
       },
       "/memos.api.v1.MemoService/UpsertMemoReaction": {
@@ -1151,6 +1173,13 @@ export function createCurrentOpenApiDocument() {
       },
       "/memos.api.v1.MemoService/GetSharedMemo": {
         post: connectOperation("connectGetSharedMemo", "Get a shared memo", []),
+      },
+      "/memos.api.v1.MemoService/GetMemoByShare": {
+        post: connectOperation(
+          "connectGetMemoByShare",
+          "Get a memo by share token",
+          [],
+        ),
       },
       "/memos.api.v1.MemoService/GetLinkMetadata": {
         post: connectOperation(
@@ -1192,6 +1221,169 @@ export function createCurrentOpenApiDocument() {
       },
       "/memos.api.v1.ShortcutService/DeleteShortcut": {
         post: connectOperation("connectDeleteShortcut", "Delete a shortcut"),
+      },
+      "/memos.api.v1.AttachmentService/CreateAttachment": {
+        post: connectOperation(
+          "connectCreateAttachment",
+          "Create an attachment",
+        ),
+      },
+      "/memos.api.v1.AttachmentService/ListAttachments": {
+        post: connectOperation("connectListAttachments", "List attachments"),
+      },
+      "/memos.api.v1.AttachmentService/GetAttachment": {
+        post: connectOperation("connectGetAttachment", "Get an attachment"),
+      },
+      "/memos.api.v1.AttachmentService/UpdateAttachment": {
+        post: connectOperation(
+          "connectUpdateAttachment",
+          "Update an attachment",
+        ),
+      },
+      "/memos.api.v1.AttachmentService/DeleteAttachment": {
+        post: connectOperation(
+          "connectDeleteAttachment",
+          "Delete an attachment",
+        ),
+      },
+      "/memos.api.v1.AttachmentService/BatchDeleteAttachments": {
+        post: connectOperation(
+          "connectBatchDeleteAttachments",
+          "Delete multiple attachments",
+        ),
+      },
+      "/memos.api.v1.UserService/ListUsers": {
+        post: connectOperation("connectListUsers", "List users"),
+      },
+      "/memos.api.v1.UserService/BatchGetUsers": {
+        post: connectOperation("connectBatchGetUsers", "Get multiple users"),
+      },
+      "/memos.api.v1.UserService/GetUser": {
+        post: connectOperation("connectGetUser", "Get a user"),
+      },
+      "/memos.api.v1.UserService/UpdateUser": {
+        post: connectOperation("connectUpdateUser", "Update a user"),
+      },
+      "/memos.api.v1.UserService/GetUserStats": {
+        post: connectOperation("connectGetUserStats", "Get user statistics"),
+      },
+      "/memos.api.v1.UserService/ListAllUserStats": {
+        post: connectOperation(
+          "connectListAllUserStats",
+          "List user statistics",
+        ),
+      },
+      "/memos.api.v1.UserService/GetUserSetting": {
+        post: connectOperation("connectGetUserSetting", "Get a user setting"),
+      },
+      "/memos.api.v1.UserService/ListUserSettings": {
+        post: connectOperation("connectListUserSettings", "List user settings"),
+      },
+      "/memos.api.v1.UserService/UpdateUserSetting": {
+        post: connectOperation(
+          "connectUpdateUserSetting",
+          "Update a user setting",
+        ),
+      },
+      "/memos.api.v1.UserService/ListLinkedIdentities": {
+        post: connectOperation(
+          "connectListLinkedIdentities",
+          "List linked identities",
+        ),
+      },
+      "/memos.api.v1.UserService/GetLinkedIdentity": {
+        post: connectOperation(
+          "connectGetLinkedIdentity",
+          "Get a linked identity",
+        ),
+      },
+      "/memos.api.v1.UserService/CreateLinkedIdentity": {
+        post: connectOperation(
+          "connectCreateLinkedIdentity",
+          "Create a linked identity",
+        ),
+      },
+      "/memos.api.v1.UserService/DeleteLinkedIdentity": {
+        post: connectOperation(
+          "connectDeleteLinkedIdentity",
+          "Delete a linked identity",
+        ),
+      },
+      "/memos.api.v1.UserService/ListPersonalAccessTokens": {
+        post: connectOperation(
+          "connectListPersonalAccessTokens",
+          "List personal access tokens",
+        ),
+      },
+      "/memos.api.v1.UserService/CreatePersonalAccessToken": {
+        post: connectOperation(
+          "connectCreatePersonalAccessToken",
+          "Create a personal access token",
+        ),
+      },
+      "/memos.api.v1.UserService/DeletePersonalAccessToken": {
+        post: connectOperation(
+          "connectDeletePersonalAccessToken",
+          "Delete a personal access token",
+        ),
+      },
+      "/memos.api.v1.UserService/ListUserWebhooks": {
+        post: connectOperation("connectListUserWebhooks", "List user webhooks"),
+      },
+      "/memos.api.v1.UserService/ListUserNotifications": {
+        post: connectOperation(
+          "connectListUserNotifications",
+          "List user notifications",
+        ),
+      },
+      "/memos.api.v1.InstanceService/GetInstanceProfile": {
+        post: connectOperation(
+          "connectGetInstanceProfile",
+          "Get the instance profile",
+          optionalReadSecurity,
+        ),
+      },
+      "/memos.api.v1.InstanceService/GetInstanceSetting": {
+        post: connectOperation(
+          "connectGetInstanceSetting",
+          "Get an instance setting",
+          optionalReadSecurity,
+        ),
+      },
+      "/memos.api.v1.InstanceService/BatchGetInstanceSettings": {
+        post: connectOperation(
+          "connectBatchGetInstanceSettings",
+          "Get multiple instance settings",
+          optionalReadSecurity,
+        ),
+      },
+      "/memos.api.v1.InstanceService/UpdateInstanceSetting": {
+        post: connectOperation(
+          "connectUpdateInstanceSetting",
+          "Update an instance setting",
+        ),
+      },
+      "/memos.api.v1.InstanceService/GetInstanceStats": {
+        post: connectOperation(
+          "connectGetInstanceStats",
+          "Get instance statistics",
+        ),
+      },
+      "/memos.api.v1.InstanceService/TestInstanceEmailSetting": {
+        post: connectOperation(
+          "connectTestInstanceEmailSetting",
+          "Test instance email settings",
+        ),
+      },
+      "/memos.api.v1.IdentityProviderService/ListIdentityProviders": {
+        post: connectOperation(
+          "connectListIdentityProviders",
+          "List identity providers",
+          optionalReadSecurity,
+        ),
+      },
+      "/memos.api.v1.AIService/Transcribe": {
+        post: connectOperation("connectTranscribe", "Transcribe audio"),
       },
       "/mcp": {
         post: secured({
