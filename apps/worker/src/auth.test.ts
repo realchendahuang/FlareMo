@@ -12,6 +12,8 @@ const TEST_AUTH_SECRET =
   "test-better-auth-secret-that-is-never-used-in-production";
 const TEST_BOOTSTRAP_SECRET =
   "test-bootstrap-secret-that-is-never-used-in-production";
+const TEST_RECOVERY_SECRET =
+  "test-recovery-secret-that-is-never-used-in-production";
 const INITIAL_PASSWORD = "test-password-not-for-production-123";
 const UPDATED_PASSWORD = "updated-password-not-for-production-456";
 
@@ -40,7 +42,10 @@ describe("FlareMo native authentication", () => {
 
     const missingSecret = await fetchRaw("/api/auth/flaremo/bootstrap", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+      },
       body: JSON.stringify(bootstrapInput()),
     });
     expect(missingSecret.status).toBe(403);
@@ -50,6 +55,7 @@ describe("FlareMo native authentication", () => {
       headers: {
         "content-type": "application/json",
         "x-flaremo-bootstrap-secret": "wrong-bootstrap-secret",
+        origin: "http://flaremo.test",
       },
       body: JSON.stringify(bootstrapInput()),
     });
@@ -60,6 +66,7 @@ describe("FlareMo native authentication", () => {
       headers: {
         "content-type": "application/json",
         "x-flaremo-bootstrap-secret": TEST_BOOTSTRAP_SECRET,
+        origin: "http://flaremo.test",
       },
       body: JSON.stringify(bootstrapInput()),
     });
@@ -92,6 +99,7 @@ describe("FlareMo native authentication", () => {
       headers: {
         "content-type": "application/json",
         "x-flaremo-bootstrap-secret": TEST_BOOTSTRAP_SECRET,
+        origin: "http://flaremo.test",
       },
       body: JSON.stringify({
         ...bootstrapInput(),
@@ -109,6 +117,7 @@ describe("FlareMo native authentication", () => {
         headers: {
           "content-type": "application/json",
           "x-flaremo-bootstrap-secret": TEST_BOOTSTRAP_SECRET,
+          origin: "http://flaremo.test",
         },
         body: JSON.stringify(bootstrapInput()),
       });
@@ -129,6 +138,117 @@ describe("FlareMo native authentication", () => {
       .first<{ count: number }>();
     expect(authOwners?.count).toBe(1);
     expect(ownerLinks?.count).toBe(1);
+  });
+
+  it("requires an exact Origin for cookie auth mutations and keeps Access outside app identity", async () => {
+    await bootstrapOwner();
+
+    const missingOrigin = await fetchRaw("/api/auth/sign-in/username", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "owner", password: INITIAL_PASSWORD }),
+    });
+    expect(missingOrigin.status).toBe(403);
+
+    const untrustedOrigin = await fetchRaw("/api/auth/sign-in/username", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://untrusted.example",
+      },
+      body: JSON.stringify({ username: "owner", password: INITIAL_PASSWORD }),
+    });
+    expect(untrustedOrigin.status).toBe(403);
+
+    const trustedOrigin = await signIn("owner", INITIAL_PASSWORD);
+    expect(trustedOrigin.response.status).toBe(200);
+
+    const activeSession = await db
+      .prepare(
+        "SELECT token FROM auth_sessions ORDER BY created_at DESC LIMIT 1",
+      )
+      .first<{ token: string }>();
+    expect(activeSession?.token).toBeTruthy();
+    await db
+      .prepare("UPDATE auth_sessions SET expires_at = ? WHERE token = ?")
+      .bind(Date.now() - 1_000, activeSession?.token)
+      .run();
+    const expiredSession = await fetchRaw("/api/v1/memos", {
+      headers: { authorization: `Bearer ${activeSession?.token}` },
+    });
+    expect(expiredSession.status).toBe(401);
+
+    const signupAfterBootstrap = await fetchRaw("/api/auth/sign-up/email", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+      },
+      body: JSON.stringify({
+        email: "second@example.com",
+        name: "Second",
+        password: INITIAL_PASSWORD,
+        username: "second",
+        displayUsername: "second",
+      }),
+    });
+    expect(signupAfterBootstrap.status).toBeGreaterThanOrEqual(400);
+
+    const accessOnly = await fetchRaw("/api/app/memos", {
+      headers: {
+        "cf-access-client-id": "access-only-id",
+        "cf-access-client-secret": "access-only-secret",
+      },
+    });
+    expect(accessOnly.status).toBe(401);
+  });
+
+  it("recovers the existing owner through Better Auth and revokes sessions and PATs", async () => {
+    await bootstrapOwner();
+    const firstSession = await signIn("owner", INITIAL_PASSWORD);
+    const secondSession = await signIn("owner", INITIAL_PASSWORD);
+    expect(firstSession.response.status).toBe(200);
+    expect(secondSession.response.status).toBe(200);
+
+    const createdPat = await fetchRaw(
+      "/api/app/account/personal-access-tokens",
+      {
+        method: "POST",
+        headers: authenticatedJsonHeaders(firstSession.cookie),
+        body: JSON.stringify({ name: "recovery test", expires_in_days: 30 }),
+      },
+    );
+    expect(createdPat.status).toBe(201);
+    const pat = await json<{ token: string }>(createdPat);
+
+    const recovery = await fetchRaw("/api/auth/flaremo/recover", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-flaremo-recovery-secret": TEST_RECOVERY_SECRET,
+        origin: "http://flaremo.test",
+      },
+      body: JSON.stringify({ new_password: UPDATED_PASSWORD }),
+    });
+    expect(recovery.status).toBe(200);
+    expect(await json(recovery)).toEqual({ ok: true });
+
+    for (const cookie of [firstSession.cookie, secondSession.cookie]) {
+      const staleSession = await fetchRaw("/api/app/memos", {
+        headers: { cookie },
+      });
+      expect(staleSession.status).toBe(401);
+    }
+
+    const stalePat = await fetchRaw("/api/v1/memos", {
+      headers: { authorization: `Bearer ${pat.token}` },
+    });
+    expect(stalePat.status).toBe(401);
+
+    const oldPassword = await signIn("owner", INITIAL_PASSWORD);
+    expect(oldPassword.response.ok).toBe(false);
+    const recoveredPassword = await signIn("owner", UPDATED_PASSWORD);
+    expect(recoveredPassword.response.status).toBe(200);
   });
 
   it("uses HttpOnly cookie sessions, supports account changes, and accepts revocable Memos PATs", async () => {
@@ -331,6 +451,7 @@ async function bootstrapOwner() {
     headers: {
       "content-type": "application/json",
       "x-flaremo-bootstrap-secret": TEST_BOOTSTRAP_SECRET,
+      origin: "http://flaremo.test",
     },
     body: JSON.stringify(bootstrapInput()),
   });
@@ -349,7 +470,10 @@ function bootstrapInput() {
 async function signIn(username: string, password: string) {
   const response = await fetchRaw("/api/auth/sign-in/username", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      origin: "http://flaremo.test",
+    },
     body: JSON.stringify({ username, password }),
   });
   return {
@@ -443,6 +567,7 @@ async function createTestRuntime() {
       FLAREMO_PUBLIC_URL: "http://flaremo.test",
       BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
       FLAREMO_BOOTSTRAP_SECRET: TEST_BOOTSTRAP_SECRET,
+      FLAREMO_RECOVERY_SECRET: TEST_RECOVERY_SECRET,
     } as Env,
   };
 }

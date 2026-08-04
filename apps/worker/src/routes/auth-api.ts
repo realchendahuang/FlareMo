@@ -3,12 +3,18 @@ import {
   claimOwnerBootstrap,
   completeOwnerBootstrap,
   getAuthBootstrapStatus,
+  getOwnerAuthUserId,
+  listMemosPersonalAccessTokens,
   markOwnerBootstrapRecoveryRequired,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { createFlareMoAuth, getBootstrapSecret } from "../auth";
+import {
+  createFlareMoAuth,
+  getBootstrapSecret,
+  getRecoverySecret,
+} from "../auth";
 import type { HonoBindings } from "../context";
 import { jsonError } from "../http";
 
@@ -27,6 +33,10 @@ const bootstrapSchema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().trim().email().max(320),
   password: z.string().min(12).max(128),
+});
+
+const operatorRecoverySchema = z.object({
+  new_password: z.string().min(12).max(128),
 });
 
 authApi.get("/bootstrap/status", async (c) => {
@@ -137,6 +147,92 @@ authApi.post("/bootstrap", zValidator("json", bootstrapSchema), async (c) => {
     );
   }
 });
+
+/**
+ * Break-glass recovery for an already completed single-user instance.
+ *
+ * This is deliberately not a public "forgot password" flow: no email
+ * provider is configured yet, and the endpoint is disabled unless a separate
+ * recovery secret is explicitly present. It preserves the existing owner
+ * mapping and enters Better Auth's own one-time reset/password hashing flow.
+ * Rotate or remove FLAREMO_RECOVERY_SECRET immediately after use.
+ */
+authApi.post(
+  "/recover",
+  zValidator("json", operatorRecoverySchema),
+  async (c) => {
+    const recoverySecret = getRecoverySecret(c.env);
+    if (!recoverySecret) {
+      return c.json(
+        { error: { message: "Operator recovery is not configured." } },
+        503,
+      );
+    }
+
+    const suppliedSecret = c.req.header("x-flaremo-recovery-secret");
+    if (!(await secretsMatch(suppliedSecret, recoverySecret))) {
+      return c.json(
+        { error: { message: "Operator recovery is not authorized." } },
+        403,
+      );
+    }
+
+    const db = createDb(c.env.DB);
+    const authUserId = await getOwnerAuthUserId(db);
+    if (!authUserId) {
+      return c.json(
+        {
+          error: {
+            message:
+              "Operator recovery requires a completed single-user bootstrap.",
+          },
+        },
+        409,
+      );
+    }
+
+    const input = c.req.valid("json");
+    try {
+      const auth = createFlareMoAuth(c.env, db);
+      // Password reset invalidates browser sessions through Better Auth. PATs
+      // are a separate credential class, so revoke every existing Memos PAT
+      // before changing the password as well.
+      for (const token of await listMemosPersonalAccessTokens(db, authUserId)) {
+        if (!token.enabled) continue;
+        await auth.api.updateApiKey({
+          body: {
+            configId: "memos",
+            keyId: token.id,
+            userId: authUserId,
+            enabled: false,
+          },
+        });
+      }
+      await auth.operatorResetPassword({
+        authUserId,
+        newPassword: input.new_password,
+      });
+      console.log(
+        JSON.stringify({
+          level: "info",
+          message: "FlareMo operator password recovery completed",
+        }),
+      );
+      return c.json({ ok: true });
+    } catch {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          message: "FlareMo operator password recovery failed",
+        }),
+      );
+      return c.json(
+        { error: { message: "Operator recovery could not complete." } },
+        500,
+      );
+    }
+  },
+);
 
 async function secretsMatch(
   supplied: string | undefined,

@@ -101,6 +101,33 @@ export async function markOwnerBootstrapRecoveryRequired(
     .where(eq(authBootstrap.id, OWNER_BOOTSTRAP_ID));
 }
 
+/**
+ * Return the already-linked owner identity for a completed single-user
+ * bootstrap. Recovery must target this identity in place; it must never create
+ * another Better Auth user or another domain owner.
+ */
+export async function getOwnerAuthUserId(
+  db: FlareMoDb,
+): Promise<string | null> {
+  const bootstrap = await db.query.authBootstrap.findFirst({
+    where: eq(authBootstrap.id, OWNER_BOOTSTRAP_ID),
+  });
+  if (
+    bootstrap?.state !== "complete" ||
+    !bootstrap.authUserId ||
+    !bootstrap.flaremoUserId
+  ) {
+    return null;
+  }
+
+  const link = await db.query.authUserLinks.findFirst({
+    where: eq(authUserLinks.authUserId, bootstrap.authUserId),
+  });
+  if (!link || link.flaremoUserId !== bootstrap.flaremoUserId) return null;
+
+  return bootstrap.authUserId;
+}
+
 export async function getFlaremoUserByAuthUserId(
   db: FlareMoDb,
   authUserId: string,

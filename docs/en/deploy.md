@@ -32,6 +32,8 @@ pnpm deploy
 
 FlareMo's application authentication is provided by Better Auth. The first deployment uses the one-time `/setup` flow to create the single owner; browsers use an `HttpOnly` cookie session, while scripts, MCP, and Memos-compatible clients use a revocable `memos_pat_` PAT. Cloudflare Access is optional outer policy and never replaces the application session or PAT.
 
+The current release supports username/password login and authenticated password changes. No email provider is configured, so Better Auth's self-service forgot-password email flow remains disabled rather than pretending to work. A completed single-user instance has a separately configured break-glass operator recovery route; it targets the existing owner, revokes sessions and PATs, and must be rotated or removed immediately after use.
+
 The current `/api/v1` wire is the current Memos-style camelCase/protobuf-JSON subset. The legacy snake_case wire is selected explicitly with `X-FlareMo-Wire: legacy`. The current auth facade returns an opaque Better Auth session-backed `accessToken`, not a native Memos JWT. The root `/mcp` is a stateless Streamable HTTP MCP subset; complete Memos Server parity is not promised.
 
 Recommended boundary:

@@ -9,6 +9,7 @@ This runbook is for Codex, Claude Code, Cursor Agent, and other command-capable 
 - Wrangler is logged in to the target Cloudflare account.
 - `wrangler.jsonc` points to the target D1 and R2 resources.
 - Application authentication is handled by Better Auth. Cloudflare Access is optional outer policy and does not replace a FlareMo cookie session or `memos_pat_` PAT.
+- `BETTER_AUTH_SECRET` and `FLAREMO_BOOTSTRAP_SECRET` are configured as Wrangler secrets. `FLAREMO_RECOVERY_SECRET` is optional and must only be configured for an approved break-glass recovery window, then rotated or removed.
 
 ## Do Not
 

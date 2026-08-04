@@ -99,7 +99,7 @@ pnpm exec wrangler secret put BETTER_AUTH_SECRET --config ./wrangler.jsonc
 pnpm exec wrangler secret put FLAREMO_BOOTSTRAP_SECRET --config ./wrangler.jsonc
 ```
 
-`BETTER_AUTH_SECRET` 至少需要 32 个字符。两个 secret 都应由部署者在密码管理器或安全随机数工具中生成，不能写入 `wrangler.jsonc`、`.dev.vars.example`、Git、issue、PR、日志或聊天记录。
+`BETTER_AUTH_SECRET` 至少需要 32 个字符。`BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 应由部署者在密码管理器或安全随机数工具中生成，不能写入 `wrangler.jsonc`、`.dev.vars.example`、Git、issue、PR、日志或聊天记录。`FLAREMO_RECOVERY_SECRET` 是可选的独立 break-glass secret，也至少需要 32 个字符；正常运行时可以不配置，只在明确批准的 operator recovery 窗口临时配置，成功后立即轮换或删除。
 
 Wrangler secret 是写入式配置，部署者应把值保存在自己的密码管理器中；不要尝试通过命令回读、打印或把它传给 Agent。后续只验证 secret 已使 bootstrap status 显示 `setup_available: true`，不验证或输出 secret 本身。
 
@@ -112,7 +112,7 @@ pnpm migrate:remote
 curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
 ```
 
-首次安装应看到 `state: "ready"` 和 `setup_available: true`。如果返回 `recovery_required`，不要重复提交 bootstrap 或手工创建第二个账户；应先按维护流程做有意的 operator recovery。
+首次安装应看到 `state: "ready"` 和 `setup_available: true`。如果返回 `recovery_required`，不要重复提交 bootstrap 或手工创建第二个账户；这表示身份创建和 domain owner 映射之间发生了部分失败，需要先按维护流程处理 bootstrap recovery。
 
 ### 5. 一次性创建 owner（生产主路径：`/setup` 页面）
 
@@ -133,6 +133,31 @@ curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
 - `/api/auth/update-user`：修改用户名等 Better Auth 用户资料。
 - `/api/auth/change-password`：修改密码；密码修改时可以撤销其他 session。
 - `/api/app/account/personal-access-tokens`：在 cookie session 下创建、列出和撤销 `memos_pat_` PAT。
+
+当前没有配置邮件 provider，因此 Better Auth 的普通 `request-password-reset` 邮件流程保持关闭；账户页提供的是“知道当前密码时修改密码”。如需忘记密码自助找回，应先接入真实 transactional email provider，再配置 Better Auth 的 `sendResetPassword` 和 reset 页面，不要把一个假的成功提示当作恢复能力。
+
+### Break-glass operator recovery
+
+没有邮件 provider 时，已完成 bootstrap 的单用户实例可以使用单独的 `FLAREMO_RECOVERY_SECRET` 做受限恢复。这个入口只重置现有 owner，不创建用户、不重建 `auth_user_links`，并通过 Better Auth 的 reset-password 流程完成密码校验、哈希、一次性 verification 消费和 session 撤销；现有 `memos_pat_` 也会全部撤销。它是运维破窗能力，不是普通用户的忘记密码功能。
+
+安全边界：
+
+- secret 只通过 Wrangler secret 或 Cloudflare 控制台输入，不能进入 URL、请求体、代码、Git、日志或聊天；
+- 请求必须是 HTTPS `POST`，并带 canonical `Origin`；
+- 新密码只通过 HTTPS 请求体传输，不能放进 shell history、命令参数或日志；
+- recovery 成功后立即删除或轮换 `FLAREMO_RECOVERY_SECRET`，并让客户端重新创建 PAT；
+- Access headers 只可作为外层门禁，不能单独调用该入口，也不能替代 Better Auth 身份。
+
+恢复入口是：
+
+```text
+POST /api/auth/flaremo/recover
+X-FlareMo-Recovery-Secret: <operator secret>
+Origin: https://<your-flaremo-origin>
+{"new_password":"<new password>"}
+```
+
+不要把上面的占位符替换后写进公开文档、issue、日志或聊天。完成恢复后检查 `bootstrap/status` 仍为 `complete`，用新密码登录，再重新创建 PAT；旧 session 和旧 PAT 预期全部失效。
 
 PAT 明文只在创建响应中返回一次；list 和 revoke 响应不会返回明文或 hash。把 PAT 放入密码管理器，之后只通过环境变量或安全的客户端配置使用：
 

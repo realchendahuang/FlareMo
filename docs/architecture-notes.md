@@ -155,7 +155,9 @@ Better Auth 是 FlareMo 的应用层认证事实源，按请求使用当前 Work
 
 首次安装只允许通过 `FLAREMO_BOOTSTRAP_SECRET` 保护的一次性 owner bootstrap 创建账号；正常 Better Auth signup 被关闭。bootstrap 成功后，Better Auth 用户通过 `auth_user_links` 映射到既有的 `users/owner`，不重写 memo、attachment、R2 object key 或 share token。未来多用户可以增加更多映射对，但不需要改变现有资源 ID。
 
-PAT 由 cookie session 下的账户接口创建、列出和撤销，明文只在创建响应返回一次；PAT 不模拟浏览器 session，也不能调用账户 PAT 管理接口。`memos_pat_` 是 FlareMo-native credential，用于保护当前兼容 API 子集，不代表 Memos Server 的完整 auth parity。
+PAT 由 cookie session 或 Better Auth session bearer 下的账户接口创建、列出和撤销，明文只在创建响应返回一次；`memos_pat_` 本身只能访问私有业务数据，不能调用账户 PAT 管理接口。`memos_pat_` 是 FlareMo-native credential，用于保护当前兼容 API 子集，不代表 Memos Server 的完整 auth parity。
+
+当前没有 email provider，因此 Better Auth 的自助忘记密码流程保持关闭。已完成 bootstrap 的单用户实例可以临时配置独立 `FLAREMO_RECOVERY_SECRET`，只针对已存在的 owner 进入 Better Auth reset-password 流程；成功时撤销全部 session 和 PAT，不创建第二个用户。该 secret 不是登录凭据，恢复结束后必须立即轮换或删除。
 
 Cloudflare Access 可以在这三层之前作为外层 policy。它只负责入口门禁，Access identity 或 Service Token 不会自动提供 FlareMo 应用用户身份；启用时请求仍需 cookie session 或 PAT。公开分享可在 Access 上对最窄路径做 bypass，但不跳过 FlareMo share token 校验。
 

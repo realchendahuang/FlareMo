@@ -22,7 +22,7 @@ Better Auth 是应用层认证事实源，Cloudflare Access 只能作为可选�
 | Web / Better Auth | 用户名 + 密码，登录后使用 `HttpOnly` cookie session | 当前是一套单用户 bootstrap；公共 signup 关闭，数据模型保留未来用户映射边界。 |
 | current auth facade | `POST /api/v1/auth/signin`、`refresh`、`signout`，以及 `GET /api/v1/auth/me` | 由 Better Auth session/account 数据驱动；`accessToken` 是 opaque session-backed token，不是 Memos 原生 JWT。 |
 | `/api/v1/*` 私有 API | cookie session，或 `Authorization: Bearer memos_pat_...` | PAT 由已登录账户创建、只在创建时显示一次、可撤销，并由 Better Auth API key/plugin 数据承载。 |
-| current PAT 资源 | `/api/v1/users/{user}/personalAccessTokens` | 提供当前用户的 list/create/revoke 基础；不是 Memos 原生 JWT/refresh-token parity。 |
+| current PAT 资源 | `/api/v1/users/{user}/personalAccessTokens` | 提供当前用户的 list/create/revoke 基础；要求 cookie session 或 Better Auth session bearer，`memos_pat_` 本身不能管理 PAT；不是 Memos 原生 JWT/refresh-token parity。 |
 | root `/mcp` | cookie session、Better Auth session bearer，或 `memos_pat_` PAT | Streamable HTTP 是无状态 JSON 响应子集，不创建 MCP session。 |
 | Origin policy | cookie session 状态变更必须携带并精确匹配 `FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS`；PAT 可无 Origin，带 Origin 时同样必须匹配 | 缺失或不可信 Origin 返回 `403`；Access headers 不替代应用层 Origin。 |
 | Cloudflare Access | 可选外层 policy / Service Auth | Access 只解决外层网络门禁；启用时仍要提供上面的 cookie、session bearer 或 PAT。 |

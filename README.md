@@ -150,6 +150,7 @@ FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署�
 - PAT 只在创建响应中显示一次，可以列出元数据并撤销；PAT 不能进入账户管理接口。
 - cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须带 `Origin`，并精确匹配 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`，否则返回 `403`；PAT 请求可以无 Origin，但如果携带 Origin 也必须匹配同一 allowlist，否则返回 `403`。不使用 wildcard、`Referer` 或 Access headers 替代 Origin。
 - Cloudflare Access 是可选外层。启用时，Access Service Token 只通过外层 policy，仍必须同时提供 Better Auth cookie 或 PAT。
+- 当前没有邮件 provider，因此 Better Auth 的忘记密码邮件流程默认关闭；已知当前密码时可在账户页修改。已完成 bootstrap 的实例只在显式配置独立 recovery secret 时提供 operator break-glass recovery，成功后会撤销现有 session/PAT，不能把它当作普通用户自助找回。
 - 公开分享仍使用 FlareMo share token、过期时间和 memo 状态校验，不把公开分享混入私有登录。
 
 生产部署前在 `wrangler.jsonc` 填入不带 path/query/hash 的 `FLAREMO_PUBLIC_URL`，并交互式配置 secrets：

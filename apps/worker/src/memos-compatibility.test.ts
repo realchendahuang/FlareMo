@@ -503,11 +503,30 @@ describe("Memos-compatible API contract", () => {
       info: { title: "FlareMo Memos-compatible API" },
     });
 
-    const signInResponse = await fetchCurrent(
+    const missingOriginSignIn = await fetchCurrent(
       "http://flaremo.test/api/v1/auth/signin",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          passwordCredentials: {
+            username: "owner",
+            password: TEST_PASSWORD,
+          },
+        }),
+      },
+      { authenticated: false },
+    );
+    expect(missingOriginSignIn.status).toBe(403);
+
+    const signInResponse = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/signin",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
         body: JSON.stringify({
           passwordCredentials: {
             username: "owner",
@@ -738,9 +757,29 @@ describe("Memos-compatible API contract", () => {
     );
     expect(pat.token).toMatch(/^memos_pat_/);
 
+    const invalidPatSignout = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/signout",
+      {
+        method: "POST",
+        headers: { authorization: "Bearer memos_pat_not-a-real-key" },
+      },
+      { authenticated: false },
+    );
+    expect(invalidPatSignout.status).toBe(401);
+
+    const validPatSignout = await fetchCurrent(
+      "http://flaremo.test/api/v1/auth/signout",
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${pat.token}` },
+      },
+      { authenticated: false },
+    );
+    expect(validPatSignout.status).toBe(200);
+
     const patList = await fetchCurrent(
       "http://flaremo.test/api/v1/users/owner/personalAccessTokens",
-      { headers: { authorization: `Bearer ${pat.token}` } },
+      { headers: bearer },
     );
     expect(patList.status).toBe(200);
     expect(await patList.json()).toMatchObject({
@@ -750,6 +789,13 @@ describe("Memos-compatible API contract", () => {
         }),
       ],
     });
+
+    const patManagementWithPat = await fetchCurrent(
+      "http://flaremo.test/api/v1/users/owner/personalAccessTokens",
+      { headers: { authorization: `Bearer ${pat.token}` } },
+      { authenticated: false },
+    );
+    expect(patManagementWithPat.status).toBe(401);
 
     const mcpHeaders = {
       authorization: `Bearer ${pat.token}`,
@@ -883,6 +929,7 @@ async function bootstrapAndSignIn() {
       headers: {
         "content-type": "application/json",
         "x-flaremo-bootstrap-secret": TEST_BOOTSTRAP_SECRET,
+        origin: "http://flaremo.test",
       },
       body: JSON.stringify({
         username: "owner",
@@ -898,7 +945,10 @@ async function bootstrapAndSignIn() {
   const signIn = await app.fetch(
     new Request("http://flaremo.test/api/auth/sign-in/username", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+      },
       body: JSON.stringify({
         username: "owner",
         password: TEST_PASSWORD,

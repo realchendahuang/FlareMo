@@ -4,7 +4,12 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## Unreleased
 
-后续变更将在下一次 release 汇总。
+### 鉴权安全收口
+
+- Better Auth 的危险 cookie 请求（包括直接 Better Auth endpoint、bootstrap/recovery 和 current Memos signin/refresh）统一要求携带并精确匹配 trusted Origin；缺失或不可信 Origin 返回 `403`。
+- 增加独立、默认关闭的 `FLAREMO_RECOVERY_SECRET` operator recovery：只重置已完成 bootstrap 的既有 owner，复用 Better Auth 的一次性 reset/password hashing/session 撤销流程，并撤销所有 `memos_pat_`；不创建第二个 owner。
+- current Memos facade 的 PAT signout 现在会验证 PAT，随机/无效 PAT 不再得到假成功响应；Access headers 仍不能单独成为应用身份。
+- 明确记录当前没有 email provider，Better Auth 忘记密码邮件流程保持关闭；恢复能力与普通“知道当前密码时修改密码”不再混淆。
 
 ## v0.4.0
 

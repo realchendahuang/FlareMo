@@ -56,7 +56,10 @@ export async function createInitialAuthState(): Promise<void> {
     const bootstrapResponse = await context.post(
       "/api/auth/flaremo/bootstrap",
       {
-        headers: { "x-flaremo-bootstrap-secret": E2E_BOOTSTRAP_SECRET },
+        headers: {
+          "x-flaremo-bootstrap-secret": E2E_BOOTSTRAP_SECRET,
+          origin: E2E_BASE_URL,
+        },
         data: E2E_BOOTSTRAP_INPUT,
       },
     );

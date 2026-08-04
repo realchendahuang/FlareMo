@@ -34,7 +34,10 @@ test("bootstraps one owner and signs in with username/password", async () => {
     const secondBootstrap = await anonymous.post(
       "/api/auth/flaremo/bootstrap",
       {
-        headers: { "x-flaremo-bootstrap-secret": E2E_BOOTSTRAP_SECRET },
+        headers: {
+          "x-flaremo-bootstrap-secret": E2E_BOOTSTRAP_SECRET,
+          origin: E2E_BASE_URL,
+        },
         data: {
           ...E2E_BOOTSTRAP_INPUT,
           username: "another_e2e_owner",

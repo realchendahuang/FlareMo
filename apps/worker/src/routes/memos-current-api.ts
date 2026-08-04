@@ -42,7 +42,11 @@ import {
   MAX_ATTACHMENT_BYTES,
 } from "../attachment-http";
 import { createFlareMoAuth } from "../auth";
-import { getRequestContext, type HonoBindings } from "../context";
+import {
+  assertTrustedCookieMutation,
+  getRequestContext,
+  type HonoBindings,
+} from "../context";
 
 export const memosCurrentApi = new Hono<HonoBindings>();
 
@@ -156,6 +160,10 @@ memosCurrentApi.get("/auth/me", async (c, next) => {
 memosCurrentApi.post("/auth/signin", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
+    // This endpoint creates a browser cookie as well as returning the opaque
+    // session-backed access token. Treat it as a cookie mutation even when a
+    // Memos-compatible client chooses to use the bearer token afterward.
+    assertTrustedCookieMutation(c);
     const credentials = currentSigninSchema.parse(
       await c.req.json(),
     ).passwordCredentials;
@@ -219,6 +227,7 @@ memosCurrentApi.post("/auth/refresh", async (c, next) => {
       });
     }
 
+    if (!authorization) assertTrustedCookieMutation(c);
     const authContext = await createAuthContext(c);
     const result = await authContext.auth.api.getSession({
       headers: c.req.raw.headers,
@@ -240,10 +249,14 @@ memosCurrentApi.post("/auth/signout", async (c, next) => {
     const authorization = c.req.header("authorization");
     if (authorization) {
       const token = parseBearerToken(authorization);
-      if (!token.startsWith("memos_pat_")) {
-        const context = await getRequestContext(c);
-        await revokeAuthSessionByToken(context.db, token);
+      if (token.startsWith("memos_pat_")) {
+        // A PAT does not have a browser session to clear, but it still must be
+        // valid. Do not return success for arbitrary bearer strings.
+        await getRequestContext(c);
+        return c.body(null, 200);
       }
+      const context = await getRequestContext(c);
+      await revokeAuthSessionByToken(context.db, token);
       return c.body(null, 200);
     }
 
@@ -688,6 +701,7 @@ memosCurrentApi.get("/users/:user/personalAccessTokens", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
     const context = await getRequestContext(c);
+    assertSessionCredential(context);
     assertCurrentUserPath(c.req.param("user"), context.user.id);
     const tokens = await listMemosPersonalAccessTokens(
       context.db,
@@ -707,6 +721,7 @@ memosCurrentApi.post("/users/:user/personalAccessTokens", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
     const context = await getRequestContext(c);
+    assertSessionCredential(context);
     assertCurrentUserPath(c.req.param("user"), context.user.id);
     const body = currentPatBodySchema.parse(await c.req.json());
     const auth = createFlareMoAuth(c.env, context.db);
@@ -736,6 +751,7 @@ memosCurrentApi.delete(
     if (isLegacyWireRequest(c)) return next();
     try {
       const context = await getRequestContext(c);
+      assertSessionCredential(context);
       assertCurrentUserPath(c.req.param("user"), context.user.id);
       const tokenId = c.req.param("token").split("/").at(-1) ?? "";
       const existing = await getMemosPersonalAccessToken(context.db, {
@@ -823,6 +839,15 @@ async function currentUserForContext(context: {
 async function createAuthContext(c: Parameters<typeof getRequestContext>[0]) {
   const db = createDb(c.env.DB);
   return { db, auth: createFlareMoAuth(c.env, db) };
+}
+
+function assertSessionCredential(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+) {
+  // PATs authorize memo data, but a credential-management endpoint must not
+  // let a leaked PAT mint or revoke additional PATs. Cookie sessions and the
+  // opaque Better Auth session bearer returned by the auth facade are allowed.
+  if (context.credential === "pat") throw new UnauthorizedCurrentError();
 }
 
 function currentListQuery(c: Parameters<typeof getRequestContext>[0]) {
