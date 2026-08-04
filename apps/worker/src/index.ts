@@ -102,12 +102,16 @@ app.get("/openapi.json", (c) =>
   ),
 );
 app.get("/api/v1/openapi.json", async (c) => {
-  await getRequestContext(c);
-  return c.json(
-    isLegacyWireRequest(c)
-      ? createOpenApiDocument()
-      : createCurrentOpenApiDocument(),
-  );
+  try {
+    await getRequestContext(c);
+    return c.json(
+      isLegacyWireRequest(c)
+        ? createOpenApiDocument()
+        : createCurrentOpenApiDocument(),
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
 });
 
 app.notFound((c) => {

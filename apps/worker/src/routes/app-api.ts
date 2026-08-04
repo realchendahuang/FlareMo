@@ -30,19 +30,25 @@ const FLAREMO_UPDATE_GUIDE_URL =
   "https://github.com/realchendahuang/FlareMo/blob/main/docs/update.md";
 
 appApi.get("/health", async (c) => {
-  await getRequestContext(c);
-  const repository = normalizeGitHubRepository(c.env.FLAREMO_DEPLOY_REPOSITORY);
-  return c.json({
-    ok: true,
-    product: "FlareMo",
-    version: FLAREMO_API_VERSION,
-    update_repository: repository,
-    update_workflow_url: repository
-      ? `https://github.com/${repository}/actions/workflows/flaremo-update.yml`
-      : null,
-    releases_url: FLAREMO_RELEASES_URL,
-    update_guide_url: FLAREMO_UPDATE_GUIDE_URL,
-  });
+  try {
+    await getRequestContext(c);
+    const repository = normalizeGitHubRepository(
+      c.env.FLAREMO_DEPLOY_REPOSITORY,
+    );
+    return c.json({
+      ok: true,
+      product: "FlareMo",
+      version: FLAREMO_API_VERSION,
+      update_repository: repository,
+      update_workflow_url: repository
+        ? `https://github.com/${repository}/actions/workflows/flaremo-update.yml`
+        : null,
+      releases_url: FLAREMO_RELEASES_URL,
+      update_guide_url: FLAREMO_UPDATE_GUIDE_URL,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
 });
 
 appApi.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {

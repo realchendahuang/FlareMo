@@ -393,6 +393,30 @@ describe("FlareMo Worker API", () => {
     });
   });
 
+  it("returns JSON authentication errors for protected metadata endpoints", async () => {
+    const health = await fetchApp(
+      "http://flaremo.test/api/app/health",
+      undefined,
+      { authenticated: false },
+    );
+    expect(health.status).toBe(401);
+    expect(health.headers.get("content-type")).toContain("application/json");
+    expect(await health.json()).toEqual({
+      error: { message: "Authentication required" },
+    });
+
+    const openapi = await fetchApp(
+      "http://flaremo.test/api/v1/openapi.json",
+      undefined,
+      { authenticated: false },
+    );
+    expect(openapi.status).toBe(401);
+    expect(openapi.headers.get("content-type")).toContain("application/json");
+    expect(await openapi.json()).toEqual({
+      error: { message: "Authentication required" },
+    });
+  });
+
   it("paginates memos with page tokens", async () => {
     await createMemo("page first");
     await new Promise((resolve) => setTimeout(resolve, 2));
