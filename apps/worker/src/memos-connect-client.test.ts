@@ -5,10 +5,15 @@ import {
   createConnectTransport,
   createGrpcWebTransport,
 } from "@connectrpc/connect-web";
+import { createDb, memosNotifications } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
 import { MemoService } from "./memos-generated/api/v1/memo_service_pb";
+import {
+  UserNotification_Status,
+  UserService,
+} from "./memos-generated/api/v1/user_service_pb";
 
 let runtime: Miniflare;
 let env: Env;
@@ -69,6 +74,76 @@ describe("official generated Connect clients", () => {
       name: created.name,
       content: "official Connect client memo",
     });
+
+    const userClient = createClient(
+      UserService,
+      createConnectTransport({
+        baseUrl: "http://flaremo.test",
+        fetch: fetchWithAuth,
+        useBinaryFormat: true,
+      }),
+    );
+    const grpcWebUserClient = createClient(
+      UserService,
+      createGrpcWebTransport({
+        baseUrl: "http://flaremo.test",
+        fetch: fetchWithAuth,
+        useBinaryFormat: true,
+      }),
+    );
+
+    const webhook = await userClient.createUserWebhook({
+      parent: "users/owner",
+      webhook: {
+        url: "https://example.com/official-connect-hook",
+        displayName: "Official client hook",
+      },
+    });
+    expect(webhook).toMatchObject({
+      name: expect.stringMatching(/^users\/owner\/webhooks\//),
+      signingSecretSet: true,
+      signingSecret: "",
+    });
+    const grpcWebWebhooks = await grpcWebUserClient.listUserWebhooks({
+      parent: "users/owner",
+    });
+    expect(grpcWebWebhooks.webhooks).toHaveLength(1);
+
+    const now = new Date().toISOString();
+    await createDb(env.DB).insert(memosNotifications).values({
+      receiverId: "users/owner",
+      senderId: "users/owner",
+      type: "memo_mention",
+      status: "unread",
+      sourceEventId: "official-client-notification",
+      memoId: created.name,
+      relatedMemoId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const notifications = await userClient.listUserNotifications({
+      parent: "users/owner",
+      pageSize: 10,
+    });
+    expect(notifications.notifications).toHaveLength(1);
+    expect(notifications.notifications[0]?.payload.case).toBe("memoMention");
+    expect(notifications.notifications[0]?.senderUser?.name).toBe(
+      "users/owner",
+    );
+
+    const archived = await grpcWebUserClient.updateUserNotification({
+      notification: {
+        name: notifications.notifications[0]?.name ?? "",
+        status: UserNotification_Status.ARCHIVED,
+      },
+      updateMask: { paths: ["status"] },
+    });
+    expect(archived.status).toBe(UserNotification_Status.ARCHIVED);
+
+    const secret = await userClient.getUserWebhookSigningSecret({
+      name: webhook.name,
+    });
+    expect(secret.signingSecret).toMatch(/^whsec_/);
   });
 });
 
@@ -93,6 +168,8 @@ async function createTestRuntime() {
     "0005_confused_masque.sql",
     "0006_silent_kylun.sql",
     "0007_flat_phil_sheldon.sql",
+    "0008_legal_scarecrow.sql",
+    "0009_neat_iron_fist.sql",
   ]) {
     const sql = await readFile(
       resolve(import.meta.dirname, `../../../migrations/${filename}`),

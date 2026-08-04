@@ -1399,9 +1399,34 @@ function decodeNotification(reader: ProtoReader): ProtoMessage {
       notification.createTime = decodeTimestamp(reader.message(wire));
     else if (field === 5)
       notification.type = notificationTypeName(reader.int32(wire));
+    else if (field === 6)
+      notification.payload = {
+        case: "memoComment",
+        value: decodeNotificationPayload(reader.message(wire)),
+      };
+    else if (field === 7)
+      notification.payload = {
+        case: "memoMention",
+        value: decodeNotificationPayload(reader.message(wire)),
+      };
+    else if (field === 8)
+      notification.senderUser = decodeUser(reader.message(wire));
     else reader.skip(wire);
   }
   return notification;
+}
+
+function decodeNotificationPayload(reader: ProtoReader): ProtoMessage {
+  const payload: ProtoMessage = {};
+  while (!reader.done) {
+    const [field, wire] = reader.tag();
+    if (field === 1) payload.memo = reader.string(wire);
+    else if (field === 2) payload.relatedMemo = reader.string(wire);
+    else if (field === 3) payload.memoSnippet = reader.string(wire);
+    else if (field === 4) payload.relatedMemoSnippet = reader.string(wire);
+    else reader.skip(wire);
+  }
+  return payload;
 }
 
 function decodeInstanceSetting(reader: ProtoReader): ProtoMessage {
@@ -1937,13 +1962,36 @@ function encodeWebhook(value: unknown) {
 
 function encodeNotification(value: unknown) {
   const notification = asRecord(value);
-  return new ProtoWriter()
+  const writer = new ProtoWriter()
     .string(1, stringValue(notification.name))
     .string(2, stringValue(notification.sender))
     .int32(3, notificationStatusValue(notification.status))
     .message(4, encodeTimestamp(notification.createTime))
-    .int32(5, notificationTypeValue(notification.type))
-    .message(8, encodeUser(notification.senderUser))
+    .int32(5, notificationTypeValue(notification.type));
+  const payload = asRecord(notification.payload);
+  const oneof =
+    payload.case === "memoComment" || payload.case === "memoMention"
+      ? payload
+      : Object.hasOwn(notification, "memoComment")
+        ? { case: "memoComment", value: notification.memoComment }
+        : Object.hasOwn(notification, "memoMention")
+          ? { case: "memoMention", value: notification.memoMention }
+          : payload;
+  if (oneof.case === "memoComment") {
+    writer.message(6, encodeNotificationPayload(oneof.value));
+  } else if (oneof.case === "memoMention") {
+    writer.message(7, encodeNotificationPayload(oneof.value));
+  }
+  return writer.message(8, encodeUser(notification.senderUser)).finish();
+}
+
+function encodeNotificationPayload(value: unknown) {
+  const payload = asRecord(value);
+  return new ProtoWriter()
+    .string(1, stringValue(payload.memo))
+    .string(2, stringValue(payload.relatedMemo))
+    .string(3, stringValue(payload.memoSnippet))
+    .string(4, stringValue(payload.relatedMemoSnippet))
     .finish();
 }
 

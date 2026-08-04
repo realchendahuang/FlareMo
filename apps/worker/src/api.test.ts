@@ -95,6 +95,20 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const userServiceParity = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0008_legal_scarecrow.sql",
+      ),
+      "utf8",
+    );
+    const webhookOutbox = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0009_neat_iron_fist.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
@@ -102,6 +116,8 @@ describe("FlareMo Worker API", () => {
     await applyMigration(db, offlineAttachments);
     await applyMigration(db, nativeAuth);
     await applyMigration(db, sseEvents);
+    await applyMigration(db, userServiceParity);
+    await applyMigration(db, webhookOutbox);
     sessionCookie = await bootstrapAndSignIn();
   });
 

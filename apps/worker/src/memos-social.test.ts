@@ -1,6 +1,14 @@
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createDb, memosSseEvents } from "@flaremo/db";
+import {
+  authUserLinks,
+  authUsers,
+  createDb,
+  memosNotifications,
+  memosSseEvents,
+  users,
+} from "@flaremo/db";
+import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
@@ -159,6 +167,137 @@ describe("Memos social REST compatibility", () => {
 
     const empty = await json(await fetchSocial(reactionPath));
     expect(empty.reactions).toEqual([]);
+  });
+
+  it("creates one mention notification and suppresses private memo leakage", async () => {
+    const db = createDb(env.DB);
+    const now = new Date();
+    await db.insert(users).values({
+      id: "users/alice",
+      email: "alice@example.com",
+      name: "Alice",
+      avatarUrl: null,
+      role: "member",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
+    await db.insert(authUsers).values({
+      id: "auth-alice",
+      name: "Alice",
+      email: "alice@example.com",
+      emailVerified: false,
+      image: null,
+      username: "alice",
+      displayUsername: "alice",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(authUserLinks).values({
+      authUserId: "auth-alice",
+      flaremoUserId: "users/alice",
+      createdAt: now,
+    });
+
+    const publicParent = await json(
+      await fetchSocial("http://flaremo.test/api/v1/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "public mention parent",
+          visibility: "public",
+        }),
+      }),
+    );
+    const publicComment = await json(
+      await fetchSocial(
+        `http://flaremo.test/api/v1/${publicParent.name}/comments`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content: "hello @alice @alice" }),
+        },
+      ),
+    );
+    const afterPublic = await db
+      .select()
+      .from(memosNotifications)
+      .where(eq(memosNotifications.receiverId, "users/alice"))
+      .all();
+    expect(afterPublic).toHaveLength(1);
+    expect(afterPublic[0]).toMatchObject({
+      senderId: "users/owner",
+      receiverId: "users/alice",
+      type: "memo_mention",
+      sourceEventId: publicComment.name,
+      memoId: publicComment.name,
+      relatedMemoId: publicParent.name,
+    });
+
+    const mentionedMemo = await json(
+      await fetchSocial("http://flaremo.test/api/v1/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "memo mention @alice",
+          visibility: "public",
+        }),
+      }),
+    );
+    const afterMemoCreate = await db
+      .select()
+      .from(memosNotifications)
+      .where(eq(memosNotifications.receiverId, "users/alice"))
+      .all();
+    expect(afterMemoCreate).toHaveLength(2);
+    expect(
+      afterMemoCreate.find((row) => row.memoId === mentionedMemo.name),
+    ).toMatchObject({
+      type: "memo_mention",
+      relatedMemoId: null,
+    });
+
+    const removedResponse = await fetchSocial(
+      `http://flaremo.test/api/v1/${mentionedMemo.name}?updateMask=content`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: "memo mention removed" }),
+      },
+    );
+    expect(removedResponse.status).toBe(200);
+    const reMentionedResponse = await fetchSocial(
+      `http://flaremo.test/api/v1/${mentionedMemo.name}?updateMask=content`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: "memo mention again @alice" }),
+      },
+    );
+    expect(reMentionedResponse.status).toBe(200);
+    const afterReMention = await db
+      .select()
+      .from(memosNotifications)
+      .where(eq(memosNotifications.receiverId, "users/alice"))
+      .all();
+    expect(
+      afterReMention.filter((row) => row.memoId === mentionedMemo.name),
+    ).toHaveLength(2);
+
+    const privateParent = await createMemo("private mention parent");
+    await fetchSocial(
+      `http://flaremo.test/api/v1/${privateParent.name}/comments`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: "private hello @alice" }),
+      },
+    );
+    const afterPrivate = await db
+      .select()
+      .from(memosNotifications)
+      .where(eq(memosNotifications.receiverId, "users/alice"))
+      .all();
+    expect(afterPrivate).toHaveLength(afterReMention.length);
   });
 
   it("supports shortcut validateOnly, updateMask, and lifecycle operations", async () => {

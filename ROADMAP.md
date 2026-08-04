@@ -6,7 +6,7 @@
 
 - 快速记录：打开即写、低干扰输入、可靠草稿。
 - 安静时间线：搜索、标签、归档、回收站、活动热力图。
-- Memos 兼容：核心 `/api/v1` 子集稳定，导入导出可靠。
+- Memos 兼容：核心 `/api/v1` 子集稳定，当前包含有限 social、UserService webhook/notification 资源生命周期，以及四类 memo 事件的有界异步 webhook outbox 投递/重试；完整 Memos Server parity、完整上游 webhook 事件语义和完整多用户 ACL 仍未完成。导入导出保持可靠。
 - Cloudflare 原生部署：一键部署、D1/R2 自动 provision、Access 保护、可审查的升级 PR、Agent runbook。
 - 个人知识管理：引用关系、附件、公开分享、语义检索和 AI 工作流。
 

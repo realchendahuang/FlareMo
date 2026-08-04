@@ -103,7 +103,7 @@ curl "$FLAREMO_URL/api/v1/memos" \
 
 公开分享路径要单独验证 bypass policy，但分享内容仍必须由 FlareMo share token 控制。Access Service Token alone 不能访问私有 API。
 
-旧的 `/api/v1/mcp` 是 FlareMo 现有 JSON-RPC 子集；根 `/mcp` 现在提供 current Memos 风格的无状态 JSON Streamable HTTP MCP 子集。Agent 不得在发布记录中宣称已经完整兼容：完整 CEL、Connect/gRPC、SSE、comments/reactions/shortcuts，以及第三方客户端真实 smoke test 仍未完成。
+旧的 `/api/v1/mcp` 是 FlareMo 现有 JSON-RPC 子集；根 `/mcp` 现在提供 current Memos 风格的无状态 JSON Streamable HTTP MCP 子集。Agent 不得在发布记录中宣称已经完整兼容：完整 CEL、Connect/gRPC、SSE、comments/reactions/shortcuts 的完整上游 parity、完整上游 webhook 事件/egress 语义、完整 notification filter/多用户 ACL，以及第三方客户端真实 smoke test 仍未完成；有限 social、UserService webhook/notification 资源和四类 memo 事件的有界 outbox 投递/重试已经有本地 contract 覆盖。
 
 ## 常见失败
 

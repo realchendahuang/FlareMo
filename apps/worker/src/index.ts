@@ -4,6 +4,7 @@ import {
 } from "@flaremo/contracts";
 import { createDb } from "@flaremo/db";
 import {
+  dispatchMemosWebhookOutbox,
   finalizeAttachmentCleanup,
   listAttachmentCleanupCandidates,
 } from "@flaremo/domain";
@@ -157,9 +158,15 @@ app.notFound((c) => {
 });
 
 const handler = {
-  fetch: (request: Request, env: FlareMoEnv, ctx: ExecutionContext) =>
-    app.fetch(request, env, ctx),
+  async fetch(request: Request, env: FlareMoEnv, ctx?: ExecutionContext) {
+    const response = await app.fetch(request, env, ctx);
+    ctx?.waitUntil(
+      dispatchMemosWebhookOutbox(createDb(env.DB)).catch(() => undefined),
+    );
+    return response;
+  },
   async scheduled(controller: ScheduledController, env: FlareMoEnv) {
+    await dispatchMemosWebhookOutbox(createDb(env.DB));
     const db = createDb(env.DB);
     const cutoff = new Date(
       controller.scheduledTime - 24 * 60 * 60 * 1_000,

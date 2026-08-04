@@ -90,7 +90,7 @@ Cloudflare Access 可以作为额外的外层防线，但 Access 身份或 Acces
 | PAT/Bearer 携带 Origin | 必须精确匹配同一 allowlist | 不匹配返回 `403` |
 | Cloudflare Access headers | 只属于可选外层 policy | 不能替代 cookie session、PAT 或 Origin 校验 |
 
-这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全模型保持同一方向。当前 `/api/v1` 默认使用 current camelCase wire，并已提供 Better Auth-backed identity、Memos 风格 HS256 access JWT、轮换的 `memos_refresh` HttpOnly cookie、PAT/social 资源、Connect JSON unary subset、heartbeat SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；这些能力仍不是完整 Memos Server parity，也不代表 protobuf/gRPC 或第三方客户端已验证。
+这与 [Memos 0.30 MCP 文档](https://usememos.com/docs/integrations/mcp) 的 browser-origin 安全模型保持同一方向。当前 `/api/v1` 默认使用 current camelCase wire，并已提供 Better Auth-backed identity、Memos 风格 HS256 access JWT、轮换的 `memos_refresh` HttpOnly cookie、PAT/social 资源、UserService webhook/notification 资源子集、四类 memo 事件的 D1 outbox 投递/重试、Connect JSON/protobuf/gRPC-Web unary subset、heartbeat SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集；完整上游 webhook 事件/egress 语义、完整 notification filter/多用户 ACL、完整 Memos Server parity、原生 protobuf/gRPC 和第三方客户端仍未全部验证或完成。
 
 ### 3. 配置 Worker secrets
 
