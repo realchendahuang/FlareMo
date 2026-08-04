@@ -1,12 +1,45 @@
 /**
- * Small, dependency-free protobuf codec for the stable unary Memos surface.
+ * Memos protobuf transport codec.
  *
- * The Worker does not ship protoc or a Node runtime. Keeping this codec local
- * avoids a generated-runtime dependency while still implementing the wire
- * rules that Connect protobuf, gRPC, and gRPC-Web share. The message field
- * numbers mirror the checked-in upstream Memos proto snapshot; unsupported
- * fields are skipped safely so clients can send newer optional fields.
+ * The message descriptors are generated from the pinned upstream Memos proto
+ * snapshot in memos-generated/. The small hand-written codec below remains as
+ * a compatibility fallback for FlareMo's historical GetSharedMemo alias and
+ * for error/status framing; normal upstream request/response messages go
+ * through the generated descriptor runtime so oneof, timestamps, enums,
+ * repeated fields, and optional fields follow the upstream schema.
  */
+
+import type { DescMessage, JsonValue } from "@bufbuild/protobuf";
+import { fromBinary, fromJson, toBinary, toJson } from "@bufbuild/protobuf";
+import { AIService } from "./memos-generated/api/v1/ai_service_pb";
+import { AttachmentService } from "./memos-generated/api/v1/attachment_service_pb";
+import { AuthService } from "./memos-generated/api/v1/auth_service_pb";
+import { IdentityProviderService } from "./memos-generated/api/v1/idp_service_pb";
+import { InstanceService } from "./memos-generated/api/v1/instance_service_pb";
+import { MemoService } from "./memos-generated/api/v1/memo_service_pb";
+import { ShortcutService } from "./memos-generated/api/v1/shortcut_service_pb";
+import { UserService } from "./memos-generated/api/v1/user_service_pb";
+
+type GeneratedUnaryMethod = {
+  input: DescMessage;
+  output: DescMessage;
+  methodKind: string;
+};
+
+type GeneratedService = {
+  method: Record<string, GeneratedUnaryMethod>;
+};
+
+const generatedServices: Record<string, GeneratedService> = {
+  "memos.api.v1.AIService": AIService,
+  "memos.api.v1.AttachmentService": AttachmentService,
+  "memos.api.v1.AuthService": AuthService,
+  "memos.api.v1.IdentityProviderService": IdentityProviderService,
+  "memos.api.v1.InstanceService": InstanceService,
+  "memos.api.v1.MemoService": MemoService,
+  "memos.api.v1.ShortcutService": ShortcutService,
+  "memos.api.v1.UserService": UserService,
+};
 
 export type ProtoMessage = Record<string, unknown>;
 
@@ -15,6 +48,40 @@ export type BinaryTransport =
   | "grpc-proto"
   | "grpc-web-proto"
   | "grpc-web-text-proto";
+
+/**
+ * Normalize a handler response to the canonical protobuf-JSON shape.
+ *
+ * The domain handlers keep the historical oneof representation
+ * (`{ case, value }`) internally. The generated runtime and upstream Memos
+ * clients use the protobuf-JSON representation (`{ generalSetting: {...} }`).
+ * Running the value through the generated descriptor makes the boundary
+ * validate field names and apply the official enum, timestamp, int64, bytes,
+ * and oneof rules for both JSON and binary transports.
+ */
+export function normalizeMemosJsonResponse(
+  service: string,
+  method: string,
+  value: unknown,
+): unknown {
+  const descriptor = getGeneratedUnaryMethod(service, method);
+  if (!descriptor) return toProtoJsonValue(value);
+
+  try {
+    const canonical = toCanonicalProtoJsonValue(value);
+    // Validate through the generated schema, but return the canonical input
+    // rather than toJson's default-omitting output. The existing FlareMo
+    // Connect facade deliberately includes selected default-valued fields
+    // such as `needsSetup: false`, and omitting them would be a needless
+    // compatibility regression for JSON clients.
+    fromJson(descriptor.output, canonical);
+    return canonical;
+  } catch (error) {
+    throw new ProtoCodecError(
+      `Failed to normalize generated protobuf JSON response for ${service}/${method}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
 
 export function detectBinaryTransport(
   contentType: string,
@@ -114,6 +181,9 @@ function decodeResponseMessage(
   method: string,
   payload: Uint8Array,
 ): ProtoMessage {
+  const generated = decodeGeneratedMessage(service, method, payload, "output");
+  if (generated) return generated;
+
   const reader = new ProtoReader(payload);
   if (service === "memos.api.v1.MemoService") {
     switch (method) {
@@ -301,6 +371,140 @@ function decodeResponseMessage(
   throw new ProtoCodecError(`Unsupported protobuf service: ${service}`);
 }
 
+function getGeneratedUnaryMethod(
+  service: string,
+  method: string,
+): GeneratedUnaryMethod | undefined {
+  const serviceDescriptor = generatedServices[service];
+  if (!serviceDescriptor) return undefined;
+  const localName = method.charAt(0).toLowerCase() + method.slice(1);
+  const descriptor = serviceDescriptor.method[localName];
+  return descriptor?.methodKind === "unary" ? descriptor : undefined;
+}
+
+function decodeGeneratedMessage(
+  service: string,
+  method: string,
+  payload: Uint8Array,
+  direction: "input" | "output",
+): ProtoMessage | undefined {
+  const descriptor = getGeneratedUnaryMethod(service, method);
+  if (!descriptor) return undefined;
+
+  try {
+    const message = fromBinary(
+      direction === "input" ? descriptor.input : descriptor.output,
+      payload,
+    );
+    const json = toJson(
+      direction === "input" ? descriptor.input : descriptor.output,
+      message,
+    );
+    if (!isProtoMessage(json)) {
+      throw new Error("generated protobuf JSON value is not an object");
+    }
+    return json;
+  } catch (error) {
+    throw new ProtoCodecError(
+      `Failed to decode generated protobuf ${direction} for ${service}/${method}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+function encodeGeneratedResponse(
+  service: string,
+  method: string,
+  value: unknown,
+): Uint8Array | undefined {
+  const descriptor = getGeneratedUnaryMethod(service, method);
+  if (!descriptor) return undefined;
+
+  try {
+    const message = fromJson(
+      descriptor.output,
+      toCanonicalProtoJsonValue(value),
+    );
+    return toBinary(descriptor.output, message);
+  } catch (error) {
+    throw new ProtoCodecError(
+      `Failed to encode generated protobuf response for ${service}/${method}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+function toProtoJsonValue(value: unknown): JsonValue {
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  ) {
+    return value;
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Uint8Array) return encodeBase64(value);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => toProtoJsonValue(item));
+  }
+  if (typeof value === "object") {
+    const object: Record<string, JsonValue> = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (item !== undefined) object[key] = toProtoJsonValue(item);
+    }
+    return object;
+  }
+  return null;
+}
+
+function toCanonicalProtoJsonValue(value: unknown): JsonValue {
+  return canonicalizeLegacyOneof(toProtoJsonValue(value));
+}
+
+function canonicalizeLegacyOneof(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalizeLegacyOneof(item));
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, JsonValue>;
+    if (
+      typeof record.case === "string" &&
+      record.case.length > 0 &&
+      Object.hasOwn(record, "value")
+    ) {
+      return {
+        [record.case]: canonicalizeLegacyOneof(record.value ?? null),
+      };
+    }
+    const result: Record<string, JsonValue> = {};
+    for (const [key, item] of Object.entries(record)) {
+      if (
+        key === "value" &&
+        item &&
+        typeof item === "object" &&
+        !Array.isArray(item) &&
+        typeof (item as Record<string, JsonValue>).case === "string" &&
+        Object.hasOwn(item, "value")
+      ) {
+        const oneof = item as Record<string, JsonValue>;
+        result[oneof.case as string] = canonicalizeLegacyOneof(
+          oneof.value ?? null,
+        );
+        continue;
+      }
+      result[key] = canonicalizeLegacyOneof(item);
+    }
+    return result;
+  }
+  return value;
+}
+
+function isProtoMessage(value: unknown): value is ProtoMessage {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function decodeListResponse(
   reader: ProtoReader,
   itemKey: string,
@@ -330,6 +534,9 @@ function decodeRequestMessage(
   method: string,
   payload: Uint8Array,
 ): ProtoMessage {
+  const generated = decodeGeneratedMessage(service, method, payload, "input");
+  if (generated) return generated;
+
   if (service === "memos.api.v1.MemoService") {
     return decodeMemoServiceRequest(method, payload);
   }
@@ -362,6 +569,9 @@ function encodeResponseMessage(
   method: string,
   value: unknown,
 ): Uint8Array {
+  const generated = encodeGeneratedResponse(service, method, value);
+  if (generated) return generated;
+
   const body = asRecord(value);
   if (service === "memos.api.v1.MemoService") {
     switch (method) {

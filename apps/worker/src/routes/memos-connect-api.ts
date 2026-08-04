@@ -86,6 +86,7 @@ import {
   detectBinaryTransport,
   encodeBinaryError,
   encodeBinaryResponse,
+  normalizeMemosJsonResponse,
   ProtoCodecError,
 } from "../memos-protobuf";
 
@@ -692,7 +693,7 @@ async function connectUserMethod(
           403,
         );
       }
-      const setting = record(body.setting);
+      const setting = connectSettingRecord(body.setting);
       assertConnectUserSettingPath(setting.name, context.user.id);
       const key = userSettingKey(requiredString(setting.name, "setting.name"));
       await upsertStoredSetting(
@@ -918,7 +919,7 @@ async function connectInstanceMethod(
           403,
         );
       }
-      const setting = record(body.setting);
+      const setting = connectSettingRecord(body.setting);
       const name = requiredString(setting.name, "setting.name");
       const key = instanceSettingKey(name);
       await upsertStoredSetting(
@@ -2126,6 +2127,28 @@ function optionalString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function connectSettingRecord(value: unknown) {
+  const setting = record(value);
+  if (setting.value !== undefined) return setting;
+  for (const caseName of [
+    "generalSetting",
+    "storageSetting",
+    "memoRelatedSetting",
+    "tagsSetting",
+    "notificationSetting",
+    "aiSetting",
+    "webhooksSetting",
+  ]) {
+    if (Object.hasOwn(setting, caseName)) {
+      return {
+        ...setting,
+        value: { case: caseName, value: setting[caseName] },
+      };
+    }
+  }
+  return setting;
+}
+
 function requiredString(value: unknown, field: string) {
   if (typeof value !== "string" || !value.trim())
     throw new ConnectInputError(`${field} is required`);
@@ -2150,7 +2173,12 @@ class ConnectInputError extends Error {
 }
 
 function connectJson(c: ConnectContext, value: unknown) {
-  return c.json(value, 200, { "content-type": "application/json" });
+  const normalized = normalizeMemosJsonResponse(
+    c.req.param("service") ?? "",
+    c.req.param("method") ?? "",
+    value,
+  );
+  return c.json(normalized, 200, { "content-type": "application/json" });
 }
 
 function connectValue(

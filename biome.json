@@ -29,6 +29,7 @@
       "packages/**/*.json",
       "tests/**/*.ts",
       "!apps/worker/src/worker-configuration.d.ts",
+      "!apps/worker/src/memos-generated/**/*.ts",
       "!apps/web/src/components/ui",
       "!**/dist",
       "!**/*.tsbuildinfo"
