@@ -1112,6 +1112,15 @@ function connectBinaryError(
   transport: BinaryTransport,
   error: unknown,
 ) {
+  if (error instanceof ConnectInputError) {
+    return connectErrorForTransport(
+      c,
+      transport,
+      "invalid_argument",
+      error.message,
+      400,
+    );
+  }
   if (error instanceof ProtoCodecError) {
     return connectErrorForTransport(
       c,

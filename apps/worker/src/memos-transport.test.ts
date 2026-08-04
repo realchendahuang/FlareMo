@@ -318,6 +318,16 @@ describe("Memos native auth and transport boundaries", () => {
       },
     );
     expect(invalidLink.status).toBe(400);
+    const emptyBinaryLink = await request(
+      "/memos.api.v1.MemoService/GetLinkMetadata",
+      {
+        method: "POST",
+        headers: { "content-type": "application/proto" },
+        body: new Uint8Array(),
+      },
+    );
+    expect(emptyBinaryLink.status).toBe(400);
+    expect(emptyBinaryLink.headers.get("grpc-status")).toBe("3");
     const emptyBatch = await request(
       "/memos.api.v1.MemoService/BatchGetLinkMetadata",
       {
