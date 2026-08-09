@@ -58,16 +58,12 @@ Access Service Token 不会自动变成 FlareMo 用户 session；不能发送应
 
 2026-08-05 对当前本地工作树做过一次隔离 local E2E。测试使用本地参考快照 `Temp/memos` 的 commit `daa71d0456d07a25ff5ea435e46577d31d030728` 生成的 TypeScript client，并使用 `@bufbuild/protobuf@2.12.0`、`@connectrpc/connect@2.1.1`、`@connectrpc/connect-web@2.1.1` 和 `useBinaryFormat: true`，连接本地 Wrangler Worker `http://127.0.0.1:18787`。
 
-已由官方 generated client 成功完成并解码：
+当前可重跑的官方 generated-client 测试直接覆盖并成功解码：
 
-- `InstanceService`：`GetInstanceProfile`、`BatchGetInstanceSettings`、`GetInstanceStats`。
-- `AuthService`：`SignIn`、`GetCurrentUser`、`RefreshToken`、`SignOut`；signout 后 refresh token reuse 被拒绝。
-- `MemoService`：memo CRUD、comments、reactions、shares 和 share read。
-- `AttachmentService`：create/list/get/delete。
-- `ShortcutService`：create/list/update/delete。
-- `UserService`：list/get/stats/settings、webhook CRUD/signing-secret、notification list/update/delete。
+- `MemoService`：`CreateMemo`、`ListMemos`、`GetMemo`，分别通过 Connect binary 和 gRPC-Web binary 的有限子集。
+- `UserService`：webhook create/list/signing-secret，以及 notification list/update 的 Connect/gRPC-Web binary 子集。
 
-local 证据说明 pinned generated client 能把列出的 Connect binary unary 请求发到 FlareMo，并把响应交给同一 generated schema 解码；production 证据只覆盖匿名 `MemoService/ListMemos`。这不是官方 Memos Web 全量 smoke：官方 Web 的 cookie credentials、refresh/retry、未覆盖的 IdentityProvider/AI 方法、streaming/metadata 等仍需单独验证；第三方客户端仍保持未测。
+`memos-transport.test.ts` 还覆盖了更多 service 的 Worker Connect JSON/protobuf framing 和业务 contract，但这不能写成官方 generated client 已逐一解码。production 证据只覆盖匿名 `MemoService/ListMemos`。这不是官方 Memos Web 全量 smoke：官方 Web 的 cookie credentials、refresh/retry、未覆盖的 Auth/Attachment/Shortcut/Instance/IdentityProvider/AI generated client 方法、streaming/metadata 等仍需单独验证；第三方客户端仍保持未测。
 
 ## 官方 Memos Web：仍仅静态审计
 
@@ -94,8 +90,8 @@ local 证据说明 pinned generated client 能把列出的 Connect binary unary 
 ## 服务器侧明确未实现或不应误判为兼容
 
 - 不是完整 Memos Server parity；不能把 current REST、Connect JSON、手写 protobuf 或 `/mcp` 子集合并成“完整兼容”。
-- `AIService/Transcribe`、Instance email test、OAuth2/IdentityProvider CRUD、User create/delete、linked identity CRUD 当前明确未实现或返回 `501`；webhook 资源 CRUD/signing-secret、四类 memo 事件的有界 outbox 投递/重试和 notification list/update/delete 已有本地 contract/generated-client 覆盖，但完整上游 webhook 事件/egress 语义、完整通知 filter 和多用户 ACL 仍未完成。
-- User/Instance/Attachment 的已列出方法已经有一次 pinned generated-client binary roundtrip，但这不覆盖全部字段、全部方法、生产域名或官方 Web；不能把它写成完整 binary parity。
+- `AIService/Transcribe`、Instance email test、OAuth2/IdentityProvider CRUD、User create/delete、linked identity CRUD 当前明确未实现或返回 `501`；webhook 资源 CRUD/signing-secret、四类 memo 事件的有界 outbox 投递/重试和 notification list/update/delete 已有本地 contract，UserService 的部分方法另有 generated-client 覆盖，但完整上游 webhook 事件/egress 语义、完整通知 filter 和多用户 ACL 仍未完成。
+- 当前只有 MemoService/UserService 的列出方法有 pinned generated-client binary roundtrip；这不覆盖 Attachment/Instance/Shortcut/Auth 的全部字段、全部方法、生产域名或官方 Web，不能把它写成完整 binary parity。
 - public memo read 已接入 current REST 和 Connect 的明确 viewer policy：匿名只读 `PUBLIC + NORMAL`，private/protected/archived/trashed/deleted 不可见；comments、relations、attachments、reactions 会先检查 parent/read visibility。公开 share 仍是独立 token 入口，不等于普通 memo public ACL。
 - 没有完整 CEL、复杂分页/排序、全部 protobuf 字段、完整 metadata/trailer、压缩、streaming 或原生 HTTP/2 gRPC parity。gRPC-Web unary 的 data/trailer frame 已有本地 codec 与 generated-client 覆盖，但仍没有官方 Web 全量或第三方客户端 smoke。Attachment list 的 page token/order/filter 只是有限子集；`thumbnail=true` 暂时返回原始对象，motion media 和任意 `externalLink` 持久化仍未完成。
 - SSE 是 D1 outbox/polling/replay，不是上游 SSEHub；没有完整事件集、retention/pruning 和第三方 EventSource 实测。

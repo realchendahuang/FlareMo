@@ -19,12 +19,32 @@ const FIXTURE_ACCESS_EXPIRES_AT = 1_735_690_500;
 const FIXTURE_REFRESH_EXPIRES_AT = 1_738_281_600;
 const FIXTURE_FIRST_TOKEN_ID = "00000000-0000-4000-8000-000000000001";
 const FIXTURE_SECOND_TOKEN_ID = "00000000-0000-4000-8000-000000000002";
-const GO_ACCESS_TOKEN_SHA256 =
-  "f849ac9ef389c070d2bddabf1aedfc8e465cd769bcdd38799202c2754d282d0f";
-const GO_ACCESS_SEGMENT_SHA256 = {
-  header: "08c78c4576dba19dabf54432ec3613d12ee3bdb256a001a48d48808501d2b077",
-  payload: "fe7affb5a0910da91db2c61478c777bbb23b8e54e47a532b62a527ee5e77d57c",
-  signature: "7ee97cb1769406c81b05cafb1541e331e622456105ff9f267744f3625cc392de",
+
+type JwtGoldenFixture = {
+  input: {
+    issuedAt: number;
+    expiresAt: number;
+    subject: string;
+    tokenId?: string;
+  };
+  serialization: {
+    encodedSegmentSha256: {
+      header: string;
+      payload: string;
+      signature: string;
+    };
+    tokenSha256: string;
+    cookieAttributes?: string;
+  };
+  rotation?: {
+    tokenId: string;
+    tokenSha256: string;
+    encodedSegmentSha256: {
+      header: string;
+      payload: string;
+      signature: string;
+    };
+  };
 };
 
 let runtime: Miniflare;
@@ -43,6 +63,18 @@ describe("native Memos auth deterministic golden fixture", () => {
   });
 
   it("keeps Better Auth-linked access and rotating refresh JWT bytes deterministic", async () => {
+    const accessFixture = await readJwtGoldenFixture(
+      "v0.29.1-daa71d0.access.json",
+    );
+    const refreshFixture = await readJwtGoldenFixture(
+      "v0.29.1-daa71d0.refresh.json",
+    );
+    expect(accessFixture.input.issuedAt).toBe(FIXTURE_ISSUED_AT);
+    expect(accessFixture.input.expiresAt).toBe(FIXTURE_ACCESS_EXPIRES_AT);
+    expect(refreshFixture.input.issuedAt).toBe(FIXTURE_ISSUED_AT);
+    expect(refreshFixture.input.expiresAt).toBe(FIXTURE_REFRESH_EXPIRES_AT);
+    expect(refreshFixture.input.tokenId).toBe(FIXTURE_FIRST_TOKEN_ID);
+    expect(refreshFixture.rotation?.tokenId).toBe(FIXTURE_SECOND_TOKEN_ID);
     const authUser = await createBetterAuthLinkedOwner();
     const request = new Request("http://flaremo.test/api/v1/auth/signin", {
       headers: {
@@ -109,21 +141,34 @@ describe("native Memos auth deterministic golden fixture", () => {
     });
     const accessSegments = issued.accessToken.split(".");
     expect(accessSegments).toHaveLength(3);
-    expect(await sha256Hex(issued.accessToken)).toBe(GO_ACCESS_TOKEN_SHA256);
+    expect(await sha256Hex(issued.accessToken)).toBe(
+      accessFixture.serialization.tokenSha256,
+    );
     expect(await sha256Hex(accessSegments[0] ?? "")).toBe(
-      GO_ACCESS_SEGMENT_SHA256.header,
+      accessFixture.serialization.encodedSegmentSha256.header,
     );
     expect(await sha256Hex(accessSegments[1] ?? "")).toBe(
-      GO_ACCESS_SEGMENT_SHA256.payload,
+      accessFixture.serialization.encodedSegmentSha256.payload,
     );
     expect(await sha256Hex(accessSegments[2] ?? "")).toBe(
-      GO_ACCESS_SEGMENT_SHA256.signature,
+      accessFixture.serialization.encodedSegmentSha256.signature,
     );
-    expect(issued.refreshCookie).toContain(
-      `memos_refresh=${expectedFirstRefreshToken};`,
+    const refreshSegments = expectedFirstRefreshToken.split(".");
+    expect(refreshSegments).toHaveLength(3);
+    expect(await sha256Hex(expectedFirstRefreshToken)).toBe(
+      refreshFixture.serialization.tokenSha256,
     );
-    expect(issued.refreshCookie).toContain(
-      "Expires=Fri, 31 Jan 2025 00:00:00 GMT; SameSite=Lax",
+    expect(await sha256Hex(refreshSegments[0] ?? "")).toBe(
+      refreshFixture.serialization.encodedSegmentSha256.header,
+    );
+    expect(await sha256Hex(refreshSegments[1] ?? "")).toBe(
+      refreshFixture.serialization.encodedSegmentSha256.payload,
+    );
+    expect(await sha256Hex(refreshSegments[2] ?? "")).toBe(
+      refreshFixture.serialization.encodedSegmentSha256.signature,
+    );
+    expect(issued.refreshCookie).toBe(
+      `memos_refresh=${expectedFirstRefreshToken}; ${refreshFixture.serialization.cookieAttributes}`,
     );
 
     const rotated = await rotateMemosRefreshToken({
@@ -163,11 +208,38 @@ describe("native Memos auth deterministic golden fixture", () => {
       flaremoUserId: "users/owner",
       subject: 1,
     });
-    expect(rotated.refreshCookie).toContain(
-      `memos_refresh=${expectedSecondRefreshToken};`,
+    expect(await sha256Hex(expectedSecondRefreshToken)).toBe(
+      refreshFixture.rotation?.tokenSha256,
+    );
+    const rotatedSegments = expectedSecondRefreshToken.split(".");
+    expect(rotatedSegments).toHaveLength(3);
+    expect(await sha256Hex(rotatedSegments[0] ?? "")).toBe(
+      refreshFixture.rotation?.encodedSegmentSha256.header,
+    );
+    expect(await sha256Hex(rotatedSegments[1] ?? "")).toBe(
+      refreshFixture.rotation?.encodedSegmentSha256.payload,
+    );
+    expect(await sha256Hex(rotatedSegments[2] ?? "")).toBe(
+      refreshFixture.rotation?.encodedSegmentSha256.signature,
+    );
+    expect(rotated.refreshCookie).toBe(
+      `memos_refresh=${expectedSecondRefreshToken}; ${refreshFixture.serialization.cookieAttributes}`,
     );
   });
 });
+
+async function readJwtGoldenFixture(filename: string) {
+  const fixture = JSON.parse(
+    await readFile(
+      resolve(
+        import.meta.dirname,
+        `../../../tests/fixtures/memos-auth/${filename}`,
+      ),
+      "utf8",
+    ),
+  ) as JwtGoldenFixture;
+  return fixture;
+}
 
 async function createBetterAuthLinkedOwner() {
   const auth = createFlareMoAuth(env as FlareMoEnv, createDb(database), {

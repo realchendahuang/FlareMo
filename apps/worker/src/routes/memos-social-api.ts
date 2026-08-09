@@ -64,11 +64,13 @@ type PageOptions = {
 type MemoCommentPage = {
   memos: MemoRow[];
   nextPageToken?: string;
+  totalSize: number;
 };
 
 type MemoReactionPage = {
   reactions: ReactionRow[];
   nextPageToken?: string;
+  totalSize: number;
 };
 
 export const memosSocialApi = new Hono<HonoBindings>();
@@ -95,6 +97,7 @@ memosSocialApi.get("/memos/:memo/comments", async (c) => {
 
     return c.json({
       memos,
+      totalSize: result.totalSize,
       ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
     });
   } catch (error) {
@@ -149,6 +152,7 @@ memosSocialApi.get("/memos/:memo/reactions", async (c) => {
 
     return c.json({
       reactions: result.reactions.map((reaction) => reactionToDto(reaction)),
+      totalSize: result.totalSize,
       ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
     });
   } catch (error) {

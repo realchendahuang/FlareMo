@@ -447,9 +447,46 @@ describe("Memos native auth and transport boundaries", () => {
       "ListAttachments",
       { filter: 'filename.contains("second-connect")' },
     );
+    expect(filteredAttachments.totalSize).toBe(1);
     expect(filteredAttachments.attachments).toEqual([
       expect.objectContaining({ name: secondAttachmentBody.name }),
     ]);
+
+    const filteredAttachmentPage = await connectService(
+      "AttachmentService",
+      "ListAttachments",
+      {
+        pageSize: 1,
+        orderBy: "filename asc",
+        filter:
+          'mime_type in ["text/plain"] && create_time < now + duration("1h")',
+      },
+    );
+    expect(filteredAttachmentPage.totalSize).toBe(2);
+    expect(filteredAttachmentPage.attachments).toHaveLength(1);
+    expect(filteredAttachmentPage.nextPageToken).toEqual(expect.any(String));
+    const filteredAttachmentPageTwo = await connectService(
+      "AttachmentService",
+      "ListAttachments",
+      {
+        pageSize: 1,
+        orderBy: "filename asc",
+        filter:
+          'mime_type in ["text/plain"] && create_time < now + duration("1h")',
+        pageToken: filteredAttachmentPage.nextPageToken,
+      },
+    );
+    expect(filteredAttachmentPageTwo.totalSize).toBe(2);
+    expect(filteredAttachmentPageTwo.attachments).toHaveLength(1);
+    expect(filteredAttachmentPageTwo.nextPageToken).toBeUndefined();
+
+    const memoFilteredAttachments = await connectService(
+      "AttachmentService",
+      "ListAttachments",
+      { filter: `memo_id == "${created.name}"` },
+    );
+    expect(memoFilteredAttachments.totalSize).toBe(2);
+    expect(memoFilteredAttachments.attachments).toHaveLength(2);
 
     const comment = await connect("CreateMemoComment", {
       name: created.name,
@@ -716,6 +753,67 @@ describe("Memos native auth and transport boundaries", () => {
     expect(
       new TextDecoder().decode(await binaryShortcut.arrayBuffer()),
     ).toContain("Transport shortcut");
+
+    const missingShortcutParent = await request(
+      "/memos.api.v1.ShortcutService/CreateShortcut",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          shortcut: { title: "Missing parent", filter: "pinned == true" },
+        }),
+      },
+    );
+    expect(missingShortcutParent.status).toBe(400);
+
+    const validatedShortcut = await connectService(
+      "ShortcutService",
+      "CreateShortcut",
+      {
+        parent: "users/owner",
+        shortcut: { title: "Validated shortcut", filter: "pinned == true" },
+        validateOnly: true,
+      },
+    );
+    expect(validatedShortcut.name).toMatch(/^users\/owner\/shortcuts\//u);
+
+    const shortcut = await connectService("ShortcutService", "CreateShortcut", {
+      parent: "users/owner",
+      shortcut: { title: "Transport shortcut", filter: "pinned == true" },
+    });
+    const updatedShortcut = await connectService(
+      "ShortcutService",
+      "UpdateShortcut",
+      {
+        shortcut: {
+          name: shortcut.name,
+          title: "Updated transport shortcut",
+          filter: "pinned == false",
+        },
+        updateMask: { paths: ["title"] },
+      },
+    );
+    expect(updatedShortcut).toMatchObject({
+      name: shortcut.name,
+      title: "Updated transport shortcut",
+      filter: "pinned == true",
+    });
+    const listedShortcuts = await connectService(
+      "ShortcutService",
+      "ListShortcuts",
+      { parent: "users/owner" },
+    );
+    expect(listedShortcuts.shortcuts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: shortcut.name }),
+      ]),
+    );
+    await connectService("ShortcutService", "DeleteShortcut", {
+      name: shortcut.name,
+    });
 
     const authBinary = await request("/memos.api.v1.AuthService/SignIn", {
       method: "POST",

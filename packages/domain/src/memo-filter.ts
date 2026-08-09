@@ -1,4 +1,4 @@
-import type { MemoRow, UserRow } from "@flaremo/db";
+import type { AttachmentRow, MemoRow, UserRow } from "@flaremo/db";
 import { Environment, type ParseResult } from "@marcbachmann/cel-js";
 import { ValidationError } from "./errors";
 
@@ -23,6 +23,8 @@ export type CompiledMemoFilter = (
   memo: MemoRow,
   user: UserRow | null,
 ) => boolean;
+
+export type CompiledAttachmentFilter = (attachment: AttachmentRow) => boolean;
 
 const memoFilterEnvironment = new Environment({
   // Memos filters are user supplied. Keep the parser bounded even before the
@@ -50,6 +52,15 @@ const memoFilterEnvironment = new Environment({
   .registerVariable("has_task_list", "bool")
   .registerVariable("has_code", "bool")
   .registerVariable("has_incomplete_tasks", "bool")
+  // AttachmentService uses the same CEL runtime with a smaller schema. Keep
+  // these variables in the shared environment so both filters use identical
+  // parsing, timestamp, duration, arithmetic, and string-method semantics.
+  .registerVariable("filename", "string")
+  .registerVariable("mime_type", "string")
+  .registerVariable("create_time", "google.protobuf.Timestamp")
+  // cel-js names CEL's dynamic/any type `dyn`.
+  .registerVariable("memo_id", "dyn")
+  .registerVariable("memo", "string")
   .registerVariable("now", "google.protobuf.Timestamp")
   .registerFunction(
     "flaremo_sets_contains(list<string>, list<string>): bool",
@@ -147,6 +158,77 @@ export function compileMemoFilter(
     const context = memoFilterContext(memo, user, frozenNow);
     try {
       return compiled(context) === true;
+    } catch (error) {
+      throw new ValidationError(
+        `Memos CEL filter evaluation failed: ${safeError(error)}`,
+      );
+    }
+  };
+}
+
+/**
+ * Compile the pinned upstream AttachmentService filter schema.
+ *
+ * Memos' Go server evaluates this schema with CEL before rendering it to SQL.
+ * FlareMo has no SQL-rendering CEL compiler on Workers, so it evaluates the
+ * same bounded expression against attachment metadata after applying the
+ * owner/deleted/state boundary in the domain service. The route never gets a
+ * second ad-hoc filter grammar.
+ */
+export function compileAttachmentFilter(
+  expression: string | undefined,
+): CompiledAttachmentFilter | undefined {
+  const value = expression?.trim();
+  if (!value) return undefined;
+  if (value.length > MAX_MEMO_FILTER_LENGTH) {
+    throw new ValidationError("Memos filter is too long");
+  }
+  rejectReservedImplementationNames(value);
+
+  let compiled: ParseResult;
+  try {
+    compiled = memoFilterEnvironment.parse(
+      normalizeMemoFilterExpression(value),
+    );
+  } catch (error) {
+    throw new ValidationError(`Invalid Memos CEL filter: ${safeError(error)}`);
+  }
+
+  if (countAstNodes(compiled.ast) > MAX_MEMO_FILTER_AST_NODES) {
+    throw new ValidationError("Memos filter is too complex");
+  }
+
+  const checked = compiled.check();
+  if (!checked.valid) {
+    throw new ValidationError(
+      `Invalid Memos CEL filter: ${safeError(checked.error)}`,
+    );
+  }
+  if (checked.type !== "bool") {
+    throw new ValidationError(
+      "Invalid Memos CEL filter: filter must evaluate to a boolean",
+    );
+  }
+
+  validateAttachmentFilterSurface(compiled.ast);
+  const frozenNow = new Date();
+
+  return (attachment) => {
+    // Upstream exposes memo_id as CEL's nullable/dynamic value. Keep the
+    // null case distinct from an empty resource name so `memo_id == null`
+    // retains the same meaning for unbound attachments.
+    const memoId = attachment.memoId ?? null;
+    try {
+      return (
+        compiled({
+          filename: attachment.filename,
+          mime_type: attachment.contentType ?? "",
+          create_time: new Date(attachment.createdAt),
+          memo_id: memoId,
+          memo: memoId,
+          now: frozenNow,
+        }) === true
+      );
     } catch (error) {
       throw new ValidationError(
         `Memos CEL filter evaluation failed: ${safeError(error)}`,
@@ -461,6 +543,149 @@ function rejectReservedImplementationNames(expression: string) {
 
 function validateMemoFilterSurface(node: MemoFilterAst) {
   visitMemoFilterAst(node, new Set<string>());
+}
+
+function validateAttachmentFilterSurface(node: MemoFilterAst) {
+  visitAttachmentFilterAst(node, new Set<string>());
+}
+
+function visitAttachmentFilterAst(node: MemoFilterAst, boundIds: Set<string>) {
+  switch (node.op) {
+    case "id": {
+      const name = identifierName(node);
+      if (
+        !name ||
+        (!new Set([
+          "filename",
+          "mime_type",
+          "create_time",
+          "memo_id",
+          "memo",
+          "now",
+        ]).has(name) &&
+          !boundIds.has(name))
+      ) {
+        rejectUnsupported("identifier is not supported for attachments");
+      }
+      return;
+    }
+    case "value":
+      return;
+    case "list":
+      for (const item of requireAstArray(node.args, "list")) {
+        visitAttachmentFilterAst(item, boundIds);
+      }
+      return;
+    case "&&":
+    case "||":
+    case "==":
+    case "!=":
+    case "<":
+    case "<=":
+    case ">":
+    case ">=":
+    case "@in":
+    case "in": {
+      const args = binaryAstArgs(node);
+      if (!args) rejectUnsupported(`${node.op} requires two operands`);
+      visitAttachmentFilterAst(args[0], boundIds);
+      visitAttachmentFilterAst(args[1], boundIds);
+      return;
+    }
+    case "+":
+    case "-":
+    case "*":
+    case "/":
+    case "%": {
+      const args = binaryAstArgs(node);
+      if (!args) rejectUnsupported(`${node.op} requires two operands`);
+      visitAttachmentFilterAst(args[0], boundIds);
+      visitAttachmentFilterAst(args[1], boundIds);
+      return;
+    }
+    case "!_":
+      if (!isAstNode(node.args))
+        rejectUnsupported("NOT requires one condition");
+      visitAttachmentFilterAst(node.args, boundIds);
+      return;
+    case "call": {
+      const parts = callParts(node);
+      if (!parts) rejectUnsupported("malformed function call");
+      if (parts.name === "timestamp" || parts.name === "duration") {
+        if (parts.args.length !== 1) {
+          rejectUnsupported(`${parts.name} requires one literal`);
+        }
+        const literal = requireAstArg(parts.args, 0, parts.name);
+        if (parts.name === "timestamp") {
+          const stringValue = stringLiteral(literal);
+          if (stringValue !== undefined) validateTimestampLiteral(stringValue);
+          else if (!isIntegerLiteral(literal)) {
+            rejectUnsupported(
+              "timestamp requires an RFC3339 string or epoch integer",
+            );
+          }
+        } else {
+          const stringValue = stringLiteral(literal);
+          if (stringValue === undefined) {
+            rejectUnsupported("duration requires a literal string");
+          }
+          validateDurationLiteral(stringValue);
+        }
+        return;
+      }
+      return rejectUnsupported(`function ${parts.name} is not supported`);
+    }
+    case "rcall": {
+      const parts = receiverCallParts(node);
+      if (!parts) rejectUnsupported("malformed receiver call");
+      const receiverName = identifierName(parts.receiver);
+      if (
+        ![
+          "filename",
+          "mime_type",
+          ...(boundIds.has(receiverName ?? "") ? [receiverName as string] : []),
+        ].includes(receiverName ?? "")
+      ) {
+        if (!memoFilterTimestampMethods.has(parts.name)) {
+          rejectUnsupported("attachment method receiver is not supported");
+        }
+      }
+      if (memoFilterTimestampMethods.has(parts.name)) {
+        if (receiverName !== "create_time" || parts.args.length !== 0) {
+          rejectUnsupported(
+            `${parts.name} is only supported on create_time without arguments`,
+          );
+        }
+        visitAttachmentFilterAst(parts.receiver, boundIds);
+        return;
+      }
+      if (
+        ![
+          "flaremo_contains",
+          "flaremo_startsWith",
+          "flaremo_endsWith",
+          "flaremo_matches",
+        ].includes(parts.name)
+      ) {
+        rejectUnsupported(`method ${parts.name} is not supported`);
+      }
+      if (parts.args.length !== 1) {
+        rejectUnsupported(`${parts.name} requires one string literal`);
+      }
+      const literal = stringLiteral(requireAstArg(parts.args, 0, parts.name));
+      if (literal === undefined) {
+        rejectUnsupported(`${parts.name} requires a literal string`);
+      }
+      if (parts.name === "flaremo_matches") validateRegexPattern(literal);
+      if (receiverName !== "filename" && receiverName !== "mime_type") {
+        rejectUnsupported("text methods only support attachment text fields");
+      }
+      visitAttachmentFilterAst(parts.receiver, boundIds);
+      return;
+    }
+    default:
+      rejectUnsupported(`operator ${node.op} is not supported`);
+  }
 }
 
 function visitMemoFilterAst(node: MemoFilterAst, boundIds: Set<string>) {

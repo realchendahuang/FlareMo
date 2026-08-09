@@ -1,0 +1,35 @@
+{
+  "reference": {
+    "memosCommit": "daa71d0456d07a25ff5ea435e46577d31d030728",
+    "releaseContext": "0.29.1-era",
+    "go": "1.26.2",
+    "jwt": "github.com/golang-jwt/jwt/v5@v5.3.1"
+  },
+  "input": {
+    "issuedAt": 1735689600,
+    "expiresAt": 1738281600,
+    "subject": "1",
+    "tokenId": "00000000-0000-4000-8000-000000000001"
+  },
+  "serialization": {
+    "headerJson": "{\"alg\":\"HS256\",\"kid\":\"v1\",\"typ\":\"JWT\"}",
+    "payloadJson": "{\"type\":\"refresh\",\"tid\":\"00000000-0000-4000-8000-000000000001\",\"iss\":\"memos\",\"sub\":\"1\",\"aud\":[\"user.refresh-token\"],\"exp\":1738281600,\"iat\":1735689600}",
+    "encodedSegmentSha256": {
+      "header": "08c78c4576dba19dabf54432ec3613d12ee3bdb256a001a48d48808501d2b077",
+      "payload": "09a566a29bbd17b8281c36f3a31a16acdae5164e022e9d91cbc64e22f908678c",
+      "signature": "f8a7b2190300c1570b46d07a9d9c37fcee05457b321a4b4d5f2693943cdca3cd"
+    },
+    "tokenSha256": "53a1f10ecca2d45d73f314f37d13d49c33861530af67bff8e350a17d0b14c0b5",
+    "segmentLengths": [51, 200, 43],
+    "cookieAttributes": "Path=/; HttpOnly; Expires=Fri, 31 Jan 2025 00:00:00 GMT; SameSite=Lax"
+  },
+  "rotation": {
+    "tokenId": "00000000-0000-4000-8000-000000000002",
+    "tokenSha256": "efaa7915dc418813b610647b226620d2c0ac43f38a035314d9d4d3786310669a",
+    "encodedSegmentSha256": {
+      "header": "08c78c4576dba19dabf54432ec3613d12ee3bdb256a001a48d48808501d2b077",
+      "payload": "c1aeb88e1c759bfbe4259c489c8062ce1efff9913287708c3dd7fd6864273452",
+      "signature": "b92130bda12ca9920dba7e4f881ca79cbdc89162ee2b813029223b6d613c11f2"
+    }
+  }
+}
