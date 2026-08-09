@@ -1,6 +1,6 @@
-import type { MemoRow, UserRow } from "@flaremo/db";
+import type { AttachmentRow, MemoRow, UserRow } from "@flaremo/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { compileMemoFilter } from "./memo-filter";
+import { compileAttachmentFilter, compileMemoFilter } from "./memo-filter";
 
 const user = {
   id: "users/owner",
@@ -19,6 +19,14 @@ const memo = {
     property: { has_link: true },
   },
 } as MemoRow;
+
+const attachment = {
+  id: "attachments/one",
+  filename: "report.pdf",
+  contentType: "application/pdf",
+  memoId: "memos/one",
+  createdAt: "2026-08-01T00:00:00.000Z",
+} as AttachmentRow;
 
 describe("Memos CEL filter", () => {
   afterEach(() => {
@@ -205,5 +213,44 @@ describe("Memos CEL filter", () => {
         user,
       ),
     ).toBe(true);
+  });
+});
+
+describe("Memos Attachment CEL filter", () => {
+  it("supports text matching, in, memo identity, and time arithmetic", () => {
+    expect(
+      compileAttachmentFilter(
+        'filename.contains("REPORT") && mime_type in ["application/pdf", "image/png"]',
+      )?.(attachment),
+    ).toBe(true);
+    expect(
+      compileAttachmentFilter(
+        'memo_id == "memos/one" && create_time < now + duration("1h")',
+      )?.(attachment),
+    ).toBe(true);
+    expect(
+      compileAttachmentFilter('memo == "memos/missing"')?.(attachment),
+    ).toBe(false);
+  });
+
+  it("preserves nullable memo_id semantics for unbound attachments", () => {
+    const unbound = { ...attachment, memoId: null } as AttachmentRow;
+    expect(compileAttachmentFilter("memo_id == null")?.(unbound)).toBe(true);
+    expect(compileAttachmentFilter("memo_id != null")?.(unbound)).toBe(false);
+    expect(compileAttachmentFilter("memo_id != null")?.(attachment)).toBe(true);
+  });
+
+  it("supports attachment regexes and rejects fields outside the pinned schema", () => {
+    expect(
+      compileAttachmentFilter('mime_type.matches("^application/")')?.(
+        attachment,
+      ),
+    ).toBe(true);
+    expect(() => compileAttachmentFilter("tags.exists(t, true)")).toThrow(
+      "Invalid Memos CEL filter",
+    );
+    expect(() => compileAttachmentFilter("unknown == true")).toThrow(
+      "Invalid Memos CEL filter",
+    );
   });
 });

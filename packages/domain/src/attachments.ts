@@ -45,6 +45,13 @@ export type AttachmentListFilter = {
 export type ListAttachmentsPageInput = ListAttachmentsInput & {
   pageToken?: string;
   filter?: AttachmentListFilter;
+  /**
+   * A compiled upstream CEL predicate. The domain still owns the base
+   * visibility/state boundary; this predicate is only evaluated against rows
+   * that are already scoped to the current user.
+   */
+  filterPredicate?: (attachment: AttachmentRow) => boolean;
+  filterExpression?: string;
   orderBy?: string;
 };
 
@@ -60,6 +67,8 @@ type AttachmentCursor = {
   orderBy: string;
   scopeKey: string;
 };
+
+const MAX_ATTACHMENT_FILTER_SCAN = 10_000;
 
 export async function createAttachmentMetadata(
   db: FlareMoDb,
@@ -163,6 +172,7 @@ export async function listAttachmentsPage(
   const scopeKey = JSON.stringify({
     memoId: memoId ?? filterMemoId ?? null,
     filter: input.filter ?? null,
+    filterExpression: input.filterExpression ?? null,
   });
   const cursor = input.pageToken
     ? decodeAttachmentPageToken(input.pageToken, orderBy, scopeKey)
@@ -174,15 +184,15 @@ export async function listAttachmentsPage(
   ];
   const scopedMemoId = memoId ?? filterMemoId;
   if (scopedMemoId) filters.push(eq(attachments.memoId, scopedMemoId));
-  if (input.filter?.filenameEquals !== undefined) {
+  if (!input.filterPredicate && input.filter?.filenameEquals !== undefined) {
     filters.push(eq(attachments.filename, input.filter.filenameEquals));
   }
-  if (input.filter?.filenameContains !== undefined) {
+  if (!input.filterPredicate && input.filter?.filenameContains !== undefined) {
     filters.push(
       sql`${attachments.filename} LIKE ${`%${escapeAttachmentLike(input.filter.filenameContains)}%`} ESCAPE '\\'`,
     );
   }
-  if (input.filter?.contentType !== undefined) {
+  if (!input.filterPredicate && input.filter?.contentType !== undefined) {
     filters.push(eq(attachments.contentType, input.filter.contentType));
   }
 
@@ -191,6 +201,53 @@ export async function listAttachmentsPage(
     : attachments.createdAt;
   const direction = orderBy.endsWith(" asc") ? "asc" : "desc";
   const baseWhere = and(...filters);
+
+  if (input.filterPredicate) {
+    // CEL filters are evaluated after the SQL owner/state boundary. Fetching
+    // the complete bounded candidate set before applying the cursor is
+    // important: applying the cursor in SQL first would skip matching rows
+    // hidden behind non-matching attachments and produce incorrect pages.
+    const candidates = await db
+      .select()
+      .from(attachments)
+      .where(baseWhere)
+      .orderBy(
+        direction === "asc" ? asc(sortColumn) : desc(sortColumn),
+        direction === "asc" ? asc(attachments.id) : desc(attachments.id),
+      )
+      .limit(MAX_ATTACHMENT_FILTER_SCAN + 1);
+    if (candidates.length > MAX_ATTACHMENT_FILTER_SCAN) {
+      throw new ValidationError(
+        "Attachment filter exceeds the bounded Worker scan limit",
+      );
+    }
+
+    const matching = candidates.filter(input.filterPredicate);
+    const afterCursor = cursor
+      ? matching.filter((attachment) =>
+          direction === "asc"
+            ? attachmentSortIsAfter(attachment, cursor, sortColumn)
+            : attachmentSortIsBefore(attachment, cursor, sortColumn),
+        )
+      : matching;
+    const page = afterCursor.slice(0, pageSize);
+    const next = afterCursor.length > pageSize ? page.at(-1) : undefined;
+    return {
+      attachments: page,
+      totalSize: matching.length,
+      nextPageToken: next
+        ? encodeAttachmentPageToken({
+            id: next.id,
+            sortValue: orderBy.startsWith("filename")
+              ? next.filename
+              : next.createdAt,
+            orderBy,
+            scopeKey,
+          })
+        : undefined,
+    };
+  }
+
   if (cursor) {
     const cursorFilter =
       direction === "asc"
@@ -243,6 +300,36 @@ export async function listAttachmentsPage(
         })
       : undefined,
   };
+}
+
+function attachmentSortIsAfter(
+  attachment: AttachmentRow,
+  cursor: AttachmentCursor,
+  sortColumn: typeof attachments.filename | typeof attachments.createdAt,
+) {
+  const sortValue =
+    sortColumn === attachments.filename
+      ? attachment.filename
+      : attachment.createdAt;
+  return (
+    sortValue > cursor.sortValue ||
+    (sortValue === cursor.sortValue && attachment.id > cursor.id)
+  );
+}
+
+function attachmentSortIsBefore(
+  attachment: AttachmentRow,
+  cursor: AttachmentCursor,
+  sortColumn: typeof attachments.filename | typeof attachments.createdAt,
+) {
+  const sortValue =
+    sortColumn === attachments.filename
+      ? attachment.filename
+      : attachment.createdAt;
+  return (
+    sortValue < cursor.sortValue ||
+    (sortValue === cursor.sortValue && attachment.id < cursor.id)
+  );
 }
 
 export async function listMemoAttachments(

@@ -13,7 +13,7 @@ import {
   reactions,
   shortcuts,
 } from "@flaremo/db";
-import { and, asc, desc, eq, gt, inArray, lt, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, lt, or } from "drizzle-orm";
 import {
   ConflictError,
   ForbiddenError,
@@ -57,6 +57,7 @@ export type ListMemoCommentsInput = {
 export type MemoCommentsResult = {
   memos: MemoRow[];
   nextPageToken?: string;
+  totalSize: number;
 };
 
 export type UpsertMemoReactionInput = {
@@ -74,6 +75,7 @@ export type ListMemoReactionsInput = {
 export type MemoReactionsResult = {
   reactions: SocialReactionRow[];
   nextPageToken?: string;
+  totalSize: number;
 };
 
 export type CreateShortcutInput = {
@@ -355,14 +357,23 @@ export async function listMemoComments(
     : undefined;
   const direction = order.endsWith(" asc") ? "asc" : "desc";
   const sortColumn = order.startsWith("name") ? memos.id : memos.createdAt;
-  const filters = [
+  const baseFilters = [
     eq(memoRelations.relatedMemoId, parentId),
     eq(memoRelations.type, "comment"),
-    ...(user ? [eq(memos.userId, user.id)] : [eq(memos.visibility, "public")]),
+    ...(user
+      ? [
+          or(
+            eq(memos.userId, user.id),
+            eq(memos.visibility, "public"),
+            eq(memos.visibility, "protected"),
+          ),
+        ]
+      : [eq(memos.visibility, "public")]),
     ...(user
       ? [inArray(memos.status, ["normal", "archived"])]
       : [eq(memos.status, "normal")]),
   ];
+  const filters = [...baseFilters];
 
   if (cursor) {
     const cursorFilter =
@@ -378,21 +389,30 @@ export async function listMemoComments(
     if (cursorFilter) filters.push(cursorFilter);
   }
 
-  const rows = await db
-    .select({ memo: memos })
-    .from(memoRelations)
-    .innerJoin(memos, eq(memos.id, memoRelations.memoId))
-    .where(and(...filters))
-    .orderBy(
-      direction === "asc" ? asc(sortColumn) : desc(sortColumn),
-      direction === "asc" ? asc(memos.id) : desc(memos.id),
-    )
-    .limit(pageSize + 1);
+  const [rows, total] = await Promise.all([
+    db
+      .select({ memo: memos })
+      .from(memoRelations)
+      .innerJoin(memos, eq(memos.id, memoRelations.memoId))
+      .where(and(...filters))
+      .orderBy(
+        direction === "asc" ? asc(sortColumn) : desc(sortColumn),
+        direction === "asc" ? asc(memos.id) : desc(memos.id),
+      )
+      .limit(pageSize + 1),
+    db
+      .select({ count: count(memos.id) })
+      .from(memoRelations)
+      .innerJoin(memos, eq(memos.id, memoRelations.memoId))
+      .where(and(...baseFilters))
+      .get(),
+  ]);
   const page = rows.slice(0, pageSize).map((row) => row.memo);
   const next = rows.length > pageSize ? page.at(-1) : undefined;
 
   return {
     memos: page,
+    totalSize: Number(total?.count ?? 0),
     nextPageToken: next
       ? encodeSocialPageToken({
           kind: "memo-comments",
@@ -526,16 +546,24 @@ export async function listMemoReactions(
     if (cursorFilter) filters.push(cursorFilter);
   }
 
-  const rows = await db
-    .select()
-    .from(reactions)
-    .where(and(...filters))
-    .orderBy(asc(reactions.createdAt), asc(reactions.id))
-    .limit(pageSize + 1);
+  const [rows, total] = await Promise.all([
+    db
+      .select()
+      .from(reactions)
+      .where(and(...filters))
+      .orderBy(asc(reactions.createdAt), asc(reactions.id))
+      .limit(pageSize + 1),
+    db
+      .select({ count: count(reactions.id) })
+      .from(reactions)
+      .where(eq(reactions.contentId, contentId))
+      .get(),
+  ]);
   const page = rows.slice(0, pageSize);
   const next = rows.length > pageSize ? page.at(-1) : undefined;
   return {
     reactions: page.map(namedReaction),
+    totalSize: Number(total?.count ?? 0),
     nextPageToken: next
       ? encodeSocialPageToken({
           kind: "memo-reactions",

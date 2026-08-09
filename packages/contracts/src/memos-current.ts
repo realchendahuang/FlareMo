@@ -160,11 +160,13 @@ export const currentListAttachmentsResponseSchema = z.object({
 export const currentListMemoCommentsResponseSchema = z.object({
   memos: z.array(currentMemoSchema),
   nextPageToken: z.string().optional(),
+  totalSize: z.number().int().nonnegative().optional(),
 });
 
 export const currentListMemoReactionsResponseSchema = z.object({
   reactions: z.array(currentReactionSchema),
   nextPageToken: z.string().optional(),
+  totalSize: z.number().int().nonnegative().optional(),
 });
 
 export const currentListShortcutsResponseSchema = z.object({

@@ -2,6 +2,7 @@ import type { UserRow } from "@flaremo/db";
 import { createDb } from "@flaremo/db";
 import {
   bindMemoAttachments,
+  compileAttachmentFilter,
   createAttachmentMetadata,
   createMemo,
   createMemoComment,
@@ -386,7 +387,7 @@ async function connectShortcutMethod(
   const body = record(value);
   switch (method) {
     case "ListShortcuts": {
-      const parent = optionalString(body.parent) ?? context.user.id;
+      const parent = requiredString(body.parent, "parent");
       const shortcuts = await listShortcuts(context.db, context.user, parent);
       return connectValue(
         c,
@@ -409,7 +410,7 @@ async function connectShortcutMethod(
     case "CreateShortcut": {
       const shortcut = record(body.shortcut);
       const created = await createShortcut(context.db, context.user, {
-        parentName: optionalString(body.parent),
+        parentName: requiredString(body.parent, "parent"),
         title: optionalString(shortcut.title),
         filter: optionalString(shortcut.filter),
         validateOnly: body.validateOnly === true,
@@ -418,8 +419,8 @@ async function connectShortcutMethod(
     }
     case "UpdateShortcut": {
       const shortcut = record(body.shortcut);
-      const updateMask = optionalString(body.updateMask);
-      if (!updateMask?.trim()) {
+      const updateMask = fieldMaskPaths(body.updateMask);
+      if (updateMask.length === 0) {
         throw new ConnectInputError("updateMask is required");
       }
       const updated = await updateShortcut(context.db, context.user, {
@@ -467,12 +468,18 @@ async function connectAttachmentMethod(
       return connectValue(c, currentAttachmentToDto(attachment), transport);
     }
     case "ListAttachments": {
-      const filter = parseAttachmentFilter(optionalString(body.filter));
+      const filterExpression = optionalString(body.filter);
+      const filterPredicate = compileAttachmentFilter(filterExpression);
       const result = await listAttachmentsPage(context.db, context.user, {
         pageSize: pageSize(body.pageSize),
         pageToken: optionalString(body.pageToken),
         orderBy: optionalString(body.orderBy),
-        filter,
+        ...(filterPredicate
+          ? {
+              filterPredicate,
+              filterExpression,
+            }
+          : {}),
       });
       return connectValue(
         c,
@@ -1201,7 +1208,7 @@ async function listConnectMemoComments(
   );
   return {
     memos: comments,
-    totalSize: comments.length,
+    totalSize: result.totalSize,
     ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
   };
 }
@@ -1220,7 +1227,7 @@ async function listConnectMemoReactions(
   });
   return {
     reactions: result.reactions.map(currentReactionToDto),
-    totalSize: result.reactions.length,
+    totalSize: result.totalSize,
     ...(result.nextPageToken ? { nextPageToken: result.nextPageToken } : {}),
   };
 }
@@ -1392,7 +1399,7 @@ async function connectPublicMemoRead(
         c,
         {
           memos,
-          totalSize: memos.length,
+          totalSize: result.totalSize,
           ...(result.nextPageToken
             ? { nextPageToken: result.nextPageToken }
             : {}),
@@ -1412,7 +1419,7 @@ async function connectPublicMemoRead(
         c,
         {
           reactions: result.reactions.map(currentReactionToDto),
-          totalSize: result.reactions.length,
+          totalSize: result.totalSize,
           ...(result.nextPageToken
             ? { nextPageToken: result.nextPageToken }
             : {}),
@@ -2005,36 +2012,6 @@ function attachmentBytes(value: unknown) {
     }
   }
   return new Uint8Array();
-}
-
-function parseAttachmentFilter(value: string | undefined) {
-  if (!value?.trim()) return undefined;
-  const trimmed = value.trim();
-  const contains = /^filename\.contains\(\s*["']([^"']*)["']\s*\)$/i.exec(
-    trimmed,
-  );
-  if (contains?.[1] !== undefined) {
-    return { filenameContains: contains[1] };
-  }
-  const equality = /^([a-z_]+)\s*(?:==|=)\s*["']([^"']*)["']$/i.exec(trimmed);
-  if (!equality?.[1] || equality[2] === undefined) {
-    throw new ConnectInputError(
-      'Attachment filter supports memo == "memos/{id}", filename == "...", filename.contains("..."), or mime_type == "..."',
-    );
-  }
-  const [, field, valuePart] = equality;
-  switch (field.toLowerCase()) {
-    case "memo":
-      return { memoId: valuePart };
-    case "filename":
-      return { filenameEquals: valuePart };
-    case "mime_type":
-      return { contentType: valuePart };
-    default:
-      throw new ConnectInputError(
-        "Attachment filter field is not supported by FlareMo",
-      );
-  }
 }
 
 function fieldMaskPaths(value: unknown) {
