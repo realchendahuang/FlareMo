@@ -1,7 +1,10 @@
 import type {
   AttachmentDto,
   CreateMemoInput,
+  DataTaskDto,
+  DataTaskListResponse,
   DeleteTagResponse,
+  ExportManifest,
   ImportResult,
   ListMemosResponse,
   MemoContextResponse,
@@ -360,6 +363,58 @@ export async function importData(bundle: unknown) {
     method: "POST",
     body: JSON.stringify(bundle),
   });
+}
+
+export async function createExportTask() {
+  return apiRequest<{ task: DataTaskDto }>("/api/v1/export/tasks", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function listDataTasks() {
+  return apiRequest<DataTaskListResponse>("/api/v1/export/tasks");
+}
+
+export async function getDataTask(id: string) {
+  return apiRequest<{ task: DataTaskDto }>(
+    `/api/v1/export/tasks/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function createImportTask(input: {
+  bundle: unknown;
+  conflict?: "skip" | "duplicate" | "overwrite";
+}) {
+  return apiRequest<{ task: DataTaskDto; result: ImportResult }>(
+    "/api/v1/import/tasks",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export async function downloadExportManifest(id: string) {
+  return apiRequest<ExportManifest>(
+    `/api/v1/export/tasks/${encodeURIComponent(id)}/manifest`,
+  );
+}
+
+export function exportTaskDataUrl(id: string, chunk: string) {
+  return `/api/v1/export/tasks/${encodeURIComponent(id)}/data/${encodeURIComponent(chunk)}`;
+}
+
+export function exportTaskAttachmentUrl(id: string, attachmentId: string) {
+  return `/api/v1/export/tasks/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+export async function downloadExportJson(id: string) {
+  const response = await fetch(
+    `/api/v1/export/tasks/${encodeURIComponent(id)}/manifest`,
+    { credentials: "same-origin" },
+  );
+  if (!response.ok) {
+    throw new ApiError(response.statusText, response.status);
+  }
+  return response.blob();
 }
 
 async function apiRequest<T>(

@@ -4,7 +4,9 @@ import {
 } from "@flaremo/contracts";
 import { createDb } from "@flaremo/db";
 import {
+  deleteExpiredDataTasks,
   dispatchMemosWebhookOutbox,
+  expireStaleDataTasks,
   finalizeAttachmentCleanup,
   listAttachmentCleanupCandidates,
 } from "@flaremo/domain";
@@ -179,10 +181,27 @@ const handler = {
     for (const attachment of candidates) {
       await finalizeAttachmentCleanup(db, attachment.id);
     }
+    // Reconcile data-transfer tasks: expire stale queued/running tasks whose
+    // lease lapsed (interrupted request), then garbage-collect completed task
+    // rows older than the TTL along with their R2 export artifacts.
+    const staleCount = await expireStaleDataTasks(db);
+    const expiredIds = await deleteExpiredDataTasks(db);
+    for (const id of expiredIds) {
+      const prefix = `exports/${id}`;
+      let cursor: string | undefined;
+      do {
+        const listing = await env.ATTACHMENTS.list({ prefix, cursor });
+        const keys = listing.objects.map((object) => object.key);
+        if (keys.length > 0) await env.ATTACHMENTS.delete(keys);
+        cursor = listing.truncated ? listing.cursor : undefined;
+      } while (cursor);
+    }
     console.log(
       JSON.stringify({
         message: "attachment cleanup complete",
         count: candidates.length,
+        staleTaskCount: staleCount,
+        expiredTaskCount: expiredIds.length,
         scheduledTime: controller.scheduledTime,
       }),
     );
