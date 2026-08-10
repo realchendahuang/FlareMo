@@ -6,6 +6,33 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 后续变更将在下一次 release 汇总。
 
+## v0.6.0
+
+标签体系与大数据迁移版本。这个版本补齐了多级标签树和标签管理（R5），并落地大型导入导出任务管道（R6）：超过内联导出上限（32 MiB）的数据改走 R2 对象包 + 任务状态轮询，替代直接 413。数据库新增 `data_tasks` 一张表，全部是新增表，不影响既有数据。
+
+### 新增能力
+
+- 多级标签（R5）：内容提取支持 `#父/子` 层级路径和中文标点边界，`ListMemos` 的 `tag` 参数按前缀匹配（`工作` 命中 `工作/*`），统计返回去重层级树（同一 memo 不重复计数）。
+- 标签管理（R5）：explorer 侧边栏渲染可折叠层级标签树，标签 hover 提供重命名/移动（含子树，`工作` → `知识/工作` 会连后代一起移动）和删除；新增「无标签」筛选。改动同步更新 `memo_tags`、memo 的 `payload.tags` 和 memo 正文中的 `#标签` 文本（大小写不敏感）。
+- 大型导出任务（R6）：`POST /api/v1/export/tasks` 创建任务，分页读 D1（每 500 条）流式产出 NDJSON chunk 写入 R2 `exports/<task-id>/`，附件经认证端点逐个流式下载，`GET /api/v1/export/tasks/:id/manifest` 返回自包含校验清单（记录数、分块、附件清单）；前端导出改为任务流 + 轮询。
+- 导入任务（R6）：`POST /api/v1/import/tasks` 接收 JSON bundle，复用 domain 导入逻辑，返回 `202 {task, result}`；小型 bundle 仍走同步 `GET /api/v1/export` / `POST /api/v1/import`。
+- 32 MiB 判断修正（R6）：内联导出按完整序列化 JSON 大小（TextEncoder 估算，含 base64 膨胀）判断，不再只按附件原始字节。
+- 任务生命周期（R6）：`data_tasks` 表记录 kind/status/phase/attempts/lease/expiry，每日 cron 兜底把 stale `queued/running` 任务标记 `failed`、回收超过 7 天的任务行并清理对应 R2 导出产物。
+
+### Cloudflare、数据库与兼容影响
+
+- 新增 D1 migration `0010_deep_gateway.sql`：新增 `data_tasks` 表及三个索引（user+created、status+lease、expires）；全部是新增表，向后兼容上一正式版本，不需要回填。
+- R2 新增 `exports/<task-id>/` 和 `imports/` 命名空间：导出清单、NDJSON 分块和导入附件暂存对象使用独立前缀，与业务 `attachments/` 前缀隔离；`exports/` 前缀由每日 cron 清理。
+- 无 Worker 路由破坏性变化；`/api/v1/*` 新增 `export/tasks`、`import/tasks` 端点，全部需要认证。
+- Memos 兼容面不变：仍是已记录的 current camelCase REST、Better Auth-backed auth facade、PAT、legacy wire、Connect JSON/protobuf/gRPC-Web unary 子集、有限 SSE、无状态 `/mcp` 和 bounded webhook outbox。标签层级前缀筛选是对既有 `tag` 查询参数的语义增强。
+- Better Auth 认证边界不变：cookie session、`memos_pat_` PAT、native access/refresh JWT facade 和 Origin 校验语义与 v0.5.0 一致。
+
+### 升级说明
+
+- 执行标准的 `pnpm verify`、`pnpm deploy:dry-run` 和 `pnpm deploy`；`pnpm deploy` 会在发布 Worker 前自动应用 0010 migration。
+- 保持现有 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS`、`BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 和已创建 PAT 配置；不要把任何 secret、密码、cookie 或 PAT 写入 Git、release notes、日志或聊天。
+- 部署后重新验证登录页、bootstrap status、受保护 API 的 JSON `401`、可信/不可信 Origin、公开分享、`/mcp`、标签树与标签管理、小型内联导出、大型导出任务（`/api/v1/export/tasks`）和导入任务。若启用 Cloudflare Access，它只能作为额外 policy，客户端仍必须提供 FlareMo 应用层 session 或 PAT。
+
 ## v0.5.0
 
 Memos 兼容扩展版本。这个版本把 Memos-compatible 面从 memo/auth/shortcut 基础子集扩展到单用户 UserService 的 webhook/notification 资源、Attachment 的 bounded CEL 过滤和分页元数据，并把附件文件 URL 正式接入 Worker 路由。数据库新增通知、webhook 和 webhook 投递三张表，全部是新增表，不影响既有数据。

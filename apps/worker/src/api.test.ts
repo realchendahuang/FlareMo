@@ -409,7 +409,7 @@ describe("FlareMo Worker API", () => {
     expect(health).toMatchObject({
       ok: true,
       product: "FlareMo",
-      version: "0.5.0",
+      version: "0.6.0",
       update_repository: "example/flaremo",
       update_workflow_url:
         "https://github.com/example/flaremo/actions/workflows/flaremo-update.yml",

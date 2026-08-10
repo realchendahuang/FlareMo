@@ -367,12 +367,12 @@ test("shows the installed version and safe update fallback", async ({
     name: /system update|系统更新/i,
   });
   await expect(updateButton).toBeVisible();
-  await expect(updateButton).toContainText("v0.5.0");
+  await expect(updateButton).toContainText("v0.6.0");
   await updateButton.click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("v0.5.0");
+  await expect(dialog).toContainText("v0.6.0");
   await expect(
     dialog.getByRole("link", { name: /update guide|升级指南/i }),
   ).toHaveAttribute("href", /docs\/update\.md$/);
