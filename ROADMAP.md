@@ -21,6 +21,8 @@
 
 ## 公开任务池
 
+> 需求池与对标分析（flomo）见 `docs/product-requirements.md`；具体任务从该文档选定后拆解到 GitHub Issues。
+
 - 扩大真实 Memos 客户端兼容矩阵，并补每个已验证客户端的配置示例。
 - 增加语义搜索：按 `docs/semantic-search.md` 实现；D1 仍是事实源，Vectorize 只存派生索引。
 - 增加 AI 回顾：Workers AI 或外部模型只做派生能力。
