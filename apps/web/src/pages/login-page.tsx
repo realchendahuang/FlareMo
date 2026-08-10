@@ -26,7 +26,12 @@ export function LoginPage() {
     return (
       <Navigate
         replace
-        search={{ q: undefined, tag: undefined, view: undefined }}
+        search={{
+          q: undefined,
+          tag: undefined,
+          view: undefined,
+          untagged: undefined,
+        }}
         to="/"
       />
     );
@@ -54,7 +59,12 @@ export function LoginPage() {
       setPassword("");
       await navigate({
         replace: true,
-        search: { q: undefined, tag: undefined, view: undefined },
+        search: {
+          q: undefined,
+          tag: undefined,
+          view: undefined,
+          untagged: undefined,
+        },
         to: "/",
       });
     } catch (error) {

@@ -12,9 +12,9 @@ import { createResourceId, createToken, parseResourceName } from "./ids";
 import {
   normalizeMemoClientId,
   normalizeMemoPayload,
-  normalizeMemoTags,
   updateMemo,
 } from "./memos";
+import { extractTags, normalizeMemoTags } from "./tags";
 
 export async function exportData(
   db: FlareMoDb,
@@ -317,10 +317,4 @@ export async function importData(
 
 export function mapImportedMemoName(name: string) {
   return parseResourceName(name, "memos");
-}
-
-function extractTags(content: string) {
-  return [...content.matchAll(/(^|\s)#([\p{L}\p{N}_-]+)/gu)].flatMap((match) =>
-    match[2] ? [match[2]] : [],
-  );
 }

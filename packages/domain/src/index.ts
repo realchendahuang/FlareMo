@@ -14,4 +14,5 @@ export * from "./relations";
 export * from "./revisions";
 export * from "./settings";
 export * from "./shares";
+export * from "./tags";
 export * from "./users";

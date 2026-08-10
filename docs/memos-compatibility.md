@@ -86,7 +86,7 @@ created_ts >= timestamp(1704067200)
 updated_ts < now - duration("1h")
 ```
 
-当前还支持 `size(content)`、`size(tags)`、上游 timestamp accessor（不接受 timezone 参数）、epoch integer timestamp，以及 `now`/`duration` 的时间算术。`orderBy` 当前只支持单字段的 `create_time` / `update_time` asc/desc 子集。未支持的 filter 或排序会返回 current 标准错误，而不是静默改变语义。大小写、层级 tag、RE2 与 JavaScript regex、`name` 变量、复杂宏、完整分页和大数据量 bounded execution 仍未完成上游对照。
+当前还支持 `size(content)`、`size(tags)`、上游 timestamp accessor（不接受 timezone 参数）、epoch integer timestamp，以及 `now`/`duration` 的时间算术。`orderBy` 当前只支持单字段的 `create_time` / `update_time` asc/desc 子集。未支持的 filter 或排序会返回 current 标准错误，而不是静默改变语义。大小写、RE2 与 JavaScript regex、`name` 变量、复杂宏、完整分页和大数据量 bounded execution 仍未完成上游对照。层级 tag 已实现：内容提取支持 `#父/子` 路径，`ListMemos` 的 `tag` 参数按前缀匹配（`工作` 命中 `工作/*`），前端 explorer 提供多级标签树、重命名/移动（含子树）与删除。
 
 普通 `GetMemo`、`ListMemos`、comments、reactions、memo relations 和 memo attachments 已经有独立的 optional viewer：匿名只读 `PUBLIC + NORMAL`，认证用户继续使用 Better Auth/PAT 的 owner-scoped 读取；创建、更新、删除和 share/social mutation 仍需认证。User profile/stats 的完整 public projection 尚未实现，不能把这一段扩大成完整 Memos ACL parity。
 
