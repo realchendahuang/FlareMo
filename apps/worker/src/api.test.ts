@@ -1,6 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { ListMemosResponse, MemoStatsResponse } from "@flaremo/contracts";
+import type {
+  DeleteTagResponse,
+  ListMemosResponse,
+  MemoContextResponse,
+  MemoStatsResponse,
+  RenameTagResponse,
+  TagHierarchyResponse,
+} from "@flaremo/contracts";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
@@ -609,6 +616,144 @@ describe("FlareMo Worker API", () => {
       }),
     );
     expect(deleted.ok).toBe(true);
+  });
+
+  it("manages hierarchical tags through rename, delete, and untagged filtering", async () => {
+    const workMemo = await createMemo<{ id: string; name: string }>(
+      "推进 #工作/项目A 和 #工作/项目B，也看 #生活",
+    );
+    const childMemo = await createMemo<{ id: string; name: string }>(
+      "#工作/项目A/子项 细节",
+    );
+    const untaggedMemo = await createMemo<{ id: string; name: string }>(
+      "没有标签的纯文本记录",
+    );
+
+    const hierarchy = await json<TagHierarchyResponse>(
+      await fetchApp("http://flaremo.test/api/app/tags"),
+    );
+    expect(hierarchy.tags).toEqual([
+      {
+        name: "工作",
+        count: 2,
+        children: [
+          {
+            name: "工作/项目a",
+            count: 2,
+            children: [{ name: "工作/项目a/子项", count: 1, children: [] }],
+          },
+          { name: "工作/项目b", count: 1, children: [] },
+        ],
+      },
+      { name: "生活", count: 1, children: [] },
+    ]);
+
+    // Hierarchical filter: `工作` matches its descendants too.
+    const workTagged = await json<ListMemosResponse>(
+      await fetchApp(
+        "http://flaremo.test/api/app/memos?tag=" + encodeURIComponent("工作"),
+      ),
+    );
+    expect(workTagged.memos.map((memo) => memo.id)).toEqual(
+      expect.arrayContaining([workMemo.id, childMemo.id]),
+    );
+
+    // Untagged filter returns only memos without any tag.
+    const untagged = await json<ListMemosResponse>(
+      await fetchApp("http://flaremo.test/api/app/memos?untagged=true"),
+    );
+    expect(untagged.memos.map((memo) => memo.id)).toEqual([untaggedMemo.id]);
+
+    // Rename `工作` to `知识/工作`: payload, memo_tags, and content all move.
+    const renamed = await json<RenameTagResponse>(
+      await fetchApp("http://flaremo.test/api/app/tags", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "工作", to: "知识/工作" }),
+      }),
+    );
+    expect(renamed.renamed).toBe(2);
+
+    const afterRename = await json<TagHierarchyResponse>(
+      await fetchApp("http://flaremo.test/api/app/tags"),
+    );
+    expect(afterRename.tags).toEqual([
+      { name: "生活", count: 1, children: [] },
+      {
+        name: "知识",
+        count: 2,
+        children: [
+          {
+            name: "知识/工作",
+            count: 2,
+            children: [
+              {
+                name: "知识/工作/项目a",
+                count: 2,
+                children: [
+                  { name: "知识/工作/项目a/子项", count: 1, children: [] },
+                ],
+              },
+              { name: "知识/工作/项目b", count: 1, children: [] },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const renamedMemo = await json<MemoContextResponse>(
+      await fetchApp(`http://flaremo.test/api/app/memos/${workMemo.id}`),
+    );
+    expect(renamedMemo.memo.content).toContain("#知识/工作/项目A");
+    expect(renamedMemo.memo.payload.tags).toEqual(
+      expect.arrayContaining(["知识/工作/项目a", "知识/工作/项目b", "生活"]),
+    );
+
+    // Delete `知识/工作/项目a`: child path removed from all affected memos.
+    const deleted = await json<DeleteTagResponse>(
+      await fetchApp(
+        "http://flaremo.test/api/app/tags?tag=" +
+          encodeURIComponent("知识/工作/项目a"),
+        { method: "DELETE" },
+      ),
+    );
+    expect(deleted.removed).toBe(1);
+
+    const afterDelete = await json<TagHierarchyResponse>(
+      await fetchApp("http://flaremo.test/api/app/tags"),
+    );
+    expect(afterDelete.tags).toEqual([
+      { name: "生活", count: 1, children: [] },
+      {
+        name: "知识",
+        count: 2,
+        children: [
+          {
+            name: "知识/工作",
+            count: 2,
+            children: [
+              {
+                name: "知识/工作/项目a",
+                count: 1,
+                children: [
+                  { name: "知识/工作/项目a/子项", count: 1, children: [] },
+                ],
+              },
+              { name: "知识/工作/项目b", count: 1, children: [] },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const deletedMemo = await json<MemoContextResponse>(
+      await fetchApp(`http://flaremo.test/api/app/memos/${workMemo.id}`),
+    );
+    expect(deletedMemo.memo.content).not.toContain("#知识/工作/项目A");
+    expect(deletedMemo.memo.payload.tags).toEqual(
+      expect.arrayContaining(["知识/工作/项目b", "生活"]),
+    );
+    expect(deletedMemo.memo.payload.tags).not.toContain("知识/工作/项目a");
   });
 
   it("creates relations, shares, and export/import bundles", async () => {

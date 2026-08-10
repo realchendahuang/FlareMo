@@ -120,7 +120,12 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
         <header className="flex items-center justify-between gap-3">
           <Button asChild size="sm" variant="ghost">
             <Link
-              search={{ q: undefined, tag: undefined, view: undefined }}
+              search={{
+                q: undefined,
+                tag: undefined,
+                view: undefined,
+                untagged: undefined,
+              }}
               to="/"
             >
               <ArrowLeftIcon data-icon="inline-start" />

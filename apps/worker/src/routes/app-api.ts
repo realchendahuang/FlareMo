@@ -3,16 +3,20 @@ import {
   FLAREMO_API_VERSION,
   listMemosQuerySchema,
   memoStatsQuerySchema,
+  renameTagRequestSchema,
   updateMemoSchema,
 } from "@flaremo/contracts";
 import {
   createMemo,
+  deleteTag,
   getMemoStats,
   hardDeleteMemo,
   listAttachmentsForMemos,
   listMemos,
+  listTagHierarchy,
   markMemoAttachmentsDeleting,
   moveMemoToTrash,
+  renameTag,
   updateMemo,
 } from "@flaremo/domain";
 import { memosToListResponse, memoToDto } from "@flaremo/memos";
@@ -135,6 +139,34 @@ appApi.delete("/memos/:id", async (c) => {
     }
     const memo = await moveMemoToTrash(db, user, id);
     return c.json(memoToDto(memo, user));
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+appApi.get("/tags", async (c) => {
+  try {
+    const { db, user } = await getRequestContext(c);
+    return c.json({ tags: await listTagHierarchy(db, user) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+appApi.patch("/tags", zValidator("json", renameTagRequestSchema), async (c) => {
+  try {
+    const { db, user } = await getRequestContext(c);
+    return c.json(await renameTag(db, user, c.req.valid("json")));
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+appApi.delete("/tags", async (c) => {
+  try {
+    const { db, user } = await getRequestContext(c);
+    const tag = c.req.query("tag") ?? "";
+    return c.json(await deleteTag(db, user, { tag }));
   } catch (error) {
     return jsonError(c, error);
   }

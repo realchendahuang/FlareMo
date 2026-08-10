@@ -44,14 +44,17 @@ import {
   AUTHENTICATION_REQUIRED_EVENT,
   createMemo,
   createShare,
+  deleteTag,
   exportData,
   getMemoStats,
+  getTagHierarchy,
   hardDeleteMemo,
   importData,
   listMemos,
   type Memo,
   type MemoState,
   type MemoStatsResponse,
+  renameTag,
   type Share,
   trashMemo,
   updateMemo,
@@ -126,6 +129,7 @@ function FlareMoApp() {
   const search = indexRoute.useSearch();
   const view = search.view ?? "all";
   const activeTag = search.tag;
+  const untagged = Boolean(search.untagged);
   const query = search.q ?? "";
   const setView = (nextView: ViewMode) =>
     void navigate({
@@ -135,7 +139,16 @@ function FlareMoApp() {
   const setActiveTag = (tag: string | undefined) =>
     void navigate({
       replace: true,
-      search: (current) => ({ ...current, tag }),
+      search: (current) => ({ ...current, tag, untagged: undefined }),
+    });
+  const setUntagged = (next: boolean) =>
+    void navigate({
+      replace: true,
+      search: (current) => ({
+        ...current,
+        tag: undefined,
+        untagged: next ? true : undefined,
+      }),
     });
   const setQuery = (q: string) =>
     void navigate({
@@ -207,7 +220,7 @@ function FlareMoApp() {
   }, []);
 
   const memosQuery = useInfiniteQuery({
-    queryKey: ["memos", view, debouncedQuery, activeTag],
+    queryKey: ["memos", view, debouncedQuery, activeTag, untagged],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       listMemos({
@@ -217,6 +230,7 @@ function FlareMoApp() {
         q: debouncedQuery || undefined,
         state: isSearching ? undefined : viewToMemoState(view),
         tag: activeTag,
+        untagged,
       }),
     getNextPageParam: (lastPage) => lastPage.next_page_token,
     retry: false,
@@ -224,6 +238,11 @@ function FlareMoApp() {
   const statsQuery = useQuery({
     queryKey: ["memo-stats", timeZone],
     queryFn: () => getMemoStats(timeZone),
+    retry: false,
+  });
+  const tagHierarchyQuery = useQuery({
+    queryKey: ["tag-hierarchy"],
+    queryFn: () => getTagHierarchy(),
     retry: false,
   });
 
@@ -244,6 +263,7 @@ function FlareMoApp() {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["memos"] }),
       queryClient.invalidateQueries({ queryKey: ["memo-stats"] }),
+      queryClient.invalidateQueries({ queryKey: ["tag-hierarchy"] }),
     ]);
   const handleMutationError = (error: unknown) => {
     const normalizedError = toError(error);
@@ -282,6 +302,25 @@ function FlareMoApp() {
       restoreMemoSnapshot(queryClient, snapshot);
       handleMutationError(error);
     },
+    onSettled: () => void invalidateWorkspace(),
+  });
+
+  const renameTagMutation = useMutation({
+    mutationFn: renameTag,
+    onError: (error) => {
+      handleMutationError(error);
+      toast.error(t("explorer.tagRenameFailed"));
+    },
+    onSettled: () => void invalidateWorkspace(),
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: deleteTag,
+    onError: (error) => {
+      handleMutationError(error);
+      toast.error(t("explorer.tagDeleteFailed"));
+    },
+    onSuccess: () => toast.success(t("explorer.tagDeleted")),
     onSettled: () => void invalidateWorkspace(),
   });
 
@@ -538,7 +577,12 @@ function FlareMoApp() {
         </div>
       }
       stats={stats}
+      hierarchy={tagHierarchyQuery.data?.tags ?? []}
+      untagged={untagged}
+      onDeleteTag={(tag) => deleteTagMutation.mutate(tag)}
+      onRenameTag={(from, to) => renameTagMutation.mutate({ from, to })}
       onTagChange={setActiveTag}
+      onUntaggedChange={setUntagged}
       onViewChange={setView}
     />
   );
@@ -908,6 +952,8 @@ const indexRoute = createRoute({
     view: isViewMode(search.view) ? search.view : undefined,
     q: typeof search.q === "string" && search.q ? search.q : undefined,
     tag: typeof search.tag === "string" && search.tag ? search.tag : undefined,
+    untagged:
+      search.untagged === true || search.untagged === "true" ? true : undefined,
   }),
 });
 

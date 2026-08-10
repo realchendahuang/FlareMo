@@ -27,11 +27,11 @@ import {
   getMemoByIdForViewer,
   normalizeMemoClientId,
   normalizeMemoPayload,
-  normalizeMemoTags,
 } from "./memos";
 import { insertMemosSseEvent } from "./memos-sse";
 import { findMentionedUsers, insertMemoNotification } from "./memos-user";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
+import { extractTags, normalizeMemoTags } from "./tags";
 
 export type CreateMemoCommentInput = {
   parentMemoName?: string;
@@ -944,12 +944,4 @@ function validateShortcut(title: string, filter: string) {
   if (filter.length > 4_096)
     throw new ValidationError("Shortcut filter is too long");
   if (filter) compileMemoFilter(filter);
-}
-
-function extractTags(content: string) {
-  const tags = new Set<string>();
-  for (const match of content.matchAll(/(^|\s)#([\p{L}\p{N}_-]+)/gu)) {
-    if (match[2]) tags.add(match[2]);
-  }
-  return [...tags];
 }

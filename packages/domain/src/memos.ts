@@ -16,6 +16,7 @@ import { compileMemoFilter } from "./memo-filter";
 import { insertMemosSseEvent } from "./memos-sse";
 import { findMentionedUsers, insertMemoNotification } from "./memos-user";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
+import { extractTags, normalizeMemoTags } from "./tags";
 
 export type MemoListResult = {
   memos: MemoRow[];
@@ -209,12 +210,29 @@ export async function listMemosForViewer(
     if (!tag) {
       return { memos: [] };
     }
+    // Hierarchical tag filter: `工作` matches `工作` and any descendant
+    // (`工作/项目A`), while `工作/项目A` matches itself and deeper children.
+    // The candidate set is exact-equals plus LIKE-prefix with the separator.
+    const escapedPrefix = escapeLike(`${tag}/`);
     filters.push(
       sql`EXISTS (
         SELECT 1 FROM ${memoTags}
         WHERE ${memoTags.memoId} = ${memos.id}
           ${user ? sql`AND ${memoTags.userId} = ${user.id}` : sql``}
-          AND ${memoTags.tag} = ${tag}
+          AND (
+            ${memoTags.tag} = ${tag}
+            OR ${memoTags.tag} LIKE ${`${escapedPrefix}%`} ESCAPE '\\'
+          )
+      )`,
+    );
+  }
+
+  if (query.untagged) {
+    filters.push(
+      sql`NOT EXISTS (
+        SELECT 1 FROM ${memoTags}
+        WHERE ${memoTags.memoId} = ${memos.id}
+          ${user ? sql`AND ${memoTags.userId} = ${user.id}` : sql``}
       )`,
     );
   }
@@ -675,15 +693,6 @@ export function normalizeMemoClientId(value: unknown) {
   return clientId && clientId.length <= 128 ? clientId : undefined;
 }
 
-export function normalizeMemoTags(values: string[]) {
-  const tags = new Set<string>();
-  for (const value of values) {
-    const tag = value.trim().replace(/^#/, "").toLocaleLowerCase();
-    if (tag && tag.length <= 100) tags.add(tag);
-  }
-  return [...tags].sort((a, b) => a.localeCompare(b));
-}
-
 function encodePageToken(value: MemoCursor) {
   return btoa(JSON.stringify(value));
 }
@@ -734,15 +743,6 @@ function memoSearchScopeToState(
 
 function toUtcDayStart(date: string) {
   return `${date}T00:00:00.000Z`;
-}
-
-function extractTags(content: string) {
-  const tags = new Set<string>();
-  for (const match of content.matchAll(/(^|\s)#([\p{L}\p{N}_-]+)/gu)) {
-    const tag = match[2];
-    if (tag) tags.add(tag);
-  }
-  return [...tags];
 }
 
 function createDateKeyFormatter(timeZone: string) {

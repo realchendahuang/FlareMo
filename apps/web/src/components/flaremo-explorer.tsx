@@ -1,6 +1,13 @@
-import { ArchiveIcon, HashIcon, InboxIcon, Trash2Icon } from "lucide-react";
-import type { ReactNode } from "react";
-import type { MemoStatsResponse } from "@/api";
+import {
+  ArchiveIcon,
+  ChevronRightIcon,
+  HashIcon,
+  InboxIcon,
+  PencilIcon,
+  Trash2Icon,
+} from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { MemoStatsResponse, TagHierarchyNode } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
 import { useI18n } from "@/i18n";
 import { buildMonthLabels } from "@/lib/activity";
@@ -13,8 +20,13 @@ type FlareMoExplorerProps = {
   activeView: ExplorerView;
   footer?: ReactNode;
   headerAction?: ReactNode;
+  hierarchy: TagHierarchyNode[];
   stats: MemoStatsResponse;
+  untagged?: boolean;
+  onDeleteTag: (tag: string) => void;
+  onRenameTag: (from: string, to: string) => void;
   onTagChange: (tag?: string) => void;
+  onUntaggedChange: (untagged: boolean) => void;
   onViewChange: (view: ExplorerView) => void;
 };
 
@@ -23,8 +35,13 @@ export function FlareMoExplorer({
   activeView,
   footer,
   headerAction,
+  hierarchy,
   stats,
+  untagged = false,
+  onDeleteTag,
+  onRenameTag,
   onTagChange,
+  onUntaggedChange,
   onViewChange,
 }: FlareMoExplorerProps) {
   const { locale, t } = useI18n();
@@ -138,39 +155,213 @@ export function FlareMoExplorer({
         <div className="text-xs text-muted-foreground">
           {t("explorer.tags")}
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {stats.tags.length > 0 ? (
-            stats.tags.map((tag) => {
-              const active = activeTag === tag.name;
-              return (
-                <button
-                  className={cn(
-                    "inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-xs motion-safe:transition-[background-color,color,transform] motion-safe:duration-150",
-                    active
-                      ? "bg-flame-100 font-medium text-flame-700 dark:bg-flame-400/12 dark:text-flame-200"
-                      : "bg-muted text-muted-foreground hover:bg-flame-50 hover:text-flame-700 motion-safe:hover:-translate-y-px dark:hover:bg-flame-400/8 dark:hover:text-flame-200",
-                  )}
-                  key={tag.name}
-                  type="button"
-                  onClick={() => onTagChange(active ? undefined : tag.name)}
-                >
-                  <HashIcon />
-                  <span className="truncate">{tag.name}</span>
-                  {tag.count > 1 && (
-                    <span className="tabular-nums opacity-60">{tag.count}</span>
-                  )}
-                </button>
-              );
-            })
-          ) : (
-            <div className="text-xs text-muted-foreground">
-              {t("explorer.noTags")}
-            </div>
+        <button
+          aria-pressed={untagged}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-left motion-safe:transition-colors motion-safe:duration-150",
+            untagged
+              ? "bg-flame-100 font-medium text-flame-700 dark:bg-flame-400/12 dark:text-flame-200"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
-        </div>
+          type="button"
+          onClick={() => onUntaggedChange(!untagged)}
+        >
+          <HashIcon className="opacity-50" />
+          <span className="truncate">{t("explorer.untagged")}</span>
+        </button>
+        {hierarchy.length > 0 ? (
+          <TagTree
+            activeTag={activeTag}
+            nodes={hierarchy}
+            onDeleteTag={onDeleteTag}
+            onRenameTag={onRenameTag}
+            onTagChange={onTagChange}
+          />
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            {t("explorer.noTags")}
+          </div>
+        )}
       </section>
       {footer && <div className="mt-auto px-1 pt-5 pb-1">{footer}</div>}
     </aside>
+  );
+}
+
+type TagTreeProps = {
+  activeTag?: string;
+  nodes: TagHierarchyNode[];
+  onDeleteTag: (tag: string) => void;
+  onRenameTag: (from: string, to: string) => void;
+  onTagChange: (tag?: string) => void;
+};
+
+function TagTree({
+  activeTag,
+  nodes,
+  onDeleteTag,
+  onRenameTag,
+  onTagChange,
+}: TagTreeProps) {
+  const { t } = useI18n();
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<string | null>(null);
+
+  const toggle = (name: string) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+
+  const renderNode = (node: TagHierarchyNode, depth: number) => {
+    const name = node.name;
+    const hasChildren = node.children.length > 0;
+    const isCollapsed = collapsed.has(name);
+    const isActive = activeTag === name;
+    const label = name.split("/").at(-1) ?? name;
+
+    return (
+      <div className="flex flex-col" key={name}>
+        <div
+          className={cn(
+            "group flex items-center gap-1 rounded-md py-0.5 pr-1 text-xs motion-safe:transition-colors motion-safe:duration-150",
+            isActive
+              ? "bg-flame-100 font-medium text-flame-700 dark:bg-flame-400/12 dark:text-flame-200"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+          style={{ paddingLeft: `${depth * 0.75}rem` }}
+        >
+          <button
+            aria-label={
+              hasChildren ? (isCollapsed ? "展开" : "折叠") : undefined
+            }
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground",
+              !hasChildren && "invisible",
+            )}
+            type="button"
+            onClick={() => toggle(name)}
+          >
+            <ChevronRightIcon
+              className={cn(
+                "h-3.5 w-3.5 motion-safe:transition-transform motion-safe:duration-150",
+                !isCollapsed && "rotate-90",
+              )}
+            />
+          </button>
+          <button
+            aria-pressed={isActive}
+            className="flex min-w-0 flex-1 items-center gap-1 text-left"
+            type="button"
+            onClick={() => onTagChange(isActive ? undefined : name)}
+          >
+            <HashIcon className="shrink-0 opacity-50" />
+            <span className="truncate">{label}</span>
+            {node.count > 1 && (
+              <span className="tabular-nums opacity-60">{node.count}</span>
+            )}
+          </button>
+          <div className="flex shrink-0 items-center gap-0.5 opacity-0 motion-safe:transition-opacity motion-safe:duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              aria-label={t("explorer.renameTag")}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              title={t("explorer.renameTag")}
+              type="button"
+              onClick={() => setEditing(name)}
+            >
+              <PencilIcon className="h-3 w-3" />
+            </button>
+            <button
+              aria-label={t("explorer.deleteTag")}
+              className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+              title={t("explorer.deleteTag")}
+              type="button"
+              onClick={() => onDeleteTag(name)}
+            >
+              <Trash2Icon className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+        {editing === name && (
+          <TagRenameInput
+            from={name}
+            onCancel={() => setEditing(null)}
+            onSave={(to) => {
+              onRenameTag(name, to);
+              setEditing(null);
+            }}
+          />
+        )}
+        {hasChildren && !isCollapsed && (
+          <div className="flex flex-col">
+            {node.children.map((child) => renderNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {nodes.map((n) => renderNode(n, 0))}
+    </div>
+  );
+}
+
+function TagRenameInput({
+  from,
+  onCancel,
+  onSave,
+}: {
+  from: string;
+  onCancel: () => void;
+  onSave: (to: string) => void;
+}) {
+  const { t } = useI18n();
+  const [value, setValue] = useState(from);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <form
+      className="flex flex-col gap-1 px-1"
+      style={{ paddingLeft: "1.5rem" }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const to = value.trim();
+        if (to && to !== from) onSave(to);
+        else onCancel();
+      }}
+    >
+      <input
+        aria-label={t("explorer.renameTagLabel")}
+        className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={t("explorer.renameTagPlaceholder")}
+        ref={inputRef}
+        value={value}
+      />
+      <div className="flex gap-1">
+        <button
+          className="rounded-md bg-primary px-2 py-0.5 text-xs text-primary-foreground hover:opacity-90"
+          type="submit"
+        >
+          {t("common.save")}
+        </button>
+        <button
+          className="rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+          type="button"
+          onClick={onCancel}
+        >
+          {t("common.cancel")}
+        </button>
+      </div>
+    </form>
   );
 }
 

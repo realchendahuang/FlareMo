@@ -1,6 +1,7 @@
 import type {
   AttachmentDto,
   CreateMemoInput,
+  DeleteTagResponse,
   ImportResult,
   ListMemosResponse,
   MemoContextResponse,
@@ -9,7 +10,9 @@ import type {
   MemoStatsResponse,
   MemoVisibility,
   PublicShareDto,
+  RenameTagResponse,
   ShareDto,
+  TagHierarchyResponse,
   UpdateMemoInput,
 } from "@flaremo/contracts";
 
@@ -19,6 +22,7 @@ export type MemoPayload = MemoDto["payload"];
 export type Share = ShareDto;
 export type PublicShare = PublicShareDto;
 export type MemoContext = MemoContextResponse;
+export type TagHierarchyNode = TagHierarchyResponse["tags"][number];
 export type { MemoState, MemoStatsResponse, MemoVisibility };
 
 export type CreateMemoRequest = CreateMemoInput;
@@ -28,6 +32,7 @@ export type ListMemoParams = {
   state?: MemoState;
   q?: string;
   tag?: string;
+  untagged?: boolean;
   include_deleted?: boolean;
   page_size?: number;
   page_token?: string;
@@ -95,10 +100,29 @@ export async function listMemos(params: ListMemoParams = {}) {
   if (params.state) query.set("state", params.state);
   if (params.q) query.set("q", params.q);
   if (params.tag) query.set("tag", params.tag);
+  if (params.untagged) query.set("untagged", "true");
   if (params.include_deleted) query.set("include_deleted", "true");
   if (params.page_token) query.set("page_token", params.page_token);
 
   return apiRequest<ListMemosResponse>(`/api/app/memos?${query.toString()}`);
+}
+
+export async function getTagHierarchy() {
+  return apiRequest<TagHierarchyResponse>("/api/app/tags");
+}
+
+export async function renameTag(input: { from: string; to: string }) {
+  return apiRequest<RenameTagResponse>("/api/app/tags", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteTag(tag: string) {
+  return apiRequest<DeleteTagResponse>(
+    `/api/app/tags?tag=${encodeURIComponent(tag)}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function getMemoStats(timeZone: string) {
