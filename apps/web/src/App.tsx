@@ -42,14 +42,16 @@ import { toast } from "sonner";
 import {
   ApiError,
   AUTHENTICATION_REQUIRED_EVENT,
+  createExportTask,
+  createImportTask,
   createMemo,
   createShare,
   deleteTag,
-  exportData,
+  downloadExportJson,
+  getDataTask,
   getMemoStats,
   getTagHierarchy,
   hardDeleteMemo,
-  importData,
   listMemos,
   type Memo,
   type MemoState,
@@ -380,15 +382,6 @@ function FlareMoApp() {
     onError: handleMutationError,
   });
 
-  const importMutation = useMutation({
-    mutationFn: importData,
-    onSuccess: (result) => {
-      toast.success(t("toast.imported", { count: result.imported_memos }));
-      void invalidateWorkspace();
-    },
-    onError: handleMutationError,
-  });
-
   const flushQueuedCaptures = useCallback(async () => {
     if (!isBrowserOnline()) return;
     // An "online" event that lands while a flush is running (e.g. the mount
@@ -492,18 +485,59 @@ function FlareMoApp() {
 
   const handleExport = async () => {
     try {
-      const bundle = await exportData();
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
-        type: "application/json",
-      });
+      const { task } = await createExportTask();
+      toast.success(t("toast.exportStarted"));
+      const finished = await pollDataTask(task.id);
+      if (finished.status !== "succeeded") {
+        toast.error(
+          t("toast.exportFailed", {
+            message: finished.error_message ?? finished.status,
+          }),
+        );
+        return;
+      }
+      const blob = await downloadExportJson(finished.id);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `flaremo-export-${new Date().toISOString()}.json`;
       anchor.click();
       URL.revokeObjectURL(url);
+      toast.success(t("toast.exportDone"));
     } catch (error) {
       handleMutationError(error);
+    }
+  };
+
+  const handleImportFile = async (bundle: unknown) => {
+    try {
+      const { task, result } = await createImportTask({ bundle });
+      if (task.status !== "succeeded") {
+        toast.error(
+          t("toast.importFailed", {
+            message: task.error_message ?? task.status,
+          }),
+        );
+        return;
+      }
+      toast.success(t("toast.importDone", { count: result.imported_memos }));
+      void invalidateWorkspace();
+    } catch (error) {
+      handleMutationError(error);
+    }
+  };
+
+  const pollDataTask = async (id: string) => {
+    for (;;) {
+      const { task } = await getDataTask(id);
+      if (
+        task.status === "succeeded" ||
+        task.status === "failed" ||
+        task.status === "expired"
+      ) {
+        return task;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
     }
   };
 
@@ -566,7 +600,7 @@ function FlareMoApp() {
                   if (!file) return;
                   try {
                     const text = await file.text();
-                    importMutation.mutate(JSON.parse(text) as unknown);
+                    void handleImportFile(JSON.parse(text) as unknown);
                   } catch {
                     toast.error(t("toast.invalidImport"));
                   }

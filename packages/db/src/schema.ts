@@ -618,6 +618,45 @@ export const settings = sqliteTable(
   (table) => [primaryKey({ columns: [table.userId, table.key] })],
 );
 
+/**
+ * Async data-transfer tasks for large import/export operations that exceed
+ * the inline bundle limits. The task row is the durable execution record:
+ * cron reclaims stale `running` tasks via `lease_until`, and the R2 artifact
+ * referenced by `manifestKey` expires independently of the row.
+ */
+export const dataTasks = sqliteTable(
+  "data_tasks",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["export", "import"] }).notNull(),
+    status: text("status", {
+      enum: ["queued", "running", "succeeded", "failed", "expired"],
+    })
+      .notNull()
+      .default("queued"),
+    phase: text("phase").notNull().default("created"),
+    attempts: integer("attempts").notNull().default(0),
+    manifestKey: text("manifest_key"),
+    progressDone: integer("progress_done").notNull().default(0),
+    progressTotal: integer("progress_total").notNull().default(0),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    leaseUntil: text("lease_until"),
+    expiresAt: text("expires_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    index("data_tasks_user_created_idx").on(table.userId, table.createdAt),
+    index("data_tasks_status_lease_idx").on(table.status, table.leaseUntil),
+    index("data_tasks_expires_idx").on(table.expiresAt),
+  ],
+);
+
 export type MemoPayload = {
   tags?: string[];
   property?: {
@@ -650,3 +689,5 @@ export type MemosWebhookDeliveryRow =
 export type MemosNotificationRow = typeof memosNotifications.$inferSelect;
 export type AttachmentRow = typeof attachments.$inferSelect;
 export type ShareRow = typeof shares.$inferSelect;
+export type DataTaskRow = typeof dataTasks.$inferSelect;
+export type NewDataTaskRow = typeof dataTasks.$inferInsert;

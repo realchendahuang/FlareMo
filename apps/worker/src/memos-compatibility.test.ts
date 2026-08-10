@@ -1376,6 +1376,7 @@ async function createTestRuntime(suffix: string) {
     "0007_flat_phil_sheldon.sql",
     "0008_legal_scarecrow.sql",
     "0009_neat_iron_fist.sql",
+    "0010_deep_gateway.sql",
   ]) {
     await applyMigration(
       db,

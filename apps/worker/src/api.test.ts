@@ -116,6 +116,10 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const dataTasks = await readFile(
+      resolve(import.meta.dirname, "../../../migrations/0010_deep_gateway.sql"),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
@@ -125,6 +129,7 @@ describe("FlareMo Worker API", () => {
     await applyMigration(db, sseEvents);
     await applyMigration(db, userServiceParity);
     await applyMigration(db, webhookOutbox);
+    await applyMigration(db, dataTasks);
     sessionCookie = await bootstrapAndSignIn();
   });
 
@@ -1012,6 +1017,146 @@ describe("FlareMo Worker API", () => {
       `http://flaremo.test/api/public/shares/${share.token}`,
     );
     expect(archivedShare.status).toBe(404);
+  });
+
+  it("creates an export task, streams its manifest and attachment bytes", async () => {
+    await createMemo("export memo #tag-a");
+    await createMemo("export memo #tag-b");
+
+    const created = await fetchApp("http://flaremo.test/api/v1/export/tasks", {
+      method: "POST",
+    });
+    expect(created.status).toBe(202);
+    const createdBody = await created.json<{
+      task: { id: string; status: string; kind: string };
+    }>();
+    expect(createdBody.task.kind).toBe("export");
+    expect(createdBody.task.status).toBe("succeeded");
+    const taskId = createdBody.task.id;
+
+    const listed = await json<{ tasks: Array<{ id: string }> }>(
+      await fetchApp("http://flaremo.test/api/v1/export/tasks"),
+    );
+    expect(listed.tasks.map((task) => task.id)).toContain(taskId);
+
+    const statusBody = await json<{
+      task: {
+        id: string;
+        status: string;
+        phase: string;
+        progress_total: number;
+      };
+    }>(await fetchApp(`http://flaremo.test/api/v1/export/tasks/${taskId}`));
+    expect(statusBody.task.status).toBe("succeeded");
+    expect(statusBody.task.phase).toBe("completed");
+
+    const manifestResponse = await fetchApp(
+      `http://flaremo.test/api/v1/export/tasks/${taskId}/manifest`,
+    );
+    expect(manifestResponse.ok).toBe(true);
+    const manifest = (await manifestResponse.json()) as {
+      format_version: number;
+      counts: { memos: number; attachments: number; relations: number };
+      data_chunks: Array<{ kind: string; key: string; record_count: number }>;
+    };
+    expect(manifest.format_version).toBe(1);
+    expect(manifest.counts.memos).toBe(2);
+    expect(manifest.data_chunks.length).toBeGreaterThan(0);
+
+    const memosChunk = manifest.data_chunks.find(
+      (chunk) => chunk.kind === "memos",
+    );
+    expect(memosChunk).toBeTruthy();
+    const chunkResponse = await fetchApp(
+      `http://flaremo.test/api/v1/export/tasks/${taskId}/data/${encodeURIComponent(
+        memosChunk!.key.split("/").at(-1)!,
+      )}`,
+    );
+    expect(chunkResponse.ok).toBe(true);
+    const chunkText = await chunkResponse.text();
+    expect(chunkText.split("\n").filter(Boolean)).toHaveLength(2);
+  });
+
+  it("exports attachments through the task download endpoint", async () => {
+    const memo = await createMemo("export with attachment");
+    const formData = new FormData();
+    formData.set("memo", memo.name);
+    formData.set(
+      "file",
+      new File(["export-me-bytes"], "export.txt", { type: "text/plain" }),
+    );
+    const uploaded = await json<{ name: string }>(
+      await fetchApp("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    const attachmentId = uploaded.name.split("/").at(-1)!;
+
+    const created = await json<{ task: { id: string } }>(
+      await fetchApp("http://flaremo.test/api/v1/export/tasks", {
+        method: "POST",
+      }),
+    );
+    const manifest = await json<{
+      counts: { attachments: number };
+      attachments: Array<{ id: string; filename: string }>;
+    }>(
+      await fetchApp(
+        `http://flaremo.test/api/v1/export/tasks/${created.task.id}/manifest`,
+      ),
+    );
+    expect(manifest.counts.attachments).toBe(1);
+    expect(manifest.attachments[0].id).toBe(attachmentId);
+
+    const download = await fetchApp(
+      `http://flaremo.test/api/v1/export/tasks/${created.task.id}/attachments/${attachmentId}`,
+    );
+    expect(download.status).toBe(200);
+    expect(download.headers.get("content-type")).toBe("text/plain");
+    expect(await download.text()).toBe("export-me-bytes");
+  });
+
+  it("runs an import task and reports its result", async () => {
+    const created = await fetchApp("http://flaremo.test/api/v1/import/tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        conflict: "duplicate",
+        bundle: {
+          version: 2,
+          memos: [
+            {
+              name: "memos/import-task-memo",
+              content: "imported via task",
+              visibility: "private",
+              state: "normal",
+              pinned: false,
+              payload: {},
+              create_time: "2023-11-14T22:13:20Z",
+              update_time: "2023-11-14T22:13:20Z",
+            },
+          ],
+          attachments: [],
+          relations: [],
+          shares: [],
+        },
+      }),
+    });
+    expect(created.status).toBe(202);
+    const body = await created.json<{
+      task: { status: string; kind: string };
+      result: { imported_memos: number };
+    }>();
+    expect(body.task.status).toBe("succeeded");
+    expect(body.task.kind).toBe("import");
+    expect(body.result.imported_memos).toBe(1);
+
+    const listed = await json<{
+      memos: Array<{ name: string; content: string }>;
+    }>(await fetchApp("http://flaremo.test/api/v1/memos?q=imported+via+task"));
+    expect(listed.memos).toHaveLength(1);
+    expect(listed.memos[0].name).toBe("memos/import-task-memo");
   });
 });
 

@@ -298,6 +298,70 @@ export const importResultSchema = z.object({
   imported_shares: z.number().int().nonnegative(),
 });
 
+export const dataTaskStatusSchema = z.enum([
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "expired",
+]);
+
+export const dataTaskDtoSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["export", "import"]),
+  status: dataTaskStatusSchema,
+  phase: z.string(),
+  progress_done: z.number().int().nonnegative(),
+  progress_total: z.number().int().nonnegative(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+  expires_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  completed_at: z.string().nullable(),
+});
+
+export const dataTaskListResponseSchema = z.object({
+  tasks: z.array(dataTaskDtoSchema),
+});
+
+export const createDataTaskResponseSchema = z.object({
+  task: dataTaskDtoSchema,
+});
+
+export const createImportTaskRequestSchema = z.object({
+  bundle: importBundleSchema,
+  conflict: importOptionsSchema.shape.conflict.optional(),
+});
+
+export const exportManifestSchema = z.object({
+  format_version: z.number().int(),
+  exported_at: z.string(),
+  counts: z.object({
+    memos: z.number().int().nonnegative(),
+    attachments: z.number().int().nonnegative(),
+    relations: z.number().int().nonnegative(),
+    shares: z.number().int().nonnegative(),
+  }),
+  data_chunks: z.array(
+    z.object({
+      kind: z.enum(["memos", "attachments", "relations", "shares", "settings"]),
+      key: z.string(),
+      record_count: z.number().int().nonnegative(),
+    }),
+  ),
+  attachments: z.array(
+    z.object({
+      id: z.string(),
+      filename: z.string(),
+      content_type: z.string().nullable(),
+      size: z.number().int().nonnegative(),
+    }),
+  ),
+});
+
+export const exportManifestResponseSchema = exportManifestSchema;
+
 export const tagHierarchyNodeSchema: z.ZodType<{
   name: string;
   count: number;
@@ -355,6 +419,16 @@ export type ExportAttachment = z.infer<typeof exportAttachmentSchema>;
 export type ImportBundle = z.infer<typeof importBundleSchema>;
 export type ImportOptions = z.infer<typeof importOptionsSchema>;
 export type ImportResult = z.infer<typeof importResultSchema>;
+export type DataTaskDto = z.infer<typeof dataTaskDtoSchema>;
+export type DataTaskStatus = z.infer<typeof dataTaskStatusSchema>;
+export type DataTaskListResponse = z.infer<typeof dataTaskListResponseSchema>;
+export type CreateDataTaskResponse = z.infer<
+  typeof createDataTaskResponseSchema
+>;
+export type CreateImportTaskRequest = z.infer<
+  typeof createImportTaskRequestSchema
+>;
+export type ExportManifest = z.infer<typeof exportManifestSchema>;
 export type TagHierarchyNode = z.infer<typeof tagHierarchyNodeSchema>;
 export type TagHierarchyResponse = z.infer<typeof tagHierarchyResponseSchema>;
 export type RenameTagInput = z.infer<typeof renameTagRequestSchema>;

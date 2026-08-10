@@ -1,5 +1,6 @@
 export * from "./attachments";
 export * from "./auth";
+export * from "./data-tasks";
 export * from "./errors";
 export * from "./ids";
 export * from "./import-export";

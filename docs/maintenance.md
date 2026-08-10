@@ -70,6 +70,17 @@ curl http://127.0.0.1:8787/__scheduled
 
 清理只处理 D1 已记录的附件元数据，不扫描或删除未知 R2 key。
 
+## 应用内数据迁移导出
+
+除管理员灾备（见下节「备份」）外，FlareMo 还提供**应用内用户导出**，用于把数据迁移到另一套 FlareMo 或人工归档：
+
+- 小型数据走内联 `GET /api/v1/export`（≤32 MiB，含附件 base64），前端导出按钮直接下载 JSON。
+- 超过内联上限时前端自动改用**导出任务**：`POST /api/v1/export/tasks` 创建任务，分页读取 D1 并把数据按类型写成 R2 下的 NDJSON 分块（`exports/<task-id>/data/*.ndjson`），最后生成自包含 `manifest.json`（记录每类数据块、附件清单及逻辑附件 ID）。
+- 任务状态通过 `GET /api/v1/export/tasks/:id` 查询；manifest 经 `GET .../manifest` 下载；附件经 `GET .../attachments/:attachmentId` 流式下载（不暴露裸 R2 key）。
+- 导入走 `POST /api/v1/import/tasks`（请求内执行并记录结果），`data_tasks` 表记录 `queued/running/succeeded/failed` 全生命周期。每日 cron 兜底把 lease 过期的 stale 任务标记为失败，并清理超过 7 天的任务行与对应 R2 导出产物。
+
+`data_tasks` 是业务数据，会包含在你的 D1 备份中；导出产物本身在 R2 的 `exports/` 前缀下，随任务行过期后由 cron 清理。
+
 ## 备份
 
 FlareMo 的主数据在 D1，附件在 R2。备份必须同时覆盖两者。
