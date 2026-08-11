@@ -12,6 +12,7 @@ export * from "./memos-sse";
 export * from "./memos-user";
 export * from "./memos-webhooks";
 export * from "./relations";
+export * from "./review";
 export * from "./revisions";
 export * from "./settings";
 export * from "./shares";

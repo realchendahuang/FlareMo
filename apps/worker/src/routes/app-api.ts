@@ -1,17 +1,24 @@
 import {
   createMemoSchema,
+  dailyReviewQuerySchema,
   FLAREMO_API_VERSION,
   listMemosQuerySchema,
   memoStatsQuerySchema,
+  randomMemoQuerySchema,
   renameTagRequestSchema,
   updateMemoSchema,
+  walkNextQuerySchema,
 } from "@flaremo/contracts";
+import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
 import {
   createMemo,
   deleteTag,
   getMemoStats,
+  getRandomMemo,
+  getWalkNextMemo,
   hardDeleteMemo,
   listAttachmentsForMemos,
+  listDailyReviewMemos,
   listMemos,
   listTagHierarchy,
   markMemoAttachmentsDeleting,
@@ -19,7 +26,11 @@ import {
   renameTag,
   updateMemo,
 } from "@flaremo/domain";
-import { memosToListResponse, memoToDto } from "@flaremo/memos";
+import {
+  memosToListResponse,
+  memoToDto,
+  parseMemosResourceName,
+} from "@flaremo/memos";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../context";
@@ -85,6 +96,66 @@ appApi.get("/stats", zValidator("query", memoStatsQuerySchema), async (c) => {
     return jsonError(c, error);
   }
 });
+
+appApi.get(
+  "/review/daily",
+  zValidator("query", dailyReviewQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const rows = await listDailyReviewMemos(db, user, c.req.valid("query"));
+      return c.json({
+        memos: await serializeMemosWithAttachments(db, user, rows),
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+appApi.get(
+  "/review/random",
+  zValidator("query", randomMemoQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const memo = await getRandomMemo(
+        db,
+        user,
+        parseExcludeParam(c.req.valid("query").exclude),
+      );
+      const [serialized] = memo
+        ? await serializeMemosWithAttachments(db, user, [memo])
+        : [null];
+      return c.json({ memo: serialized ?? null });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+appApi.get(
+  "/review/walk",
+  zValidator("query", walkNextQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const query = c.req.valid("query");
+      const { memo, via } = await getWalkNextMemo(
+        db,
+        user,
+        query.memoId,
+        parseExcludeParam(query.exclude),
+      );
+      const [serialized] = memo
+        ? await serializeMemosWithAttachments(db, user, [memo])
+        : [null];
+      return c.json({ memo: serialized ?? null, via: memo ? via : null });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 appApi.get("/memos/:id", async (c) => {
   try {
@@ -177,4 +248,35 @@ function normalizeGitHubRepository(value: string): string | null {
   return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)
     ? repository
     : null;
+}
+
+async function serializeMemosWithAttachments(
+  db: FlareMoDb,
+  user: UserRow,
+  rows: MemoRow[],
+) {
+  if (rows.length === 0) return [];
+  const attachments = await listAttachmentsForMemos(
+    db,
+    user,
+    rows.map((row) => row.id),
+  );
+  const attachmentsByMemo = new Map<string, (typeof attachments)[number][]>();
+  for (const attachment of attachments) {
+    if (!attachment.memoId) continue;
+    const current = attachmentsByMemo.get(attachment.memoId) ?? [];
+    current.push(attachment);
+    attachmentsByMemo.set(attachment.memoId, current);
+  }
+  return memosToListResponse({ memos: rows, attachmentsByMemo, user }).memos;
+}
+
+function parseExcludeParam(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .slice(0, 500)
+    .map((entry) => parseMemosResourceName(entry));
 }

@@ -1,6 +1,9 @@
+import { Link } from "@tanstack/react-router";
 import {
   ArchiveIcon,
+  CalendarDaysIcon,
   ChevronRightIcon,
+  FootprintsIcon,
   HashIcon,
   InboxIcon,
   PencilIcon,
@@ -9,6 +12,16 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { MemoStatsResponse, TagHierarchyNode } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useI18n } from "@/i18n";
 import { buildMonthLabels } from "@/lib/activity";
 import { cn } from "@/lib/utils";
@@ -151,6 +164,28 @@ export function FlareMoExplorer({
         ))}
       </nav>
 
+      <section className="mt-5 flex flex-col gap-1">
+        <div className="px-1 text-xs text-muted-foreground">
+          {t("review.sectionTitle")}
+        </div>
+        <Link
+          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          to="/review/daily"
+        >
+          <CalendarDaysIcon />
+          <span className="min-w-0 flex-1 truncate">
+            {t("nav.dailyReview")}
+          </span>
+        </Link>
+        <Link
+          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          to="/review/walk"
+        >
+          <FootprintsIcon />
+          <span className="min-w-0 flex-1 truncate">{t("nav.randomWalk")}</span>
+        </Link>
+      </section>
+
       <section className="mt-5 flex flex-col gap-2 px-1">
         <div className="text-xs text-muted-foreground">
           {t("explorer.tags")}
@@ -206,6 +241,7 @@ function TagTree({
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const toggle = (name: string) =>
     setCollapsed((current) => {
@@ -235,7 +271,11 @@ function TagTree({
         >
           <button
             aria-label={
-              hasChildren ? (isCollapsed ? "展开" : "折叠") : undefined
+              hasChildren
+                ? isCollapsed
+                  ? t("explorer.expand")
+                  : t("explorer.collapse")
+                : undefined
             }
             className={cn(
               "flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground",
@@ -278,7 +318,7 @@ function TagTree({
               className="rounded p-0.5 text-muted-foreground hover:text-destructive"
               title={t("explorer.deleteTag")}
               type="button"
-              onClick={() => onDeleteTag(name)}
+              onClick={() => setDeleteTarget(name)}
             >
               <Trash2Icon className="h-3 w-3" />
             </button>
@@ -304,9 +344,39 @@ function TagTree({
   };
 
   return (
-    <div className="flex flex-col gap-0.5">
-      {nodes.map((n) => renderNode(n, 0))}
-    </div>
+    <>
+      <div className="flex flex-col gap-0.5">
+        {nodes.map((n) => renderNode(n, 0))}
+      </div>
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("explorer.deleteTag")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("explorer.tagDeleteConfirm", { tag: deleteTarget ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="ghost">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteTarget) onDeleteTag(deleteTarget);
+              }}
+            >
+              {t("explorer.deleteTag")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

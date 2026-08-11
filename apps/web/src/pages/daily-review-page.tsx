@@ -1,0 +1,150 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { ArrowLeftIcon } from "lucide-react";
+import { useMemo } from "react";
+import { getDailyReview, type Memo } from "@/api";
+import { AttachmentGallery } from "@/components/attachment-gallery";
+import { FlareMoLogo } from "@/components/flaremo-logo";
+import { LazyMemoContent } from "@/components/lazy-memo-content";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/i18n";
+import { formatMemoTime } from "@/lib/memo";
+
+export function DailyReviewPage() {
+  const { locale, t } = useI18n();
+  const today = useMemo(() => formatLocalDate(new Date()), []);
+  const tzOffset = useMemo(() => -new Date().getTimezoneOffset(), []);
+  const reviewQuery = useQuery({
+    queryKey: ["daily-review", today, tzOffset],
+    queryFn: () => getDailyReview(today, tzOffset),
+    retry: false,
+  });
+  const groups = useMemo(
+    () => groupByYearsAgo(reviewQuery.data?.memos ?? []),
+    [reviewQuery.data],
+  );
+
+  return (
+    <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
+      <main className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
+        <header className="flex items-center justify-between gap-3">
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              search={{
+                q: undefined,
+                tag: undefined,
+                view: undefined,
+                untagged: undefined,
+              }}
+              to="/"
+            >
+              <ArrowLeftIcon data-icon="inline-start" />
+              {t("common.back")}
+            </Link>
+          </Button>
+          <FlareMoLogo markClassName="size-5" />
+        </header>
+
+        <div className="px-1">
+          <h1 className="font-heading text-xl font-semibold">
+            {t("nav.dailyReview")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("review.dailySubtitle")}
+          </p>
+        </div>
+
+        {reviewQuery.isLoading && (
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        )}
+        {reviewQuery.isError && (
+          <Empty className="min-h-72 border">
+            <EmptyHeader>
+              <EmptyTitle>{t("list.errorTitle")}</EmptyTitle>
+              <EmptyDescription>{t("list.errorDescription")}</EmptyDescription>
+            </EmptyHeader>
+            <Button
+              className="mt-2"
+              size="sm"
+              variant="outline"
+              onClick={() => void reviewQuery.refetch()}
+            >
+              {t("common.retry")}
+            </Button>
+          </Empty>
+        )}
+        {reviewQuery.data && groups.length === 0 && (
+          <Empty className="min-h-72 border">
+            <EmptyHeader>
+              <EmptyTitle>{t("review.dailyEmptyTitle")}</EmptyTitle>
+              <EmptyDescription>
+                {t("review.dailyEmptyDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+        {groups.map((group) => (
+          <section className="flex flex-col gap-3" key={group.yearsAgo}>
+            <h2 className="px-1 text-sm font-medium text-muted-foreground">
+              {group.yearsAgo === 1
+                ? t("review.oneYearAgoToday")
+                : t("review.yearsAgoToday", { count: group.yearsAgo })}
+            </h2>
+            {group.memos.map((memo) => (
+              <Card key={memo.name}>
+                <CardContent className="flex flex-col gap-3">
+                  <time className="text-xs text-muted-foreground tabular-nums">
+                    {formatMemoTime(memo.create_time, locale)}
+                  </time>
+                  <LazyMemoContent content={memo.content} />
+                  <AttachmentGallery attachments={memo.attachments ?? []} />
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+        ))}
+      </main>
+    </div>
+  );
+}
+
+type YearGroup = {
+  yearsAgo: number;
+  memos: Memo[];
+};
+
+function groupByYearsAgo(memos: Memo[]): YearGroup[] {
+  const currentYear = new Date().getFullYear();
+  const groups: YearGroup[] = [];
+  for (const memo of memos) {
+    const year = new Date(memo.create_time).getFullYear();
+    const yearsAgo = currentYear - year;
+    if (Number.isNaN(yearsAgo) || yearsAgo < 1) continue;
+    const group = groups.at(-1);
+    if (group && group.yearsAgo === yearsAgo) {
+      group.memos.push(memo);
+    } else {
+      groups.push({ yearsAgo, memos: [memo] });
+    }
+  }
+  return groups;
+}
+
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

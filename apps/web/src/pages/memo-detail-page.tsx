@@ -242,7 +242,7 @@ function MemoDetail({
             {formatMemoTime(context.memo.display_time, locale)}
           </CardTitle>
           <div className="flex flex-wrap gap-2">
-            {context.memo.pinned && <Badge>{t("memo.pin")}</Badge>}
+            {context.memo.pinned && <Badge>{t("memo.pinnedBadge")}</Badge>}
             <Badge variant="outline">
               {t(`visibility.${context.memo.visibility}`)}
             </Badge>

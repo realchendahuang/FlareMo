@@ -115,6 +115,16 @@ const AccountPage = lazy(() =>
     default: module.AccountPage,
   })),
 );
+const DailyReviewPage = lazy(() =>
+  import("@/pages/daily-review-page").then((module) => ({
+    default: module.DailyReviewPage,
+  })),
+);
+const RandomWalkPage = lazy(() =>
+  import("@/pages/random-walk-page").then((module) => ({
+    default: module.RandomWalkPage,
+  })),
+);
 
 const PAGE_SIZE = 30;
 const EMPTY_STATS: MemoStatsResponse = {
@@ -512,6 +522,7 @@ function FlareMoApp() {
   const handleImportFile = async (bundle: unknown) => {
     try {
       const { task, result } = await createImportTask({ bundle });
+      toast.success(t("toast.importStarted"));
       if (task.status !== "succeeded") {
         toast.error(
           t("toast.importFailed", {
@@ -537,6 +548,7 @@ function FlareMoApp() {
       ) {
         return task;
       }
+      toast(t("toast.taskPending"), { id: "data-task-pending" });
       await new Promise((resolve) => setTimeout(resolve, 1500));
     }
   };
@@ -1075,6 +1087,38 @@ const accountRoute = createRoute({
   component: AccountRoutePage,
 });
 
+function DailyReviewRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <DailyReviewPage />
+      </Suspense>
+    </AuthenticatedRoute>
+  );
+}
+
+const dailyReviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/review/daily",
+  component: DailyReviewRoutePage,
+});
+
+function RandomWalkRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <RandomWalkPage />
+      </Suspense>
+    </AuthenticatedRoute>
+  );
+}
+
+const randomWalkRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/review/walk",
+  component: RandomWalkRoutePage,
+});
+
 function AuthenticatedRoute({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const session = authClient.useSession();
@@ -1143,6 +1187,8 @@ const router = createRouter({
     loginRoute,
     setupRoute,
     accountRoute,
+    dailyReviewRoute,
+    randomWalkRoute,
   ]),
   scrollRestoration: true,
 });
