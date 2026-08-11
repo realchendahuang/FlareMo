@@ -139,9 +139,6 @@ const messages = {
     "detail.createShare": "创建分享",
     "detail.revokeShare": "撤销分享",
     "toast.accessRequired": "登录状态已失效，请重新登录",
-    "auth.sessionSecurity":
-      "登录状态仅保存在安全的 HttpOnly Cookie 中，FlareMo 不会将会话令牌保存到本地存储。",
-    "auth.nativeAccess": "原生访问",
     "auth.loginTitle": "登录 FlareMo",
     "auth.loginDescription": "使用你的 FlareMo 用户名和密码继续。",
     "auth.username": "用户名",
@@ -150,16 +147,15 @@ const messages = {
     "auth.signingIn": "正在登录…",
     "auth.loginFailed": "登录失败，请检查用户名和密码后重试。",
     "auth.statusUnavailable": "无法读取当前认证状态，请检查网络后重试。",
-    "auth.setupUnavailable": "初始化暂不可用。请确认管理员已安全配置原生认证。",
+    "auth.setupUnavailable": "初始化暂不可用，请稍后重试或联系管理员。",
     "auth.recoveryRequired":
-      "初始化需要管理员恢复。为避免创建第二个 owner，系统已安全关闭初始化。",
+      "初始化需要管理员恢复。为避免创建第二个所有者，初始化已锁定。",
     "auth.oneTimeSetup": "一次性初始化",
     "auth.setupTitle": "创建首个工作区账户",
     "auth.setupDescription":
       "此页面只在实例尚未初始化时可用，完成后将永久关闭。",
     "auth.bootstrapSecret": "初始化密钥",
-    "auth.setupSecretNotice":
-      "初始化密钥只用于本次请求，不会保存到浏览器或 FlareMo 数据库。请从安全渠道获取它。",
+    "auth.setupSecretNotice": "初始化密钥仅用于本次初始化，请从安全渠道获取。",
     "auth.displayName": "显示名称",
     "auth.email": "邮箱",
     "auth.confirmPassword": "确认密码",
@@ -178,14 +174,14 @@ const messages = {
     "auth.saving": "正在保存…",
     "auth.usernameUpdateFailed": "无法更新用户名。",
     "auth.passwordTitle": "修改密码",
-    "auth.passwordDescription": "修改后会撤销该账户在其他设备上的会话。",
+    "auth.passwordDescription": "修改后，其他设备上的登录状态将失效。",
     "auth.currentPassword": "当前密码",
     "auth.newPassword": "新密码",
     "auth.changePassword": "修改密码",
     "auth.passwordUpdateFailed": "无法修改密码。请确认当前密码后重试。",
     "auth.tokensTitle": "个人访问令牌",
     "auth.tokensDescription":
-      "令牌用于 Memos 兼容客户端、脚本和 MCP。它们不会获得浏览器会话，也可以单独撤销。",
+      "令牌用于 Memos 兼容客户端、脚本和 MCP，可随时单独撤销。",
     "auth.tokenShownOnce": "请立即安全保存这个令牌",
     "auth.tokenShownOnceDescription":
       "出于安全原因，关闭此提示后无法再次查看完整令牌。",
@@ -387,9 +383,6 @@ const messages = {
     "detail.createShare": "Create share",
     "detail.revokeShare": "Revoke share",
     "toast.accessRequired": "Your sign-in has expired. Please sign in again.",
-    "auth.sessionSecurity":
-      "Your session is held only in a secure HttpOnly cookie. FlareMo never stores session tokens in local storage.",
-    "auth.nativeAccess": "Native access",
     "auth.loginTitle": "Sign in to FlareMo",
     "auth.loginDescription":
       "Continue with your FlareMo username and password.",
@@ -402,16 +395,16 @@ const messages = {
     "auth.statusUnavailable":
       "FlareMo could not read the current authentication status. Check your connection and try again.",
     "auth.setupUnavailable":
-      "Setup is unavailable. Confirm that an administrator has securely configured native authentication.",
+      "Setup is unavailable right now. Try again later or contact your administrator.",
     "auth.recoveryRequired":
-      "Setup requires administrator recovery. To avoid creating a second owner, FlareMo has safely closed setup.",
+      "Setup requires administrator recovery. Setup is locked to avoid creating a second owner.",
     "auth.oneTimeSetup": "One-time setup",
     "auth.setupTitle": "Create the first workspace account",
     "auth.setupDescription":
       "This page is available only while the instance is uninitialized and permanently closes after setup.",
     "auth.bootstrapSecret": "Setup secret",
     "auth.setupSecretNotice":
-      "The setup secret is used only for this request. It is not saved in your browser or in FlareMo's database. Obtain it through a secure channel.",
+      "The setup secret is used only for this one-time setup. Obtain it through a secure channel.",
     "auth.displayName": "Display name",
     "auth.email": "Email",
     "auth.confirmPassword": "Confirm password",
@@ -432,7 +425,7 @@ const messages = {
     "auth.usernameUpdateFailed": "Could not update the username.",
     "auth.passwordTitle": "Change password",
     "auth.passwordDescription":
-      "Changing the password revokes this account's sessions on other devices.",
+      "After changing the password, you will be signed out on other devices.",
     "auth.currentPassword": "Current password",
     "auth.newPassword": "New password",
     "auth.changePassword": "Change password",
@@ -440,7 +433,7 @@ const messages = {
       "Could not change the password. Check the current password and try again.",
     "auth.tokensTitle": "Personal access tokens",
     "auth.tokensDescription":
-      "Tokens are for Memos-compatible clients, scripts, and MCP. They do not grant a browser session and can be revoked independently.",
+      "Tokens are for Memos-compatible clients, scripts, and MCP. You can revoke each one at any time.",
     "auth.tokenShownOnce": "Save this token securely now",
     "auth.tokenShownOnceDescription":
       "For security, the complete token cannot be viewed again after you hide this notice.",
