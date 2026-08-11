@@ -19,7 +19,7 @@ export function AuthPageFrame({
 }: {
   children: ReactNode;
   description: string;
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
 }) {
   const { t, toggleLocale } = useI18n();
@@ -42,17 +42,16 @@ export function AuthPageFrame({
         </header>
         <Card className="shadow-lg shadow-flame-950/5">
           <CardHeader className="gap-2">
-            <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
-              {eyebrow}
-            </p>
+            {eyebrow ? (
+              <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+                {eyebrow}
+              </p>
+            ) : null}
             <CardTitle className="text-xl">{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </CardHeader>
           <CardContent>{children}</CardContent>
         </Card>
-        <p className="px-2 text-center text-xs leading-5 text-muted-foreground">
-          {t("auth.sessionSecurity")}
-        </p>
       </div>
     </main>
   );

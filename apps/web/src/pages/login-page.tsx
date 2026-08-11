@@ -77,7 +77,6 @@ export function LoginPage() {
   return (
     <AuthPageFrame
       description={t("auth.loginDescription")}
-      eyebrow={t("auth.nativeAccess")}
       title={t("auth.loginTitle")}
     >
       {bootstrapQuery.isError && (

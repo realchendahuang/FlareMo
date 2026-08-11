@@ -18,6 +18,7 @@ flomo 回顾体系对齐（R3 第一批）与冗余文案清理。
 - 接上已定义但未使用的文案：删除标签现在弹确认对话框（`explorer.tagDeleteConfirm`）；导入任务创建后提示 `toast.importStarted`，导出轮询提示 `toast.taskPending`（按 toast id 去重）。
 - 本地化硬编码字符串：标签树「展开/折叠」aria-label、Dialog/Sheet 的 sr-only Close、memo 详情页置顶徽章（新增 `memo.pinnedBadge`）。
 - 删除死代码：`DialogFooter` 永不渲染的 Close 按钮、`apps/web/src/api.ts` 中 7 个无调用方的导出函数。
+- 清理零信息增量的内部腔文案：登录/初始化页删除「登录状态仅保存在 HttpOnly Cookie…」安全说明和「原生访问」眉标（账户页同步移除）；简化初始化不可用、初始化密钥说明、改密影响说明和 PAT 描述的措辞。
 
 ### Cloudflare、数据库与兼容影响
 
