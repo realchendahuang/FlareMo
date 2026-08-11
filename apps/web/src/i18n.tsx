@@ -140,7 +140,8 @@ const messages = {
     "detail.revokeShare": "撤销分享",
     "toast.accessRequired": "登录状态已失效，请重新登录",
     "auth.loginTitle": "登录 FlareMo",
-    "auth.loginDescription": "使用你的 FlareMo 用户名和密码继续。",
+    "auth.brandTagline": "随时落笔，留住想法。",
+    "auth.forgotPasswordHint": "忘记密码？用部署时配置的恢复密钥重置。",
     "auth.username": "用户名",
     "auth.password": "密码",
     "auth.signIn": "登录",
@@ -384,8 +385,9 @@ const messages = {
     "detail.revokeShare": "Revoke share",
     "toast.accessRequired": "Your sign-in has expired. Please sign in again.",
     "auth.loginTitle": "Sign in to FlareMo",
-    "auth.loginDescription":
-      "Continue with your FlareMo username and password.",
+    "auth.brandTagline": "Capture every thought as it lands.",
+    "auth.forgotPasswordHint":
+      "Forgot your password? Reset it with the recovery secret from your deployment.",
     "auth.username": "Username",
     "auth.password": "Password",
     "auth.signIn": "Sign in",
