@@ -75,10 +75,7 @@ export function LoginPage() {
   };
 
   return (
-    <AuthPageFrame
-      description={t("auth.loginDescription")}
-      title={t("auth.loginTitle")}
-    >
+    <AuthPageFrame title={t("auth.loginTitle")}>
       {bootstrapQuery.isError && (
         <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
           {t("auth.statusUnavailable")}
@@ -146,6 +143,9 @@ export function LoginPage() {
         >
           {isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
         </Button>
+        <p className="text-center text-xs leading-5 text-muted-foreground">
+          {t("auth.forgotPasswordHint")}
+        </p>
       </form>
     </AuthPageFrame>
   );
