@@ -41,10 +41,10 @@ export function UpdateStatus() {
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          aria-label={t("update.open")}
+          aria-label={t("update.title")}
           className="relative px-2"
           size="sm"
-          title={t("update.open")}
+          title={t("update.title")}
           variant="ghost"
         >
           <RefreshCwIcon />

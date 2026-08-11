@@ -1,10 +1,9 @@
 import type {
   AttachmentDto,
   CreateMemoInput,
+  DailyReviewResponse,
   DataTaskDto,
-  DataTaskListResponse,
   DeleteTagResponse,
-  ExportManifest,
   ImportResult,
   ListMemosResponse,
   MemoContextResponse,
@@ -13,10 +12,13 @@ import type {
   MemoStatsResponse,
   MemoVisibility,
   PublicShareDto,
+  RandomMemoResponse,
   RenameTagResponse,
+  ReviewWalkVia,
   ShareDto,
   TagHierarchyResponse,
   UpdateMemoInput,
+  WalkNextResponse,
 } from "@flaremo/contracts";
 
 export type Attachment = AttachmentDto;
@@ -26,7 +28,7 @@ export type Share = ShareDto;
 export type PublicShare = PublicShareDto;
 export type MemoContext = MemoContextResponse;
 export type TagHierarchyNode = TagHierarchyResponse["tags"][number];
-export type { MemoState, MemoStatsResponse, MemoVisibility };
+export type { MemoState, MemoStatsResponse, MemoVisibility, ReviewWalkVia };
 
 export type CreateMemoRequest = CreateMemoInput;
 export type UpdateMemoRequest = UpdateMemoInput;
@@ -131,6 +133,32 @@ export async function deleteTag(tag: string) {
 export async function getMemoStats(timeZone: string) {
   const query = new URLSearchParams({ time_zone: timeZone });
   return apiRequest<MemoStatsResponse>(`/api/app/stats?${query.toString()}`);
+}
+
+export async function getDailyReview(date: string, tzOffsetMinutes: number) {
+  const query = new URLSearchParams({
+    date,
+    tzOffset: String(tzOffsetMinutes),
+  });
+  return apiRequest<DailyReviewResponse>(
+    `/api/app/review/daily?${query.toString()}`,
+  );
+}
+
+export async function getRandomWalkMemo(exclude: string[] = []) {
+  const query = new URLSearchParams();
+  if (exclude.length > 0) query.set("exclude", exclude.join(","));
+  return apiRequest<RandomMemoResponse>(
+    `/api/app/review/random?${query.toString()}`,
+  );
+}
+
+export async function getWalkNextMemo(memoId: string, exclude: string[] = []) {
+  const query = new URLSearchParams({ memoId });
+  if (exclude.length > 0) query.set("exclude", exclude.join(","));
+  return apiRequest<WalkNextResponse>(
+    `/api/app/review/walk?${query.toString()}`,
+  );
 }
 
 export async function getAppInfo() {
@@ -297,13 +325,6 @@ export async function bindMemoAttachments(memo: string, attachments: string[]) {
   );
 }
 
-export async function deleteAttachment(id: string) {
-  return apiRequest<{ ok: true }>(
-    `/api/v1/attachments/${encodeURIComponent(id)}`,
-    { method: "DELETE" },
-  );
-}
-
 export async function createShare(memo: string) {
   return apiRequest<Share>(`/api/v1/memos/${encodeURIComponent(memo)}/shares`, {
     method: "POST",
@@ -354,26 +375,11 @@ export async function getPublicShare(token: string) {
   );
 }
 
-export async function exportData() {
-  return apiRequest<unknown>("/api/v1/export");
-}
-
-export async function importData(bundle: unknown) {
-  return apiRequest<ImportResult>("/api/v1/import", {
-    method: "POST",
-    body: JSON.stringify(bundle),
-  });
-}
-
 export async function createExportTask() {
   return apiRequest<{ task: DataTaskDto }>("/api/v1/export/tasks", {
     method: "POST",
     body: JSON.stringify({}),
   });
-}
-
-export async function listDataTasks() {
-  return apiRequest<DataTaskListResponse>("/api/v1/export/tasks");
 }
 
 export async function getDataTask(id: string) {
@@ -390,20 +396,6 @@ export async function createImportTask(input: {
     "/api/v1/import/tasks",
     { method: "POST", body: JSON.stringify(input) },
   );
-}
-
-export async function downloadExportManifest(id: string) {
-  return apiRequest<ExportManifest>(
-    `/api/v1/export/tasks/${encodeURIComponent(id)}/manifest`,
-  );
-}
-
-export function exportTaskDataUrl(id: string, chunk: string) {
-  return `/api/v1/export/tasks/${encodeURIComponent(id)}/data/${encodeURIComponent(chunk)}`;
-}
-
-export function exportTaskAttachmentUrl(id: string, attachmentId: string) {
-  return `/api/v1/export/tasks/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`;
 }
 
 export async function downloadExportJson(id: string) {

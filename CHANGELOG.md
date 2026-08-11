@@ -4,7 +4,26 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## Unreleased
 
-后续变更将在下一次 release 汇总。
+flomo 回顾体系对齐（R3 第一批）与冗余文案清理。
+
+### 新增能力
+
+- 每日回顾：新增 `/review/daily` 页面，按「N 年前的今天」分组展示往年今日创建的 memo；后端 `GET /api/app/review/daily?date=YYYY-MM-DD`（时区由前端传本地日期规避）。
+- 随机漫步：新增 `/review/walk` 页面，从随机 memo 出发沿共享标签、引用关系游走（无关联时大跨越），支持漫步历史回看；「结束漫步」输出明信片式总结（经过条数、总字数、时间跨度）；后端 `GET /api/app/review/random`、`GET /api/app/review/walk`，返回 `via`（tag/relation/jump）标记路径来源。
+- 侧边栏 explorer 新增「回顾」区，含每日回顾与随机漫步入口。
+
+### 修复与清理
+
+- 删除 13 个未使用的 i18n 死文案 key（中英双语）与重复 key `update.open`（统一为 `update.title`）。
+- 接上已定义但未使用的文案：删除标签现在弹确认对话框（`explorer.tagDeleteConfirm`）；导入任务创建后提示 `toast.importStarted`，导出轮询提示 `toast.taskPending`（按 toast id 去重）。
+- 本地化硬编码字符串：标签树「展开/折叠」aria-label、Dialog/Sheet 的 sr-only Close、memo 详情页置顶徽章（新增 `memo.pinnedBadge`）。
+- 删除死代码：`DialogFooter` 永不渲染的 Close 按钮、`apps/web/src/api.ts` 中 7 个无调用方的导出函数。
+
+### Cloudflare、数据库与兼容影响
+
+- 无新增 D1 migration、无 R2 命名空间变化、无 Cloudflare 配置变化。
+- 仅 `/api/app/*` 新增三个端点（均需认证）；`/api/v1/*` Memos 兼容面不变。
+- 认证与 Origin 校验语义不变。
 
 ## v0.6.0
 

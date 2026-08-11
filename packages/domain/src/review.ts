@@ -1,0 +1,168 @@
+import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
+import { memoRelations, memos, memoTags } from "@flaremo/db";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
+import { ValidationError } from "./errors";
+import { parseResourceName } from "./ids";
+import { getMemoById } from "./memos";
+
+export type WalkVia =
+  | { type: "tag"; tag: string }
+  | { type: "relation" }
+  | { type: "jump" };
+
+const DAILY_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * "On this day" review: normal memos whose creation month-day matches the
+ * given local date, excluding memos created on that exact date. The caller
+ * passes the viewer's local date and UTC offset (minutes ahead of UTC) so
+ * month-day comparisons stay in the viewer's frame without a server
+ * time-zone guess.
+ */
+export async function listDailyReviewMemos(
+  db: FlareMoDb,
+  user: UserRow,
+  input: { date: string; tzOffset?: number },
+): Promise<MemoRow[]> {
+  const date = input.date.trim();
+  if (!DAILY_REVIEW_DATE_PATTERN.test(date) || Number.isNaN(Date.parse(date))) {
+    throw new ValidationError("Invalid review date");
+  }
+  const tzOffset = input.tzOffset ?? 0;
+  const monthDay = date.slice(5);
+  return db
+    .select()
+    .from(memos)
+    .where(
+      and(
+        eq(memos.userId, user.id),
+        eq(memos.status, "normal"),
+        sql`substr(datetime(${memos.createdAt}, printf('%+d minutes', ${tzOffset})), 6, 5) = ${monthDay}`,
+        sql`substr(datetime(${memos.createdAt}, printf('%+d minutes', ${tzOffset})), 1, 10) != ${date}`,
+      ),
+    )
+    .orderBy(asc(memos.createdAt), asc(memos.id));
+}
+
+/**
+ * Pick one random normal memo outside the exclusion set. Exclusions are
+ * applied in memory rather than as bound parameters so long random walks
+ * cannot exceed D1's bound-parameter limit.
+ */
+export async function getRandomMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  excludeIds: string[] = [],
+): Promise<MemoRow | null> {
+  const rows = await db
+    .select({ id: memos.id })
+    .from(memos)
+    .where(and(eq(memos.userId, user.id), eq(memos.status, "normal")));
+  const excluded = new Set(excludeIds);
+  const candidates = rows.filter((row) => !excluded.has(row.id));
+  if (candidates.length === 0) return null;
+  const picked = pickRandom(candidates);
+  return (
+    (await db.select().from(memos).where(eq(memos.id, picked.id)).get()) ?? null
+  );
+}
+
+/**
+ * Continue a random walk from `memoId`: prefer a normal memo sharing a tag,
+ * then a memo connected through memo_relations (either direction), and
+ * finally a completely unrelated random memo ("jump"). Returns null when
+ * every normal memo has already been walked through.
+ */
+export async function getWalkNextMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+  excludeIds: string[] = [],
+): Promise<{ memo: MemoRow | null; via: WalkVia | null }> {
+  const normalizedMemoId = parseResourceName(memoId.trim(), "memos");
+  if (!normalizedMemoId || normalizedMemoId === "memos/") {
+    throw new ValidationError("Invalid memo id");
+  }
+  await getMemoById(db, user, normalizedMemoId);
+  const excluded = new Set([normalizedMemoId, ...excludeIds]);
+
+  const sourceTags = (
+    await db
+      .select({ tag: memoTags.tag })
+      .from(memoTags)
+      .where(and(eq(memoTags.memoId, normalizedMemoId)))
+  ).map((row) => row.tag);
+
+  if (sourceTags.length > 0) {
+    const tagCandidates = (
+      await db
+        .select({ memoId: memoTags.memoId, tag: memoTags.tag })
+        .from(memoTags)
+        .innerJoin(memos, eq(memoTags.memoId, memos.id))
+        .where(
+          and(
+            eq(memoTags.userId, user.id),
+            inArray(memoTags.tag, sourceTags),
+            eq(memos.status, "normal"),
+          ),
+        )
+    ).filter((row) => !excluded.has(row.memoId));
+    if (tagCandidates.length > 0) {
+      const picked = pickRandom(tagCandidates);
+      const memo = await db
+        .select()
+        .from(memos)
+        .where(eq(memos.id, picked.memoId))
+        .get();
+      if (memo) return { memo, via: { type: "tag", tag: picked.tag } };
+    }
+  }
+
+  const relations = await db
+    .select({
+      memoId: memoRelations.memoId,
+      relatedMemoId: memoRelations.relatedMemoId,
+    })
+    .from(memoRelations)
+    .where(
+      or(
+        eq(memoRelations.memoId, normalizedMemoId),
+        eq(memoRelations.relatedMemoId, normalizedMemoId),
+      ),
+    );
+  const relatedIds = [
+    ...new Set(
+      relations.map((relation) =>
+        relation.memoId === normalizedMemoId
+          ? relation.relatedMemoId
+          : relation.memoId,
+      ),
+    ),
+  ].filter((id) => !excluded.has(id));
+  if (relatedIds.length > 0) {
+    const related = await db
+      .select()
+      .from(memos)
+      .where(
+        and(
+          eq(memos.userId, user.id),
+          eq(memos.status, "normal"),
+          inArray(memos.id, relatedIds),
+        ),
+      );
+    if (related.length > 0) {
+      return { memo: pickRandom(related), via: { type: "relation" } };
+    }
+  }
+
+  const memo = await getRandomMemo(db, user, [...excluded]);
+  return memo ? { memo, via: { type: "jump" } } : { memo: null, via: null };
+}
+
+function pickRandom<T>(items: readonly T[]): T {
+  const item = items[Math.floor(Math.random() * items.length)];
+  if (item === undefined) {
+    throw new Error("pickRandom requires a non-empty array");
+  }
+  return item;
+}

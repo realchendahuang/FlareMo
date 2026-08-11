@@ -84,6 +84,29 @@ export const memoStatsQuerySchema = z.object({
   time_zone: z.string().trim().min(1).max(100).default("UTC"),
 });
 
+export const dailyReviewQuerySchema = z.object({
+  /** Local date in YYYY-MM-DD; the server matches creation month-day. */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  /** Minutes the viewer's local time is ahead of UTC (e.g. 480 for UTC+8). */
+  tzOffset: z.coerce.number().int().min(-840).max(840).default(0),
+});
+
+export const randomMemoQuerySchema = z.object({
+  /** Comma-separated memo resource names already walked through. */
+  exclude: z.string().trim().max(64_000).optional(),
+});
+
+export const walkNextQuerySchema = z.object({
+  memoId: z.string().trim().min(1).max(200),
+  exclude: z.string().trim().max(64_000).optional(),
+});
+
+export const reviewWalkViaSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("tag"), tag: z.string() }),
+  z.object({ type: z.literal("relation") }),
+  z.object({ type: z.literal("jump") }),
+]);
+
 export const attachmentDtoSchema = z.object({
   name: z.string(),
   id: z.string(),
@@ -403,6 +426,16 @@ export type MemoOrderBy = z.infer<typeof memoOrderBySchema>;
 export type MemoDto = z.infer<typeof memoDtoSchema>;
 export type ListMemosResponse = z.infer<typeof listMemosResponseSchema>;
 export type MemoStatsResponse = z.infer<typeof memoStatsResponseSchema>;
+export type DailyReviewQuery = z.infer<typeof dailyReviewQuerySchema>;
+export type RandomMemoQuery = z.infer<typeof randomMemoQuerySchema>;
+export type WalkNextQuery = z.infer<typeof walkNextQuerySchema>;
+export type ReviewWalkVia = z.infer<typeof reviewWalkViaSchema>;
+export type DailyReviewResponse = { memos: MemoDto[] };
+export type RandomMemoResponse = { memo: MemoDto | null };
+export type WalkNextResponse = {
+  memo: MemoDto | null;
+  via: ReviewWalkVia | null;
+};
 export type AttachmentDto = z.infer<typeof attachmentDtoSchema>;
 export type ListAttachmentsQuery = z.infer<typeof listAttachmentsQuerySchema>;
 export type BindMemoAttachmentsInput = z.infer<
