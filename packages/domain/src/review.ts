@@ -159,6 +159,113 @@ export async function getWalkNextMemo(
   return memo ? { memo, via: { type: "jump" } } : { memo: null, via: null };
 }
 
+export type RelatedMemo = {
+  memo: MemoRow;
+  sharedTags: string[];
+  viaRelation: boolean;
+};
+
+/**
+ * Lightweight "related notes": rank normal memos by direct relation (either
+ * direction, strongest signal) plus the number of shared exact tags. This is
+ * the pre-Vectorize version of flomo's related notes; semantic ranking can
+ * replace the scoring later without changing the route contract.
+ */
+export async function listRelatedMemos(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+  input: { limit?: number } = {},
+): Promise<RelatedMemo[]> {
+  const normalizedMemoId = parseResourceName(memoId.trim(), "memos");
+  if (!normalizedMemoId || normalizedMemoId === "memos/") {
+    throw new ValidationError("Invalid memo id");
+  }
+  await getMemoById(db, user, normalizedMemoId);
+  const limit = Math.min(Math.max(input.limit ?? 5, 1), 10);
+
+  const sourceTags = (
+    await db
+      .select({ tag: memoTags.tag })
+      .from(memoTags)
+      .where(eq(memoTags.memoId, normalizedMemoId))
+  ).map((row) => row.tag);
+
+  const sharedTagsByMemo = new Map<string, Set<string>>();
+  if (sourceTags.length > 0) {
+    const rows = await db
+      .select({ memoId: memoTags.memoId, tag: memoTags.tag })
+      .from(memoTags)
+      .innerJoin(memos, eq(memoTags.memoId, memos.id))
+      .where(
+        and(
+          eq(memoTags.userId, user.id),
+          inArray(memoTags.tag, sourceTags),
+          eq(memos.status, "normal"),
+        ),
+      );
+    for (const row of rows) {
+      if (row.memoId === normalizedMemoId) continue;
+      const tags = sharedTagsByMemo.get(row.memoId) ?? new Set<string>();
+      tags.add(row.tag);
+      sharedTagsByMemo.set(row.memoId, tags);
+    }
+  }
+
+  const relations = await db
+    .select({
+      memoId: memoRelations.memoId,
+      relatedMemoId: memoRelations.relatedMemoId,
+    })
+    .from(memoRelations)
+    .where(
+      or(
+        eq(memoRelations.memoId, normalizedMemoId),
+        eq(memoRelations.relatedMemoId, normalizedMemoId),
+      ),
+    );
+  const relatedIds = new Set(
+    relations.map((relation) =>
+      relation.memoId === normalizedMemoId
+        ? relation.relatedMemoId
+        : relation.memoId,
+    ),
+  );
+
+  const candidateIds = [
+    ...new Set([...sharedTagsByMemo.keys(), ...relatedIds]),
+  ];
+  if (candidateIds.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(memos)
+    .where(
+      and(
+        eq(memos.userId, user.id),
+        eq(memos.status, "normal"),
+        inArray(memos.id, candidateIds),
+      ),
+    );
+
+  return rows
+    .map((memo) => ({
+      memo,
+      sharedTags: [...(sharedTagsByMemo.get(memo.id) ?? [])].sort(),
+      viaRelation: relatedIds.has(memo.id),
+    }))
+    .sort(
+      (a, b) =>
+        relatedScore(b) - relatedScore(a) ||
+        b.memo.createdAt.localeCompare(a.memo.createdAt) ||
+        a.memo.id.localeCompare(b.memo.id),
+    )
+    .slice(0, limit);
+}
+
+function relatedScore(entry: RelatedMemo): number {
+  return (entry.viaRelation ? 3 : 0) + entry.sharedTags.length;
+}
+
 function pickRandom<T>(items: readonly T[]): T {
   const item = items[Math.floor(Math.random() * items.length)];
   if (item === undefined) {

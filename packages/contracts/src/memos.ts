@@ -101,6 +101,10 @@ export const walkNextQuerySchema = z.object({
   exclude: z.string().trim().max(64_000).optional(),
 });
 
+export const relatedMemosQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(10).default(5),
+});
+
 export const reviewWalkViaSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("tag"), tag: z.string() }),
   z.object({ type: z.literal("relation") }),
@@ -429,6 +433,7 @@ export type MemoStatsResponse = z.infer<typeof memoStatsResponseSchema>;
 export type DailyReviewQuery = z.infer<typeof dailyReviewQuerySchema>;
 export type RandomMemoQuery = z.infer<typeof randomMemoQuerySchema>;
 export type WalkNextQuery = z.infer<typeof walkNextQuerySchema>;
+export type RelatedMemosQuery = z.infer<typeof relatedMemosQuerySchema>;
 export type ReviewWalkVia = z.infer<typeof reviewWalkViaSchema>;
 export type DailyReviewResponse = { memos: MemoDto[] };
 export type RandomMemoResponse = { memo: MemoDto | null };
@@ -436,6 +441,11 @@ export type WalkNextResponse = {
   memo: MemoDto | null;
   via: ReviewWalkVia | null;
 };
+export type RelatedMemoEntry = MemoDto & {
+  shared_tags: string[];
+  via_relation: boolean;
+};
+export type RelatedMemosResponse = { memos: RelatedMemoEntry[] };
 export type AttachmentDto = z.infer<typeof attachmentDtoSchema>;
 export type ListAttachmentsQuery = z.infer<typeof listAttachmentsQuerySchema>;
 export type BindMemoAttachmentsInput = z.infer<

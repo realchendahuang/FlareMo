@@ -13,6 +13,7 @@ import type {
   MemoVisibility,
   PublicShareDto,
   RandomMemoResponse,
+  RelatedMemosResponse,
   RenameTagResponse,
   ReviewWalkVia,
   ShareDto,
@@ -27,6 +28,7 @@ export type MemoPayload = MemoDto["payload"];
 export type Share = ShareDto;
 export type PublicShare = PublicShareDto;
 export type MemoContext = MemoContextResponse;
+export type RelatedMemo = RelatedMemosResponse["memos"][number];
 export type TagHierarchyNode = TagHierarchyResponse["tags"][number];
 export type { MemoState, MemoStatsResponse, MemoVisibility, ReviewWalkVia };
 
@@ -334,6 +336,12 @@ export async function createShare(memo: string) {
 
 export async function getMemoContext(id: string) {
   return apiRequest<MemoContext>(`/api/app/memos/${encodeURIComponent(id)}`);
+}
+
+export async function getRelatedMemos(id: string) {
+  return apiRequest<RelatedMemosResponse>(
+    `/api/app/memos/${encodeURIComponent(id)}/related`,
+  );
 }
 
 export async function revokeShare(id: string) {

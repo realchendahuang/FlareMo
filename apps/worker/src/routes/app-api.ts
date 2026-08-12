@@ -5,6 +5,7 @@ import {
   listMemosQuerySchema,
   memoStatsQuerySchema,
   randomMemoQuerySchema,
+  relatedMemosQuerySchema,
   renameTagRequestSchema,
   updateMemoSchema,
   walkNextQuerySchema,
@@ -20,6 +21,7 @@ import {
   listAttachmentsForMemos,
   listDailyReviewMemos,
   listMemos,
+  listRelatedMemos,
   listTagHierarchy,
   markMemoAttachmentsDeleting,
   moveMemoToTrash,
@@ -151,6 +153,44 @@ appApi.get(
         ? await serializeMemosWithAttachments(db, user, [memo])
         : [null];
       return c.json({ memo: serialized ?? null, via: memo ? via : null });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+appApi.get(
+  "/memos/:id/related",
+  zValidator("query", relatedMemosQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const related = await listRelatedMemos(
+        db,
+        user,
+        `memos/${c.req.param("id")}`,
+        c.req.valid("query"),
+      );
+      const serialized = await serializeMemosWithAttachments(
+        db,
+        user,
+        related.map((entry) => entry.memo),
+      );
+      const byId = new Map(serialized.map((memo) => [memo.name, memo]));
+      return c.json({
+        memos: related.flatMap((entry) => {
+          const memo = byId.get(entry.memo.id);
+          return memo
+            ? [
+                {
+                  ...memo,
+                  shared_tags: entry.sharedTags,
+                  via_relation: entry.viaRelation,
+                },
+              ]
+            : [];
+        }),
+      });
     } catch (error) {
       return jsonError(c, error);
     }

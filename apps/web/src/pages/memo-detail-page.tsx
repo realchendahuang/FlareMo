@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import type { RelatedMemo } from "@/api";
 import {
   createShare,
   getMemoContext,
+  getRelatedMemos,
   listMemos,
   replaceMemoRelations,
   restoreMemoRevision,
@@ -52,9 +54,15 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
     queryFn: () => listMemos({ q: relatedMemo.trim(), page_size: 8 }),
     enabled: relatedMemo.trim().length >= 2,
   });
+  const relatedQuery = useQuery({
+    queryKey: ["memo-related", memoId],
+    queryFn: () => getRelatedMemos(memoId),
+    retry: false,
+  });
   const invalidateMemo = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey }),
+      queryClient.invalidateQueries({ queryKey: ["memo-related", memoId] }),
       queryClient.invalidateQueries({ queryKey: ["memos"] }),
       queryClient.invalidateQueries({ queryKey: ["memo-stats"] }),
     ]);
@@ -161,6 +169,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
             context={contextQuery.data}
             isSearching={relationCandidatesQuery.isFetching}
             locale={locale}
+            related={relatedQuery.data?.memos ?? []}
             relatedMemo={relatedMemo}
             setRelatedMemo={setRelatedMemo}
             onAddRelation={(name) => {
@@ -211,6 +220,7 @@ function MemoDetail({
   context,
   isSearching,
   locale,
+  related,
   relatedMemo,
   setRelatedMemo,
   onAddRelation,
@@ -224,6 +234,7 @@ function MemoDetail({
   context: Awaited<ReturnType<typeof getMemoContext>>;
   isSearching: boolean;
   locale: string;
+  related: RelatedMemo[];
   relatedMemo: string;
   setRelatedMemo: (value: string) => void;
   onAddRelation: (name: string) => void;
@@ -282,6 +293,37 @@ function MemoDetail({
                     relations={context.backlinks}
                   />
                 )}
+              </section>
+            )}
+            {related.length > 0 && (
+              <section className="flex flex-col gap-2 border-t border-border/60 pt-4">
+                <h2 className="text-sm font-medium">{t("detail.related")}</h2>
+                {related.map((memo) => (
+                  <Link
+                    className="rounded-lg border p-3 text-sm transition-colors hover:bg-muted"
+                    key={memo.name}
+                    params={{ memoId: memo.id }}
+                    to="/memo/$memoId"
+                  >
+                    <div className="line-clamp-2">{memo.content}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {[
+                        memo.via_relation
+                          ? t("detail.relatedViaRelation")
+                          : null,
+                        memo.shared_tags.length > 0
+                          ? t("detail.relatedSharedTags", {
+                              tags: memo.shared_tags
+                                .map((tag) => `#${tag}`)
+                                .join(" "),
+                            })
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                  </Link>
+                ))}
               </section>
             )}
           </TabsContent>
