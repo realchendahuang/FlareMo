@@ -404,17 +404,29 @@ test("creates, follows, reads, and removes memo relations", async ({
     .fill(targetContent);
   await page.getByRole("button", { name: targetContent }).click();
   const outgoing = page.getByRole("heading", {
-    name: /related notes|关联记录/i,
+    name: /references|引用了谁/i,
   });
   await expect(
     outgoing
       .locator("..")
       .getByRole("link", { name: new RegExp(targetContent) }),
   ).toBeVisible();
+  // The inline review panel on the content tab surfaces outgoing links
+  // without opening the management tab.
+  await page.getByRole("tab", { name: /content|内容/i }).click();
+  await expect(
+    page.getByRole("link", { name: new RegExp(targetContent) }),
+  ).toBeVisible();
 
   await page.goto(`/memo/${target.id}`);
+  // Backlinks are also visible inline on the target note's content tab.
+  await expect(
+    page.getByRole("link", { name: new RegExp(sourceContent) }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: /links|关联/i }).click();
-  const backlinks = page.getByRole("heading", { name: /backlinks|反向链接/i });
+  const backlinks = page.getByRole("heading", {
+    name: /referenced by|被谁引用/i,
+  });
   await expect(
     backlinks
       .locator("..")

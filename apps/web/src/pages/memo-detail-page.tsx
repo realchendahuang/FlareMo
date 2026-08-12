@@ -253,7 +253,12 @@ function MemoDetail({
         <Tabs defaultValue="content">
           <TabsList className="max-w-full overflow-x-auto">
             <TabsTrigger value="content">{t("detail.content")}</TabsTrigger>
-            <TabsTrigger value="relations">{t("detail.relations")}</TabsTrigger>
+            <TabsTrigger value="relations">
+              {t("detail.relations")}
+              {context.relations.length + context.backlinks.length > 0
+                ? ` (${context.relations.length + context.backlinks.length})`
+                : ""}
+            </TabsTrigger>
             <TabsTrigger value="history">{t("detail.history")}</TabsTrigger>
             <TabsTrigger value="sharing">{t("detail.sharing")}</TabsTrigger>
           </TabsList>
@@ -263,6 +268,22 @@ function MemoDetail({
               content={context.memo.content}
             />
             <AttachmentGallery attachments={context.attachments} />
+            {(context.relations.length > 0 || context.backlinks.length > 0) && (
+              <section className="flex flex-col gap-4 border-t border-border/60 pt-4">
+                {context.relations.length > 0 && (
+                  <RelationGroup
+                    label={t("detail.outgoing")}
+                    relations={context.relations}
+                  />
+                )}
+                {context.backlinks.length > 0 && (
+                  <RelationGroup
+                    label={t("detail.backlinks")}
+                    relations={context.backlinks}
+                  />
+                )}
+              </section>
+            )}
           </TabsContent>
           <TabsContent className="flex flex-col gap-4 pt-4" value="relations">
             <div className="flex flex-col gap-2">
@@ -443,7 +464,7 @@ function RelationGroup({
           >
             <div className="line-clamp-2">{memo.content}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              {relation.type}
+              {t(`detail.relationType.${relation.type}`)}
             </div>
           </Link>
           {onRemove && (
