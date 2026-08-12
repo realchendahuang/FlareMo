@@ -2,12 +2,15 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type {
   DeleteTagResponse,
+  ListAppNotificationsResponse,
   ListMemosResponse,
   MemoContextResponse,
   MemoStatsResponse,
   RenameTagResponse,
   TagHierarchyResponse,
 } from "@flaremo/contracts";
+import { createDb, memos } from "@flaremo/db";
+import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
@@ -1177,6 +1180,67 @@ describe("FlareMo Worker API", () => {
     expect(
       await fetchApp(`http://flaremo.test/api/v1/${orphan.name}`),
     ).toMatchObject({ status: 404 });
+  });
+
+  it("creates idempotent daily review notifications from the scheduled run", async () => {
+    const scheduledTime = Date.now();
+    const runScheduled = () =>
+      app.scheduled({ scheduledTime } as ScheduledController, env);
+    const listNotifications = async () => {
+      const response = await fetchApp(
+        "http://flaremo.test/api/app/notifications",
+      );
+      if (!response.ok) {
+        throw new Error(
+          `list failed: ${response.status} ${await response.text()}`,
+        );
+      }
+      return json<ListAppNotificationsResponse>(response);
+    };
+
+    // Without on-this-day history the cron run files nothing.
+    await runScheduled();
+    expect((await listNotifications()).notifications).toEqual([]);
+
+    const memo = await createMemo<{ id: string; name: string }>(
+      "on this day last year",
+    );
+    const lastYear = new Date(scheduledTime);
+    lastYear.setUTCFullYear(lastYear.getUTCFullYear() - 1);
+    await createDb(env.DB)
+      .update(memos)
+      .set({ createdAt: lastYear.toISOString() })
+      .where(eq(memos.id, memo.name));
+
+    await runScheduled();
+    const first = await listNotifications();
+    expect(first.notifications).toHaveLength(1);
+    expect(first.notifications[0]).toMatchObject({
+      type: "daily_review",
+      status: "unread",
+      memo: memo.name,
+      memo_snippet: "on this day last year",
+    });
+
+    // The receiver/source-event/type unique index makes a repeat run a no-op.
+    await runScheduled();
+    expect((await listNotifications()).notifications).toHaveLength(1);
+
+    const notificationId = first.notifications[0].name.split("/").pop() ?? "";
+    const archived = await json<{ status: string }>(
+      await fetchApp(
+        `http://flaremo.test/api/app/notifications/${notificationId}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ status: "archived" }),
+        },
+      ),
+    );
+    expect(archived.status).toBe("archived");
+    expect((await listNotifications()).notifications[0].status).toBe(
+      "archived",
+    );
   });
 
   it("serves public share content and attachments by token only", async () => {

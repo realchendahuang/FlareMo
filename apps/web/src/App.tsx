@@ -67,6 +67,7 @@ import { FlareMoExplorer } from "@/components/flaremo-explorer";
 import type { MemoView as ViewMode } from "@/components/flaremo-sidebar";
 import { MemoComposer } from "@/components/memo-composer";
 import { MemoList } from "@/components/memo-list";
+import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -559,6 +560,7 @@ function FlareMoApp() {
       activeView={view}
       headerAction={
         <div className="mr-8 flex items-center gap-1 lg:mr-0">
+          <NotificationBell />
           <UpdateStatus />
           <Button
             asChild

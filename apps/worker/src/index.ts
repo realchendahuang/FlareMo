@@ -4,6 +4,7 @@ import {
 } from "@flaremo/contracts";
 import { createDb } from "@flaremo/db";
 import {
+  createDailyReviewNotifications,
   deleteExpiredDataTasks,
   dispatchMemosWebhookOutbox,
   expireStaleDataTasks,
@@ -196,12 +197,22 @@ const handler = {
         cursor = listing.truncated ? listing.cursor : undefined;
       } while (cursor);
     }
+    // Daily review reach-out: file one idempotent inbox row per user when the
+    // UTC calendar day has "on this day" history. The source-event unique
+    // index absorbs cron retries, so a repeat run for the same date is a no-op.
+    const reviewDate = new Date(controller.scheduledTime)
+      .toISOString()
+      .slice(0, 10);
+    const reviewNotificationCount = await createDailyReviewNotifications(db, {
+      date: reviewDate,
+    });
     console.log(
       JSON.stringify({
         message: "attachment cleanup complete",
         count: candidates.length,
         staleTaskCount: staleCount,
         expiredTaskCount: expiredIds.length,
+        reviewNotificationCount,
         scheduledTime: controller.scheduledTime,
       }),
     );

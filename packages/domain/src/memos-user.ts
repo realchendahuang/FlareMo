@@ -10,7 +10,7 @@ import {
   type UserRow,
   users,
 } from "@flaremo/db";
-import { and, asc, desc, eq, inArray, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, notInArray, or } from "drizzle-orm";
 import {
   ConflictError,
   ForbiddenError,
@@ -45,7 +45,10 @@ export type UpdateUserWebhookInput = {
   updateMask?: string[];
 };
 
-export type UserNotificationType = "memo_comment" | "memo_mention";
+export type UserNotificationType =
+  | "memo_comment"
+  | "memo_mention"
+  | "daily_review";
 export type UserNotificationStatus = "unread" | "archived";
 
 export type UserNotificationDto = {
@@ -67,6 +70,10 @@ export type ListUserNotificationsInput = {
   pageSize?: number;
   pageToken?: string;
   filter?: string;
+  // FlareMo-only notification kinds (e.g. daily_review) have no upstream
+  // Memos type mapping; compatible surfaces exclude them at the SQL level so
+  // pagination stays correct and clients never see an unknown type.
+  excludeTypes?: UserNotificationType[];
 };
 
 export type ListUserNotificationsResult = {
@@ -229,6 +236,9 @@ export async function listUserNotifications(
     ? decodeNotificationPageToken(input.pageToken)
     : undefined;
   const filters = [eq(memosNotifications.receiverId, user.id)];
+  if (input.excludeTypes && input.excludeTypes.length > 0) {
+    filters.push(notInArray(memosNotifications.type, input.excludeTypes));
+  }
   if (filter.status) filters.push(eq(memosNotifications.status, filter.status));
   if (filter.type) filters.push(eq(memosNotifications.type, filter.type));
   if (cursor) {

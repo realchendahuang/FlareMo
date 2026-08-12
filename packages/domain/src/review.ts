@@ -1,9 +1,10 @@
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
-import { memoRelations, memos, memoTags } from "@flaremo/db";
+import { memoRelations, memos, memoTags, users } from "@flaremo/db";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import { ValidationError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
+import { insertMemoNotification } from "./memos-user";
 
 export type WalkVia =
   | { type: "tag"; tag: string }
@@ -42,6 +43,43 @@ export async function listDailyReviewMemos(
       ),
     )
     .orderBy(asc(memos.createdAt), asc(memos.id));
+}
+
+/**
+ * File one "daily review" inbox row per user for the given UTC date. The
+ * source event id (`daily-review:<date>`) plus the receiver/source/type
+ * unique index make cron retries idempotent; a user without on-this-day
+ * history simply gets nothing. Returns the number of rows created.
+ */
+export async function createDailyReviewNotifications(
+  db: FlareMoDb,
+  input: { date: string },
+): Promise<number> {
+  const date = input.date.trim();
+  if (!DAILY_REVIEW_DATE_PATTERN.test(date) || Number.isNaN(Date.parse(date))) {
+    throw new ValidationError("Invalid review date");
+  }
+  const allUsers = await db.select().from(users);
+  let created = 0;
+  for (const user of allUsers) {
+    const reviewMemos = await listDailyReviewMemos(db, user, {
+      date,
+      tzOffset: 0,
+    });
+    // Rows come back ascending, so the last entry is the most recent memo and
+    // anchors the notification's required memo reference.
+    const anchor = reviewMemos[reviewMemos.length - 1];
+    if (!anchor) continue;
+    const inserted = await insertMemoNotification(db, {
+      receiverId: user.id,
+      senderId: user.id,
+      type: "daily_review",
+      sourceEventId: `daily-review:${date}`,
+      memoId: anchor.id,
+    });
+    if (inserted.meta.changes > 0) created += 1;
+  }
+  return created;
 }
 
 /**

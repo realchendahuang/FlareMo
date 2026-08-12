@@ -496,7 +496,9 @@ export const memosNotifications = sqliteTable(
     senderId: text("sender_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type", { enum: ["memo_comment", "memo_mention"] }).notNull(),
+    type: text("type", {
+      enum: ["memo_comment", "memo_mention", "daily_review"],
+    }).notNull(),
     status: text("status", { enum: ["unread", "archived"] })
       .notNull()
       .default("unread"),
