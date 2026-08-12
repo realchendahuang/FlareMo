@@ -3,11 +3,13 @@ import {
   dailyReviewQuerySchema,
   FLAREMO_API_VERSION,
   listMemosQuerySchema,
+  listNotificationsQuerySchema,
   memoStatsQuerySchema,
   randomMemoQuerySchema,
   relatedMemosQuerySchema,
   renameTagRequestSchema,
   updateMemoSchema,
+  updateNotificationSchema,
   walkNextQuerySchema,
 } from "@flaremo/contracts";
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
@@ -23,10 +25,13 @@ import {
   listMemos,
   listRelatedMemos,
   listTagHierarchy,
+  listUserNotifications,
   markMemoAttachmentsDeleting,
   moveMemoToTrash,
   renameTag,
+  type UserNotificationDto,
   updateMemo,
+  updateUserNotification,
 } from "@flaremo/domain";
 import {
   memosToListResponse,
@@ -264,6 +269,50 @@ appApi.get("/tags", async (c) => {
   }
 });
 
+appApi.get(
+  "/notifications",
+  zValidator("query", listNotificationsQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const query = c.req.valid("query");
+      const result = await listUserNotifications(db, user, {
+        pageSize: query.page_size,
+        pageToken: query.page_token,
+      });
+      return c.json({
+        notifications: result.notifications.map(appNotificationToDto),
+        ...(result.nextPageToken
+          ? { next_page_token: result.nextPageToken }
+          : {}),
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+appApi.patch(
+  "/notifications/:id",
+  zValidator("json", updateNotificationSchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const { status } = c.req.valid("json");
+      const updated = await updateUserNotification(
+        db,
+        user,
+        `${user.id}/notifications/${c.req.param("id")}`,
+        status,
+        ["status"],
+      );
+      return c.json(appNotificationToDto(updated));
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
 appApi.patch("/tags", zValidator("json", renameTagRequestSchema), async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
@@ -288,6 +337,17 @@ function normalizeGitHubRepository(value: string): string | null {
   return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)
     ? repository
     : null;
+}
+
+function appNotificationToDto(notification: UserNotificationDto) {
+  return {
+    name: notification.name,
+    type: notification.type,
+    status: notification.status,
+    memo: notification.memo,
+    memo_snippet: notification.memoSnippet,
+    create_time: notification.createTime,
+  };
 }
 
 async function serializeMemosWithAttachments(

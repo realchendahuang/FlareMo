@@ -1,10 +1,12 @@
 import type {
+  AppNotificationDto,
   AttachmentDto,
   CreateMemoInput,
   DailyReviewResponse,
   DataTaskDto,
   DeleteTagResponse,
   ImportResult,
+  ListAppNotificationsResponse,
   ListMemosResponse,
   MemoContextResponse,
   MemoDto,
@@ -30,6 +32,7 @@ export type PublicShare = PublicShareDto;
 export type MemoContext = MemoContextResponse;
 export type RelatedMemo = RelatedMemosResponse["memos"][number];
 export type TagHierarchyNode = TagHierarchyResponse["tags"][number];
+export type AppNotification = AppNotificationDto;
 export type { MemoState, MemoStatsResponse, MemoVisibility, ReviewWalkVia };
 
 export type CreateMemoRequest = CreateMemoInput;
@@ -165,6 +168,21 @@ export async function getWalkNextMemo(memoId: string, exclude: string[] = []) {
 
 export async function getAppInfo() {
   return apiRequest<AppInfo>("/api/app/health");
+}
+
+export async function listNotifications() {
+  const query = new URLSearchParams({ page_size: "50" });
+  return apiRequest<ListAppNotificationsResponse>(
+    `/api/app/notifications?${query.toString()}`,
+  );
+}
+
+export async function archiveNotification(name: string) {
+  const id = name.split("/").pop() ?? name;
+  return apiRequest<AppNotification>(
+    `/api/app/notifications/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify({ status: "archived" }) },
+  );
 }
 
 export async function getLatestRelease(): Promise<LatestRelease> {

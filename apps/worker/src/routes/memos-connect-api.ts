@@ -953,6 +953,9 @@ async function connectUserMethod(
           body.pageSize === undefined ? undefined : pageSize(body.pageSize),
         pageToken: optionalString(body.pageToken),
         filter: optionalString(body.filter),
+        // FlareMo-only kinds such as daily_review have no upstream Memos type
+        // mapping; hide them from third-party clients entirely.
+        excludeTypes: ["daily_review"],
       });
       return connectValue(
         c,

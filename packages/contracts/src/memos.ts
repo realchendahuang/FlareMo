@@ -420,6 +420,24 @@ export const deleteTagResponseSchema = z.object({
   removed: z.number().int().nonnegative(),
 });
 
+export const listNotificationsQuerySchema = z.object({
+  page_size: z.coerce.number().int().min(1).max(100).default(50),
+  page_token: z.string().optional(),
+});
+
+export const updateNotificationSchema = z.object({
+  status: z.enum(["unread", "archived"]),
+});
+
+export const appNotificationDtoSchema = z.object({
+  name: z.string(),
+  type: z.enum(["memo_comment", "memo_mention", "daily_review"]),
+  status: z.enum(["unread", "archived"]),
+  memo: z.string(),
+  memo_snippet: z.string(),
+  create_time: z.string(),
+});
+
 export type CreateMemoInput = z.infer<typeof createMemoSchema>;
 export type UpdateMemoInput = z.infer<typeof updateMemoSchema>;
 export type ListMemosQuery = z.infer<typeof listMemosQuerySchema>;
@@ -446,6 +464,15 @@ export type RelatedMemoEntry = MemoDto & {
   via_relation: boolean;
 };
 export type RelatedMemosResponse = { memos: RelatedMemoEntry[] };
+export type ListNotificationsQuery = z.infer<
+  typeof listNotificationsQuerySchema
+>;
+export type UpdateNotificationInput = z.infer<typeof updateNotificationSchema>;
+export type AppNotificationDto = z.infer<typeof appNotificationDtoSchema>;
+export type ListAppNotificationsResponse = {
+  notifications: AppNotificationDto[];
+  next_page_token?: string;
+};
 export type AttachmentDto = z.infer<typeof attachmentDtoSchema>;
 export type ListAttachmentsQuery = z.infer<typeof listAttachmentsQuerySchema>;
 export type BindMemoAttachmentsInput = z.infer<
