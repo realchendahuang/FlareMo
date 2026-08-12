@@ -1056,6 +1056,75 @@ describe("FlareMo Worker API", () => {
     ).toMatchObject({ status: 404 });
   });
 
+  it("serves related memos ranked by relation and shared tags", async () => {
+    const source = await createMemo("related source #alpha #beta");
+    const linked = await createMemo("directly linked note");
+    const twoTags = await createMemo("two shared tags #alpha #beta");
+    const oneTag = await createMemo("one shared tag #alpha");
+    const unrelated = await createMemo("unrelated note #gamma");
+    const trashed = await createMemo("trashed note #alpha");
+    await json(
+      await fetchApp(`http://flaremo.test/api/v1/${source.name}/relations`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          relations: [{ related_memo: linked.name, type: "reference" }],
+        }),
+      }),
+    );
+    await fetchApp(`http://flaremo.test/api/v1/${trashed.name}`, {
+      method: "DELETE",
+    });
+
+    const related = await json(
+      await fetchApp(`http://flaremo.test/api/app/memos/${source.id}/related`),
+    );
+    expect(related.memos.map((memo: { name: string }) => memo.name)).toEqual([
+      linked.name,
+      twoTags.name,
+      oneTag.name,
+    ]);
+    expect(related.memos[0]).toMatchObject({
+      shared_tags: [],
+      via_relation: true,
+      attachments: [],
+    });
+    expect(related.memos[1]).toMatchObject({
+      shared_tags: ["alpha", "beta"],
+      via_relation: false,
+    });
+    expect(related.memos[2]).toMatchObject({
+      shared_tags: ["alpha"],
+      via_relation: false,
+    });
+
+    const limited = await json(
+      await fetchApp(
+        `http://flaremo.test/api/app/memos/${source.id}/related?limit=1`,
+      ),
+    );
+    expect(limited.memos).toHaveLength(1);
+
+    const reverse = await json(
+      await fetchApp(`http://flaremo.test/api/app/memos/${linked.id}/related`),
+    );
+    expect(reverse.memos.map((memo: { name: string }) => memo.name)).toEqual([
+      source.name,
+    ]);
+    expect(reverse.memos[0]).toMatchObject({ via_relation: true });
+
+    const none = await json(
+      await fetchApp(
+        `http://flaremo.test/api/app/memos/${unrelated.id}/related`,
+      ),
+    );
+    expect(none.memos).toEqual([]);
+
+    expect(
+      await fetchApp("http://flaremo.test/api/app/memos/nonexistent/related"),
+    ).toMatchObject({ status: 404 });
+  });
+
   it("supports byte ranges, hard-delete cleanup, and scheduled orphan cleanup", async () => {
     const memo = await createMemo("attachment lifecycle");
     const formData = new FormData();
