@@ -26,6 +26,7 @@ import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
 import { mcpApi, mcpStreamableApi } from "./routes/mcp";
 import { memoryApi } from "./routes/memory-api";
+import { memoryMcpApi } from "./routes/memory-mcp";
 import { memosApi } from "./routes/memos-api";
 import { memosConnectApi } from "./routes/memos-connect-api";
 import {
@@ -128,6 +129,7 @@ app.route("/api/app", appApi);
 app.route("/api/public", publicApi);
 app.route("/file", memosFileApi);
 app.route("/mcp", mcpStreamableApi);
+app.route("/memory/mcp", memoryMcpApi);
 app.route("/", memosConnectApi);
 app.route("/", memosSseApi);
 app.route("/api/v1", memosSocialApi);
