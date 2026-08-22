@@ -25,6 +25,7 @@ import { accountApi } from "./routes/account-api";
 import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
 import { mcpApi, mcpStreamableApi } from "./routes/mcp";
+import { memoryApi } from "./routes/memory-api";
 import { memosApi } from "./routes/memos-api";
 import { memosConnectApi } from "./routes/memos-connect-api";
 import {
@@ -122,6 +123,7 @@ app.use("/api/auth/*", async (c, next) => {
 app.route("/api/auth/flaremo", authApi);
 app.all("/api/auth/*", (c) => createFlareMoAuth(c.env).handler(c.req.raw));
 app.route("/api/app/account", accountApi);
+app.route("/api/app/memory", memoryApi);
 app.route("/api/app", appApi);
 app.route("/api/public", publicApi);
 app.route("/file", memosFileApi);
