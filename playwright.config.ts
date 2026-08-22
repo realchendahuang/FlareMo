@@ -33,7 +33,7 @@ export default defineConfig({
     {
       name: "memo-ui",
       dependencies: ["auth-ui"],
-      testMatch: /memo-flow\.spec\.ts/,
+      testMatch: /(memo-flow|memory-flow)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: E2E_AUTH_STATE,

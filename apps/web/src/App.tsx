@@ -126,6 +126,11 @@ const RandomWalkPage = lazy(() =>
     default: module.RandomWalkPage,
   })),
 );
+const MemoryPage = lazy(() =>
+  import("@/pages/memory-page").then((module) => ({
+    default: module.MemoryPage,
+  })),
+);
 
 const PAGE_SIZE = 30;
 const EMPTY_STATS: MemoStatsResponse = {
@@ -1121,6 +1126,22 @@ const randomWalkRoute = createRoute({
   component: RandomWalkRoutePage,
 });
 
+function MemoryRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <MemoryPage />
+      </Suspense>
+    </AuthenticatedRoute>
+  );
+}
+
+const memoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/memory",
+  component: MemoryRoutePage,
+});
+
 function AuthenticatedRoute({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const session = authClient.useSession();
@@ -1191,6 +1212,7 @@ const router = createRouter({
     accountRoute,
     dailyReviewRoute,
     randomWalkRoute,
+    memoryRoute,
   ]),
   scrollRestoration: true,
 });

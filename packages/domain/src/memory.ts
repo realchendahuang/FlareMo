@@ -19,7 +19,7 @@ import {
   memoryResourceLinks,
   memoryRevisions,
 } from "@flaremo/db";
-import { and, asc, desc, eq, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, or, type SQL, sql } from "drizzle-orm";
 import {
   ConflictError,
   ForbiddenError,
