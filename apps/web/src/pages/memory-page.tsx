@@ -6,6 +6,7 @@ import {
   CheckIcon,
   LockIcon,
   LockOpenIcon,
+  NotebookPenIcon,
   PlusIcon,
   SearchIcon,
   Trash2Icon,
@@ -22,6 +23,7 @@ import {
   listMemoryRevisions,
   lockMemory,
   type Memory,
+  promoteMemoryToMemo,
   unlockMemory,
 } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
@@ -316,6 +318,14 @@ function MemoryCard({
     },
   });
 
+  const promoteMutation = useMutation({
+    mutationFn: () => promoteMemoryToMemo(bareId(memory.id)),
+    onSuccess: () => {
+      toast.success(t("toast.saved"));
+      onMutated();
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => deleteMemory(bareId(memory.id)),
     onSuccess: () => {
@@ -400,6 +410,14 @@ function MemoryCard({
             onClick={() => setShowRevisions((value) => !value)}
           >
             {t("memory.revisions")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => promoteMutation.mutate()}
+          >
+            <NotebookPenIcon data-icon="inline-start" />
+            {t("memory.toMemo")}
           </Button>
           <Button
             size="sm"

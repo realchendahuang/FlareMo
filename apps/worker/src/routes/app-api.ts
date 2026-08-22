@@ -1,4 +1,5 @@
 import {
+  createMemoryFromMemoSchema,
   createMemoSchema,
   dailyReviewQuerySchema,
   FLAREMO_API_VERSION,
@@ -15,7 +16,10 @@ import {
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
 import {
   createMemo,
+  createMemoryFromMemo,
+  createMemoryFromMemoInputToWrite,
   deleteTag,
+  getMemoById,
   getMemoStats,
   getRandomMemo,
   getWalkNextMemo,
@@ -28,6 +32,7 @@ import {
   listUserNotifications,
   markMemoAttachmentsDeleting,
   moveMemoToTrash,
+  NotFoundError,
   renameTag,
   type UserNotificationDto,
   updateMemo,
@@ -237,6 +242,29 @@ appApi.patch("/memos/:id", zValidator("json", updateMemoSchema), async (c) => {
     return jsonError(c, error);
   }
 });
+
+appApi.post(
+  "/memos/:id/memory",
+  zValidator("json", createMemoryFromMemoSchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const memoId = `memos/${c.req.param("id")}`;
+      const memo = await getMemoById(db, user, memoId);
+      if (!memo) throw new NotFoundError("Memo not found");
+      const result = await createMemoryFromMemo(
+        db,
+        user,
+        { type: "user" },
+        createMemoryFromMemoInputToWrite(c.req.valid("json"), memo.content),
+        memoId,
+      );
+      return c.json(result, result.duplicate ? 200 : 201);
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 appApi.delete("/memos/:id", async (c) => {
   try {

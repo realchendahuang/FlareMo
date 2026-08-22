@@ -151,6 +151,19 @@ export const createMemorySchema = z.object({
   lock: z.boolean().default(false),
 });
 
+// "Promote this memo into a memory". `content` is optional so the memo's own
+// text is reused when the caller does not supply a distilled conclusion.
+export const createMemoryFromMemoSchema = z.object({
+  content: z.string().trim().min(1).max(4_000).optional(),
+  type: memoryTypeSchema.default("semantic"),
+  kind: memoryKindSchema.default("fact"),
+  scope_type: memoryScopeTypeSchema.default("global"),
+  scope_key: z.string().trim().max(512).optional(),
+  tier: memoryTierSchema.default("normal"),
+  importance: z.number().int().min(0).max(100).default(50),
+  lock: z.boolean().default(false),
+});
+
 export const updateMemorySchema = z
   .object({
     content: z.string().trim().min(1).max(4_000).optional(),
@@ -273,6 +286,9 @@ export type MemoryRevisionDto = z.infer<typeof memoryRevisionDtoSchema>;
 export type MemoryRelationDto = z.infer<typeof memoryRelationDtoSchema>;
 export type MemoryResourceLinkDto = z.infer<typeof memoryResourceLinkDtoSchema>;
 export type CreateMemoryInput = z.infer<typeof createMemorySchema>;
+export type CreateMemoryFromMemoInput = z.infer<
+  typeof createMemoryFromMemoSchema
+>;
 export type UpdateMemoryInput = z.infer<typeof updateMemorySchema>;
 export type BootstrapInput = z.infer<typeof bootstrapInputSchema>;
 export type RecallInput = z.infer<typeof recallInputSchema>;

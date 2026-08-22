@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { memoryDtoSchema } from "./memory";
 import { memoSearchScopes } from "./search-query";
 
 export const memoVisibilitySchema = z.enum(["private", "protected", "public"]);
@@ -258,6 +259,7 @@ export const memoContextResponseSchema = z.object({
   relations: z.array(memoRelationContextSchema),
   backlinks: z.array(memoRelationContextSchema),
   revisions: z.array(memoRevisionDtoSchema),
+  memories: z.array(memoryDtoSchema),
 });
 
 export const publicShareDtoSchema = z.object({
