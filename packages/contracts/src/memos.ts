@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { memoryDtoSchema } from "./memory";
+import {
+  exportMemoryRelationSchema,
+  exportMemoryResourceLinkSchema,
+  exportMemoryRevisionSchema,
+  importMemorySchema,
+  memoryDtoSchema,
+} from "./memory";
 import { memoSearchScopes } from "./search-query";
 
 export const memoVisibilitySchema = z.enum(["private", "protected", "public"]);
@@ -285,7 +291,7 @@ const importShareSchema = shareDtoSchema.partial({
 });
 
 export const importBundleSchema = z.object({
-  version: z.union([z.literal(1), z.literal(2)]).default(1),
+  version: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
   memos: z
     .array(
       memoDtoSchema
@@ -311,6 +317,19 @@ export const importBundleSchema = z.object({
   attachments: z.array(importAttachmentSchema).max(5_000).default([]),
   relations: z.array(memoRelationDtoSchema).max(100_000).default([]),
   shares: z.array(importShareSchema).max(10_000).default([]),
+  memories: z.array(importMemorySchema).max(50_000).default([]),
+  memory_revisions: z
+    .array(exportMemoryRevisionSchema)
+    .max(200_000)
+    .default([]),
+  memory_relations: z
+    .array(exportMemoryRelationSchema)
+    .max(100_000)
+    .default([]),
+  memory_resource_links: z
+    .array(exportMemoryResourceLinkSchema)
+    .max(100_000)
+    .default([]),
   exported_at: z.string().optional(),
 });
 
@@ -325,6 +344,7 @@ export const importResultSchema = z.object({
   imported_attachments: z.number().int().nonnegative(),
   imported_relations: z.number().int().nonnegative(),
   imported_shares: z.number().int().nonnegative(),
+  imported_memories: z.number().int().nonnegative().default(0),
 });
 
 export const dataTaskStatusSchema = z.enum([
