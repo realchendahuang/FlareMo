@@ -263,6 +263,11 @@ export type MemoryVerification = z.infer<typeof memoryVerificationSchema>;
 export type MemoryStatus = z.infer<typeof memoryStatusSchema>;
 export type MemoryRelationType = z.infer<typeof memoryRelationTypeSchema>;
 export type MemoryResourceType = z.infer<typeof memoryResourceTypeSchema>;
+export type MemoryResourceRelationType = z.infer<
+  typeof memoryResourceRelationTypeSchema
+>;
+export type MemoryForgetReason = z.infer<typeof memoryForgetReasonSchema>;
+export type MemoryCreatedByType = z.infer<typeof memoryCreatedByTypeSchema>;
 export type MemoryDto = z.infer<typeof memoryDtoSchema>;
 export type MemoryRevisionDto = z.infer<typeof memoryRevisionDtoSchema>;
 export type MemoryRelationDto = z.infer<typeof memoryRelationDtoSchema>;
