@@ -3,6 +3,10 @@ import type { FlareMoDb, UserRow } from "@flaremo/db";
 import {
   attachments,
   memoRelations,
+  memoryItems,
+  memoryRelations,
+  memoryResourceLinks,
+  memoryRevisions,
   memos,
   memoTags,
   shares,
@@ -20,18 +24,38 @@ export async function exportData(
   db: FlareMoDb,
   user: UserRow,
 ): Promise<ImportBundle> {
-  const [memoRows, attachmentRows, relationRows, shareRows] = await Promise.all(
-    [
-      db.select().from(memos).where(eq(memos.userId, user.id)),
-      db.select().from(attachments).where(eq(attachments.userId, user.id)),
-      db.select().from(memoRelations),
-      db.select().from(shares).where(eq(shares.userId, user.id)),
-    ],
-  );
+  const [
+    memoRows,
+    attachmentRows,
+    relationRows,
+    shareRows,
+    memoryRows,
+    memoryRevisionRows,
+    memoryRelationRows,
+    memoryResourceLinkRows,
+  ] = await Promise.all([
+    db.select().from(memos).where(eq(memos.userId, user.id)),
+    db.select().from(attachments).where(eq(attachments.userId, user.id)),
+    db.select().from(memoRelations),
+    db.select().from(shares).where(eq(shares.userId, user.id)),
+    db.select().from(memoryItems).where(eq(memoryItems.userId, user.id)),
+    db
+      .select()
+      .from(memoryRevisions)
+      .where(eq(memoryRevisions.userId, user.id)),
+    db
+      .select()
+      .from(memoryRelations)
+      .where(eq(memoryRelations.userId, user.id)),
+    db
+      .select()
+      .from(memoryResourceLinks)
+      .where(eq(memoryResourceLinks.userId, user.id)),
+  ]);
 
   const memoIds = new Set(memoRows.map((memo) => memo.id));
   return {
-    version: 2,
+    version: 3,
     exported_at: new Date().toISOString(),
     memos: memoRows.map((memo) => ({
       name: memo.id,
@@ -80,6 +104,52 @@ export async function exportData(
       create_time: share.createdAt,
       update_time: share.updatedAt,
       revoked_at: share.revokedAt,
+    })),
+    memories: memoryRows.map((memory) => ({
+      name: memory.id,
+      content: memory.content,
+      type: memory.type,
+      kind: memory.kind,
+      scope_type: memory.scopeType,
+      scope_key: memory.scopeKey,
+      tier: memory.tier,
+      verification: memory.verification,
+      status: memory.status,
+      importance: memory.importance,
+      confidence: memory.confidence,
+      needs_review: memory.needsReview,
+      review_reason: memory.reviewReason,
+      created_by_type: memory.createdByType,
+      source_agent: memory.sourceAgent,
+      source_session: memory.sourceSession,
+      source_ref: memory.sourceRef,
+      valid_from: memory.validFrom,
+      valid_to: memory.validTo,
+      created_at: memory.createdAt,
+      updated_at: memory.updatedAt,
+    })),
+    memory_revisions: memoryRevisionRows.map((revision) => ({
+      name: revision.id,
+      memory_id: revision.memoryId,
+      content: revision.content,
+      metadata_snapshot: revision.metadataSnapshot,
+      created_by_type: revision.createdByType,
+      created_by_agent: revision.createdByAgent,
+      created_at: revision.createdAt,
+    })),
+    memory_relations: memoryRelationRows.map((relation) => ({
+      memory_id: relation.memoryId,
+      related_memory_id: relation.relatedMemoryId,
+      type: relation.type,
+      created_at: relation.createdAt,
+    })),
+    memory_resource_links: memoryResourceLinkRows.map((link) => ({
+      memory_id: link.memoryId,
+      resource_type: link.resourceType,
+      resource_ref: link.resourceRef,
+      relation_type: link.relationType,
+      metadata: link.metadata,
+      created_at: link.createdAt,
     })),
   };
 }
@@ -304,6 +374,140 @@ export async function importData(
     importedShares += 1;
   }
 
+  // Memories are user-owned, atomic records. Import preserves the namespaced
+  // id so memory↔memo resource links stay intact, resets derived fields
+  // (fingerprint, access counters, embedding state), and skips rows that
+  // already exist under `skip` or `overwrite` conflict handling.
+  let importedMemories = 0;
+  const memoryIdMap = new Map<string, string>();
+  for (const memory of bundle.memories) {
+    const sourceId = parseResourceName(memory.name, "memories");
+    const existing = await db
+      .select({ id: memoryItems.id })
+      .from(memoryItems)
+      .where(and(eq(memoryItems.id, sourceId), eq(memoryItems.userId, user.id)))
+      .get();
+    if (existing && conflict === "skip") {
+      memoryIdMap.set(memory.name, existing.id);
+      continue;
+    }
+    const importedId = existing ? createResourceId("memories") : sourceId;
+    memoryIdMap.set(memory.name, importedId);
+    const createdAt = memory.created_at ?? now;
+    const updatedAt = memory.updated_at ?? createdAt;
+    await db
+      .insert(memoryItems)
+      .values({
+        id: importedId,
+        userId: user.id,
+        content: memory.content,
+        type: memory.type,
+        kind: memory.kind,
+        scopeType: memory.scope_type,
+        scopeKey: memory.scope_key,
+        tier: memory.tier,
+        verification: memory.verification,
+        status: memory.status,
+        importance: memory.importance,
+        confidence: memory.confidence,
+        needsReview: memory.needs_review,
+        reviewReason: memory.review_reason,
+        createdByType: memory.created_by_type,
+        sourceAgent: memory.source_agent,
+        sourceSession: memory.source_session,
+        sourceRef: memory.source_ref,
+        validFrom: memory.valid_from,
+        validTo: memory.valid_to,
+        // The canonical fingerprint is rebuilt from content on the next write;
+        // an import-scoped placeholder keeps the per-user unique index intact
+        // without trusting the exported (derived) value.
+        fingerprint: `import:${importedId}`,
+        accessCount: 0,
+        lastAccessedAt: null,
+        embeddingStatus: "not_indexed",
+        createdAt,
+        updatedAt,
+        deletedAt: memory.status === "deleted" ? updatedAt : null,
+      })
+      .onConflictDoUpdate({
+        target: memoryItems.id,
+        set: {
+          content: memory.content,
+          type: memory.type,
+          kind: memory.kind,
+          scopeType: memory.scope_type,
+          scopeKey: memory.scope_key,
+          tier: memory.tier,
+          verification: memory.verification,
+          status: memory.status,
+          importance: memory.importance,
+          confidence: memory.confidence,
+          needsReview: memory.needs_review,
+          reviewReason: memory.review_reason,
+          sourceAgent: memory.source_agent,
+          sourceSession: memory.source_session,
+          sourceRef: memory.source_ref,
+          validFrom: memory.valid_from,
+          validTo: memory.valid_to,
+          updatedAt,
+        },
+      });
+    importedMemories += 1;
+  }
+
+  for (const revision of bundle.memory_revisions) {
+    const memoryId = memoryIdMap.get(revision.memory_id);
+    if (!memoryId) continue;
+    await db
+      .insert(memoryRevisions)
+      .values({
+        id: parseResourceName(revision.name, "memories"),
+        memoryId,
+        userId: user.id,
+        content: revision.content,
+        metadataSnapshot: revision.metadata_snapshot,
+        createdByType: revision.created_by_type,
+        createdByAgent: revision.created_by_agent,
+        createdAt: revision.created_at ?? now,
+      })
+      .onConflictDoNothing();
+  }
+
+  for (const relation of bundle.memory_relations) {
+    const memoryId = memoryIdMap.get(relation.memory_id);
+    const relatedMemoryId = memoryIdMap.get(relation.related_memory_id);
+    if (!memoryId || !relatedMemoryId) continue;
+    await db
+      .insert(memoryRelations)
+      .values({
+        id: createResourceId("memories"),
+        memoryId,
+        relatedMemoryId,
+        userId: user.id,
+        type: relation.type,
+        createdAt: relation.created_at ?? now,
+      })
+      .onConflictDoNothing();
+  }
+
+  for (const link of bundle.memory_resource_links) {
+    const memoryId = memoryIdMap.get(link.memory_id);
+    if (!memoryId) continue;
+    await db
+      .insert(memoryResourceLinks)
+      .values({
+        id: createResourceId("memories"),
+        memoryId,
+        userId: user.id,
+        resourceType: link.resource_type,
+        resourceRef: link.resource_ref,
+        relationType: link.relation_type,
+        metadata: link.metadata,
+        createdAt: link.created_at ?? now,
+      })
+      .onConflictDoNothing();
+  }
+
   return {
     imported_memos: importedMemos,
     skipped_memos: skippedMemos,
@@ -311,6 +515,7 @@ export async function importData(
     imported_attachments: importedAttachments,
     imported_relations: importedRelations,
     imported_shares: importedShares,
+    imported_memories: importedMemories,
     cleanupR2Keys,
   };
 }
