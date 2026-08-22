@@ -7,7 +7,6 @@ import {
   recallInputSchema,
   rememberInputSchema,
 } from "@flaremo/contracts";
-import type { UserRow } from "@flaremo/db";
 import {
   bootstrapMemory,
   checkpointMemory,
