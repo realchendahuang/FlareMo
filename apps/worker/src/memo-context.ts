@@ -13,8 +13,15 @@ export async function buildMemoContext(
   memoId: string,
 ) {
   const { db, user } = context;
-  const { memo, attachments, shares, relations, backlinks, revisions } =
-    await getMemoContextData(db, user, memoId);
+  const {
+    memo,
+    attachments,
+    shares,
+    relations,
+    backlinks,
+    revisions,
+    memories,
+  } = await getMemoContextData(db, user, memoId);
   const mapRelationContext = (item: (typeof relations)[number]) => ({
     relation: memoRelationToDto(item.relation),
     memo: memoToDto(item.memo, user),
@@ -27,5 +34,6 @@ export async function buildMemoContext(
     relations: relations.map(mapRelationContext),
     backlinks: backlinks.map(mapRelationContext),
     revisions: revisions.map(memoRevisionToDto),
+    memories,
   };
 }

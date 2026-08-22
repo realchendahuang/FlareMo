@@ -16,6 +16,7 @@ import {
   listMemoryRevisions,
   lockMemory,
   type MemoryActor,
+  promoteMemoryToMemo,
   unlockMemory,
   updateMemory,
 } from "@flaremo/domain";
@@ -185,6 +186,21 @@ memoryApi.post("/:id/archive", async (c) => {
         parseMemoryId(c.req.param("id")),
       ),
     });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+memoryApi.post("/:id/promote", async (c) => {
+  try {
+    const { db, user } = await getBrowserRequestContext(c);
+    const result = await promoteMemoryToMemo(
+      db,
+      user,
+      USER_ACTOR,
+      parseMemoryId(c.req.param("id")),
+    );
+    return c.json(result, 201);
   } catch (error) {
     return jsonError(c, error);
   }

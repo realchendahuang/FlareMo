@@ -9,6 +9,7 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { NotFoundError } from "./errors";
 import { parseResourceName } from "./ids";
+import { listMemoriesForMemo } from "./memory";
 
 export async function getMemoContextData(
   db: FlareMoDb,
@@ -77,6 +78,7 @@ export async function getMemoContextData(
       : [];
   const memoById = new Map(relatedMemos.map((item) => [item.id, item]));
   const now = Date.now();
+  const memories = await listMemoriesForMemo(db, user, id);
 
   return {
     memo,
@@ -95,5 +97,6 @@ export async function getMemoContextData(
     revisions: [...revisions].sort((a, b) =>
       b.createdAt.localeCompare(a.createdAt),
     ),
+    memories,
   };
 }

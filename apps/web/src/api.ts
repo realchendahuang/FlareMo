@@ -297,6 +297,32 @@ export async function listMemoryRelations(id: string) {
   );
 }
 
+export async function createMemoryFromMemo(
+  memoId: string,
+  input: {
+    content?: string;
+    type?: Memory["type"];
+    kind?: Memory["kind"];
+    scope_type?: Memory["scope_type"];
+    scope_key?: string;
+    tier?: Memory["tier"];
+    importance?: number;
+    lock?: boolean;
+  },
+) {
+  return apiRequest<{ duplicate: boolean; memory: Memory }>(
+    `/api/app/memos/${encodeURIComponent(memoId)}/memory`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export async function promoteMemoryToMemo(id: string) {
+  return apiRequest<{ memory: Memory; memo: string }>(
+    `/api/app/memory/${encodeURIComponent(id)}/promote`,
+    { method: "POST" },
+  );
+}
+
 export async function getLatestRelease(): Promise<LatestRelease> {
   const response = await fetch(
     "https://api.github.com/repos/realchendahuang/FlareMo/releases/latest",

@@ -1,5 +1,6 @@
 import type {
   CheckpointInput,
+  CreateMemoryFromMemoInput,
   CreateMemoryInput,
   MemoryDto,
   MemoryForgetReason,
@@ -27,6 +28,7 @@ import {
   ValidationError,
 } from "./errors";
 import { createResourceId } from "./ids";
+import { createMemo } from "./memos";
 
 export const MEMORY_MAX_CONTENT_LENGTH = 4_000;
 export const MEMORY_DEFAULT_RECALL_LIMIT = 8;
@@ -1094,6 +1096,23 @@ export function createMemoryInputToWrite(
   };
 }
 
+export function createMemoryFromMemoInputToWrite(
+  input: CreateMemoryFromMemoInput,
+  fallbackContent: string,
+): MemoryWriteInput {
+  return {
+    content: input.content ?? fallbackContent,
+    type: input.type,
+    kind: input.kind,
+    scopeType: input.scope_type,
+    scopeKey: input.scope_key ?? null,
+    tier: input.tier,
+    importance: input.importance,
+    confidence: 100,
+    verification: input.lock ? "locked" : "confirmed",
+  };
+}
+
 export function rememberInputToWrite(input: RememberInput): MemoryWriteInput {
   return {
     content: input.content,
@@ -1116,4 +1135,119 @@ function escapeLike(value: string) {
     .replaceAll("\\", "\\\\")
     .replaceAll("%", "\\%")
     .replaceAll("_", "\\_");
+}
+
+// ---------------------------------------------------------------------------
+// Memo ↔ Memory linking
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the memories derived from or referencing a memo, ordered by most
+ * recently updated. The memo page uses this to surface "related memories".
+ */
+export async function listMemoriesForMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+): Promise<MemoryDto[]> {
+  const links = await db
+    .select()
+    .from(memoryResourceLinks)
+    .where(
+      and(
+        eq(memoryResourceLinks.userId, user.id),
+        eq(memoryResourceLinks.resourceType, "memo"),
+        eq(memoryResourceLinks.resourceRef, memoId),
+      ),
+    );
+
+  const memoryIds = [...new Set(links.map((link) => link.memoryId))];
+  if (memoryIds.length === 0) return [];
+
+  const rows = await db
+    .select()
+    .from(memoryItems)
+    .where(
+      and(
+        eq(memoryItems.userId, user.id),
+        sql`${memoryItems.id} IN ${memoryIds}`,
+        sql`${memoryItems.status} != 'deleted'`,
+      ),
+    )
+    .orderBy(desc(memoryItems.updatedAt));
+  return rows.map(memoryToDto);
+}
+
+/**
+ * Promote a memo's conclusion into a long-term memory, recording a
+ * `derived_from` link back to the source memo.
+ */
+export async function createMemoryFromMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  actor: MemoryActor,
+  input: MemoryWriteInput,
+  memoId: string,
+) {
+  const result = await createMemory(db, user, actor, input);
+  if (result.duplicate) {
+    // The same conclusion already exists; still record the derivation link if
+    // this exact memo is not already linked.
+    await db
+      .insert(memoryResourceLinks)
+      .values({
+        id: createResourceId("memories"),
+        memoryId: result.memory.id,
+        userId: user.id,
+        resourceType: "memo",
+        resourceRef: memoId,
+        relationType: "derived_from",
+        createdAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing();
+    return result;
+  }
+
+  await db.insert(memoryResourceLinks).values({
+    id: createResourceId("memories"),
+    memoryId: result.memory.id,
+    userId: user.id,
+    resourceType: "memo",
+    resourceRef: memoId,
+    relationType: "derived_from",
+    createdAt: new Date().toISOString(),
+  });
+  return result;
+}
+
+/**
+ * Promote a memory back into a normal memo, recording a `promoted_to` link.
+ * The source memory stays in place; the memo becomes the long-form version.
+ */
+export async function promoteMemoryToMemo(
+  db: FlareMoDb,
+  user: UserRow,
+  actor: MemoryActor,
+  memoryId: string,
+): Promise<{ memory: MemoryDto; memo: string }> {
+  const memory = await requireMemory(db, user, memoryId);
+  assertAgentCanMutate(actor, memory);
+
+  const memo = await createMemo(db, user, {
+    content: memory.content,
+    visibility: "private",
+    source: "memory",
+  });
+
+  await db.insert(memoryResourceLinks).values({
+    id: createResourceId("memories"),
+    memoryId: memory.id,
+    userId: user.id,
+    resourceType: "memo",
+    resourceRef: memo.id,
+    relationType: "promoted_to",
+    createdAt: new Date().toISOString(),
+  });
+
+  return { memory: memoryToDto(memory), memo: memo.id };
 }

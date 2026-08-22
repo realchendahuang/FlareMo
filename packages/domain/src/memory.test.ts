@@ -10,18 +10,22 @@ import {
   checkpointMemory,
   confirmMemory,
   createMemory,
+  createMemoryFromMemo,
   forgetMemory,
   hardDeleteMemory,
   linkMemory,
   listMemories,
+  listMemoriesForMemo,
   listMemoryReview,
   listMemoryRevisions,
   lockMemory,
   type MemoryActor,
+  promoteMemoryToMemo,
   recallMemories,
   unlockMemory,
   updateMemory,
 } from "./memory";
+import { createMemo } from "./memos";
 import { ensureSingleUser } from "./users";
 
 let mf: Miniflare;
@@ -55,19 +59,26 @@ describe("memory domain services", () => {
     });
     const database = await mf.getD1Database("DB");
     db = createDb(database);
-    const initial = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0000_illegal_inhumans.sql",
-      ),
-      "utf8",
-    );
-    const memory = await readFile(
-      resolve(import.meta.dirname, "../../../migrations/0011_daffy_ultron.sql"),
-      "utf8",
-    );
-    await applyMigration(database, initial);
-    await applyMigration(database, memory);
+    const migrationNames = [
+      "0000_illegal_inhumans.sql",
+      "0001_familiar_morph.sql",
+      "0002_wooden_professor_monster.sql",
+      "0003_equal_maximus.sql",
+      "0004_complex_the_enforcers.sql",
+      "0005_confused_masque.sql",
+      "0007_flat_phil_sheldon.sql",
+      "0008_legal_scarecrow.sql",
+      "0009_neat_iron_fist.sql",
+      "0010_deep_gateway.sql",
+      "0011_daffy_ultron.sql",
+    ];
+    for (const name of migrationNames) {
+      const sql = await readFile(
+        resolve(import.meta.dirname, `../../../migrations/${name}`),
+        "utf8",
+      );
+      await applyMigration(database, sql);
+    }
     user = await ensureSingleUser(db, {
       email: "owner@example.com",
       name: "Owner",
@@ -392,6 +403,45 @@ describe("memory domain services", () => {
     await archiveMemory(db, user, USER, id);
     expect(await listMemories(db, user, { status: "archived" })).toHaveLength(
       1,
+    );
+  });
+
+  it("links a memo to a memory and promotes a memory back to a memo", async () => {
+    const memo = await createMemo(db, user, {
+      content: "FlareMo 使用 D1 作为事实源",
+      visibility: "private",
+      source: "test",
+    });
+
+    const created = await createMemoryFromMemo(
+      db,
+      user,
+      USER,
+      {
+        content: "FlareMo 使用 D1 作为事实源",
+        type: "semantic",
+        kind: "decision",
+        scopeType: "project",
+        scopeKey: "github:realchendahuang/FlareMo",
+        tier: "normal",
+        importance: 80,
+        confidence: 100,
+        verification: "confirmed",
+      },
+      memo.id,
+    );
+    expect(created.duplicate).toBe(false);
+
+    const linked = await listMemoriesForMemo(db, user, memo.id);
+    expect(linked.map((memory) => memory.id)).toContain(created.memory.id);
+
+    const promoted = await promoteMemoryToMemo(db, user, USER, created.memory.id);
+    expect(promoted.memo).toMatch(/^memos\//);
+
+    // The promoted memo references the same conclusion back to the memory.
+    const linksAfterPromote = await listMemoriesForMemo(db, user, memo.id);
+    expect(linksAfterPromote.map((memory) => memory.id)).toContain(
+      created.memory.id,
     );
   });
 });
