@@ -16,6 +16,7 @@
       "/api/*",
       "/file/*",
       "/mcp",
+      "/memory/*",
       "/openapi.json",
       "/memos.api.v1.*"
     ]
