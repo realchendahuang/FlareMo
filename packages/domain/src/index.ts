@@ -6,6 +6,7 @@ export * from "./ids";
 export * from "./import-export";
 export * from "./memo-context";
 export * from "./memo-filter";
+export * from "./memory";
 export * from "./memos";
 export * from "./memos-social";
 export * from "./memos-sse";
