@@ -136,6 +136,66 @@ export const memoryResourceLinkDtoSchema = z.object({
   created_at: z.string(),
 });
 
+// --- Export / import --------------------------------------------------------
+
+// A memory's export record keeps the business fields plus its namespaced id
+// (`name`), but omits derived/secret state: fingerprint, access counters, and
+// embedding columns are all rebuilt or reset on import.
+export const exportMemorySchema = z.object({
+  name: z.string(),
+  content: z.string(),
+  type: memoryTypeSchema,
+  kind: memoryKindSchema,
+  scope_type: memoryScopeTypeSchema,
+  scope_key: z.string().nullable(),
+  tier: memoryTierSchema,
+  verification: memoryVerificationSchema,
+  status: memoryStatusSchema,
+  importance: z.number().int().min(0).max(100),
+  confidence: z.number().int().min(0).max(100),
+  needs_review: z.boolean(),
+  review_reason: z.string().nullable(),
+  created_by_type: memoryCreatedByTypeSchema,
+  source_agent: z.string().nullable(),
+  source_session: z.string().nullable(),
+  source_ref: z.string().nullable(),
+  valid_from: z.string().nullable(),
+  valid_to: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const importMemorySchema = exportMemorySchema.partial({
+  created_at: true,
+  updated_at: true,
+});
+
+export const exportMemoryRevisionSchema = z.object({
+  name: z.string(),
+  memory_id: z.string(),
+  content: z.string(),
+  metadata_snapshot: z.record(z.string(), z.unknown()),
+  created_by_type: memoryCreatedByTypeSchema,
+  created_by_agent: z.string().nullable(),
+  created_at: z.string(),
+});
+
+export const exportMemoryRelationSchema = z.object({
+  memory_id: z.string(),
+  related_memory_id: z.string(),
+  type: memoryRelationTypeSchema,
+  created_at: z.string(),
+});
+
+export const exportMemoryResourceLinkSchema = z.object({
+  memory_id: z.string(),
+  resource_type: memoryResourceTypeSchema,
+  resource_ref: z.string(),
+  relation_type: memoryResourceRelationTypeSchema,
+  metadata: z.record(z.string(), z.unknown()),
+  created_at: z.string(),
+});
+
 // --- REST request schemas ---------------------------------------------------
 
 export const createMemorySchema = z.object({
@@ -282,6 +342,13 @@ export type MemoryResourceRelationType = z.infer<
 export type MemoryForgetReason = z.infer<typeof memoryForgetReasonSchema>;
 export type MemoryCreatedByType = z.infer<typeof memoryCreatedByTypeSchema>;
 export type MemoryDto = z.infer<typeof memoryDtoSchema>;
+export type ExportMemory = z.infer<typeof exportMemorySchema>;
+export type ImportMemory = z.infer<typeof importMemorySchema>;
+export type ExportMemoryRevision = z.infer<typeof exportMemoryRevisionSchema>;
+export type ExportMemoryRelation = z.infer<typeof exportMemoryRelationSchema>;
+export type ExportMemoryResourceLink = z.infer<
+  typeof exportMemoryResourceLinkSchema
+>;
 export type MemoryRevisionDto = z.infer<typeof memoryRevisionDtoSchema>;
 export type MemoryRelationDto = z.infer<typeof memoryRelationDtoSchema>;
 export type MemoryResourceLinkDto = z.infer<typeof memoryResourceLinkDtoSchema>;

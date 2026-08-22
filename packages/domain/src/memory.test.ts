@@ -1,9 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { UserRow } from "@flaremo/db";
-import { createDb } from "@flaremo/db";
+import {
+  createDb,
+  memoryItems,
+  memoryRelations,
+  memoryResourceLinks,
+  memoryRevisions,
+} from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { exportData, importData } from "./import-export";
 import {
   archiveMemory,
   bootstrapMemory,
@@ -435,7 +442,12 @@ describe("memory domain services", () => {
     const linked = await listMemoriesForMemo(db, user, memo.id);
     expect(linked.map((memory) => memory.id)).toContain(created.memory.id);
 
-    const promoted = await promoteMemoryToMemo(db, user, USER, created.memory.id);
+    const promoted = await promoteMemoryToMemo(
+      db,
+      user,
+      USER,
+      created.memory.id,
+    );
     expect(promoted.memo).toMatch(/^memos\//);
 
     // The promoted memo references the same conclusion back to the memory.
@@ -443,5 +455,39 @@ describe("memory domain services", () => {
     expect(linksAfterPromote.map((memory) => memory.id)).toContain(
       created.memory.id,
     );
+  });
+
+  it("round-trips memories through export and import", async () => {
+    const created = await createMemory(db, user, USER, {
+      content: "FlareMo 必须保持 Cloudflare Native",
+      type: "semantic",
+      kind: "constraint",
+      scopeType: "project",
+      scopeKey: "github:realchendahuang/FlareMo",
+      tier: "core",
+      importance: 90,
+      confidence: 100,
+    });
+
+    const bundle = await exportData(db, user);
+    expect(bundle.version).toBe(3);
+    expect(bundle.memories).toHaveLength(1);
+    expect(bundle.memories[0]?.name).toBe(created.memory.id);
+
+    // Wipe the memory tables, then re-import and verify the record survives
+    // with the same namespaced id and content.
+    await db.delete(memoryRelations).all();
+    await db.delete(memoryResourceLinks).all();
+    await db.delete(memoryRevisions).all();
+    await db.delete(memoryItems).all();
+
+    const result = await importData(db, user, bundle);
+    expect(result.imported_memories).toBe(1);
+
+    const restored = await listMemories(db, user, {});
+    expect(restored).toHaveLength(1);
+    expect(restored[0]?.id).toBe(created.memory.id);
+    expect(restored[0]?.content).toBe("FlareMo 必须保持 Cloudflare Native");
+    expect(restored[0]?.verification).toBe("confirmed");
   });
 });
