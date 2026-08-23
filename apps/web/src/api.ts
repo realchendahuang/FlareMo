@@ -3,6 +3,8 @@ import type {
   AttachmentDto,
   CreateMemoInput,
   CreateMemoryInput,
+  CreateProjectInput,
+  CreateTaskInput,
   DailyReviewResponse,
   DataTaskDto,
   DeleteTagResponse,
@@ -17,6 +19,7 @@ import type {
   MemoState,
   MemoStatsResponse,
   MemoVisibility,
+  ProjectDto,
   PublicShareDto,
   RandomMemoResponse,
   RelatedMemosResponse,
@@ -24,8 +27,14 @@ import type {
   ReviewWalkVia,
   ShareDto,
   TagHierarchyResponse,
+  TaskActivityDto,
+  TaskDto,
+  TaskPriority,
+  TaskStatus,
   UpdateMemoInput,
   UpdateMemoryInput,
+  UpdateProjectInput,
+  UpdateTaskInput,
   WalkNextResponse,
 } from "@flaremo/contracts";
 
@@ -47,6 +56,15 @@ export type CreateMemoRequest = CreateMemoInput;
 export type UpdateMemoRequest = UpdateMemoInput;
 export type CreateMemoryRequest = CreateMemoryInput;
 export type UpdateMemoryRequest = UpdateMemoryInput;
+
+export type Project = ProjectDto;
+export type Task = TaskDto;
+export type TaskActivity = TaskActivityDto;
+export type CreateProjectRequest = CreateProjectInput;
+export type UpdateProjectRequest = UpdateProjectInput;
+export type CreateTaskRequest = CreateTaskInput;
+export type UpdateTaskRequest = UpdateTaskInput;
+export type { TaskPriority, TaskStatus };
 
 export type ListMemoParams = {
   state?: MemoState;
@@ -294,6 +312,105 @@ export async function listMemoryRevisions(id: string) {
 export async function listMemoryRelations(id: string) {
   return apiRequest<{ relations: MemoryRelation[] }>(
     `/api/app/memory/${encodeURIComponent(id)}/relations`,
+  );
+}
+
+// --- Projects ---------------------------------------------------------------
+
+export async function listProjects(
+  params: { status?: Project["status"] } = {},
+) {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<{ projects: Project[] }>(`/api/app/projects${suffix}`);
+}
+
+export async function createProject(input: CreateProjectRequest) {
+  return apiRequest<{ project: Project }>("/api/app/projects", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getProject(id: string) {
+  return apiRequest<{ project: Project }>(
+    `/api/app/projects/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function updateProject(id: string, input: UpdateProjectRequest) {
+  return apiRequest<{ project: Project }>(
+    `/api/app/projects/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
+export async function archiveProject(id: string, archived: boolean) {
+  return apiRequest<{ project: Project }>(
+    `/api/app/projects/${encodeURIComponent(id)}/${
+      archived ? "archive" : "unarchive"
+    }`,
+    { method: "POST" },
+  );
+}
+
+export async function deleteProject(id: string) {
+  return apiRequest<{ ok: true }>(
+    `/api/app/projects/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
+// --- Tasks ------------------------------------------------------------------
+
+export async function listTasks(
+  params: { project_id?: string; status?: Task["status"] } = {},
+) {
+  const query = new URLSearchParams();
+  if (params.project_id) query.set("project_id", params.project_id);
+  if (params.status) query.set("status", params.status);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<{ tasks: Task[] }>(`/api/app/tasks${suffix}`);
+}
+
+export async function createTask(input: CreateTaskRequest) {
+  return apiRequest<{ task: Task }>("/api/app/tasks", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getTask(id: string) {
+  return apiRequest<{ task: Task }>(`/api/app/tasks/${encodeURIComponent(id)}`);
+}
+
+export async function updateTask(id: string, input: UpdateTaskRequest) {
+  return apiRequest<{ task: Task }>(
+    `/api/app/tasks/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function deleteTask(id: string) {
+  return apiRequest<{ ok: true }>(`/api/app/tasks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function reorderTasks(projectId: string, taskIds: string[]) {
+  return apiRequest<{ tasks: Task[] }>("/api/app/tasks/reorder", {
+    method: "POST",
+    body: JSON.stringify({ project_id: projectId, task_ids: taskIds }),
+  });
+}
+
+export async function listTaskActivity(id: string) {
+  return apiRequest<{ activity: TaskActivity[] }>(
+    `/api/app/tasks/${encodeURIComponent(id)}/activity`,
   );
 }
 

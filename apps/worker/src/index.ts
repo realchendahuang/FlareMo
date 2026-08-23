@@ -36,7 +36,9 @@ import {
 import { memosFileApi } from "./routes/memos-file-api";
 import { memosSocialApi } from "./routes/memos-social-api";
 import { memosSseApi } from "./routes/memos-sse";
+import { projectsApi } from "./routes/projects-api";
 import { publicApi } from "./routes/public-api";
+import { tasksApi } from "./routes/tasks-api";
 
 const app = new Hono<HonoBindings>();
 
@@ -125,6 +127,8 @@ app.route("/api/auth/flaremo", authApi);
 app.all("/api/auth/*", (c) => createFlareMoAuth(c.env).handler(c.req.raw));
 app.route("/api/app/account", accountApi);
 app.route("/api/app/memory", memoryApi);
+app.route("/api/app/projects", projectsApi);
+app.route("/api/app/tasks", tasksApi);
 app.route("/api/app", appApi);
 app.route("/api/public", publicApi);
 app.route("/file", memosFileApi);
