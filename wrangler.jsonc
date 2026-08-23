@@ -35,6 +35,19 @@
       "bucket_name": "flaremo-attachments"
     }
   ],
+  "vectorize": [
+    {
+      "binding": "VECTORIZE_MEMOS",
+      "index_name": "flaremo-memos"
+    },
+    {
+      "binding": "VECTORIZE_MEMORIES",
+      "index_name": "flaremo-memories"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
   "triggers": {
     "crons": ["17 3 * * *"]
   },
@@ -46,6 +59,16 @@
     // Set this to the deployed origin; keep secrets out of this file.
     "FLAREMO_PUBLIC_URL": "https://flaremo.chendahuang.com",
     // Optional comma-separated additional browser origins for trusted clients.
-    "FLAREMO_TRUSTED_ORIGINS": ""
+    "FLAREMO_TRUSTED_ORIGINS": "",
+    // Semantic-search embedding. `workers-ai` uses Cloudflare's own model with
+    // no external key; `http` calls an external REST endpoint; `none` disables
+    // semantic search and falls back to FTS5 keyword search.
+    "FLAREMO_EMBEDDING_PROVIDER": "workers-ai",
+    "FLAREMO_EMBEDDING_MODEL": "@cf/qwen/qwen3-embedding-0.6b",
+    "FLAREMO_EMBEDDING_DIMENSIONS": "1024",
+    // Self-measured vector usage limits for the usage panel. Defaults are the
+    // Workers Free Vectorize allowance (5M stored / 30M queried dims per month).
+    "FLAREMO_VECTORIZE_STORED_LIMIT": "5000000",
+    "FLAREMO_VECTORIZE_QUERIED_LIMIT": "30000000"
   }
 }

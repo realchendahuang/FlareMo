@@ -127,6 +127,13 @@ describe("FlareMo Worker API", () => {
       resolve(import.meta.dirname, "../../../migrations/0011_daffy_ultron.sql"),
       "utf8",
     );
+    const embeddingSchema = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0012_slow_nick_fury.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
@@ -138,6 +145,7 @@ describe("FlareMo Worker API", () => {
     await applyMigration(db, webhookOutbox);
     await applyMigration(db, dataTasks);
     await applyMigration(db, memorySchema);
+    await applyMigration(db, embeddingSchema);
     sessionCookie = await bootstrapAndSignIn();
   });
 
