@@ -1,3 +1,4 @@
+export * from "./embedding";
 export * from "./memory";
 export * from "./memos";
 export * from "./memos-current";
