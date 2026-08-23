@@ -1,6 +1,5 @@
 import {
   bindMemoAttachmentsSchema,
-  createDataTaskResponseSchema,
   createImportTaskRequestSchema,
   createMemoSchema,
   createShareSchema,
@@ -699,7 +698,13 @@ memosApi.post("/export/tasks", async (c) => {
       progressTotal: chunkKeys.length,
       completedAt: new Date().toISOString(),
     });
-    return c.json({ task: dataTaskToDto(done!) }, 202);
+    if (!done) {
+      return c.json(
+        { error: "export task was not found after finalization" },
+        500,
+      );
+    }
+    return c.json({ task: dataTaskToDto(done) }, 202);
   } catch (error) {
     if (taskId) {
       const context = await getRequestContext(c).catch(() => undefined);
