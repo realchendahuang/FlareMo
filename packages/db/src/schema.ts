@@ -997,7 +997,6 @@ export const tasks = sqliteTable(
     completedAt: text("completed_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
-    deletedAt: text("deleted_at"),
   },
   (table) => [
     index("tasks_user_project_status_sort_idx").on(
@@ -1012,14 +1011,13 @@ export const tasks = sqliteTable(
 
 // An append-only audit trail per task mutation. Agents get full write access,
 // so observability (who changed what, when) is what makes that trustable and
-// reversible rather than gating the agent's permissions.
+// reversible rather than gating the agent's permissions. `task_id` is null for
+// project-scoped events (e.g. reorders) that do not target a single task.
 export const taskActivity = sqliteTable(
   "task_activity",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    taskId: text("task_id")
-      .notNull()
-      .references(() => tasks.id, { onDelete: "cascade" }),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),

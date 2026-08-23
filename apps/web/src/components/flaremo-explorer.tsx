@@ -4,6 +4,7 @@ import {
   BrainIcon,
   CalendarDaysIcon,
   ChevronRightIcon,
+  FolderKanbanIcon,
   FootprintsIcon,
   HashIcon,
   InboxIcon,
@@ -191,6 +192,13 @@ export function FlareMoExplorer({
         >
           <BrainIcon />
           <span className="min-w-0 flex-1 truncate">{t("nav.memory")}</span>
+        </Link>
+        <Link
+          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          to="/projects"
+        >
+          <FolderKanbanIcon />
+          <span className="min-w-0 flex-1 truncate">{t("nav.projects")}</span>
         </Link>
       </section>
 

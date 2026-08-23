@@ -131,6 +131,11 @@ const MemoryPage = lazy(() =>
     default: module.MemoryPage,
   })),
 );
+const ProjectsPage = lazy(() =>
+  import("@/pages/projects-page").then((module) => ({
+    default: module.ProjectsPage,
+  })),
+);
 
 const PAGE_SIZE = 30;
 const EMPTY_STATS: MemoStatsResponse = {
@@ -1142,6 +1147,22 @@ const memoryRoute = createRoute({
   component: MemoryRoutePage,
 });
 
+function ProjectsRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <ProjectsPage />
+      </Suspense>
+    </AuthenticatedRoute>
+  );
+}
+
+const projectsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects",
+  component: ProjectsRoutePage,
+});
+
 function AuthenticatedRoute({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const session = authClient.useSession();
@@ -1213,6 +1234,7 @@ const router = createRouter({
     dailyReviewRoute,
     randomWalkRoute,
     memoryRoute,
+    projectsRoute,
   ]),
   scrollRestoration: true,
 });
