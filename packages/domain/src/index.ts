@@ -2,6 +2,7 @@ export * from "./attachments";
 export * from "./auth";
 export * from "./data-tasks";
 export * from "./embedding";
+export * from "./embedding-outbox";
 export * from "./errors";
 export * from "./ids";
 export * from "./import-export";

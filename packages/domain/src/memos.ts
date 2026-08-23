@@ -10,6 +10,7 @@ import {
 import type { FlareMoDb, MemoPayload, MemoRow, UserRow } from "@flaremo/db";
 import { attachments, memoRevisions, memos, memoTags } from "@flaremo/db";
 import { and, asc, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { insertEmbeddingTask } from "./embedding-outbox";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
 import { compileMemoFilter } from "./memo-filter";
@@ -86,6 +87,13 @@ export async function createMemo(
   });
 
   const insertMemo = db.insert(memos).values(row);
+  const embeddingTaskStatement = insertEmbeddingTask(db, {
+    userId: user.id,
+    resourceType: "memo",
+    resourceId: row.id,
+    operation: "index",
+    createdAt: now,
+  });
   try {
     if (tags.length > 0) {
       await db.batch([
@@ -100,6 +108,7 @@ export async function createMemo(
         ),
         eventStatement,
         webhookEventStatement,
+        embeddingTaskStatement,
         ...notificationStatements,
       ]);
     } else {
@@ -107,6 +116,7 @@ export async function createMemo(
         insertMemo,
         eventStatement,
         webhookEventStatement,
+        embeddingTaskStatement,
         ...notificationStatements,
       ]);
     }
@@ -539,6 +549,20 @@ export async function updateMemo(
     createdAt: now,
   });
 
+  // Re-index whenever the indexed text or the indexable status changes. The
+  // dispatch step re-reads the latest row and decides index vs delete, so a
+  // status-only transition (archive/trash/restore) is handled by one task.
+  const embeddingTaskStatement =
+    input.content !== undefined || input.status !== undefined
+      ? insertEmbeddingTask(db, {
+          userId: user.id,
+          resourceType: "memo",
+          resourceId: existing.id,
+          operation: "reindex",
+          createdAt: now,
+        })
+      : undefined;
+
   const updateStatement = db
     .update(memos)
     .set(patch)
@@ -570,6 +594,7 @@ export async function updateMemo(
       ),
       eventStatement,
       webhookEventStatement,
+      ...(embeddingTaskStatement ? [embeddingTaskStatement] : []),
       ...notificationStatements,
     ]);
   } else if (metadataChanged && shouldCreateRevision) {
@@ -579,6 +604,7 @@ export async function updateMemo(
       deleteTagsStatement,
       eventStatement,
       webhookEventStatement,
+      ...(embeddingTaskStatement ? [embeddingTaskStatement] : []),
       ...notificationStatements,
     ]);
   } else if (shouldCreateRevision) {
@@ -587,6 +613,7 @@ export async function updateMemo(
       updateStatement,
       eventStatement,
       webhookEventStatement,
+      ...(embeddingTaskStatement ? [embeddingTaskStatement] : []),
       ...notificationStatements,
     ]);
   } else {
@@ -594,6 +621,7 @@ export async function updateMemo(
       updateStatement,
       eventStatement,
       webhookEventStatement,
+      ...(embeddingTaskStatement ? [embeddingTaskStatement] : []),
       ...notificationStatements,
     ]);
   }
@@ -630,12 +658,20 @@ export async function hardDeleteMemo(
     memo: existing,
     createdAt: now,
   });
+  const embeddingTaskStatement = insertEmbeddingTask(db, {
+    userId: user.id,
+    resourceType: "memo",
+    resourceId: existing.id,
+    operation: "delete",
+    createdAt: now,
+  });
   await db.batch([
     db
       .delete(attachments)
       .where(and(eq(attachments.memoId, id), eq(attachments.userId, user.id))),
     eventStatement,
     webhookEventStatement,
+    embeddingTaskStatement,
     db.delete(memos).where(and(eq(memos.id, id), eq(memos.userId, user.id))),
   ]);
 }
