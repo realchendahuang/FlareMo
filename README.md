@@ -89,6 +89,7 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - Memos current camelCase / protobuf-JSON 风格的 `/api/v1` memo、attachment、relation、share、social、auth facade 和 PAT 资源子集；Connect JSON/protobuf/gRPC-Web 还覆盖单用户 UserService 的 webhook CRUD/signing-secret 与 notification list/update/delete（含 comment/mention payload）；旧 snake_case wire 通过显式 header 保留。
 - OpenAPI 输出。
 - MCP 端点。
+- Agent Memory：AI 长期记忆中枢，Agent 通过 `/memory/mcp` 读写跨 session 的长期记忆（偏好、决策、约束、教训），`/memory` 界面可查看、确认、锁定、纠正。
 - 中英文界面。
 
 前端只保留当前已经接上能力的入口。AI 回顾、语义搜索、随机漫步、微信输入这类功能还没实现，就不会挂在界面里占位置。
@@ -110,6 +111,8 @@ FlareMo 的部署被刻意做得很轻。两种方式，挑一种就行。
 仓库里带了一份 [docs/agent-deploy.md](./docs/agent-deploy.md)，是写给 Codex / Claude Code / Cursor 这类 Agent 用的部署 runbook。把仓库交给一个能跑命令的 Agent，它就能按 runbook 创建 D1 / R2 资源、填写 `database_id`、跑迁移、部署。你不用记命令，Agent 自己按步骤来。
 
 需要让 Agent、Telegram 或其他 IM 渠道直接写入笔记时，参考 [Agent 与 IM 渠道写入](./docs/agent-ingestion.md)。仓库提供一个经过测试的独立 Telegram Worker 示例，不会把渠道密钥或平台逻辑塞进 FlareMo 主 Worker。
+
+需要让 Agent 读写跨 session 的长期记忆（用户偏好、项目决策、约束、教训）时，参考 [Agent Memory](./docs/agent-memory.md)：统一 `/memory/mcp` 端点 + 六个工具，记忆归用户所有、可随时查看和纠正。
 
 **手动部署**（想自己一步步来的话）先创建资源：
 
