@@ -45,3 +45,30 @@ test("lists a memory created through the API", async ({ page, request }) => {
   await page.goto("/memory");
   await expect(page.getByText(content)).toBeVisible();
 });
+
+test("edits a memory from the memory card", async ({ page }) => {
+  const content = `待编辑的记忆 #edit${Date.now()}`;
+  const updated = `编辑后的记忆 #edit${Date.now()}`;
+
+  await page.goto("/memory");
+  await page.getByRole("button", { name: /add memory|添加记忆/i }).click();
+
+  const dialog = page.getByRole("dialog");
+  await dialog.getByPlaceholder("FlareMo 使用 D1 作为事实源").fill(content);
+  await dialog.getByRole("button", { name: /save|保存/i }).click();
+
+  await page.getByRole("tab", { name: /recent|最近/i }).click();
+  await expect(page.getByText(content)).toBeVisible();
+
+  // The memory card offers an edit action that opens the edit dialog.
+  await page
+    .getByRole("button", { name: /edit|编辑/i })
+    .first()
+    .click();
+  const editDialog = page.getByRole("dialog");
+  await editDialog.getByPlaceholder("FlareMo 使用 D1 作为事实源").fill(updated);
+  await editDialog.getByRole("button", { name: /save|保存/i }).click();
+
+  await expect(page.getByText(updated)).toBeVisible();
+  await expect(page.getByText(content)).not.toBeVisible();
+});
