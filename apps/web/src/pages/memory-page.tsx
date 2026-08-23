@@ -7,6 +7,7 @@ import {
   LockIcon,
   LockOpenIcon,
   NotebookPenIcon,
+  PencilIcon,
   PlusIcon,
   SearchIcon,
   Trash2Icon,
@@ -25,6 +26,7 @@ import {
   type Memory,
   promoteMemoryToMemo,
   unlockMemory,
+  updateMemory,
 } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
 import {
@@ -284,6 +286,7 @@ function MemoryCard({
 }) {
   const { t } = useI18n();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [showRevisions, setShowRevisions] = useState(false);
 
   const confirmMutation = useMutation({
@@ -404,6 +407,10 @@ function MemoryCard({
               {t("memory.archive")}
             </Button>
           )}
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+            <PencilIcon data-icon="inline-start" />
+            {t("memory.edit")}
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -447,6 +454,13 @@ function MemoryCard({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <MemoryEditDialog
+          memory={memory}
+          open={editing}
+          onOpenChange={setEditing}
+          onSaved={onMutated}
+        />
       </CardContent>
     </Card>
   );
@@ -670,6 +684,145 @@ function MemoryCreateDialog({
           <Button
             disabled={!content.trim() || createMutation.isPending}
             onClick={() => createMutation.mutate()}
+          >
+            {t("memory.save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MemoryEditDialog({
+  memory,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  memory: Memory;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const [content, setContent] = useState(memory.content);
+  const [type, setType] = useState<Memory["type"]>(memory.type);
+  const [kind, setKind] = useState<Memory["kind"]>(memory.kind);
+  const [scopeType, setScopeType] = useState<Memory["scope_type"]>(
+    memory.scope_type,
+  );
+  const [scopeKey, setScopeKey] = useState(memory.scope_key ?? "");
+  const [importance, setImportance] = useState(memory.importance);
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateMemory(bareId(memory.id), {
+        content,
+        type,
+        kind,
+        scope_type: scopeType,
+        scope_key: scopeKey.trim() || undefined,
+        importance,
+      }),
+    onSuccess: () => {
+      toast.success(t("common.save"));
+      onOpenChange(false);
+      onSaved();
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t("memory.updateFailed"),
+      );
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("memory.edit")}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <Field label={t("memory.content")}>
+            <Textarea
+              rows={4}
+              value={content}
+              placeholder="FlareMo 使用 D1 作为事实源"
+              onChange={(event) => setContent(event.target.value)}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t("memory.type")}>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={type}
+                onChange={(event) =>
+                  setType(event.target.value as Memory["type"])
+                }
+              >
+                <option value="semantic">{t("memory.type.semantic")}</option>
+                <option value="episodic">{t("memory.type.episodic")}</option>
+                <option value="procedural">
+                  {t("memory.type.procedural")}
+                </option>
+              </select>
+            </Field>
+            <Field label={t("memory.kind")}>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={kind}
+                onChange={(event) =>
+                  setKind(event.target.value as Memory["kind"])
+                }
+              >
+                {KINDS.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`memory.kind.${value}`)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t("memory.scope")}>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={scopeType}
+                onChange={(event) =>
+                  setScopeType(event.target.value as Memory["scope_type"])
+                }
+              >
+                <option value="global">{t("memory.scope.global")}</option>
+                <option value="workspace">{t("memory.scope.workspace")}</option>
+                <option value="project">{t("memory.scope.project")}</option>
+                <option value="agent">{t("memory.scope.agent")}</option>
+              </select>
+            </Field>
+            <Field label={t("memory.importance")}>
+              <input
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                max={100}
+                min={0}
+                type="number"
+                value={importance}
+                onChange={(event) =>
+                  setImportance(Number.parseInt(event.target.value, 10) || 0)
+                }
+              />
+            </Field>
+          </div>
+          {scopeType !== "global" && (
+            <Field label={t("memory.scopeKey")}>
+              <Input
+                value={scopeKey}
+                placeholder="github:owner/repo"
+                onChange={(event) => setScopeKey(event.target.value)}
+              />
+            </Field>
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={!content.trim() || updateMutation.isPending}
+            onClick={() => updateMutation.mutate()}
           >
             {t("memory.save")}
           </Button>
