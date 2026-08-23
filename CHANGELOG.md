@@ -4,13 +4,20 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## Unreleased
 
-flomo 回顾体系对齐（R3 第一批）与冗余文案清理。
+flomo 回顾体系对齐（R3 第一批）、Agent Memory 与冗余文案清理。
 
 ### 新增能力
 
 - 每日回顾：新增 `/review/daily` 页面，按「N 年前的今天」分组展示往年今日创建的 memo；后端 `GET /api/app/review/daily?date=YYYY-MM-DD`（时区由前端传本地日期规避）。
 - 随机漫步：新增 `/review/walk` 页面，从随机 memo 出发沿共享标签、引用关系游走（无关联时大跨越），支持漫步历史回看；「结束漫步」输出明信片式总结（经过条数、总字数、时间跨度）；后端 `GET /api/app/review/random`、`GET /api/app/review/walk`，返回 `via`（tag/relation/jump）标记路径来源。
 - 侧边栏 explorer 新增「回顾」区，含每日回顾与随机漫步入口。
+- Agent Memory（AI 长期记忆）：新增 `memory_items` / `memory_revisions` / `memory_relations` / `memory_resource_links` 四张 D1 表，配 `memory_fts` FTS5 虚表（trigram 分词）与增删改触发器。D1 仍是唯一事实源，FTS 只作检索索引，可随时重建。
+- 记忆写入门禁：内容归一化、SHA-256 指纹精确去重、4000 字上限、凭据安全检测（命中 `Authorization`/`cookie`/`memos_pat_`/私钥/密码直接拒绝）。Agent 只能以 `observed`/`inferred` 写入，永远不能覆盖用户 `confirmed`/`locked` 的记忆，冲突进入 Review。
+- 记忆召回：scope 隔离（global + 当前 workspace/project + 当前 agent，禁止跨 project）+ FTS5 + 权威/重要度/置信度/recency 排序；episodic 记忆随时间衰减，semantic/procedural/decision 不衰减。
+- Agent Memory MCP：新增 `/memory/mcp` 无状态 Streamable HTTP 端点，暴露 `memory_bootstrap` / `memory_recall` / `memory_remember` / `memory_checkpoint` / `memory_link` / `memory_forget` 六个 tool，policy 内联进 tool description，复用 `memos_pat_` PAT 认证。
+- Memory 管理 UI：新增 `/memory` 页面（Core / Projects / Recent / Review / Archive 分栏），支持查看、确认、锁定、归档、删除、历史版本与来源展示。
+- Memo ↔ Memory 双向连接：memo 详情可「记为 Memory」（`derived_from`），memory 可「转为记录」（`promoted_to`），memo 上下文与导出均返回相关 memory。
+- 导出导入纳入：导入导出 bundle 升到 version 3，纳入 memory 四表；fingerprint、access counter 与 embedding 派生字段不导出，导入时重置为 `not_indexed`。
 
 ### 修复与清理
 
@@ -22,9 +29,11 @@ flomo 回顾体系对齐（R3 第一批）与冗余文案清理。
 
 ### Cloudflare、数据库与兼容影响
 
-- 无新增 D1 migration、无 R2 命名空间变化、无 Cloudflare 配置变化。
-- 仅 `/api/app/*` 新增三个端点（均需认证）；`/api/v1/*` Memos 兼容面不变。
-- 认证与 Origin 校验语义不变。
+- 新增 D1 migration `0011_daffy_ultron.sql`：新增 `memory_items`、`memory_revisions`、`memory_relations`、`memory_resource_links` 四张表及 `memory_fts` FTS5 虚拟表与增删改触发器；全部是新增表，向后兼容上一正式版本，不需要回填。
+- Worker 路由新增 `/memory/mcp`（Agent 无状态 MCP，PAT 认证）与 `/api/app/memory`（浏览器 cookie session 管理面）；`assets.run_worker_first` 增加 `/memory/*`。
+- 无 R2 命名空间变化、无 cron 变化、无 Cloudflare 资源绑定变化。
+- `/api/v1/*` Memos 兼容面不变：`/mcp`、`/api/v1/mcp` 行为与 v0.6.0 一致，memory 走独立的 `/memory/mcp` 前缀，不撞既有 MCP。
+- 认证与 Origin 校验语义不变：memory 复用 Better Auth cookie session 与 `memos_pat_` PAT，不新增第二套令牌。
 
 ## v0.6.0
 

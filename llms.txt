@@ -9,6 +9,7 @@ FlareMo 是 Cloudflare 原生的个人知识管理系统，提供 Memos 兼容 A
 - 架构: ./docs/architecture-notes.md
 - 部署: ./docs/deploy.md
 - Agent 部署: ./docs/agent-deploy.md
+- Agent Memory: ./docs/agent-memory.md
 - 发版: ./docs/release.md
 - 维护: ./docs/maintenance.md
 - Memos 兼容矩阵: ./docs/memos-compatibility.md
