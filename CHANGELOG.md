@@ -2,9 +2,9 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
-## Unreleased
+## v0.7.0
 
-flomo 回顾体系对齐（R3 第一批）、Agent Memory 与冗余文案清理。
+Agent Memory 中枢与回顾体系版本。这个版本补齐 flomo 回顾体系（R3 第一批），落地 Agent Memory（AI 长期记忆中枢，P0：四张 D1 表 + FTS5 + `/memory/mcp` 六工具 + `/memory` 管理 UI + Memo↔Memory 双向连接 + 导入导出纳入），并完成 lint 零告警与文档收口。数据库新增 memory 四张表，全部是新增表，不影响既有数据。
 
 ### 新增能力
 
@@ -15,9 +15,10 @@ flomo 回顾体系对齐（R3 第一批）、Agent Memory 与冗余文案清理�
 - 记忆写入门禁：内容归一化、SHA-256 指纹精确去重、4000 字上限、凭据安全检测（命中 `Authorization`/`cookie`/`memos_pat_`/私钥/密码直接拒绝）。Agent 只能以 `observed`/`inferred` 写入，永远不能覆盖用户 `confirmed`/`locked` 的记忆，冲突进入 Review。
 - 记忆召回：scope 隔离（global + 当前 workspace/project + 当前 agent，禁止跨 project）+ FTS5 + 权威/重要度/置信度/recency 排序；episodic 记忆随时间衰减，semantic/procedural/decision 不衰减。
 - Agent Memory MCP：新增 `/memory/mcp` 无状态 Streamable HTTP 端点，暴露 `memory_bootstrap` / `memory_recall` / `memory_remember` / `memory_checkpoint` / `memory_link` / `memory_forget` 六个 tool，policy 内联进 tool description，复用 `memos_pat_` PAT 认证。
-- Memory 管理 UI：新增 `/memory` 页面（Core / Projects / Recent / Review / Archive 分栏），支持查看、确认、锁定、归档、删除、历史版本与来源展示。
+- Memory 管理 UI：新增 `/memory` 页面（Core / Projects / Recent / Review / Archive 分栏），支持查看、确认、锁定、归档、删除、历史版本与来源展示；memory 卡片新增「编辑」入口（内容 / type / kind / scope / importance，走 `PATCH /api/app/memory/:id`）。
 - Memo ↔ Memory 双向连接：memo 详情可「记为 Memory」（`derived_from`），memory 可「转为记录」（`promoted_to`），memo 上下文与导出均返回相关 memory。
 - 导出导入纳入：导入导出 bundle 升到 version 3，纳入 memory 四表；fingerprint、access counter 与 embedding 派生字段不导出，导入时重置为 `not_indexed`。
+- 文档：新增 [docs/agent-memory.md](./docs/agent-memory.md) 接入 runbook；product-requirements、ROADMAP、README、llms.txt 同步 Agent Memory 定位与后续方向（语义召回、自动固化）。
 
 ### 修复与清理
 
@@ -26,6 +27,7 @@ flomo 回顾体系对齐（R3 第一批）、Agent Memory 与冗余文案清理�
 - 本地化硬编码字符串：标签树「展开/折叠」aria-label、Dialog/Sheet 的 sr-only Close、memo 详情页置顶徽章（新增 `memo.pinnedBadge`）。
 - 删除死代码：`DialogFooter` 永不渲染的 Close 按钮、`apps/web/src/api.ts` 中 7 个无调用方的导出函数。
 - 清理零信息增量的内部腔文案：登录/初始化页删除「登录状态仅保存在 HttpOnly Cookie…」安全说明和「原生访问」眉标（账户页同步移除）；简化初始化不可用、初始化密钥说明、改密影响说明和 PAT 描述的措辞。
+- lint 零告警：删除未使用 import，导出任务收尾与 API 测试的 non-null assertion 改为显式守卫。
 
 ### Cloudflare、数据库与兼容影响
 
@@ -34,6 +36,12 @@ flomo 回顾体系对齐（R3 第一批）、Agent Memory 与冗余文案清理�
 - 无 R2 命名空间变化、无 cron 变化、无 Cloudflare 资源绑定变化。
 - `/api/v1/*` Memos 兼容面不变：`/mcp`、`/api/v1/mcp` 行为与 v0.6.0 一致，memory 走独立的 `/memory/mcp` 前缀，不撞既有 MCP。
 - 认证与 Origin 校验语义不变：memory 复用 Better Auth cookie session 与 `memos_pat_` PAT，不新增第二套令牌。
+
+### 升级说明
+
+- 执行标准的 `pnpm verify`、`pnpm deploy:dry-run` 和 `pnpm deploy`；`pnpm deploy` 会在发布 Worker 前自动应用 0011 migration（memory 四张表 + FTS5，纯新增）。
+- 保持现有 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS`、`BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 和已创建 PAT 配置；不要把任何 secret、密码、cookie 或 PAT 写入 Git、release notes、日志或聊天。
+- 部署后重新验证登录页、bootstrap status、受保护 API 的 JSON `401`、可信/不可信 Origin、公开分享、`/mcp`、`/memory/mcp`（PAT 认证）、`/memory` 管理页（确认/锁定/编辑/归档/删除）、Memo↔Memory 双向连接和导入导出。若启用 Cloudflare Access，它只能作为额外 policy，客户端仍必须提供 FlareMo 应用层 session 或 PAT。
 
 ## v0.6.0
 
