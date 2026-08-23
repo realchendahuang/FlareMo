@@ -29,7 +29,7 @@ flomo 的核心闭环是「持续记录 → 意义浮现」，产品能力可以
 | 公开分享 | 已实现：share token + `/share/{token}` | 基本对齐 |
 | 引用/反向链接 | 部分：memo relations 已存在，前端可添加关系 | 无反向链接回顾面板、无关系图 |
 | 多渠道输入 | 部分：Memos 兼容 API、MCP、Telegram bot 示例 | Telegram bot 未升级为完整输入通道 |
-| AI 读写笔记 | 已实现：`/mcp` 无状态 Streamable HTTP 子集 | 无 flomo Agent 式对话、无 AI 洞察 |
+| AI 读写笔记 / 记忆 | 已实现：Agent Memory（`/memory/mcp` 六工具 + `/memory` 管理 UI），与 `/mcp` memo 工具子集并行 | 无 flomo Agent 式对话、无 AI 洞察；记忆召回仍为关键词（无语义 embedding） |
 | 数据导出 | 已实现：内联导出（≤32 MiB）+ 大型导出任务（分页 NDJSON + R2 清单 + 附件下载端点） | 无浏览器端「导出集打包为单个归档」体验 |
 | 每日回顾/随机漫步 | 已实现：`/review/daily`（那年今日分组）+ `/review/walk`（标签/引用游走 + 明信片总结） | 无定时推送触达渠道 |
 | 相关笔记/认知地图 | 未实现 | 认知地图依赖语义检索 |
@@ -125,6 +125,25 @@ flomo 的核心闭环是「持续记录 → 意义浮现」，产品能力可以
 - **成本**：中（需要真实客户端验证）。
 - **依赖**：无。
 - **ROADMAP 关系**：公开任务池「扩大真实 Memos 客户端兼容矩阵」。
+
+## Agent Memory（对标 flomo「AI 记忆档案」）
+
+flomo 的「AI 记忆档案」对应 FlareMo 的 Agent Memory：让 AI 通过统一 MCP 端点读写跨 session、跨 Agent 共享的长期记忆，用户随时可查看、确认、纠正。定位是 **Human Knowledge (Memo) + Agent Memory**，记忆归用户所有，Agent 只是读者和贡献者。
+
+### 现状（P0 已完成）
+
+- 四张 D1 表（`memory_items` / `memory_revisions` / `memory_relations` / `memory_resource_links`）+ `memory_fts` FTS5 检索索引；D1 是唯一事实源。
+- `/memory/mcp` 无状态 Streamable HTTP MCP，六个工具：`memory_bootstrap` / `memory_recall` / `memory_remember` / `memory_checkpoint` / `memory_link` / `memory_forget`。
+- `/api/app/memory` 管理 API + `/memory` Web 管理界面（Core / Projects / Recent / Review / Archive）。
+- 权限层级 `locked > confirmed > observed > inferred`：Agent 永不覆盖用户确认/锁定的记忆，冲突进 Review；写入门禁含指纹去重与凭据安全检测。
+- Memo ↔ Memory 双向连接（`derived_from` / `promoted_to`），导出导入纳入（bundle v3）。
+- 接入说明见 [docs/agent-memory.md](./agent-memory.md)。
+
+### 后续（按投入产出比）
+
+- **语义召回**：P0 是 FTS5 关键词召回；接 Vectorize embedding 后升级为自然语言召回，schema 已预留 `embedding_*` 字段，与 memo 的「找一找」共用同一套基础设施。
+- **自动固化**：P0 依赖 Agent 主动调用 `remember` / `checkpoint`；后续在会话/工作完成后自动调 LLM 提炼关键决策与教训。
+- **agent 身份与可观测**：`source_agent` 目前是来源字符串；后续可做 agent 注册与召回命中率/质量度量。
 
 ## 建议的开发顺序
 
