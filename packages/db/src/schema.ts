@@ -945,6 +945,101 @@ export const usageCounters = sqliteTable(
   ],
 );
 
+// Projects group tasks. They are first-class domain resources (not memo tags)
+// so agents and scripts can read a stable "what projects do I have, how many
+// tasks in each" through the app API without re-parsing memo markdown.
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: text("status", { enum: ["active", "archived"] })
+      .notNull()
+      .default("active"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("projects_user_status_created_idx").on(
+      table.userId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+// Tasks are thin, ordered work items under a project. `status` and `sort_order`
+// are columns (not a JSON payload) so list/board grouping stays indexable.
+export const tasks = sqliteTable(
+  "tasks",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    notes: text("notes"),
+    status: text("status", { enum: ["todo", "in_progress", "done"] })
+      .notNull()
+      .default("todo"),
+    priority: text("priority", { enum: ["none", "low", "medium", "high"] })
+      .notNull()
+      .default("none"),
+    dueAt: text("due_at"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    completedAt: text("completed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("tasks_user_project_status_sort_idx").on(
+      table.userId,
+      table.projectId,
+      table.status,
+      table.sortOrder,
+    ),
+    index("tasks_user_due_idx").on(table.userId, table.dueAt),
+  ],
+);
+
+// An append-only audit trail per task mutation. Agents get full write access,
+// so observability (who changed what, when) is what makes that trustable and
+// reversible rather than gating the agent's permissions.
+export const taskActivity = sqliteTable(
+  "task_activity",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorType: text("actor_type", { enum: ["user", "agent"] }).notNull(),
+    actorName: text("actor_name"),
+    action: text("action", {
+      enum: ["created", "updated", "status_changed", "deleted", "reordered"],
+    }).notNull(),
+    changes: text("changes", { mode: "json" })
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("task_activity_task_created_idx").on(table.taskId, table.createdAt),
+    index("task_activity_user_created_idx").on(table.userId, table.createdAt),
+  ],
+);
+
 export type MemoPayload = {
   tags?: string[];
   property?: {
@@ -988,3 +1083,9 @@ export type EmbeddingTaskRow = typeof embeddingTasks.$inferSelect;
 export type NewEmbeddingTaskRow = typeof embeddingTasks.$inferInsert;
 export type UsageCounterRow = typeof usageCounters.$inferSelect;
 export type NewUsageCounterRow = typeof usageCounters.$inferInsert;
+export type ProjectRow = typeof projects.$inferSelect;
+export type NewProjectRow = typeof projects.$inferInsert;
+export type TaskRow = typeof tasks.$inferSelect;
+export type NewTaskRow = typeof tasks.$inferInsert;
+export type TaskActivityRow = typeof taskActivity.$inferSelect;
+export type NewTaskActivityRow = typeof taskActivity.$inferInsert;
