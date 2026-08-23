@@ -647,6 +647,8 @@ async function createTestRuntime() {
     "0008_legal_scarecrow.sql",
     "0009_neat_iron_fist.sql",
     "0010_deep_gateway.sql",
+    "0011_daffy_ultron.sql",
+    "0012_slow_nick_fury.sql",
   ]) {
     const migration = await readFile(
       resolve(import.meta.dirname, `../../../migrations/${filename}`),
