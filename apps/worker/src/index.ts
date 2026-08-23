@@ -6,6 +6,7 @@ import { createDb } from "@flaremo/db";
 import {
   createDailyReviewNotifications,
   deleteExpiredDataTasks,
+  dispatchEmbeddingOutbox,
   dispatchMemosWebhookOutbox,
   expireStaleDataTasks,
   finalizeAttachmentCleanup,
@@ -19,6 +20,7 @@ import {
   getRequestContext,
   type HonoBindings,
 } from "./context";
+import { createEmbeddingProvider, createVectorIndex } from "./embedding";
 import type { FlareMoEnv } from "./env";
 import { jsonError } from "./http";
 import { accountApi } from "./routes/account-api";
@@ -174,10 +176,22 @@ const handler = {
     ctx?.waitUntil(
       dispatchMemosWebhookOutbox(createDb(env.DB)).catch(() => undefined),
     );
+    ctx?.waitUntil(
+      dispatchEmbeddingOutbox(createDb(env.DB), {
+        provider: createEmbeddingProvider(env),
+        memosIndex: createVectorIndex(env, "memo"),
+        memoriesIndex: createVectorIndex(env, "memory"),
+      }).catch(() => undefined),
+    );
     return response;
   },
   async scheduled(controller: ScheduledController, env: FlareMoEnv) {
     await dispatchMemosWebhookOutbox(createDb(env.DB));
+    await dispatchEmbeddingOutbox(createDb(env.DB), {
+      provider: createEmbeddingProvider(env),
+      memosIndex: createVectorIndex(env, "memo"),
+      memoriesIndex: createVectorIndex(env, "memory"),
+    });
     const db = createDb(env.DB);
     const cutoff = new Date(
       controller.scheduledTime - 24 * 60 * 60 * 1_000,
