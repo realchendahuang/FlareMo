@@ -664,7 +664,7 @@ describe("FlareMo Worker API", () => {
     // Hierarchical filter: `工作` matches its descendants too.
     const workTagged = await json<ListMemosResponse>(
       await fetchApp(
-        "http://flaremo.test/api/app/memos?tag=" + encodeURIComponent("工作"),
+        `http://flaremo.test/api/app/memos?tag=${encodeURIComponent("工作")}`,
       ),
     );
     expect(workTagged.memos.map((memo) => memo.id)).toEqual(
@@ -1388,9 +1388,16 @@ describe("FlareMo Worker API", () => {
       (chunk) => chunk.kind === "memos",
     );
     expect(memosChunk).toBeTruthy();
+    if (!memosChunk) {
+      throw new Error("expected a memos chunk in the export manifest");
+    }
+    const chunkFileName = memosChunk.key.split("/").at(-1);
+    if (!chunkFileName) {
+      throw new Error("expected the chunk key to end in a file name");
+    }
     const chunkResponse = await fetchApp(
       `http://flaremo.test/api/v1/export/tasks/${taskId}/data/${encodeURIComponent(
-        memosChunk!.key.split("/").at(-1)!,
+        chunkFileName,
       )}`,
     );
     expect(chunkResponse.ok).toBe(true);
@@ -1412,7 +1419,10 @@ describe("FlareMo Worker API", () => {
         body: formData,
       }),
     );
-    const attachmentId = uploaded.name.split("/").at(-1)!;
+    const attachmentId = uploaded.name.split("/").at(-1);
+    if (!attachmentId) {
+      throw new Error("expected the attachment name to end in an id");
+    }
 
     const created = await json<{ task: { id: string } }>(
       await fetchApp("http://flaremo.test/api/v1/export/tasks", {
