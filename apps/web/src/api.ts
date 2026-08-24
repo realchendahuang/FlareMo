@@ -51,7 +51,13 @@ export type AppNotification = AppNotificationDto;
 export type Memory = MemoryDto;
 export type MemoryRevision = MemoryRevisionDto;
 export type MemoryRelation = MemoryRelationDto;
-export type { MemoState, MemoStatsResponse, MemoVisibility, ReviewWalkVia };
+export type {
+  MemoState,
+  MemoStatsResponse,
+  MemoVisibility,
+  ReviewWalkVia,
+  VectorUsageReport,
+};
 
 export type CreateMemoRequest = CreateMemoInput;
 export type UpdateMemoRequest = UpdateMemoInput;
