@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { UserRow } from "@flaremo/db";
-import { createDb, embeddingTasks, memos } from "@flaremo/db";
+import { createDb, embeddingTasks, memoryItems, memos } from "@flaremo/db";
 import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -13,8 +13,11 @@ import type {
   VectorIndexVector,
 } from "./embedding";
 import { dispatchEmbeddingOutbox } from "./embedding-outbox";
+import { createMemory, type MemoryActor } from "./memory";
 import { createMemo, hardDeleteMemo } from "./memos";
 import { ensureSingleUser } from "./users";
+
+const USER_ACTOR: MemoryActor = { type: "user" };
 
 let mf: Miniflare;
 let db: ReturnType<typeof createDb>;
@@ -167,5 +170,31 @@ describe("embedding outbox", () => {
     expect(index.store.size).toBe(0);
     const tasks = await db.select().from(embeddingTasks);
     expect(tasks.every((task) => task.status === "succeeded")).toBe(true);
+  });
+
+  it("indexes a memory into the memories index", async () => {
+    const result = await createMemory(db, user, USER_ACTOR, {
+      content: "FlareMo 用 D1 作为事实源",
+      type: "semantic",
+      kind: "fact",
+      scopeType: "global",
+      scopeKey: null,
+      tier: "normal",
+      importance: 50,
+      confidence: 50,
+    });
+    const memoriesIndex = new FakeVectorIndex();
+    await dispatchEmbeddingOutbox(db, {
+      provider: fakeProvider(),
+      memosIndex: null,
+      memoriesIndex,
+    });
+
+    expect(memoriesIndex.store.size).toBe(1);
+    const rows = await db
+      .select()
+      .from(memoryItems)
+      .where(eq(memoryItems.id, result.memory.id));
+    expect(rows[0]?.embeddingStatus).toBe("indexed");
   });
 });

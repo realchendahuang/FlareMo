@@ -21,6 +21,7 @@ import {
   memoryRevisions,
 } from "@flaremo/db";
 import { and, desc, eq, or, type SQL, sql } from "drizzle-orm";
+import { insertEmbeddingTask } from "./embedding-outbox";
 import {
   ConflictError,
   ForbiddenError,
@@ -391,6 +392,14 @@ export async function createMemory(
     .returning()
     .get();
 
+  await insertEmbeddingTask(db, {
+    userId: user.id,
+    resourceType: "memory",
+    resourceId: row.id,
+    operation: "index",
+    createdAt: now,
+  });
+
   return { duplicate: false as const, memory: memoryToDto(row) };
 }
 
@@ -480,6 +489,16 @@ export async function updateMemory(
       updatedAt: now,
     })
     .where(and(eq(memoryItems.id, id), eq(memoryItems.userId, user.id)));
+
+  if (input.content !== undefined) {
+    await insertEmbeddingTask(db, {
+      userId: user.id,
+      resourceType: "memory",
+      resourceId: existing.id,
+      operation: "reindex",
+      createdAt: now,
+    });
+  }
 
   const updated = await requireMemory(db, user, id);
   return memoryToDto(updated);
@@ -579,6 +598,13 @@ export async function hardDeleteMemory(
   await db
     .delete(memoryItems)
     .where(and(eq(memoryItems.id, id), eq(memoryItems.userId, user.id)));
+  await insertEmbeddingTask(db, {
+    userId: user.id,
+    resourceType: "memory",
+    resourceId: id,
+    operation: "delete",
+    createdAt: new Date().toISOString(),
+  });
   return { ok: true };
 }
 
@@ -608,6 +634,13 @@ export async function forgetMemory(
     .update(memoryItems)
     .set({ status, updatedAt: new Date().toISOString() })
     .where(and(eq(memoryItems.id, id), eq(memoryItems.userId, user.id)));
+  await insertEmbeddingTask(db, {
+    userId: user.id,
+    resourceType: "memory",
+    resourceId: existing.id,
+    operation: "delete",
+    createdAt: new Date().toISOString(),
+  });
   return memoryToDto(await requireMemory(db, user, id));
 }
 
