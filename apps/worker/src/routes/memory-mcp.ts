@@ -12,6 +12,7 @@ import {
   checkpointMemory,
   createMemory,
   forgetMemory,
+  incrementUsageCounter,
   linkMemory,
   type MemoryActor,
   recallMemories,
@@ -418,6 +419,16 @@ async function callMemoryTool(
       const input = recallInputSchema.parse(args);
       const provider = createEmbeddingProvider(c.env);
       const index = createVectorIndex(c.env, "memory");
+      if (provider && index) {
+        c.executionCtx.waitUntil(
+          incrementUsageCounter(
+            db,
+            user,
+            "queried_dims",
+            provider.dimensions,
+          ).catch(() => undefined),
+        );
+      }
       return recallMemories(
         db,
         user,

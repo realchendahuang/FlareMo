@@ -26,6 +26,7 @@ import {
   getRandomMemo,
   getWalkNextMemo,
   hardDeleteMemo,
+  incrementUsageCounter,
   listAttachmentsForMemos,
   listDailyReviewMemos,
   listMemos,
@@ -36,6 +37,7 @@ import {
   moveMemoToTrash,
   NotFoundError,
   renameTag,
+  reportVectorUsage,
   semanticSearchMemos,
   type UserNotificationDto,
   updateMemo,
@@ -50,7 +52,11 @@ import { zValidator } from "@hono/zod-validator";
 import { inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../context";
-import { createEmbeddingProvider, createVectorIndex } from "../embedding";
+import {
+  createEmbeddingProvider,
+  createVectorIndex,
+  resolveEmbeddingConfig,
+} from "../embedding";
 import { jsonError } from "../http";
 import { buildMemoContext } from "../memo-context";
 
@@ -133,6 +139,14 @@ appApi.get(
         query.q,
         query.limit,
       );
+      c.executionCtx.waitUntil(
+        incrementUsageCounter(
+          db,
+          user,
+          "queried_dims",
+          provider.dimensions,
+        ).catch(() => undefined),
+      );
       const rows = await db
         .select()
         .from(memosTable)
@@ -155,6 +169,39 @@ appApi.get(
     }
   },
 );
+
+appApi.get("/usage/vector", async (c) => {
+  try {
+    const { db, user } = await getRequestContext(c);
+    const config = resolveEmbeddingConfig(c.env);
+    const storedLimit = Number.parseInt(
+      c.env.FLAREMO_VECTORIZE_STORED_LIMIT?.trim() || "5000000",
+      10,
+    );
+    const queriedLimit = Number.parseInt(
+      c.env.FLAREMO_VECTORIZE_QUERIED_LIMIT?.trim() || "30000000",
+      10,
+    );
+    const report = await reportVectorUsage(
+      db,
+      user,
+      {
+        provider: config.provider,
+        model: config.model,
+        dimensions: config.dimensions,
+        storedLimit: Number.isFinite(storedLimit) ? storedLimit : 5_000_000,
+        queriedLimit: Number.isFinite(queriedLimit) ? queriedLimit : 30_000_000,
+      },
+      {
+        memosIndex: createVectorIndex(c.env, "memo"),
+        memoriesIndex: createVectorIndex(c.env, "memory"),
+      },
+    );
+    return c.json(report);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 appApi.get(
   "/review/daily",

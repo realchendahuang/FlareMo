@@ -23,4 +23,5 @@ export * from "./settings";
 export * from "./shares";
 export * from "./tags";
 export * from "./tasks";
+export * from "./usage";
 export * from "./users";
