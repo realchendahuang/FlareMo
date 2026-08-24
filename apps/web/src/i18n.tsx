@@ -15,8 +15,12 @@ const messages = {
   "zh-CN": {
     "common.search": "搜索",
     "search.placeholder": "搜索记录…",
+    "search.semanticPlaceholder": "找一找：用自然语言描述…",
+    "search.semanticToggle": "语义搜索",
     "search.results": "搜索结果",
     "search.globalScope": "正在搜索时间线和归档",
+    "search.semanticEmpty":
+      "没有找到语义相近的记录，试试换个说法或先确认已建立语义索引。",
     "search.syntaxHint":
       "筛选：has:attachment · is:pinned · before:2026-07-01 · after:2026-07-01 · in:archive",
     "common.clearFilters": "清除筛选",
@@ -389,8 +393,12 @@ const messages = {
   "en-US": {
     "common.search": "Search",
     "search.placeholder": "Search notes…",
+    "search.semanticPlaceholder": "Find: describe in natural language…",
+    "search.semanticToggle": "Semantic search",
     "search.results": "Search results",
     "search.globalScope": "Searching timeline and archive",
+    "search.semanticEmpty":
+      "No semantically similar notes found. Try rephrasing, or verify the semantic index is built.",
     "search.syntaxHint":
       "Filters: has:attachment · is:pinned · before:2026-07-01 · after:2026-07-01 · in:archive",
     "common.clearFilters": "Clear filters",
