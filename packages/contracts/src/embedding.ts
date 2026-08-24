@@ -38,6 +38,16 @@ export const semanticSearchResponseSchema = z.object({
   degraded: z.boolean().default(false),
 });
 
+export const semanticMemoSearchQuerySchema = z.object({
+  q: z.string().trim().min(1).max(500),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
+export const semanticRecallQuerySchema = z.object({
+  query: z.string().trim().min(1).max(500),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
 // Vector usage panel DTO. Stored dimensions are read from the Vectorize index
 // `describe()`; queried dimensions and embedding counters come from the D1
 // `usage_counters` table. These are self-measured, not Cloudflare's bill.

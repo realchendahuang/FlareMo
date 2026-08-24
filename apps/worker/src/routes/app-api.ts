@@ -9,11 +9,13 @@ import {
   randomMemoQuerySchema,
   relatedMemosQuerySchema,
   renameTagRequestSchema,
+  semanticMemoSearchQuerySchema,
   updateMemoSchema,
   updateNotificationSchema,
   walkNextQuerySchema,
 } from "@flaremo/contracts";
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
+import { memos as memosTable } from "@flaremo/db";
 import {
   createMemo,
   createMemoryFromMemo,
@@ -34,6 +36,7 @@ import {
   moveMemoToTrash,
   NotFoundError,
   renameTag,
+  semanticSearchMemos,
   type UserNotificationDto,
   updateMemo,
   updateUserNotification,
@@ -44,8 +47,10 @@ import {
   parseMemosResourceName,
 } from "@flaremo/memos";
 import { zValidator } from "@hono/zod-validator";
+import { inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../context";
+import { createEmbeddingProvider, createVectorIndex } from "../embedding";
 import { jsonError } from "../http";
 import { buildMemoContext } from "../memo-context";
 
@@ -108,6 +113,48 @@ appApi.get("/stats", zValidator("query", memoStatsQuerySchema), async (c) => {
     return jsonError(c, error);
   }
 });
+
+appApi.get(
+  "/search/semantic",
+  zValidator("query", semanticMemoSearchQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const provider = createEmbeddingProvider(c.env);
+      const index = createVectorIndex(c.env, "memo");
+      if (!provider || !index) {
+        return c.json({ memos: [], degraded: true });
+      }
+      const query = c.req.valid("query");
+      const hits = await semanticSearchMemos(
+        db,
+        user,
+        { provider, index },
+        query.q,
+        query.limit,
+      );
+      const rows = await db
+        .select()
+        .from(memosTable)
+        .where(
+          inArray(
+            memosTable.id,
+            hits.map((hit) => hit.id),
+          ),
+        );
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      const ordered = hits
+        .map((hit) => byId.get(hit.id))
+        .filter((row): row is MemoRow => row !== undefined);
+      return c.json({
+        memos: ordered.map((memo) => memoToDto(memo, user)),
+        degraded: false,
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 appApi.get(
   "/review/daily",

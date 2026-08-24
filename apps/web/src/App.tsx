@@ -25,6 +25,7 @@ import {
   MenuIcon,
   SearchIcon,
   SettingsIcon,
+  SparklesIcon,
   UploadIcon,
 } from "lucide-react";
 import {
@@ -58,6 +59,7 @@ import {
   type MemoStatsResponse,
   renameTag,
   type Share,
+  semanticSearchMemos,
   trashMemo,
   updateMemo,
   uploadAttachment,
@@ -203,6 +205,19 @@ function FlareMoApp() {
     useState(false);
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
   const isSearching = Boolean(debouncedQuery);
+  const [semanticMode, setSemanticMode] = useState(false);
+
+  const semanticResultsQuery = useQuery({
+    queryKey: ["semantic-search", debouncedQuery],
+    enabled: semanticMode && Boolean(debouncedQuery),
+    queryFn: () => semanticSearchMemos(debouncedQuery, 20),
+    retry: false,
+  });
+  const semanticMemos = useMemo(
+    () => semanticResultsQuery.data?.memos ?? [],
+    [semanticResultsQuery.data],
+  );
+  const semanticDegraded = semanticResultsQuery.data?.degraded ?? false;
 
   useEffect(() => {
     const focusSearch = () => {
@@ -707,7 +722,9 @@ function FlareMoApp() {
               <SearchBox
                 className="hidden w-[243px] md:block"
                 inputRef={desktopSearchRef}
+                onToggleSemantic={() => setSemanticMode((value) => !value)}
                 query={query}
+                semanticMode={semanticMode}
                 showShortcut
                 setQuery={setQuery}
                 t={t}
@@ -723,7 +740,9 @@ function FlareMoApp() {
             <SearchBox
               className="mb-3 md:hidden motion-safe:animate-rise"
               inputRef={mobileSearchRef}
+              onToggleSemantic={() => setSemanticMode((value) => !value)}
               query={query}
+              semanticMode={semanticMode}
               setQuery={setQuery}
               t={t}
             />
@@ -764,22 +783,40 @@ function FlareMoApp() {
                   </button>
                 </div>
               )}
-              {query.trim() && (
+              {query.trim() && !semanticMode && (
                 <p className="-mt-1 text-xs text-muted-foreground">
                   {t("search.syntaxHint")}
                 </p>
               )}
+              {semanticMode && query.trim() && !semanticDegraded && (
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  {t("search.semanticEmpty")}
+                </p>
+              )}
               <MemoList
                 attachmentsByMemo={attachmentsByMemo}
-                hasError={memosQuery.isError}
-                hasNextPage={Boolean(memosQuery.hasNextPage)}
-                isFetchingNextPage={memosQuery.isFetchingNextPage}
-                isLoading={memosQuery.isLoading}
-                memos={memos}
+                hasError={
+                  semanticMode
+                    ? semanticResultsQuery.isError
+                    : memosQuery.isError
+                }
+                hasNextPage={
+                  semanticMode ? false : Boolean(memosQuery.hasNextPage)
+                }
+                isFetchingNextPage={
+                  semanticMode ? false : memosQuery.isFetchingNextPage
+                }
+                isLoading={
+                  semanticMode
+                    ? semanticResultsQuery.isLoading
+                    : memosQuery.isLoading
+                }
+                memos={semanticMode ? semanticMemos : memos}
                 searchQuery={debouncedQuery || undefined}
                 sharesByMemo={sharesByMemo}
                 onArchive={(id) => {
-                  const memo = memos.find(
+                  const source = semanticMode ? semanticMemos : memos;
+                  const memo = source.find(
                     (item) => item.name === id || item.id === id,
                   );
                   updateMutation.mutate({
@@ -793,12 +830,17 @@ function FlareMoApp() {
                 onHardDelete={async (id) => {
                   await hardDeleteMutation.mutateAsync(id);
                 }}
-                onLoadMore={() => void memosQuery.fetchNextPage()}
+                onLoadMore={() => {
+                  if (!semanticMode) void memosQuery.fetchNextPage();
+                }}
                 onPin={(id, pinned) =>
                   updateMutation.mutate({ id, input: { pinned } })
                 }
                 onRestore={(id) => restoreMutation.mutate(id)}
-                onRetry={() => void memosQuery.refetch()}
+                onRetry={() => {
+                  if (semanticMode) void semanticResultsQuery.refetch();
+                  else void memosQuery.refetch();
+                }}
                 onShare={(id) => shareMutation.mutate(id)}
                 onTagClick={setActiveTag}
                 onTrash={(id) => trashMutation.mutate(id)}
@@ -819,6 +861,8 @@ function SearchBox({
   inputRef,
   query,
   showShortcut = false,
+  semanticMode = false,
+  onToggleSemantic,
   setQuery,
   t,
 }: {
@@ -826,6 +870,8 @@ function SearchBox({
   inputRef?: RefObject<HTMLInputElement | null>;
   query: string;
   showShortcut?: boolean;
+  semanticMode?: boolean;
+  onToggleSemantic?: () => void;
   setQuery: (value: string) => void;
   t: (key: TranslationKey) => string;
 }) {
@@ -836,12 +882,33 @@ function SearchBox({
         <Input
           aria-label={t("common.search")}
           className="h-9 rounded-xl border-0 bg-muted pr-11 pl-9 shadow-none transition-[box-shadow,background-color] focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-flame-400/30"
-          placeholder={t("search.placeholder")}
+          placeholder={
+            semanticMode
+              ? t("search.semanticPlaceholder")
+              : t("search.placeholder")
+          }
           ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        {showShortcut && (
+        {onToggleSemantic && (
+          <button
+            aria-label={t("search.semanticToggle")}
+            aria-pressed={semanticMode}
+            className={cn(
+              "absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1 transition-colors",
+              semanticMode
+                ? "bg-flame-500/15 text-flame-500"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            title={t("search.semanticToggle")}
+            type="button"
+            onClick={onToggleSemantic}
+          >
+            <SparklesIcon className="size-4" />
+          </button>
+        )}
+        {showShortcut && !onToggleSemantic && (
           <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shadow-xs">
             ⌘K
           </kbd>

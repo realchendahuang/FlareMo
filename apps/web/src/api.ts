@@ -35,6 +35,7 @@ import type {
   UpdateMemoryInput,
   UpdateProjectInput,
   UpdateTaskInput,
+  VectorUsageReport,
   WalkNextResponse,
 } from "@flaremo/contracts";
 
@@ -143,6 +144,19 @@ export async function listMemos(params: ListMemoParams = {}) {
   if (params.page_token) query.set("page_token", params.page_token);
 
   return apiRequest<ListMemosResponse>(`/api/app/memos?${query.toString()}`);
+}
+
+export async function semanticSearchMemos(query: string, limit = 10) {
+  const params = new URLSearchParams();
+  params.set("q", query);
+  params.set("limit", String(limit));
+  return apiRequest<{ memos: MemoDto[]; degraded: boolean }>(
+    `/api/app/search/semantic?${params.toString()}`,
+  );
+}
+
+export async function getVectorUsage() {
+  return apiRequest<VectorUsageReport>("/api/app/usage/vector");
 }
 
 export async function getTagHierarchy() {
