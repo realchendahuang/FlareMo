@@ -12,7 +12,10 @@ import type {
   VectorIndexMatch,
   VectorIndexVector,
 } from "./embedding";
-import { dispatchEmbeddingOutbox } from "./embedding-outbox";
+import {
+  dispatchEmbeddingOutbox,
+  rebuildEmbeddingIndexes,
+} from "./embedding-outbox";
 import { createMemory, type MemoryActor } from "./memory";
 import { createMemo, hardDeleteMemo } from "./memos";
 import { ensureSingleUser } from "./users";
@@ -196,5 +199,36 @@ describe("embedding outbox", () => {
       .from(memoryItems)
       .where(eq(memoryItems.id, result.memory.id));
     expect(rows[0]?.embeddingStatus).toBe("indexed");
+  });
+
+  it("rebuilds both indexes from D1", async () => {
+    await createMemo(db, user, {
+      content: "重建的 memo",
+      visibility: "private",
+      source: "web",
+    });
+    await createMemory(db, user, USER_ACTOR, {
+      content: "重建的 memory",
+      type: "semantic",
+      kind: "fact",
+      scopeType: "global",
+      scopeKey: null,
+      tier: "normal",
+      importance: 50,
+      confidence: 50,
+    });
+
+    const memosIndex = new FakeVectorIndex();
+    const memoriesIndex = new FakeVectorIndex();
+    const result = await rebuildEmbeddingIndexes(db, {
+      provider: fakeProvider(),
+      memosIndex,
+      memoriesIndex,
+    });
+
+    expect(result.memosIndexed).toBe(1);
+    expect(result.memoriesIndexed).toBe(1);
+    expect(memosIndex.store.size).toBe(1);
+    expect(memoriesIndex.store.size).toBe(1);
   });
 });
