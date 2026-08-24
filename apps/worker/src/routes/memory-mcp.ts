@@ -24,6 +24,7 @@ import {
   type HonoBindings,
   type ReturnTypeOfRequestContext,
 } from "../context";
+import { createEmbeddingProvider, createVectorIndex } from "../embedding";
 import { jsonError } from "../http";
 
 export const memoryMcpApi = new Hono<HonoBindings>();
@@ -377,6 +378,7 @@ memoryMcpApi.post("/", async (c) => {
     }
     try {
       const value = await callMemoryTool(
+        c,
         context,
         parsedCall.data.name,
         parsedCall.data.arguments ?? {},
@@ -396,6 +398,7 @@ function resolveAgent(args: JsonObject): MemoryActor {
 }
 
 async function callMemoryTool(
+  c: Context<HonoBindings>,
   context: ReturnTypeOfRequestContext,
   name: string,
   args: JsonObject,
@@ -413,15 +416,22 @@ async function callMemoryTool(
     }
     case "memory_recall": {
       const input = recallInputSchema.parse(args);
-      return recallMemories(db, user, {
-        query: input.query,
-        agent: input.agent,
-        projectKey: input.project_key,
-        workspaceKey: input.workspace_key,
-        types: input.types,
-        kinds: input.kinds,
-        limit: input.limit,
-      });
+      const provider = createEmbeddingProvider(c.env);
+      const index = createVectorIndex(c.env, "memory");
+      return recallMemories(
+        db,
+        user,
+        {
+          query: input.query,
+          agent: input.agent,
+          projectKey: input.project_key,
+          workspaceKey: input.workspace_key,
+          types: input.types,
+          kinds: input.kinds,
+          limit: input.limit,
+        },
+        provider && index ? { provider, index } : undefined,
+      );
     }
     case "memory_remember": {
       const input = rememberInputSchema.parse(args);

@@ -77,6 +77,11 @@ export type RecallMemoriesInput = {
   limit?: number;
 };
 
+export type RecallMemoriesDeps = {
+  provider: import("./embedding").EmbeddingProvider;
+  index: import("./embedding").VectorIndex;
+};
+
 export type LinkMemoryInput = {
   memoryId: string;
   relatedMemoryId?: string;
@@ -828,6 +833,7 @@ export async function recallMemories(
   db: FlareMoDb,
   user: UserRow,
   input: RecallMemoriesInput,
+  deps?: RecallMemoriesDeps,
 ) {
   const scopeFilter = buildScopeFilter(user, {
     projectKey: input.projectKey,
@@ -853,21 +859,44 @@ export async function recallMemories(
     .where(and(...filters))
     .limit(MEMORY_RECALL_CANDIDATE_LIMIT);
 
-  const withText = buildFtsCondition(input.query);
+  // Semantic recall takes priority when a provider and index are available
+  // and the query has meaning; otherwise fall back to FTS5. A semantic miss
+  // must not silently recall unrelated memories by authority alone.
   let candidates = rows;
-  if (withText) {
-    const matchedIds = new Set(
-      (
-        await db
-          .select({ id: memoryItems.id })
-          .from(memoryItems)
-          .where(and(...filters, withText))
-          .limit(MEMORY_RECALL_CANDIDATE_LIMIT)
-      ).map((row) => row.id),
-    );
-    // A query that matches nothing via FTS should not silently recall by
-    // authority alone; return the empty set rather than unrelated memories.
-    candidates = rows.filter((row) => matchedIds.has(row.id));
+  let matchedBy: "fts" | "semantic" = "fts";
+  if (deps) {
+    try {
+      const [queryVector] = await deps.provider.embed([input.query]);
+      if (queryVector && queryVector.length > 0) {
+        const matches = await deps.index.query(
+          queryVector,
+          MEMORY_RECALL_CANDIDATE_LIMIT,
+        );
+        const matchedIds = new Set(matches.map((match) => match.id));
+        candidates = rows.filter((row) => matchedIds.has(row.id));
+        matchedBy = "semantic";
+      }
+    } catch {
+      // Semantic recall is degradable: fall back to the FTS path on any
+      // provider or index failure.
+      matchedBy = "fts";
+    }
+  } else {
+    const withText = buildFtsCondition(input.query);
+    if (withText) {
+      const matchedIds = new Set(
+        (
+          await db
+            .select({ id: memoryItems.id })
+            .from(memoryItems)
+            .where(and(...filters, withText))
+            .limit(MEMORY_RECALL_CANDIDATE_LIMIT)
+        ).map((row) => row.id),
+      );
+      // A query that matches nothing via FTS should not silently recall by
+      // authority alone; return the empty set rather than unrelated memories.
+      candidates = rows.filter((row) => matchedIds.has(row.id));
+    }
   }
 
   candidates.sort((a, b) => rankMemory(b) - rankMemory(a));
@@ -890,7 +919,7 @@ export async function recallMemories(
     created_at: row.createdAt,
     updated_at: row.updatedAt,
     score: rankMemory(row),
-    matched_by: "fts" as const,
+    matched_by: matchedBy,
   }));
 }
 

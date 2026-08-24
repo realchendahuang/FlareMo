@@ -275,6 +275,61 @@ describe("memory domain services", () => {
     expect(contents).not.toContain("signal-loom 项目使用 bun");
   });
 
+  it("recalls memories semantically when a provider is supplied", async () => {
+    const pino = await createMemory(db, user, AGENT, {
+      content: "日志方案选择 pino",
+      type: "semantic",
+      kind: "decision",
+      scopeType: "global",
+      scopeKey: null,
+      tier: "normal",
+      importance: 60,
+      confidence: 80,
+    });
+    await createMemory(db, user, AGENT, {
+      content: "部署用 wrangler",
+      type: "semantic",
+      kind: "fact",
+      scopeType: "global",
+      scopeKey: null,
+      tier: "normal",
+      importance: 50,
+      confidence: 70,
+    });
+
+    const deps = {
+      provider: {
+        model: "test-model",
+        dimensions: 4,
+        async embed(texts: string[]) {
+          return texts.map(() => [1, 0, 0, 0]);
+        },
+      },
+      index: {
+        async query(_vector: number[], _topK: number) {
+          // Only the "pino" memory is considered a semantic match.
+          return [{ id: pino.memory.id, score: 0.9 }];
+        },
+        async upsert() {},
+        async deleteByIds() {},
+        async describe() {
+          return { vectorCount: 0, dimensions: 4 };
+        },
+      },
+    };
+
+    const results = await recallMemories(
+      db,
+      user,
+      { query: "日志用什么", agent: "codex", limit: 8 },
+      deps,
+    );
+    const contents = results.map((row) => row.content);
+    expect(contents).toContain("日志方案选择 pino");
+    expect(contents).not.toContain("部署用 wrangler");
+    expect(results[0]?.matched_by).toBe("semantic");
+  });
+
   it("bootstraps core and confirmed constraints within the char budget", async () => {
     await createMemory(db, user, USER, {
       content: "FlareMo 必须保持 Cloudflare Native",
