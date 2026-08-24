@@ -2,6 +2,34 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.8.0
+
+语义搜索与向量用量版本。这个版本给 memo 和 Agent Memory 接入语义检索（D1 仍是唯一事实源，Vectorize 只存可重建的派生索引），默认使用 Cloudflare 内置 embedding 模型 `@cf/qwen/qwen3-embedding-0.6b`（1024 维），做成可插拔 provider（`workers-ai` / `http` / `none` 三档），并在账户页新增向量用量面板。数据库新增 `embedding_tasks` 与 `usage_counters` 两张表、`memos` 表补 embedding 状态列，全部是新增/加列，向后兼容。
+
+### 新增能力
+
+- 可插拔 embedding provider：`workers-ai`（默认，零外部 key）、`http`（外部 REST，API key 走 Wrangler secret）、`none`（关闭语义搜索，退回 FTS5 关键词）。由 `FLAREMO_EMBEDDING_PROVIDER` 选择，模型与维度可配置。
+- memo 语义搜索（"找一找"）：时间线搜索框新增语义切换，`GET /api/app/search/semantic` 用自然语言召回相关 memo；Vectorize 只返回候选 id，命中后回 D1 校验 owner/status，未索引或 provider 不可用时返回 `degraded=true` 并退回关键词搜索。
+- Agent Memory 语义召回：`recallMemories` 优先走 Vectorize 相似度（`matched_by=semantic`），失败或未提供 provider 时退回 FTS5（`matched_by=fts`）；`/memory/mcp` 的 `memory_recall` 工具 schema 不变。
+- 增量索引 outbox：memo/memory 写路径在 D1 batch 内原子入队 `embedding_tasks`，`dispatchEmbeddingOutbox` 异步 embed + Vectorize upsert/delete，`ctx.waitUntil` 与 cron 双驱动，带 lease/claim/backoff/prune 崩溃恢复。
+- 全量重建：`rebuildEmbeddingIndexes` 从 D1 幂等重建两个 Vectorize index（首次回填、换模型/改维度、索引损坏恢复）。
+- 向量用量面板：`GET /api/app/usage/vector` 聚合 `Vectorize describe()` 的存储维度 + D1 `usage_counters` 的查询维度，账户页展示自测消耗 vs 配置的免费额度，附 Cloudflare Dashboard 兜底说明。
+
+### Cloudflare、数据库与兼容影响
+
+- 新增 D1 migration `0012_slow_nick_fury.sql`：`memos` 加 `embedding_status/embedding_version/embedded_at/embedding_error` 四列，新增 `embedding_tasks`、`usage_counters` 两张表；纯新增，向后兼容。
+- 新增 Vectorize binding（`flaremo-memos`、`flaremo-memories`，1024 维 cosine）与 Workers AI binding（`AI`）。
+- 新增 env var：`FLAREMO_EMBEDDING_PROVIDER/MODEL/DIMENSIONS`、`FLAREMO_EMBEDDING_API_URL/API_KEY`（http 档可选）、`FLAREMO_VECTORIZE_STORED_LIMIT/QUERIED_LIMIT`（默认 Workers Free 500 万存储 / 3000 万查询维度）。
+- `/api/v1/*` Memos 兼容面不变；`/mcp`、`/api/v1/mcp`、`/memory/mcp` 语义不变（memory_recall 仅召回方式升级）。
+- 认证与 Origin 校验语义不变；语义搜索与召回复用 cookie session 与 `memos_pat_` PAT。
+
+### 升级说明
+
+- 执行标准的 `pnpm verify`、`pnpm deploy:dry-run` 和 `pnpm deploy`；`pnpm deploy` 会在发布 Worker 前自动应用 0012 migration。
+- 首次接入后存量 memo/memory 不会自动回填向量，需手动触发一次全量重建；此后增量自动同步。
+- 保持现有 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS`、`BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 和已创建 PAT 配置；不要把任何 secret、API key、cookie 或 PAT 写入 Git、release notes、日志或聊天。
+- 语义搜索是可降级能力：任何 embedding/Vectorize 失败只影响召回，不影响写、导出、分享与 Memos 兼容；`FLAREMO_EMBEDDING_PROVIDER=none` 时行为与 v0.7.0 完全一致。
+
 ## v0.7.0
 
 Agent Memory 中枢与回顾体系版本。这个版本补齐 flomo 回顾体系（R3 第一批），落地 Agent Memory（AI 长期记忆中枢，P0：四张 D1 表 + FTS5 + `/memory/mcp` 六工具 + `/memory` 管理 UI + Memo↔Memory 双向连接 + 导入导出纳入），并完成 lint 零告警与文档收口。数据库新增 memory 四张表，全部是新增表，不影响既有数据。
