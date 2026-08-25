@@ -2,6 +2,28 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.9.0
+
+账户邮箱自助修改版本。这个版本在无邮件基础设施的前提下，为账户设置页新增"修改邮箱"能力：修改登录邮箱前必须验证当前密码（避免裸改登录标识），改邮箱不引入邮件服务，验证步骤集中在 route 层，未来接入邮件 OTP 时可替换而不改路由契约。
+
+### 新增能力
+
+- 修改邮箱：账户设置页 security tab 新增"修改邮箱"卡片，输入新邮箱 + 当前密码提交。
+- 后端 `POST /api/app/account/email`：经 `getBrowserRequestContext` 校验 cookie session 与 Origin allowlist；用 `auth.api.verifyPassword` 校验当前密码（错误返回 400）；随后更新 Better Auth `auth_users` 登录凭据（标记 `email_verified=true`、刷新当前会话），再同步 FlareMo 业务 `users` 表的 email。
+- 邮箱唯一性保护：两张 unique email 表都做查重，冲突返回 409；domain `updateFlaremoUserEmail` 负责业务表同步、大小写归一与冲突检查。
+
+### Cloudflare、数据库与兼容影响
+
+- 无数据库 migration、无 Cloudflare 资源变化、无新增 env var。
+- `/api/v1/*` Memos 兼容面不变；`/mcp` 语义不变。
+- 认证与 Origin 校验语义不变：cookie session 状态变更仍要求精确 Origin 匹配，PAT 请求语义不变。
+
+### 升级说明
+
+- 执行标准的 `pnpm verify`、`pnpm deploy:dry-run` 和 `pnpm deploy`。
+- 保持现有 `FLAREMO_PUBLIC_URL`、`FLAREMO_TRUSTED_ORIGINS`、`BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 和已创建 PAT 配置；不要把任何 secret、cookie 或 PAT 写入 Git、release notes、日志或聊天。
+- 改邮箱会同时更新 Better Auth 登录凭据与 FlareMo 业务用户表；当前会话保持登录，其他已登录会话不受影响。
+
 ## v0.8.0
 
 语义搜索与向量用量版本。这个版本给 memo 和 Agent Memory 接入语义检索（D1 仍是唯一事实源，Vectorize 只存可重建的派生索引），默认使用 Cloudflare 内置 embedding 模型 `@cf/qwen/qwen3-embedding-0.6b`（1024 维），做成可插拔 provider（`workers-ai` / `http` / `none` 三档），并在账户页新增向量用量面板。数据库新增 `embedding_tasks` 与 `usage_counters` 两张表、`memos` 表补 embedding 状态列，全部是新增/加列，向后兼容。
