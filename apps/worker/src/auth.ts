@@ -63,6 +63,14 @@ export type FlareMoAuth = {
     authUserId: string;
     newPassword: string;
   }) => Promise<void>;
+  /**
+   * Mint a single-use, expiring password-reset token for a Better Auth
+   * identity. The token is stored in `auth_verifications` under the same
+   * `reset-password:` namespace Better Auth's reset-password endpoint already
+   * consumes, so the recipient sets their own password through the official
+   * flow without the admin ever learning the plaintext.
+   */
+  createPasswordResetToken: (authUserId: string) => Promise<string>;
   api: {
     createApiKey: (input: {
       body: {
@@ -204,6 +212,21 @@ export function createFlareMoAuth(
 
   return {
     ...auth,
+    createPasswordResetToken: async (authUserId: string) => {
+      // The token is the verification record's unique identifier under the
+      // `reset-password:` prefix Better Auth's reset-password endpoint looks
+      // up. Storing the auth user id as the value keeps the flow scoped to
+      // one identity and one attempt.
+      const authContext = await auth.$context;
+      const token = crypto.randomUUID();
+      const identifier = `reset-password:${token}`;
+      await authContext.internalAdapter.createVerificationValue({
+        identifier,
+        value: authUserId,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
+      });
+      return token;
+    },
     operatorResetPassword: async ({ authUserId, newPassword }) => {
       // Better Auth's resetPassword API owns password validation, hashing,
       // verification consumption, reset callbacks, and session revocation.

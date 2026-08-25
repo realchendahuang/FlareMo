@@ -2,21 +2,27 @@ import { createDb, type UserRow } from "@flaremo/db";
 import {
   bindMemoAttachments,
   createAttachmentMetadata,
+  createFlaremoMemberWithLink,
   createMemo,
   createMemoShare,
   type DomainError,
+  deleteFlaremoUser,
   finalizeAttachmentDelete,
   getAttachmentById,
+  getAuthBootstrapStatus,
   getAuthUserById,
+  getAuthUserIdByFlaremoUserId,
   getFlaremoUserByAuthSessionToken,
   getFlaremoUserById,
   type getMemoById,
   getMemoByIdForViewer,
   getMemosPersonalAccessToken,
   getPublicShareByToken,
+  getUserRegistrationAllowed,
   hardDeleteMemo,
   listAttachments,
   listAttachmentsForMemosForViewer,
+  listFlaremoUsers,
   listMemoAttachmentsForViewer,
   listMemoRelationsForViewer,
   listMemoShares,
@@ -89,6 +95,12 @@ const currentSigninSchema = z.object({
     username: z.string().min(1),
     password: z.string().min(1),
   }),
+});
+
+const currentSignupSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(12).max(128),
+  displayName: z.string().trim().max(80).optional(),
 });
 
 const currentRelationBodySchema = z.object({
@@ -221,6 +233,60 @@ memosCurrentApi.post("/auth/signin", async (c, next) => {
     copyHeaders(response.headers, result.headers);
     response.headers.append("set-cookie", nativeTokens.refreshCookie);
     response.headers.set("cache-control", "no-store");
+    return response;
+  } catch (error) {
+    return currentJsonError(c, error);
+  }
+});
+
+memosCurrentApi.post("/auth/signup", async (c, next) => {
+  if (isLegacyWireRequest(c)) return next();
+  try {
+    assertTrustedCookieMutation(c);
+    const input = currentSignupSchema.parse(await c.req.json());
+    await assertRegistrationOpen(c);
+    const username = input.username.trim();
+    const email = `${username}@flaremo.local`;
+    const dbContext = await createAuthContext(c);
+    const auth = createFlareMoAuth(c.env, dbContext.db, {
+      allowBootstrapSignUp: true,
+    });
+    const result = await auth.api.signUpEmail({
+      body: {
+        email,
+        name: input.displayName?.trim() || username,
+        password: input.password,
+        username,
+        displayUsername: username,
+      },
+    });
+    const user = await createFlaremoMemberWithLink(dbContext.db, {
+      authUserId: result.user.id,
+      email,
+      name: input.displayName?.trim() || username,
+    });
+    const nativeTokens = await issueMemosNativeTokens({
+      db: dbContext.db,
+      env: c.env,
+      authUserId: result.user.id,
+      user,
+      request: c.req.raw,
+    });
+    const response = noStoreResponse(
+      c.json(
+        {
+          user: await currentUserForContext({
+            ...dbContext,
+            user,
+            authUserId: result.user.id,
+          }),
+          accessToken: nativeTokens.accessToken,
+          accessTokenExpiresAt: nativeTokens.accessTokenExpiresAt.toISOString(),
+        },
+        201,
+      ),
+    );
+    response.headers.append("set-cookie", nativeTokens.refreshCookie);
     return response;
   } catch (error) {
     return currentJsonError(c, error);
@@ -783,7 +849,57 @@ memosCurrentApi.get("/users", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
     const context = await getRequestContext(c);
-    return c.json({ users: [await currentUserForContext(context)] });
+    const users = await listFlaremoUsers(context.db);
+    const dtos = await Promise.all(
+      users.map(async (user) =>
+        currentUserToDto(
+          user,
+          await getAuthUserById(
+            context.db,
+            (await getAuthUserIdByFlaremoUserId(context.db, user.id)) ?? "",
+          ),
+        ),
+      ),
+    );
+    return c.json({ users: dtos });
+  } catch (error) {
+    return currentJsonError(c, error);
+  }
+});
+
+memosCurrentApi.post("/users", async (c, next) => {
+  if (isLegacyWireRequest(c)) return next();
+  try {
+    const context = await getRequestContext(c);
+    assertOwnerUser(context);
+    const body = currentSignupSchema.parse(await c.req.json());
+    const username = body.username.trim();
+    const email = `${username}@flaremo.local`;
+    const auth = createFlareMoAuth(c.env, context.db, {
+      allowBootstrapSignUp: true,
+    });
+    const result = await auth.api.signUpEmail({
+      body: {
+        email,
+        name: body.displayName?.trim() || username,
+        password: body.password,
+        username,
+        displayUsername: username,
+      },
+    });
+    const user = await createFlaremoMemberWithLink(context.db, {
+      authUserId: result.user.id,
+      email,
+      name: body.displayName?.trim() || username,
+    });
+    return c.json(
+      await currentUserForContext({
+        db: context.db,
+        user,
+        authUserId: result.user.id,
+      }),
+      201,
+    );
   } catch (error) {
     return currentJsonError(c, error);
   }
@@ -873,8 +989,32 @@ memosCurrentApi.get("/users/:user", async (c, next) => {
   if (isLegacyWireRequest(c)) return next();
   try {
     const context = await getRequestContext(c);
-    assertCurrentUserPath(c.req.param("user"), context.user.id);
-    return c.json(await currentUserForContext(context));
+    const userId = normalizeUserName(c.req.param("user"));
+    const user = await getFlaremoUserById(context.db, userId);
+    if (!user) throw new NotFoundCurrentError("User not found");
+    const authUserId = await getAuthUserIdByFlaremoUserId(context.db, user.id);
+    return c.json(
+      currentUserToDto(
+        user,
+        authUserId ? await getAuthUserById(context.db, authUserId) : null,
+      ),
+    );
+  } catch (error) {
+    return currentJsonError(c, error);
+  }
+});
+
+memosCurrentApi.delete("/users/:user", async (c, next) => {
+  if (isLegacyWireRequest(c)) return next();
+  try {
+    const context = await getRequestContext(c);
+    assertOwnerUser(context);
+    const userId = normalizeUserName(c.req.param("user"));
+    if (userId === context.user.id) {
+      throw new ForbiddenCurrentError("You cannot delete your own account");
+    }
+    await deleteFlaremoUser(context.db, userId);
+    return c.body(null, 200);
   } catch (error) {
     return currentJsonError(c, error);
   }
@@ -963,6 +1103,29 @@ function assertSessionCredential(
   // let a leaked PAT mint or revoke additional PATs. Cookie sessions and the
   // opaque Better Auth session bearer returned by the auth facade are allowed.
   if (context.credential === "pat") throw new UnauthorizedCurrentError();
+}
+
+function assertOwnerUser(
+  context: Awaited<ReturnType<typeof getRequestContext>>,
+) {
+  if (context.credential === "pat" || context.user.role !== "owner") {
+    throw new ForbiddenCurrentError(
+      "An owner session is required for user management",
+    );
+  }
+}
+
+async function assertRegistrationOpen(
+  c: Parameters<typeof getRequestContext>[0],
+) {
+  const db = createDb(c.env.DB);
+  const status = await getAuthBootstrapStatus(db);
+  if (status.state !== "complete") {
+    throw new ConflictCurrentError("Registration is not available yet");
+  }
+  if (!(await getUserRegistrationAllowed(db))) {
+    throw new ForbiddenCurrentError("User registration is disabled");
+  }
 }
 
 function currentListQuery(c: Parameters<typeof getRequestContext>[0]) {
@@ -1182,6 +1345,10 @@ function normalizeAttachmentName(value: string) {
   return value.startsWith("attachments/") ? value : `attachments/${value}`;
 }
 
+function normalizeUserName(value: string) {
+  return value.startsWith("users/") ? value : `users/${value}`;
+}
+
 function assertCurrentUserPath(value: string, currentUserId: string) {
   const expected = currentUserId.replace(/^users\//, "");
   const normalized = value.startsWith("users/")
@@ -1384,6 +1551,12 @@ class ForbiddenCurrentError extends CurrentHttpError {
 class NotFoundCurrentError extends CurrentHttpError {
   constructor(message: string) {
     super(message, 404);
+  }
+}
+
+class ConflictCurrentError extends CurrentHttpError {
+  constructor(message: string) {
+    super(message, 409);
   }
 }
 

@@ -2,8 +2,10 @@ import { createDb } from "@flaremo/db";
 import {
   claimOwnerBootstrap,
   completeOwnerBootstrap,
+  createFlaremoMemberWithLink,
   getAuthBootstrapStatus,
   getOwnerAuthUserId,
+  getUserRegistrationAllowed,
   listMemosPersonalAccessTokens,
   markOwnerBootstrapRecoveryRequired,
   reconcileOwnerBootstrap,
@@ -40,6 +42,21 @@ const operatorRecoverySchema = z.object({
   new_password: z.string().min(12).max(128),
 });
 
+const registerSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3)
+    .max(30)
+    .regex(
+      /^[A-Za-z0-9_]+$/,
+      "Username may contain letters, numbers, and underscores.",
+    ),
+  name: z.string().trim().min(1).max(80),
+  email: z.string().trim().email().max(320).optional(),
+  password: z.string().min(12).max(128),
+});
+
 authApi.get("/bootstrap/status", async (c) => {
   const db = createDb(c.env.DB);
   const status = await getAuthBootstrapStatus(db);
@@ -59,6 +76,67 @@ authApi.get("/bootstrap/status", async (c) => {
       Boolean(getBootstrapSecret(c.env)) &&
       authConfigured,
   });
+});
+
+authApi.get("/register/status", async (c) => {
+  const db = createDb(c.env.DB);
+  const status = await getAuthBootstrapStatus(db);
+  return c.json({
+    registration_open: await getUserRegistrationAllowed(db),
+    initialized: status.initialized,
+  });
+});
+
+authApi.post("/register", zValidator("json", registerSchema), async (c) => {
+  const db = createDb(c.env.DB);
+  const status = await getAuthBootstrapStatus(db);
+  if (status.state !== "complete") {
+    return c.json(
+      { error: { message: "Registration is not available yet." } },
+      409,
+    );
+  }
+  if (!(await getUserRegistrationAllowed(db))) {
+    return c.json(
+      { error: { message: "Registration is currently closed." } },
+      403,
+    );
+  }
+
+  const input = c.req.valid("json");
+  const email = input.email?.trim() || `${input.username}@flaremo.local`;
+  let auth: ReturnType<typeof createFlareMoAuth>;
+  try {
+    auth = createFlareMoAuth(c.env, db, { allowBootstrapSignUp: true });
+  } catch {
+    return c.json(
+      { error: { message: "Native authentication is not configured." } },
+      503,
+    );
+  }
+
+  try {
+    const result = await auth.api.signUpEmail({
+      body: {
+        email,
+        name: input.name,
+        password: input.password,
+        username: input.username,
+        displayUsername: input.username,
+      },
+    });
+    await createFlaremoMemberWithLink(db, {
+      authUserId: result.user.id,
+      email,
+      name: input.name,
+    });
+    return c.json({ ok: true }, 201);
+  } catch {
+    return c.json(
+      { error: { message: "Registration could not be completed." } },
+      400,
+    );
+  }
 });
 
 authApi.post("/bootstrap", zValidator("json", bootstrapSchema), async (c) => {
