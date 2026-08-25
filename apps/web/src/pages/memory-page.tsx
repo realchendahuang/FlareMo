@@ -133,14 +133,9 @@ export function MemoryPage() {
         </header>
 
         <div className="flex items-end justify-between gap-3 px-1">
-          <div>
-            <h1 className="font-heading text-xl font-semibold">
-              {t("memory.title")}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("memory.subtitle")}
-            </p>
-          </div>
+          <h1 className="font-heading text-xl font-semibold">
+            {t("memory.title")}
+          </h1>
           <Button size="sm" onClick={() => setCreating(true)}>
             <PlusIcon data-icon="inline-start" />
             {t("memory.newMemory")}

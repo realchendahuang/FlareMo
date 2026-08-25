@@ -57,9 +57,6 @@ export function DailyReviewPage() {
           <h1 className="font-heading text-xl font-semibold">
             {t("nav.dailyReview")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("review.dailySubtitle")}
-          </p>
         </div>
 
         {reviewQuery.isLoading && (

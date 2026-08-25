@@ -148,14 +148,9 @@ export function ProjectsPage() {
         </header>
 
         <div className="flex items-end justify-between gap-3 px-1">
-          <div>
-            <h1 className="font-heading text-xl font-semibold">
-              {t("projects.title")}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("projects.subtitle")}
-            </p>
-          </div>
+          <h1 className="font-heading text-xl font-semibold">
+            {t("projects.title")}
+          </h1>
           <Button size="sm" onClick={() => setCreatingProject(true)}>
             <PlusIcon data-icon="inline-start" />
             {t("projects.newProject")}

@@ -84,10 +84,7 @@ export function RegisterPage() {
   };
 
   return (
-    <AuthPageFrame
-      description={t("auth.registerDescription")}
-      title={t("auth.registerTitle")}
-    >
+    <AuthPageFrame title={t("auth.registerTitle")}>
       {bootstrapQuery.data?.initialized === false && (
         <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
           {t("auth.registrationUnavailable")}
