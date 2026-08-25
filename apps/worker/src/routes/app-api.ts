@@ -21,6 +21,7 @@ import {
   createMemoryFromMemo,
   createMemoryFromMemoInputToWrite,
   deleteTag,
+  getAuthUserById,
   getMemoById,
   getMemoStats,
   getRandomMemo,
@@ -66,6 +67,22 @@ const FLAREMO_RELEASES_URL =
   "https://github.com/realchendahuang/FlareMo/releases";
 const FLAREMO_UPDATE_GUIDE_URL =
   "https://github.com/realchendahuang/FlareMo/blob/main/docs/update.md";
+
+appApi.get("/me", async (c) => {
+  try {
+    const { db, user, authUserId } = await getRequestContext(c);
+    const authUser = await getAuthUserById(db, authUserId);
+    return c.json({
+      id: user.id,
+      role: user.role,
+      name: user.name,
+      email: authUser?.email ?? user.email,
+      username: authUser?.username ?? user.id.replace(/^users\//, ""),
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 appApi.get("/health", async (c) => {
   try {

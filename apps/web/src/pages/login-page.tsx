@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Navigate, useNavigate } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { getBootstrapStatus } from "@/api";
+import { getBootstrapStatus, getRegistrationStatus } from "@/api";
 import { authClient } from "@/auth-client";
 import { AuthPageFrame, errorMessage } from "@/components/auth-page-frame";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,11 @@ export function LoginPage() {
   const bootstrapQuery = useQuery({
     queryKey: ["auth-bootstrap-status"],
     queryFn: getBootstrapStatus,
+    retry: false,
+  });
+  const registrationQuery = useQuery({
+    queryKey: ["auth-registration-status"],
+    queryFn: getRegistrationStatus,
     retry: false,
   });
   const [username, setUsername] = useState("");
@@ -143,9 +148,24 @@ export function LoginPage() {
         >
           {isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
         </Button>
-        <p className="text-center text-xs leading-5 text-muted-foreground">
-          {t("auth.forgotPasswordHint")}
+        <p className="text-center text-sm">
+          <Link
+            className="text-muted-foreground underline-offset-4 hover:underline"
+            to="/recover"
+          >
+            {t("auth.forgotPasswordHint")}
+          </Link>
         </p>
+        {registrationQuery.data?.registration_open && (
+          <p className="text-center text-sm">
+            <Link
+              className="text-primary underline-offset-4 hover:underline"
+              to="/register"
+            >
+              {t("auth.registerLink")}
+            </Link>
+          </p>
+        )}
       </form>
     </AuthPageFrame>
   );

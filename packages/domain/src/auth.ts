@@ -13,7 +13,7 @@ import { ConflictError } from "./errors";
 import { ensureSingleUser, type SingleUserConfig } from "./users";
 
 const OWNER_BOOTSTRAP_ID = "bootstrap/owner";
-const OWNER_FLAREMO_USER_ID = "users/owner";
+export const OWNER_FLAREMO_USER_ID = "users/owner";
 
 export type AuthBootstrapState = "ready" | "complete" | "recovery_required";
 
@@ -259,6 +259,16 @@ export async function getFlaremoUserByAuthUserId(
       where: eq(users.id, link.flaremoUserId),
     })) ?? null
   );
+}
+
+export async function getAuthUserIdByFlaremoUserId(
+  db: FlareMoDb,
+  flaremoUserId: string,
+): Promise<string | null> {
+  const link = await db.query.authUserLinks.findFirst({
+    where: eq(authUserLinks.flaremoUserId, flaremoUserId),
+  });
+  return link?.authUserId ?? null;
 }
 
 export async function getAuthUserById(db: FlareMoDb, authUserId: string) {

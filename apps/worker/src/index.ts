@@ -24,6 +24,7 @@ import { createEmbeddingProvider, createVectorIndex } from "./embedding";
 import type { FlareMoEnv } from "./env";
 import { jsonError } from "./http";
 import { accountApi } from "./routes/account-api";
+import { adminApi } from "./routes/admin-api";
 import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
 import { mcpApi, mcpStreamableApi } from "./routes/mcp";
@@ -128,6 +129,7 @@ app.use("/api/auth/*", async (c, next) => {
 app.route("/api/auth/flaremo", authApi);
 app.all("/api/auth/*", (c) => createFlareMoAuth(c.env).handler(c.req.raw));
 app.route("/api/app/account", accountApi);
+app.route("/api/app/admin", adminApi);
 app.route("/api/app/memory", memoryApi);
 app.route("/api/app/projects", projectsApi);
 app.route("/api/app/tasks", tasksApi);

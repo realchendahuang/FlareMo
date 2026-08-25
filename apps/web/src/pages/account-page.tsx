@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import {
   createPersonalAccessToken,
+  getCurrentFlareMoUser,
   getVectorUsage,
   listPersonalAccessTokens,
   type PersonalAccessToken,
@@ -63,6 +64,11 @@ export function AccountPage() {
   const tokensQuery = useQuery({
     queryKey: ["personal-access-tokens"],
     queryFn: listPersonalAccessTokens,
+    retry: false,
+  });
+  const meQuery = useQuery({
+    queryKey: ["current-flaremo-user"],
+    queryFn: getCurrentFlareMoUser,
     retry: false,
   });
   const vectorUsageQuery = useQuery({
@@ -215,10 +221,17 @@ export function AccountPage() {
               {session.data?.user.email}
             </p>
           </div>
-          <Button variant="outline" onClick={() => void handleSignOut()}>
-            <LogOutIcon data-icon="inline-start" />
-            {t("auth.signOut")}
-          </Button>
+          <div className="flex items-center gap-2">
+            {meQuery.data?.role === "owner" && (
+              <Button asChild size="sm" variant="outline">
+                <Link to="/admin">{t("admin.title")}</Link>
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => void handleSignOut()}>
+              <LogOutIcon data-icon="inline-start" />
+              {t("auth.signOut")}
+            </Button>
+          </div>
         </section>
 
         <Card>
