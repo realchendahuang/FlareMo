@@ -690,6 +690,16 @@ export async function revokePersonalAccessToken(id: string) {
   );
 }
 
+export async function changeEmail(input: {
+  current_password: string;
+  new_email: string;
+}) {
+  return apiRequest<{ ok: true }>("/api/app/account/email", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function createMemo(input: CreateMemoRequest) {
   return apiRequest<Memo>("/api/app/memos", {
     method: "POST",
