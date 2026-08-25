@@ -123,11 +123,6 @@ const RecoverPage = lazy(() =>
     default: module.RecoverPage,
   })),
 );
-const AdminPage = lazy(() =>
-  import("@/pages/admin-page").then((module) => ({
-    default: module.AdminPage,
-  })),
-);
 const SetupPage = lazy(() =>
   import("@/pages/setup-page").then((module) => ({
     default: module.SetupPage,
@@ -1232,22 +1227,6 @@ const accountRoute = createRoute({
   component: AccountRoutePage,
 });
 
-function AdminRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <AdminPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const adminRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/admin",
-  component: AdminRoutePage,
-});
-
 function DailyReviewRoutePage() {
   return (
     <AuthenticatedRoute>
@@ -1383,7 +1362,6 @@ const router = createRouter({
     recoverRoute,
     setupRoute,
     accountRoute,
-    adminRoute,
     dailyReviewRoute,
     randomWalkRoute,
     memoryRoute,

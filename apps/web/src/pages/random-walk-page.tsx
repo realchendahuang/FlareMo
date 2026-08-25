@@ -125,9 +125,6 @@ export function RandomWalkPage() {
           <h1 className="font-heading text-xl font-semibold">
             {t("nav.randomWalk")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("review.walkSubtitle")}
-          </p>
         </div>
 
         {finished ? (

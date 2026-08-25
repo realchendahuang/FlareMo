@@ -45,9 +45,6 @@ export function AuthPageFrame({
             FlareMo
           </span>
         </div>
-        <p className="relative max-w-md font-heading text-4xl font-semibold leading-snug tracking-tight text-flame-50">
-          {t("auth.brandTagline")}
-        </p>
       </aside>
       <div className="relative flex items-center justify-center bg-[radial-gradient(circle_at_top,_var(--color-flame-100),_transparent_42%)] px-4 py-8 dark:bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--color-flame-400)_15%,transparent),_transparent_42%)]">
         <header className="absolute inset-x-0 top-0 flex items-center justify-between p-4 lg:justify-end">

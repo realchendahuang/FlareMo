@@ -36,6 +36,8 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
     page.getByRole("heading", { name: /账户与访问|Account/i }),
   ).toBeVisible();
 
+  await page.getByRole("tab", { name: /访问令牌|Access tokens/i }).click();
+
   const tokenName = `UI E2E client ${Date.now()}`;
   await page
     .getByRole("textbox", { name: /令牌名称|Token name/i })
