@@ -108,6 +108,26 @@ const LoginPage = lazy(() =>
     default: module.LoginPage,
   })),
 );
+const RegisterPage = lazy(() =>
+  import("@/pages/register-page").then((module) => ({
+    default: module.RegisterPage,
+  })),
+);
+const ResetPage = lazy(() =>
+  import("@/pages/reset-page").then((module) => ({
+    default: module.ResetPage,
+  })),
+);
+const RecoverPage = lazy(() =>
+  import("@/pages/recover-page").then((module) => ({
+    default: module.RecoverPage,
+  })),
+);
+const AdminPage = lazy(() =>
+  import("@/pages/admin-page").then((module) => ({
+    default: module.AdminPage,
+  })),
+);
 const SetupPage = lazy(() =>
   import("@/pages/setup-page").then((module) => ({
     default: module.SetupPage,
@@ -1136,6 +1156,52 @@ const loginRoute = createRoute({
   component: LoginRoutePage,
 });
 
+function RegisterRoutePage() {
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <RegisterPage />
+    </Suspense>
+  );
+}
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/register",
+  component: RegisterRoutePage,
+});
+
+function ResetRoutePage() {
+  const { token } = resetRoute.useSearch();
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <ResetPage token={token} />
+    </Suspense>
+  );
+}
+
+const resetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reset",
+  component: ResetRoutePage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: typeof search.token === "string" ? search.token : undefined,
+  }),
+});
+
+function RecoverRoutePage() {
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <RecoverPage />
+    </Suspense>
+  );
+}
+
+const recoverRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/recover",
+  component: RecoverRoutePage,
+});
+
 function SetupRoutePage() {
   return (
     <Suspense fallback={<RouteLoading />}>
@@ -1164,6 +1230,22 @@ const accountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/account",
   component: AccountRoutePage,
+});
+
+function AdminRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <AdminPage />
+      </Suspense>
+    </AuthenticatedRoute>
+  );
+}
+
+const adminRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin",
+  component: AdminRoutePage,
 });
 
 function DailyReviewRoutePage() {
@@ -1296,8 +1378,12 @@ const router = createRouter({
     memoRoute,
     shareRoute,
     loginRoute,
+    registerRoute,
+    resetRoute,
+    recoverRoute,
     setupRoute,
     accountRoute,
+    adminRoute,
     dailyReviewRoute,
     randomWalkRoute,
     memoryRoute,

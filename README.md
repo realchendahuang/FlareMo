@@ -86,7 +86,7 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - 记录详情、引用关系、反向链接和历史版本恢复。
 - 可撤销的公开分享链接。
 - 支持冲突策略的 Memos 数据导入导出。
-- Memos current camelCase / protobuf-JSON 风格的 `/api/v1` memo、attachment、relation、share、social、auth facade 和 PAT 资源子集；Connect JSON/protobuf/gRPC-Web 还覆盖单用户 UserService 的 webhook CRUD/signing-secret 与 notification list/update/delete（含 comment/mention payload）；旧 snake_case wire 通过显式 header 保留。
+- Memos current camelCase / protobuf-JSON 风格的 `/api/v1` memo、attachment、relation、share、social、auth facade 和 PAT 资源子集；Connect JSON/protobuf/gRPC-Web 还覆盖多用户 UserService 的 webhook CRUD/signing-secret 与 notification list/update/delete（含 comment/mention payload）；旧 snake_case wire 通过显式 header 保留。
 - OpenAPI 输出。
 - MCP 端点。
 - Agent Memory：AI 长期记忆中枢，Agent 通过 `/memory/mcp` 读写跨 session 的长期记忆（偏好、决策、约束、教训），`/memory` 界面可查看、确认、锁定、纠正。
@@ -146,14 +146,14 @@ pnpm deploy
 
 ## 登录：Better Auth 原生认证，Access 可选
 
-FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署者在生产 HTTPS 的 `/setup` 页面手动输入一次性 bootstrap secret、用户名、显示名、邮箱和密码，创建唯一初始 owner；成功后公共 signup 关闭。`FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 变量，不是登录凭据或 bootstrap 输入。未来可以扩展多用户映射，但当前产品只承诺单用户完整能力。
+FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署者在生产 HTTPS 的 `/setup` 页面手动输入一次性 bootstrap secret、用户名、显示名、邮箱和密码，创建唯一初始 owner；成功后公共 signup 默认关闭，owner 可在后台开启开放注册。开启后，任何人都能通过 `/register` 页或 Memos 兼容客户端的 `signup` 创建普通成员账户。`FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 变量，不是登录凭据或 bootstrap 输入。
 
 - 浏览器登录后使用 `HttpOnly`、`SameSite=Lax` cookie session。
 - 脚本、Memos-compatible 客户端和 MCP 使用账户创建的 `memos_pat_` Personal Access Token。
 - PAT 只在创建响应中显示一次，可以列出元数据并撤销；PAT 不能进入账户管理接口。
 - cookie session 的 `POST`、`PATCH`、`DELETE` 等状态变更必须带 `Origin`，并精确匹配 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`，否则返回 `403`；PAT 请求可以无 Origin，但如果携带 Origin 也必须匹配同一 allowlist，否则返回 `403`。不使用 wildcard、`Referer` 或 Access headers 替代 Origin。
 - Cloudflare Access 是可选外层。启用时，Access Service Token 只通过外层 policy，仍必须同时提供 Better Auth cookie 或 PAT。
-- 当前没有邮件 provider，因此 Better Auth 的忘记密码邮件流程默认关闭；已知当前密码时可在账户页修改。已完成 bootstrap 的实例只在显式配置独立 recovery secret 时提供 operator break-glass recovery，成功后会撤销现有 session/PAT，不能把它当作普通用户自助找回。
+- 当前没有邮件 provider，因此不依赖邮件验证或邮件找回密码。成员忘记密码时，owner 在后台生成一次性重置链接（`/reset` 页自行设密，管理员不接触明文）；owner 自己忘记密码时，用部署时配置的 `FLAREMO_RECOVERY_SECRET` 走 `/recover` 页面恢复。已知当前密码时也可在账户页修改。
 - 公开分享仍使用 FlareMo share token、过期时间和 memo 状态校验，不把公开分享混入私有登录。
 
 生产部署前在 `wrangler.jsonc` 填入不带 path/query/hash 的 `FLAREMO_PUBLIC_URL`，并交互式配置 secrets：

@@ -128,6 +128,32 @@ export type PersonalAccessToken = {
 
 export const AUTHENTICATION_REQUIRED_EVENT = "flaremo:authentication-required";
 
+export type RegistrationStatus = {
+  registration_open: boolean;
+  initialized: boolean;
+};
+
+export type CurrentFlareMoUser = {
+  id: string;
+  role: "owner" | "member";
+  name: string;
+  email: string;
+  username: string;
+};
+
+export type AdminSettings = {
+  registration_open: boolean;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string;
+  username: string;
+  role: "owner" | "member";
+  created_at: string;
+};
+
 export class ApiError extends Error {
   readonly status: number;
 
@@ -504,6 +530,116 @@ export async function getBootstrapStatus() {
     {
       authRequired: false,
     },
+  );
+}
+
+export async function getRegistrationStatus() {
+  return apiRequest<RegistrationStatus>(
+    "/api/auth/flaremo/register/status",
+    {},
+    { authRequired: false },
+  );
+}
+
+export async function registerAccount(input: {
+  username: string;
+  name: string;
+  email?: string;
+  password: string;
+}) {
+  return apiRequest<{ ok: true }>(
+    "/api/auth/flaremo/register",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+    { authRequired: false },
+  );
+}
+
+export async function getCurrentFlareMoUser() {
+  return apiRequest<CurrentFlareMoUser>("/api/app/me");
+}
+
+export async function getAdminSettings() {
+  return apiRequest<AdminSettings>("/api/app/admin/settings");
+}
+
+export async function updateAdminSettings(input: {
+  registration_open: boolean;
+}) {
+  return apiRequest<AdminSettings>("/api/app/admin/settings", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function listAdminUsers() {
+  return apiRequest<{ users: AdminUser[] }>("/api/app/admin/users");
+}
+
+export async function createAdminUser(input: {
+  username: string;
+  name: string;
+  email?: string;
+  password: string;
+}) {
+  return apiRequest<AdminUser>("/api/app/admin/users", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteAdminUser(id: string) {
+  return apiRequest<{ ok: true }>(
+    `/api/app/admin/users/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+export async function requestAdminPasswordReset(id: string) {
+  return apiRequest<{
+    token: string;
+    reset_path: string;
+    expires_in_seconds: number;
+  }>(`/api/app/admin/users/${encodeURIComponent(id)}/reset-password`, {
+    method: "POST",
+  });
+}
+
+export async function resetPassword(input: {
+  token: string;
+  newPassword: string;
+}) {
+  return apiRequest<{ status: boolean }>(
+    "/api/auth/reset-password",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        newPassword: input.newPassword,
+        token: input.token,
+      }),
+    },
+    { authRequired: false },
+  );
+}
+
+export async function recoverOwner(input: {
+  newPassword: string;
+  recoverySecret: string;
+}) {
+  return apiRequest<{ ok: true }>(
+    "/api/auth/flaremo/recover",
+    {
+      method: "POST",
+      headers: {
+        "x-flaremo-recovery-secret": input.recoverySecret,
+      },
+      body: JSON.stringify({ new_password: input.newPassword }),
+    },
+    { authRequired: false },
   );
 }
 

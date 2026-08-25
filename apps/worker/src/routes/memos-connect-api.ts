@@ -5,12 +5,14 @@ import {
   bindMemoAttachments,
   compileAttachmentFilter,
   createAttachmentMetadata,
+  createFlaremoMemberWithLink,
   createMemo,
   createMemoComment,
   createMemoShare,
   createShortcut,
   createUserWebhook,
   type DomainError,
+  deleteFlaremoUser,
   deleteMemoReaction,
   deleteShortcut,
   deleteUserNotification,
@@ -19,6 +21,7 @@ import {
   getAttachmentById,
   getAuthBootstrapStatus,
   getAuthUserById,
+  getAuthUserIdByFlaremoUserId,
   getFlaremoUserByAuthSessionToken,
   getFlaremoUserById,
   getMemoById,
@@ -28,9 +31,11 @@ import {
   getPublicShareByToken,
   getShortcut,
   getStoredSetting,
+  getUserRegistrationAllowed,
   getUserWebhookSigningSecret,
   hardDeleteMemo,
   listAttachmentsPage,
+  listFlaremoUsers,
   listMemoAttachments,
   listMemoAttachmentsForViewer,
   listMemoComments,
@@ -156,6 +161,9 @@ memosConnectApi.post("/:service/:method", async (c) => {
     const method = c.req.param("method") ?? "";
     if (service === "memos.api.v1.AuthService" && method === "SignIn") {
       return connectAuthSignIn(c, body, binaryTransport);
+    }
+    if (service === "memos.api.v1.AuthService" && method === "SignUp") {
+      return await connectAuthSignUp(c, body, binaryTransport);
     }
     if (service === "memos.api.v1.AuthService" && method === "RefreshToken") {
       return connectAuthRefresh(c, binaryTransport);
@@ -616,37 +624,105 @@ async function connectUserMethod(
 ) {
   const body = record(value);
   const authUser = await getAuthUserById(context.db, context.authUserId);
-  const currentUser = currentUserToDto(context.user, authUser);
   switch (method) {
     case "ListUsers": {
       const filter = optionalString(body.filter);
-      if (filter && !filter.includes(currentUser.username)) {
-        return connectValue(c, { users: [], totalSize: 0 }, transport);
-      }
-      return connectValue(c, { users: [currentUser], totalSize: 1 }, transport);
+      const users = await Promise.all(
+        (await listFlaremoUsers(context.db)).map(async (user) =>
+          connectUserToDto(
+            context.db,
+            user,
+            user.id === context.user.id ? authUser : undefined,
+          ),
+        ),
+      );
+      const matched = filter
+        ? users.filter((user) => user.username.includes(filter))
+        : users;
+      return connectValue(
+        c,
+        { users: matched, totalSize: matched.length },
+        transport,
+      );
     }
     case "BatchGetUsers": {
       const usernames = list(body.usernames).filter(
         (username): username is string => typeof username === "string",
       );
+      const all = await Promise.all(
+        (await listFlaremoUsers(context.db)).map(async (user) =>
+          connectUserToDto(
+            context.db,
+            user,
+            user.id === context.user.id ? authUser : undefined,
+          ),
+        ),
+      );
       const users =
-        usernames.length === 0 || usernames.includes(currentUser.username)
-          ? [currentUser]
-          : [];
+        usernames.length === 0
+          ? all
+          : all.filter((user) => usernames.includes(user.username));
       return connectValue(c, { users }, transport);
     }
-    case "GetUser":
-      assertConnectUserPath(body.name, context.user.id);
-      return connectValue(c, currentUser, transport);
-    case "CreateUser":
-    case "DeleteUser":
-      return connectErrorForTransport(
-        c,
-        transport,
-        "unimplemented",
-        "FlareMo is single-user and does not expose user creation or deletion",
-        501,
+    case "GetUser": {
+      const user = await getUserByName(context.db, body.name);
+      if (!user) throw new ConnectInputError("User not found");
+      const dto = await connectUserToDto(
+        context.db,
+        user,
+        user.id === context.user.id ? authUser : undefined,
       );
+      return connectValue(c, dto, transport);
+    }
+    case "CreateUser": {
+      if (context.credential === "pat" || context.user.role !== "owner") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "An owner session is required to create a user",
+          403,
+        );
+      }
+      const user = record(body.user);
+      const username = requiredString(user.username, "user.username");
+      const password = requiredString(user.password, "user.password");
+      if (password.length < 12) {
+        throw new ConnectInputError(
+          "user.password must be at least 12 characters",
+        );
+      }
+      const displayName =
+        optionalString(user.displayName) ??
+        optionalString(user.nickname) ??
+        username;
+      const email = `${username}@flaremo.local`;
+      const created = await createConnectUser(c, context.db, {
+        username,
+        password,
+        displayName,
+        email,
+      });
+      return connectValue(c, created.dto, transport);
+    }
+    case "DeleteUser": {
+      if (context.credential === "pat" || context.user.role !== "owner") {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "An owner session is required to delete a user",
+          403,
+        );
+      }
+      const target = await getUserByName(context.db, body.name);
+      if (!target) throw new ConnectInputError("User not found");
+      if (target.id === context.user.id) {
+        throw new ConnectInputError("You cannot delete your own account");
+      }
+      await deleteFlaremoUser(context.db, target.id);
+      return connectValue(c, {}, transport);
+    }
     case "UpdateUser": {
       if (context.credential === "pat") {
         return connectErrorForTransport(
@@ -698,14 +774,16 @@ async function connectUserMethod(
       );
     }
     case "ListAllUserStats": {
-      const stats = await getMemoStats(context.db, context.user, {
-        time_zone: "UTC",
-      });
-      return connectValue(
-        c,
-        { stats: [userStatsFromMemoStats(context.user.id, stats)] },
-        transport,
+      const users = await listFlaremoUsers(context.db);
+      const stats = await Promise.all(
+        users.map(async (user) =>
+          userStatsFromMemoStats(
+            user.id,
+            await getMemoStats(context.db, user, { time_zone: "UTC" }),
+          ),
+        ),
       );
+      return connectValue(c, { stats }, transport);
     }
     case "GetUserSetting": {
       assertConnectUserSettingPath(body.name, context.user.id);
@@ -2707,6 +2785,133 @@ async function getAuthUserForContext(
   context: Awaited<ReturnType<typeof getRequestContext>>,
 ) {
   return getAuthUserById(context.db, context.authUserId);
+}
+
+async function getUserByName(db: ReturnType<typeof createDb>, name: unknown) {
+  const value = requiredString(name, "name");
+  const id = value.startsWith("users/") ? value : `users/${value}`;
+  return getFlaremoUserById(db, id);
+}
+
+async function connectUserToDto(
+  db: ReturnType<typeof createDb>,
+  user: UserRow,
+  authUser?: Awaited<ReturnType<typeof getAuthUserById>> | null,
+) {
+  if (authUser !== undefined) {
+    return currentUserToDto(user, authUser);
+  }
+  const authUserId = await getAuthUserIdByFlaremoUserId(db, user.id);
+  return currentUserToDto(
+    user,
+    authUserId ? await getAuthUserById(db, authUserId) : null,
+  );
+}
+
+async function createConnectUser(
+  c: ConnectContext,
+  db: ReturnType<typeof createDb>,
+  input: {
+    username: string;
+    password: string;
+    displayName: string;
+    email: string;
+  },
+) {
+  const auth = createFlareMoAuth(c.env, db, {
+    allowBootstrapSignUp: true,
+  });
+  const result = await auth.api.signUpEmail({
+    body: {
+      email: input.email,
+      name: input.displayName,
+      password: input.password,
+      username: input.username,
+      displayUsername: input.username,
+    },
+  });
+  const user = await createFlaremoMemberWithLink(db, {
+    authUserId: result.user.id,
+    email: input.email,
+    name: input.displayName,
+  });
+  return {
+    authUserId: result.user.id,
+    user,
+    dto: currentUserToDto(user, await getAuthUserById(db, result.user.id)),
+  };
+}
+
+async function connectAuthSignUp(
+  c: ConnectContext,
+  value: unknown,
+  transport?: BinaryTransport,
+) {
+  try {
+    assertTrustedCookieMutation(c);
+    const body = record(value);
+    const username = requiredString(body.username, "username");
+    const password = requiredString(body.password, "password");
+    if (password.length < 12) {
+      throw new ConnectInputError("password must be at least 12 characters");
+    }
+    const displayName =
+      optionalString(body.displayName) ??
+      optionalString(body.nickname) ??
+      username;
+
+    const db = createDb(c.env.DB);
+    const bootstrap = await getAuthBootstrapStatus(db);
+    if (bootstrap.state !== "complete") {
+      return connectErrorForTransport(
+        c,
+        transport,
+        "permission_denied",
+        "Registration is not available yet",
+        403,
+      );
+    }
+    if (!(await getUserRegistrationAllowed(db))) {
+      return connectErrorForTransport(
+        c,
+        transport,
+        "permission_denied",
+        "User registration is disabled",
+        403,
+      );
+    }
+
+    const email = `${username}@flaremo.local`;
+    const { authUserId, user, dto } = await createConnectUser(c, db, {
+      username,
+      password,
+      displayName,
+      email,
+    });
+    const nativeTokens = await issueMemosNativeTokens({
+      db,
+      env: c.env,
+      authUserId,
+      user,
+      request: c.req.raw,
+    });
+    const response = connectValue(
+      c,
+      {
+        user: dto,
+        accessToken: nativeTokens.accessToken,
+        accessTokenExpiresAt: nativeTokens.accessTokenExpiresAt.toISOString(),
+      },
+      transport,
+    );
+    response.headers.append("set-cookie", nativeTokens.refreshCookie);
+    response.headers.set("cache-control", "no-store");
+    return response;
+  } catch (error) {
+    return transport
+      ? connectBinaryError(c, transport, error)
+      : connectDomainError(c, error);
+  }
 }
 
 function connectDomainError(c: ConnectContext, error: unknown) {
