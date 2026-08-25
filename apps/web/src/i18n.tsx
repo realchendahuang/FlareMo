@@ -186,8 +186,10 @@ const messages = {
     "auth.accountTitle": "账户与访问",
     "auth.backToWorkspace": "返回工作区",
     "auth.signOut": "退出登录",
-    "auth.profileTitle": "用户名",
-    "auth.profileDescription": "用户名用于后续登录；修改后立即生效。",
+    "auth.profileTitle": "登录名（Memos 用户名）",
+    "auth.profileDescription":
+      "Web 登录使用邮箱；这里的用户名仅供 Memos 兼容客户端登录和展示，可自行修改。",
+    "auth.usernameHandle": "Memos 用户名",
     "auth.saveUsername": "保存用户名",
     "auth.saving": "正在保存…",
     "auth.usernameUpdateFailed": "无法更新用户名。",
@@ -248,7 +250,6 @@ const messages = {
     "auth.registerSuccess": "注册成功，请登录。",
     "auth.registrationStatusUnavailable":
       "无法读取注册状态，请检查网络后重试。",
-    "auth.emailOptional": "邮箱（可选）",
     "reset.title": "重设密码",
     "reset.description": "设置一个新密码。完成后用新密码登录。",
     "reset.missingToken": "缺少重置令牌，请使用管理员提供的完整链接。",
@@ -641,9 +642,10 @@ const messages = {
     "auth.accountTitle": "Account and access",
     "auth.backToWorkspace": "Back to workspace",
     "auth.signOut": "Sign out",
-    "auth.profileTitle": "Username",
+    "auth.profileTitle": "Sign-in name (Memos username)",
     "auth.profileDescription":
-      "Your username is used for future sign-ins and takes effect immediately when changed.",
+      "You sign in to the web with your email. This username is only used by Memos-compatible clients and can be changed here.",
+    "auth.usernameHandle": "Memos username",
     "auth.saveUsername": "Save username",
     "auth.saving": "Saving…",
     "auth.usernameUpdateFailed": "Could not update the username.",
@@ -710,7 +712,6 @@ const messages = {
     "auth.registerSuccess": "Account created. You can now sign in.",
     "auth.registrationStatusUnavailable":
       "FlareMo could not read the registration status. Check your connection and try again.",
-    "auth.emailOptional": "Email (optional)",
     "reset.title": "Reset password",
     "reset.description": "Choose a new password, then sign in with it.",
     "reset.missingToken":

@@ -542,9 +542,8 @@ export async function getRegistrationStatus() {
 }
 
 export async function registerAccount(input: {
-  username: string;
   name: string;
-  email?: string;
+  email: string;
   password: string;
 }) {
   return apiRequest<{ ok: true }>(
@@ -579,9 +578,8 @@ export async function listAdminUsers() {
 }
 
 export async function createAdminUser(input: {
-  username: string;
   name: string;
-  email?: string;
+  email: string;
   password: string;
 }) {
   return apiRequest<AdminUser>("/api/app/admin/users", {
@@ -644,7 +642,6 @@ export async function recoverOwner(input: {
 }
 
 export async function bootstrapOwner(input: {
-  username: string;
   name: string;
   email: string;
   password: string;
@@ -658,7 +655,6 @@ export async function bootstrapOwner(input: {
         "x-flaremo-bootstrap-secret": input.bootstrapSecret,
       },
       body: JSON.stringify({
-        username: input.username,
         name: input.name,
         email: input.email,
         password: input.password,

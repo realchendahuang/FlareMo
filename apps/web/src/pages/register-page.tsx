@@ -28,7 +28,6 @@ export function RegisterPage() {
     queryFn: getRegistrationStatus,
     retry: false,
   });
-  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,9 +69,8 @@ export function RegisterPage() {
     setIsSubmitting(true);
     try {
       await registerAccount({
-        username: username.trim(),
         name: name.trim(),
-        email: email.trim() || undefined,
+        email: email.trim(),
         password,
       });
       setPassword("");
@@ -112,54 +110,34 @@ export function RegisterPage() {
           void handleSubmit();
         }}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label
-            className="flex flex-col gap-1.5 text-sm font-medium"
-            htmlFor="register-username"
-          >
-            {t("auth.username")}
-            <Input
-              autoCapitalize="none"
-              autoComplete="username"
-              disabled={isSubmitting}
-              id="register-username"
-              maxLength={30}
-              minLength={3}
-              name="username"
-              pattern="[A-Za-z0-9_]+"
-              required
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-            />
-          </label>
-          <label
-            className="flex flex-col gap-1.5 text-sm font-medium"
-            htmlFor="register-name"
-          >
-            {t("auth.displayName")}
-            <Input
-              autoComplete="name"
-              disabled={isSubmitting}
-              id="register-name"
-              maxLength={80}
-              name="name"
-              required
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-        </div>
+        <label
+          className="flex flex-col gap-1.5 text-sm font-medium"
+          htmlFor="register-name"
+        >
+          {t("auth.displayName")}
+          <Input
+            autoComplete="name"
+            disabled={isSubmitting}
+            id="register-name"
+            maxLength={80}
+            name="name"
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
         <label
           className="flex flex-col gap-1.5 text-sm font-medium"
           htmlFor="register-email"
         >
-          {t("auth.emailOptional")}
+          {t("auth.email")}
           <Input
             autoComplete="email"
             disabled={isSubmitting}
             id="register-email"
             maxLength={320}
             name="email"
+            required
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}

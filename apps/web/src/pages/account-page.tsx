@@ -251,7 +251,7 @@ export function AccountPage() {
                 className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium"
                 htmlFor="account-username"
               >
-                {t("auth.username")}
+                {t("auth.usernameHandle")}
                 <Input
                   autoCapitalize="none"
                   autoComplete="username"
