@@ -11,7 +11,9 @@ export const E2E_BOOTSTRAP_SECRET =
   "flaremo-e2e-bootstrap-secret-never-use-in-production-2026";
 export const E2E_USERNAME = "e2e_owner";
 export const E2E_UPDATED_USERNAME = "e2e_owner_updated";
-export const E2E_EMAIL = "e2e-owner@example.test";
+// The username is derived from the email's local part, so keep it identical
+// to E2E_USERNAME (only [a-z0-9_] survive the derivation).
+export const E2E_EMAIL = "e2e_owner@example.test";
 export const E2E_NAME = "FlareMo E2E Owner";
 export const E2E_INITIAL_PASSWORD =
   "flaremo-e2e-initial-password-never-use-in-production-2026";
@@ -20,7 +22,6 @@ export const E2E_UPDATED_PASSWORD =
 export const E2E_AUTH_STATE = resolve("test-results/.auth/owner.json");
 
 export const E2E_BOOTSTRAP_INPUT = {
-  username: E2E_USERNAME,
   name: E2E_NAME,
   email: E2E_EMAIL,
   password: E2E_INITIAL_PASSWORD,

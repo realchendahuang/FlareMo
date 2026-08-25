@@ -47,8 +47,8 @@ Better Auth 是应用层认证事实源，Cloudflare Access 只能作为可选�
 
 | 入口 | 当前认证方式 | 兼容说明 |
 | --- | --- | --- |
-| Web / Better Auth | 用户名 + 密码，登录后使用 `HttpOnly` cookie session | owner 通过一次性 bootstrap 创建；开放注册开关由 owner 在后台控制，开启后 `POST /api/auth/flaremo/register` 与 Memos `signup` 可创建普通成员。认证表和 `auth_user_links` 支撑多用户映射。 |
-| current auth facade | `POST /api/v1/auth/signin`、`signup`、`refresh`、`signout`，以及 `GET /api/v1/auth/me` | Better Auth 提供身份和账户事实源；signin 返回 FlareMo 生成的 Memos 风格 HS256 access JWT，并设置轮换的 `memos_refresh` HttpOnly cookie。signup 受开放注册开关约束，成功即创建成员并签发 native token。旧 Better Auth session bearer 仍保留兼容。 |
+| Web / Better Auth | Web 端邮箱 + 密码登录，登录后使用 `HttpOnly` cookie session | owner 通过一次性 bootstrap 创建；开放注册开关由 owner 在后台控制，开启后 `POST /api/auth/flaremo/register` 与 Memos `signup` 可创建普通成员。用户名由邮箱自动生成，仅供 Memos 兼容客户端登录，可在账户页修改。 |
+| current auth facade | `POST /api/v1/auth/signin`、`signup`、`refresh`、`signout`，以及 `GET /api/v1/auth/me` | Better Auth 提供身份和账户事实源；signin 用 `username + password`（Memos 协议无 email 字段），返回 FlareMo 生成的 Memos 风格 HS256 access JWT，并设置轮换的 `memos_refresh` HttpOnly cookie。signup 受开放注册开关约束，接受可选 `email` 字段，成功即创建成员并签发 native token。旧 Better Auth session bearer 仍保留兼容。 |
 | `/api/v1/*` 私有 API | cookie session，或 `Authorization: Bearer memos_pat_...` | PAT 由已登录账户创建、只在创建时显示一次、可撤销，并由 Better Auth API key/plugin 数据承载。native JWT 和 PAT 是两种明确的应用凭据。 |
 | current PAT 资源 | `/api/v1/users/{user}/personalAccessTokens` | 提供当前用户的 list/create/revoke 基础；`memos_pat_` 本身不能管理 PAT。 |
 | 根 `/mcp` | cookie session、Better Auth session bearer、FlareMo native access JWT，或 `memos_pat_` PAT | Streamable HTTP 是无状态 JSON 子集，不创建 MCP session。 |

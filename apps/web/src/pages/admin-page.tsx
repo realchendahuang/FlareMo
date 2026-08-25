@@ -38,7 +38,6 @@ const MIN_PASSWORD_LENGTH = 12;
 export function AdminPage() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,7 +65,6 @@ export function AdminPage() {
   const createUserMutation = useMutation({
     mutationFn: createAdminUser,
     onSuccess: () => {
-      setUsername("");
       setName("");
       setEmail("");
       setPassword("");
@@ -88,9 +86,8 @@ export function AdminPage() {
     setCreateError(null);
     try {
       await createUserMutation.mutateAsync({
-        username: username.trim(),
         name: name.trim(),
-        email: email.trim() || undefined,
+        email: email.trim(),
         password,
       });
     } catch (error) {
@@ -218,24 +215,6 @@ export function AdminPage() {
             >
               <label
                 className="flex flex-col gap-1.5 text-sm font-medium"
-                htmlFor="admin-username"
-              >
-                {t("auth.username")}
-                <Input
-                  autoCapitalize="none"
-                  autoComplete="off"
-                  disabled={createUserMutation.isPending}
-                  id="admin-username"
-                  maxLength={30}
-                  minLength={3}
-                  pattern="[A-Za-z0-9_]+"
-                  required
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                />
-              </label>
-              <label
-                className="flex flex-col gap-1.5 text-sm font-medium"
                 htmlFor="admin-name"
               >
                 {t("auth.displayName")}
@@ -253,12 +232,13 @@ export function AdminPage() {
                 className="flex flex-col gap-1.5 text-sm font-medium"
                 htmlFor="admin-email"
               >
-                {t("auth.emailOptional")}
+                {t("auth.email")}
                 <Input
                   autoComplete="off"
                   disabled={createUserMutation.isPending}
                   id="admin-email"
                   maxLength={320}
+                  required
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}

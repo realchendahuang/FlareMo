@@ -100,6 +100,35 @@ export async function listFlaremoUsers(db: FlareMoDb): Promise<UserRow[]> {
 }
 
 /**
+ * Derive a legal, unique Better Auth username from an email address. Web
+ * signup and admin-created accounts log in with email; the username is kept
+ * only because the Memos-compatible wire (signin and user resources) still
+ * identifies users by username, and it is editable from the account page.
+ */
+export async function deriveUniqueUsername(
+  db: FlareMoDb,
+  email: string,
+): Promise<string> {
+  const base =
+    email
+      .split("@")[0]
+      ?.toLowerCase()
+      .replace(/[^a-z0-9_]/g, "")
+      .slice(0, 30) || "user";
+  let candidate = base;
+  let suffix = 0;
+  for (;;) {
+    const existing = await db.query.authUsers.findFirst({
+      where: eq(authUsers.username, candidate),
+    });
+    if (!existing) return candidate;
+    suffix += 1;
+    const suffixText = String(suffix);
+    candidate = `${base.slice(0, 30 - suffixText.length)}${suffixText}`;
+  }
+}
+
+/**
  * Delete a non-owner user. The auth identity is removed first so its sessions,
  * accounts, and API keys cascade, then the domain row is removed so memos and
  * other owned resources cascade. The owner bootstrap identity is immutable.
