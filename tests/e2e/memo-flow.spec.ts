@@ -360,19 +360,27 @@ test("loads notes beyond the first page", async ({ page }) => {
 
 test("shows the installed version and safe update fallback", async ({
   page,
+  request,
 }) => {
+  // Resolve the version from the same API the UI renders, so a release bump
+  // does not silently break this UI contract check.
+  const health = await (
+    await request.get(`${E2E_BASE_URL}/api/app/health`)
+  ).json<{ version: string }>();
+  const version = `v${health.version}`;
+
   await page.goto("/");
 
   const updateButton = page.getByRole("button", {
     name: /system update|系统更新/i,
   });
   await expect(updateButton).toBeVisible();
-  await expect(updateButton).toContainText("v0.6.0");
+  await expect(updateButton).toContainText(version);
   await updateButton.click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("v0.6.0");
+  await expect(dialog).toContainText(version);
   await expect(
     dialog.getByRole("link", { name: /update guide|升级指南/i }),
   ).toHaveAttribute("href", /docs\/update\.md$/);

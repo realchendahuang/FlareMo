@@ -1,3 +1,4 @@
+import { FLAREMO_API_VERSION } from "@flaremo/contracts";
 import type { UserRow } from "@flaremo/db";
 import { createDb } from "@flaremo/db";
 import {
@@ -1041,7 +1042,7 @@ async function connectInstanceMethod(
       return connectValue(
         c,
         {
-          version: "0.6.0",
+          version: FLAREMO_API_VERSION,
           demo: false,
           instanceUrl: c.env.FLAREMO_PUBLIC_URL ?? new URL(c.req.url).origin,
           admin,
