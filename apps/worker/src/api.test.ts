@@ -9,6 +9,7 @@ import type {
   RenameTagResponse,
   TagHierarchyResponse,
 } from "@flaremo/contracts";
+import { FLAREMO_API_VERSION } from "@flaremo/contracts";
 import { createDb, memos } from "@flaremo/db";
 import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
@@ -425,7 +426,7 @@ describe("FlareMo Worker API", () => {
     expect(health).toMatchObject({
       ok: true,
       product: "FlareMo",
-      version: "0.6.0",
+      version: FLAREMO_API_VERSION,
       update_repository: "example/flaremo",
       update_workflow_url:
         "https://github.com/example/flaremo/actions/workflows/flaremo-update.yml",
