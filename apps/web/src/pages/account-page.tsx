@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  changeEmail,
   createPersonalAccessToken,
   getCurrentFlareMoUser,
   getVectorUsage,
@@ -46,11 +47,14 @@ export function AccountPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
   const [tokenName, setTokenName] = useState("");
   const [tokenExpiryDays, setTokenExpiryDays] = useState("");
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -95,6 +99,12 @@ export function AccountPage() {
         revokeOtherSessions: true,
       });
       if (result.error) throw result.error;
+    },
+  });
+  const changeEmailMutation = useMutation({
+    mutationFn: changeEmail,
+    onSuccess: async () => {
+      await session.refetch();
     },
   });
   const createTokenMutation = useMutation({
@@ -147,6 +157,20 @@ export function AccountPage() {
       setNewPasswordConfirmation("");
     } catch (error) {
       setPasswordError(errorMessage(error, t("auth.passwordUpdateFailed")));
+    }
+  };
+
+  const handleEmailSubmit = async () => {
+    setEmailError(null);
+    try {
+      await changeEmailMutation.mutateAsync({
+        current_password: emailCurrentPassword,
+        new_email: newEmail.trim(),
+      });
+      setNewEmail("");
+      setEmailCurrentPassword("");
+    } catch (error) {
+      setEmailError(errorMessage(error, t("auth.emailUpdateFailed")));
     }
   };
 
@@ -369,6 +393,70 @@ export function AccountPage() {
                       {changePasswordMutation.isPending
                         ? t("auth.saving")
                         : t("auth.changePassword")}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("auth.emailTitle")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form
+                  className="grid gap-3 sm:grid-cols-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleEmailSubmit();
+                  }}
+                >
+                  <label
+                    className="flex flex-col gap-1.5 text-sm font-medium sm:col-span-2"
+                    htmlFor="account-new-email"
+                  >
+                    {t("auth.newEmail")}
+                    <Input
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      disabled={changeEmailMutation.isPending}
+                      id="account-new-email"
+                      required
+                      type="email"
+                      value={newEmail}
+                      onChange={(event) => setNewEmail(event.target.value)}
+                    />
+                  </label>
+                  <label
+                    className="flex flex-col gap-1.5 text-sm font-medium sm:col-span-2"
+                    htmlFor="account-email-current-password"
+                  >
+                    {t("auth.currentPassword")}
+                    <Input
+                      autoComplete="current-password"
+                      disabled={changeEmailMutation.isPending}
+                      id="account-email-current-password"
+                      required
+                      type="password"
+                      value={emailCurrentPassword}
+                      onChange={(event) =>
+                        setEmailCurrentPassword(event.target.value)
+                      }
+                    />
+                  </label>
+                  {emailError && (
+                    <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive sm:col-span-2">
+                      {emailError}
+                    </p>
+                  )}
+                  <div className="sm:col-span-2">
+                    <Button
+                      disabled={changeEmailMutation.isPending}
+                      type="submit"
+                    >
+                      <RefreshCcwIcon data-icon="inline-start" />
+                      {changeEmailMutation.isPending
+                        ? t("auth.saving")
+                        : t("auth.changeEmail")}
                     </Button>
                   </div>
                 </form>

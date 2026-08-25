@@ -2,6 +2,8 @@ import {
   getMemosPersonalAccessToken,
   listMemosPersonalAccessTokens,
   NotFoundError,
+  updateFlaremoUserEmail,
+  ValidationError,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -15,6 +17,11 @@ export const accountApi = new Hono<HonoBindings>();
 const createPersonalAccessTokenSchema = z.object({
   name: z.string().trim().min(1).max(32),
   expires_in_days: z.number().int().min(1).max(365).nullable().optional(),
+});
+
+const changeEmailSchema = z.object({
+  current_password: z.string().min(1).max(128),
+  new_email: z.string().trim().email().max(320),
 });
 
 accountApi.get("/personal-access-tokens", async (c) => {
@@ -87,6 +94,42 @@ accountApi.post("/personal-access-tokens/:id/revoke", async (c) => {
       },
     });
     return c.json({ personal_access_token: toPersonalAccessTokenDto(updated) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+accountApi.post("/email", zValidator("json", changeEmailSchema), async (c) => {
+  try {
+    const context = await getBrowserRequestContext(c);
+    const input = c.req.valid("json");
+    const newEmail = input.new_email.trim();
+    const auth = createFlareMoAuth(c.env, context.db);
+
+    // Changing the login identity re-authenticates the caller with their
+    // current password before touching any credential. Better Auth raises an
+    // error (rather than returning status:false) on a mismatch, so a thrown
+    // result here is a plain "bad password", not a server fault.
+    try {
+      await auth.api.verifyPassword({
+        body: { password: input.current_password },
+        headers: c.req.raw.headers,
+      });
+    } catch {
+      throw new ValidationError("The current password is incorrect.");
+    }
+
+    // The auth credential is updated first so a failed domain write cannot
+    // leave a login identity pointing at a stale address.
+    await auth.changeEmail({
+      currentEmail: context.user.email,
+      newEmail,
+    });
+    await updateFlaremoUserEmail(context.db, context.user, newEmail);
+
+    const response = c.json({ ok: true });
+    response.headers.set("cache-control", "no-store");
+    return response;
   } catch (error) {
     return jsonError(c, error);
   }

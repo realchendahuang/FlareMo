@@ -1,7 +1,12 @@
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { authUserLinks, authUsers, users } from "@flaremo/db";
 import { asc, eq } from "drizzle-orm";
-import { ForbiddenError, NotFoundError } from "./errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "./errors";
 
 export type SingleUserConfig = {
   email: string;
@@ -150,6 +155,37 @@ export async function deleteFlaremoUser(
     await db.delete(authUsers).where(eq(authUsers.id, link.authUserId));
   }
   await db.delete(users).where(eq(users.id, userId));
+}
+
+/**
+ * Update the FlareMo domain user's email in the business `users` table. The
+ * caller is responsible for updating the Better Auth `auth_users` credential
+ * and for any prior identity verification; this service only keeps the domain
+ * copy in sync and enforces the table's unique-email constraint. The email is
+ * normalized to lowercase so the two unique email columns stay comparable.
+ */
+export async function updateFlaremoUserEmail(
+  db: FlareMoDb,
+  user: UserRow,
+  newEmail: string,
+): Promise<UserRow> {
+  const email = newEmail.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ValidationError("A valid email address is required.");
+  }
+  const taken = await db.query.users.findFirst({
+    where: eq(users.email, email),
+  });
+  if (taken && taken.id !== user.id) {
+    throw new ConflictError("That email is already in use.");
+  }
+  await db
+    .update(users)
+    .set({ email, updatedAt: new Date().toISOString() })
+    .where(eq(users.id, user.id));
+  return (
+    (await db.query.users.findFirst({ where: eq(users.id, user.id) })) ?? user
+  );
 }
 
 export async function updateFlaremoUserProfile(
