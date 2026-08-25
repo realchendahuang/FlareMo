@@ -3,6 +3,7 @@ import {
   claimOwnerBootstrap,
   completeOwnerBootstrap,
   createFlaremoMemberWithLink,
+  deriveUniqueUsername,
   getAuthBootstrapStatus,
   getOwnerAuthUserId,
   getUserRegistrationAllowed,
@@ -24,15 +25,6 @@ import { jsonError } from "../http";
 export const authApi = new Hono<HonoBindings>();
 
 const bootstrapSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .min(3)
-    .max(30)
-    .regex(
-      /^[A-Za-z0-9_]+$/,
-      "Username may contain letters, numbers, and underscores.",
-    ),
   name: z.string().trim().min(1).max(80),
   email: z.string().trim().email().max(320),
   password: z.string().min(12).max(128),
@@ -43,17 +35,8 @@ const operatorRecoverySchema = z.object({
 });
 
 const registerSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .min(3)
-    .max(30)
-    .regex(
-      /^[A-Za-z0-9_]+$/,
-      "Username may contain letters, numbers, and underscores.",
-    ),
   name: z.string().trim().min(1).max(80),
-  email: z.string().trim().email().max(320).optional(),
+  email: z.string().trim().email().max(320),
   password: z.string().min(12).max(128),
 });
 
@@ -104,7 +87,8 @@ authApi.post("/register", zValidator("json", registerSchema), async (c) => {
   }
 
   const input = c.req.valid("json");
-  const email = input.email?.trim() || `${input.username}@flaremo.local`;
+  const email = input.email.trim();
+  const username = await deriveUniqueUsername(db, email);
   let auth: ReturnType<typeof createFlareMoAuth>;
   try {
     auth = createFlareMoAuth(c.env, db, { allowBootstrapSignUp: true });
@@ -121,8 +105,8 @@ authApi.post("/register", zValidator("json", registerSchema), async (c) => {
         email,
         name: input.name,
         password: input.password,
-        username: input.username,
-        displayUsername: input.username,
+        username,
+        displayUsername: input.name,
       },
     });
     await createFlaremoMemberWithLink(db, {
@@ -190,13 +174,14 @@ authApi.post("/bootstrap", zValidator("json", bootstrapSchema), async (c) => {
   }
   const input = c.req.valid("json");
   try {
+    const username = await deriveUniqueUsername(db, input.email);
     const result = await auth.api.signUpEmail({
       body: {
         email: input.email,
         name: input.name,
         password: input.password,
-        username: input.username,
-        displayUsername: input.username,
+        username,
+        displayUsername: input.name,
       },
     });
     await completeOwnerBootstrap(db, {

@@ -18,7 +18,6 @@ export function SetupPage() {
     queryFn: getBootstrapStatus,
     retry: false,
   });
-  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,7 +48,6 @@ export function SetupPage() {
         email: email.trim(),
         name: name.trim(),
         password,
-        username: username.trim(),
       });
       setBootstrapSecret("");
       setPassword("");
@@ -117,43 +115,22 @@ export function SetupPage() {
               onChange={(event) => setBootstrapSecret(event.target.value)}
             />
           </label>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label
-              className="flex flex-col gap-1.5 text-sm font-medium"
-              htmlFor="setup-username"
-            >
-              {t("auth.username")}
-              <Input
-                autoCapitalize="none"
-                autoComplete="username"
-                disabled={isSubmitting}
-                id="setup-username"
-                maxLength={30}
-                minLength={3}
-                name="username"
-                pattern="[A-Za-z0-9_]+"
-                required
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-              />
-            </label>
-            <label
-              className="flex flex-col gap-1.5 text-sm font-medium"
-              htmlFor="setup-name"
-            >
-              {t("auth.displayName")}
-              <Input
-                autoComplete="name"
-                disabled={isSubmitting}
-                id="setup-name"
-                maxLength={80}
-                name="name"
-                required
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-          </div>
+          <label
+            className="flex flex-col gap-1.5 text-sm font-medium"
+            htmlFor="setup-name"
+          >
+            {t("auth.displayName")}
+            <Input
+              autoComplete="name"
+              disabled={isSubmitting}
+              id="setup-name"
+              maxLength={80}
+              name="name"
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
           <label
             className="flex flex-col gap-1.5 text-sm font-medium"
             htmlFor="setup-email"

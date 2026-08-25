@@ -2881,7 +2881,7 @@ async function connectAuthSignUp(
       );
     }
 
-    const email = `${username}@flaremo.local`;
+    const email = optionalString(body.email) ?? `${username}@flaremo.local`;
     const { authUserId, user, dto } = await createConnectUser(c, db, {
       username,
       password,

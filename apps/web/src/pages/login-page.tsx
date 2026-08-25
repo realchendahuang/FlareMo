@@ -22,7 +22,7 @@ export function LoginPage() {
     queryFn: getRegistrationStatus,
     retry: false,
   });
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,9 +54,9 @@ export function LoginPage() {
     setFormError(null);
     setIsSubmitting(true);
     try {
-      const result = await authClient.signIn.username({
+      const result = await authClient.signIn.email({
         password,
-        username: username.trim(),
+        email: email.trim(),
       });
       if (result.error) {
         throw result.error;
@@ -103,19 +103,20 @@ export function LoginPage() {
       >
         <label
           className="flex flex-col gap-1.5 text-sm font-medium"
-          htmlFor="login-username"
+          htmlFor="login-email"
         >
-          {t("auth.username")}
+          {t("auth.email")}
           <Input
             autoCapitalize="none"
-            autoComplete="username"
+            autoComplete="email"
             disabled={isSubmitting}
-            id="login-username"
-            maxLength={30}
-            name="username"
+            id="login-email"
+            maxLength={320}
+            name="email"
             required
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
         </label>
         <label

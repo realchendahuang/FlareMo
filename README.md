@@ -146,7 +146,9 @@ pnpm deploy
 
 ## 登录：Better Auth 原生认证，Access 可选
 
-FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署者在生产 HTTPS 的 `/setup` 页面手动输入一次性 bootstrap secret、用户名、显示名、邮箱和密码，创建唯一初始 owner；成功后公共 signup 默认关闭，owner 可在后台开启开放注册。开启后，任何人都能通过 `/register` 页或 Memos 兼容客户端的 `signup` 创建普通成员账户。`FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 变量，不是登录凭据或 bootstrap 输入。
+FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署者在生产 HTTPS 的 `/setup` 页面手动输入一次性 bootstrap secret、显示名、邮箱和密码，创建唯一初始 owner；成功后公共 signup 默认关闭，owner 可在后台开启开放注册。开启后，任何人都能通过 `/register` 页或 Memos 兼容客户端的 `signup` 创建普通成员账户。`FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 变量，不是登录凭据或 bootstrap 输入。
+
+- Web 端使用**邮箱 + 密码**登录（`/login`）；注册、管理员建号、初始化都以邮箱为登录凭证。Memos 兼容客户端仍使用**用户名 + 密码**登录——用户名由邮箱自动生成（可复制、可在账户页修改），协议上无法用邮箱登录。
 
 - 浏览器登录后使用 `HttpOnly`、`SameSite=Lax` cookie session。
 - 脚本、Memos-compatible 客户端和 MCP 使用账户创建的 `memos_pat_` Personal Access Token。

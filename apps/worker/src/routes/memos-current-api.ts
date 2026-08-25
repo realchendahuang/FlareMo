@@ -101,6 +101,7 @@ const currentSignupSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(12).max(128),
   displayName: z.string().trim().max(80).optional(),
+  email: z.string().trim().email().max(320).optional(),
 });
 
 const currentRelationBodySchema = z.object({
@@ -246,7 +247,7 @@ memosCurrentApi.post("/auth/signup", async (c, next) => {
     const input = currentSignupSchema.parse(await c.req.json());
     await assertRegistrationOpen(c);
     const username = input.username.trim();
-    const email = `${username}@flaremo.local`;
+    const email = input.email?.trim() || `${username}@flaremo.local`;
     const dbContext = await createAuthContext(c);
     const auth = createFlareMoAuth(c.env, dbContext.db, {
       allowBootstrapSignUp: true,

@@ -1,6 +1,7 @@
 import {
   createFlaremoMemberWithLink,
   deleteFlaremoUser,
+  deriveUniqueUsername,
   ForbiddenError,
   getAuthUserById,
   getAuthUserIdByFlaremoUserId,
@@ -23,17 +24,8 @@ const updateSettingsSchema = z.object({
 });
 
 const createUserSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .min(3)
-    .max(30)
-    .regex(
-      /^[A-Za-z0-9_]+$/,
-      "Username may contain letters, numbers, and underscores.",
-    ),
   name: z.string().trim().min(1).max(80),
-  email: z.string().trim().email().max(320).optional(),
+  email: z.string().trim().email().max(320),
   password: z.string().min(12).max(128),
 });
 
@@ -103,7 +95,8 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
   try {
     const context = await ownerContext(c);
     const input = c.req.valid("json");
-    const email = input.email ?? `${input.username}@flaremo.local`;
+    const email = input.email;
+    const username = await deriveUniqueUsername(context.db, email);
     const auth = createFlareMoAuth(c.env, context.db, {
       allowBootstrapSignUp: true,
     });
@@ -112,8 +105,8 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
         email,
         name: input.name,
         password: input.password,
-        username: input.username,
-        displayUsername: input.username,
+        username,
+        displayUsername: input.name,
       },
     });
     const user = await createFlaremoMemberWithLink(context.db, {
@@ -126,7 +119,7 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
         id: user.id,
         email,
         name: user.name,
-        username: input.username,
+        username,
         role: user.role,
         created_at: user.createdAt,
       },
