@@ -198,6 +198,10 @@ const messages = {
     "auth.newPassword": "新密码",
     "auth.changePassword": "修改密码",
     "auth.passwordUpdateFailed": "无法修改密码。请确认当前密码后重试。",
+    "auth.emailTitle": "修改邮箱",
+    "auth.newEmail": "新邮箱",
+    "auth.changeEmail": "修改邮箱",
+    "auth.emailUpdateFailed": "无法修改邮箱。请确认当前密码后重试。",
     "auth.tokensTitle": "个人访问令牌",
     "auth.tokenShownOnce": "请立即安全保存这个令牌",
     "auth.tokenShownOnceDescription":
@@ -646,6 +650,11 @@ const messages = {
     "auth.changePassword": "Change password",
     "auth.passwordUpdateFailed":
       "Could not change the password. Check the current password and try again.",
+    "auth.emailTitle": "Change email",
+    "auth.newEmail": "New email",
+    "auth.changeEmail": "Change email",
+    "auth.emailUpdateFailed":
+      "Could not change the email. Check the current password and try again.",
     "auth.tokensTitle": "Personal access tokens",
     "auth.tokenShownOnce": "Save this token securely now",
     "auth.tokenShownOnceDescription":
