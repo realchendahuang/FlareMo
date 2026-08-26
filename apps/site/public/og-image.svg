@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="FlareMo">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF8F2"/>
+      <stop offset="100%" stop-color="#FCE7D5"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F18147"/>
+      <stop offset="100%" stop-color="#F2604D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <g transform="translate(80,180)">
+    <path d="M0 220 C 0 100, 220 0, 360 90 C 460 150, 460 280, 360 320 C 200 380, 0 320, 0 220 Z" fill="url(#flame)"/>
+    <circle cx="380" cy="120" r="22" fill="#FFE2C2"/>
+  </g>
+  <g transform="translate(540,250)" font-family="-apple-system, system-ui, sans-serif" fill="#2A2A2A">
+    <text x="0" y="0" font-size="64" font-weight="700" letter-spacing="-1.5">FlareMo</text>
+    <text x="0" y="60" font-size="28" font-weight="500" fill="#6B5A4B">Cloudflare-native · Personal knowledge</text>
+    <text x="0" y="120" font-size="22" fill="#8A7969">D1 + R2 + Better Auth + Memos-compatible API</text>
+  </g>
+</svg>

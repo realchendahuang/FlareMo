@@ -2,6 +2,33 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## Unreleased
+
+### 新增能力
+
+- 新增 `apps/site` 包：FlareMo 官方营销站与文档镜像，部署到 `flaremo.app`，与主 Worker `flaremo` 完全解耦。
+- 技术栈与 `apps/web` 完全同构：React 19 + Vite + TanStack Router（code-based）+ Tailwind CSS 4；构建期用 `scripts/build.mjs` 做 SSG，每个路由产出完整静态 HTML（SEO head + body），客户端 hydrate。
+- 首页 `/` 与 `/en/`：Hero（D1 5GB / R2 10GB / 0 服务器）+ 6 张 feature 卡片 + Cloudflare vs NAS vs VPS 对比表 + 截图墙 + 三档定价 + 6 条 FAQ。
+- 定价页 `/pricing` 与 `/en/pricing`：Free / Pro / Team 三档，Pro 高亮；Cloudflare 免费层对照表；Pricing FAQ；使用条款与隐私。
+- 文档镜像 `/docs` 与 `/en/docs`：侧边栏 5 组（开始 / 架构与概念 / 兼容与生态 / Agent 集成 / 参考），覆盖 15 篇中文 + 4 篇已译英文；中文页 `react-markdown` 渲染 + GitHub 风格锚点。
+- 
+- 完整 SEO：`robots.txt`、TanStack Start 自动 `sitemap.xml`、每个路由独立 `head`、JSON-LD（`SoftwareApplication` / `Product` / `Article`）、`hreflang`（zh-CN / en-US / x-default）、OG image 占位（`public/og-image.svg`）。
+
+### Cloudflare、数据库与兼容影响
+
+- 新增独立 Worker `name: flaremo-site`，独立 `wrangler.jsonc`，独立 Cloudflare 部署目标。
+- 无数据库 migration、无 Cloudflare 资源创建（除 `flaremo-site` Worker 本身）、无新增主 Worker env var。
+- `/api/v1/*` Memos 兼容面不变；`/mcp` 语义不变；主 Worker（`flaremo.chendahuang.com`）行为不变。
+- 认证与 Origin 校验语义不变：cookie session 状态变更仍要求精确 Origin 匹配，PAT 请求语义不变。
+- `FLAREMO_PUBLIC_URL` 不动；不触碰 Better Auth 配置。
+
+### 升级说明
+
+- 本次新增不要求任何迁移步骤；不会触碰现有 Cloudflare 资源。
+- `pnpm deploy:site` 单独部署营销站，不会触发主 Worker 部署。
+- 不写任何 secret、cookie、PAT 进代码、文档、release notes、日志或聊天。
+- 
+
 ## v0.9.0
 
 账户邮箱自助修改版本。这个版本在无邮件基础设施的前提下，为账户设置页新增"修改邮箱"能力：修改登录邮箱前必须验证当前密码（避免裸改登录标识），改邮箱不引入邮件服务，验证步骤集中在 route 层，未来接入邮件 OTP 时可替换而不改路由契约。
