@@ -179,4 +179,8 @@ Read [CONTRIBUTING.md](./CONTRIBUTING.md), [SUPPORT.md](./SUPPORT.md), [SECURITY
 
 ## License
 
-MIT
+FlareMo is open source under the [GNU AGPL-3.0](./LICENSE) (AGPL-3.0-only).
+
+- Self-hosting, modification, and redistribution follow the AGPL-3.0 terms; if you offer a modified version as a network service, you must make the corresponding source available to that service's users.
+- Copyright (c) 2026 realchendahuang. The copyright holder may dual-license beyond AGPL-3.0 for the FlareMo hosted offering.
+- The "FlareMo" name and marks are not licensed under AGPL-3.0; forks and derivatives must not use the FlareMo brand for promotion or imply official endorsement.

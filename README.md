@@ -353,4 +353,8 @@ pnpm release vX.Y.Z
 
 ## License
 
-MIT
+FlareMo 以 [GNU AGPL-3.0](./LICENSE)（AGPL-3.0-only）授权开源。
+
+- 自部署、修改和再分发按 AGPL-3.0 条款执行；以网络服务形式提供修改版本时，需要向该服务的使用者公开对应源码。
+- Copyright (c) 2026 realchendahuang。版权持有者可以在 AGPL-3.0 之外，为 FlareMo 托管服务使用双许可。
+- "FlareMo" 名称与标识不属于 AGPL-3.0 授权范围；fork 与衍生项目不得使用 FlareMo 品牌进行推广或暗示官方背书。

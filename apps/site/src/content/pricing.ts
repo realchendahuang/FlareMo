@@ -176,7 +176,7 @@ const ZH_PRICING_PAGE: PricingPage = {
   ],
   legalHeading: "使用条款与隐私",
   legal: [
-    "FlareMo 是 Apache-2.0 开源软件；自部署实例的数据完全归你所有。",
+    "FlareMo 是 AGPL-3.0 开源软件；自部署实例的数据完全归你所有。",
     "FlareMo 不会读取或索引你的笔记内容用于训练或商业分析。",
     "FlareMo 不会读取或索引用户的笔记内容用于训练或商业分析。",
   ],
@@ -224,7 +224,7 @@ const EN_PRICING_PAGE: PricingPage = {
   ],
   legalHeading: "Terms and privacy",
   legal: [
-    "FlareMo is Apache-2.0 open source; Data in your self-hosted instance is entirely yours.",
+    "FlareMo is AGPL-3.0 open source; Data in your self-hosted instance is entirely yours.",
     "FlareMo will not read or index your notes for training or analytics.",
     "FlareMo will not read or index your notes for training or analytics.",
   ],
