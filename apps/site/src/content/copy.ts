@@ -31,246 +31,208 @@ export type HomeContent = {
 };
 
 const ZH_HOME: HomeContent = {
-  heroEyebrow: "Cloudflare 原生 · 个人知识管理",
-  heroTitle: "一个免费 Cloudflare 账号，就能 24 小时在线的个人笔记系统",
-  heroSubtitle:
-    "自带数据库、对象存储、全球边缘节点。不用买服务器、不用装数据库、不用写备份脚本。",
-  primaryCta: "一键部署到 Cloudflare",
-  secondaryCta: "Hosted 试用（即将开放）",
-  featuresHeading: "为什么 FlareMo",
+  heroEyebrow: "永远在线的个人笔记",
+  heroTitle: "搭一个你自己的私人笔记,永远在线、永远不丢",
+  heroSubtitle: "不用买服务器,不用装数据库。手机电脑随时写、随时搜、随时找回。",
+  primaryCta: "一键部署",
+  secondaryCta: "Hosted 试用",
+  featuresHeading: "为什么用 FlareMo",
   features: [
     {
-      title: "D1 + R2 免费额度",
+      title: "永远不会丢",
       description:
-        "5 GB D1 数据库可存约 250 万条笔记，10 GB R2 对象存储可存 5,000–10,000 张图片。出口流量免费。",
+        "笔记存在云端企业级存储。硬盘坏了、停电、被偷、搬家,都跟你没关系。",
     },
     {
-      title: "Better Auth + Memos 兼容",
-      description:
-        "浏览器使用 cookie session，脚本和 Memos 客户端使用可撤销的 memos_pat_ PAT，Cloudflare Access 可作外层防线。",
+      title: "免费就够用",
+      description: "免费版能装 250 万条文字 + 一万张图片,普通人一辈子写不完。",
     },
     {
-      title: "PWA + 离线队列",
-      description:
-        "可安装的 PWA；草稿自动保存在本机，离线提交（含附件）排队，重新联网后按顺序提交。",
+      title: "离线也能写",
+      description: "地铁、飞机上没信号照常写,连上网自动按顺序同步,不漏一条。",
     },
     {
-      title: "Agent Memory",
+      title: "AI 也能读",
       description:
-        "AI 长期记忆中枢。Agent 通过 /memory/mcp 读写跨 session 的长期记忆，归用户所有，可随时纠正。",
+        "AI 助手可以把你的笔记当长期记忆用,你的纠正会覆盖它,数据还是你的。",
     },
     {
-      title: "语义搜索与回顾",
+      title: "兼容 Memos",
       description:
-        "Vectorize 存派生 embedding 索引，D1 仍是事实源；命中后回 D1 校验状态、可见性和分享 ACL。",
+        "Memos、flomo 的笔记一键搬过来;老的第三方 App 不用换,接着用。",
     },
     {
-      title: "可撤销公开分享",
-      description:
-        "Memos 兼容格式导入导出；分享链接带 token、过期时间和状态检查。",
+      title: "数据归你",
+      description: "随时一键导出备份,或关掉账号带走所有数据,不留尾巴。",
     },
   ],
-  comparisonHeading: "为什么放在 Cloudflare 上比 NAS 更稳",
-  comparisonIntro:
-    "数据物理安全是被低估的成本：硬盘会坏、电源会跳、房间会漏水、被盗、搬家磕碰。云端的分布式冗余替你挡掉这些。",
+  comparisonHeading: "为什么云端比家里的硬盘靠谱",
+  comparisonIntro: "",
   comparisonRows: [
     {
-      label: "数据位置",
-      cloudflare: "Cloudflare 全球企业级基础设施",
-      nas: "你家里的硬盘",
-      vps: "云厂商的虚拟机磁盘",
+      label: "数据存在哪",
+      cloudflare: "云端,多地冗余",
+      nas: "家里的硬盘",
+      vps: "云厂商的虚拟机",
     },
     {
-      label: "磁盘故障",
-      cloudflare: "多副本自动冗余",
-      nas: "需要 RAID，且挡不住整机/整屋故障",
-      vps: "取决于厂商，多为单盘",
+      label: "硬盘坏了",
+      cloudflare: "自动换,你没感觉",
+      nas: "可能全丢",
+      vps: "看厂商,可能全丢",
     },
     {
-      label: "异地容灾",
-      cloudflare: "开箱即用",
-      nas: "需要单独搭建",
-      vps: "依赖厂商策略",
+      label: "停电、断网",
+      cloudflare: "完全不受影响",
+      nas: "整台停",
+      vps: "可能跟着停",
     },
     {
-      label: "停电 / 网络中断",
-      cloudflare: "无感知",
-      nas: "全停",
-      vps: "依赖电源和网络",
+      label: "异地备份",
+      cloudflare: "开箱就有",
+      nas: "得自己折腾",
+      vps: "看厂商",
     },
     {
-      label: "全球访问速度",
-      cloudflare: "边缘节点就近响应",
-      nas: "需要 frp / Tailscale / 公网 IP",
-      vps: "取决于机房位置",
+      label: "全球访问",
+      cloudflare: "就近打开,秒开",
+      nas: "得自己折腾穿透",
+      vps: "看机房位置",
     },
     {
-      label: "HTTPS 与证书",
-      cloudflare: "免费，自动续",
-      nas: "需自己签 / 续",
-      vps: "需自己签 / 续",
-    },
-    {
-      label: "日常运维",
+      label: "日常维护",
       cloudflare: "零",
-      nas: "系统补丁 / 数据库升级 / 看门狗",
-      vps: "系统补丁 / 数据库升级",
+      nas: "打补丁、升级、看监控",
+      vps: "打补丁、升级",
     },
   ],
-  screenshotsHeading: "看一眼产品",
-  screenshotsCaption:
-    "时间线、编辑、标签筛选和移动端导航都已接上后端；未实现的能力不会出现在界面里。",
-  pricingHeading: "三档定价",
-  pricingSubtitle:
-    "基于 Cloudflare 免费层起步。Hosted SaaS 由 Stripe 结算（Phase 2）。",
+  screenshotsHeading: "长这样",
+  screenshotsCaption: "",
+  pricingHeading: "价格",
+  pricingSubtitle: "免费档够大部分人用。要省心可以选 Hosted,我们帮你管。",
   faqHeading: "常见问题",
   faqItems: [
     {
-      q: "免费额度真的够用吗？",
-      a: "5 GB D1 可存约 250 万条普通笔记；10 GB R2 可存 5,000–10,000 张图片。R2 出口免费，分享图片不会产生流量账单。",
+      q: "免费真的够用吗?",
+      a: "够。免费档能装 250 万条文字 + 一万张图片,普通人一辈子写不完。",
     },
     {
-      q: "数据会不会丢？",
-      a: "Cloudflare D1 / R2 在企业级基础设施上持久化，自带冗余。但仍建议定期用 Memos 兼容导出包备份到本机。",
+      q: "数据会不会丢?",
+      a: "不会轻易丢。建议偶尔一键导出备份到自己硬盘,双保险。",
     },
     {
-      q: "能从 Memos / flomo 迁移吗？",
-      a: "支持 Memos 格式导入导出，可选择冲突策略（覆盖 / 跳过 / 保留两侧）。",
+      q: "能从 Memos 或 flomo 搬过来吗?",
+      a: "能。一键导入,冲突怎么处理你说了算。",
     },
     {
-      q: "Memos 第三方客户端能用吗？",
-      a: "已验证若干常见客户端的兼容情况，详见 docs/memos-ecosystem.md。脚本和 MCP 使用 memos_pat_ PAT。",
-    },
-    {
-      q: "支持 AI 回顾 / 语义搜索吗？",
-      a: "语义搜索按 docs/semantic-search.md 已设计；AI 每日回顾与随机漫步已上线。Hosted 套餐默认开启语义搜索。",
-    },
-    {
-      q: "怎么贡献 / 反馈？",
-      a: "在 GitHub 仓库提 Issue 或 PR；安全相关请按 SECURITY.md 私下报告。",
+      q: "老的第三方 App 还能用吗?",
+      a: "能。常见客户端都验证过,直接连就行。",
     },
   ],
 };
 
 const EN_HOME: HomeContent = {
-  heroEyebrow: "Cloudflare-native · Personal knowledge",
-  heroTitle:
-    "A personal note system that runs 24/7 on a free Cloudflare account",
+  heroEyebrow: "Personal notes that stay online",
+  heroTitle: "Your private notes. Always online. Always yours.",
   heroSubtitle:
-    "Built-in database, object storage, and a global edge network. No server to buy, no database to install, no backup scripts to write.",
-  primaryCta: "Deploy to Cloudflare",
-  secondaryCta: "Hosted trial (coming soon)",
+    "No server to buy. No database to set up. Write, search, and find anything from any device.",
+  primaryCta: "Deploy now",
+  secondaryCta: "Hosted trial",
   featuresHeading: "Why FlareMo",
   features: [
     {
-      title: "Generous D1 + R2 free tier",
+      title: "Never lose a note",
       description:
-        "5 GB D1 holds roughly 2.5M notes; 10 GB R2 holds 5,000–10,000 photos. R2 egress is free.",
+        "Stored on enterprise cloud storage. Drive failures, power cuts, theft, moves — none of it touches your data.",
     },
     {
-      title: "Better Auth + Memos compatible",
+      title: "Free is enough",
       description:
-        "Browser uses a cookie session; scripts and Memos clients use a revocable memos_pat_ token. Cloudflare Access can sit in front.",
+        "The free tier fits 2.5M text notes plus 10k photos. Most people never come close.",
     },
     {
-      title: "PWA with offline queue",
+      title: "Works offline",
       description:
-        "Installable PWA; drafts save locally and offline submissions (including attachments) are queued and replayed on reconnect.",
+        "Write on the subway, on a plane, with no signal. Everything syncs in order when you're back online.",
     },
     {
-      title: "Agent Memory",
+      title: "Your AI can read it",
       description:
-        "An AI long-term memory hub. Agents read and write cross-session memory through /memory/mcp; the user owns and can correct it.",
+        "AI assistants can use your notes as long-term memory. Your edits always win.",
     },
     {
-      title: "Semantic search and review",
+      title: "Memos compatible",
       description:
-        "Vectorize stores derived embeddings; D1 remains the source of truth. Hits validate against status, visibility, and share ACL.",
+        "Import from Memos or flomo in one click. Keep using the third-party apps you already use.",
     },
     {
-      title: "Revocable public shares",
+      title: "Your data, your call",
       description:
-        "Memos-compatible import and export; share links carry a token, expiry, and state check.",
+        "Export everything anytime. Or close the account and walk away with all of it.",
     },
   ],
-  comparisonHeading: "Why Cloudflare is more reliable than a home NAS",
-  comparisonIntro:
-    "Physical safety is an underrated cost. Drives fail, breakers trip, rooms flood, get burgled, or get knocked during a move. Distributed redundancy handles all of that.",
+  comparisonHeading: "Why cloud beats the hard drive at home",
+  comparisonIntro: "",
   comparisonRows: [
     {
-      label: "Where the data lives",
-      cloudflare: "Cloudflare's enterprise infrastructure",
+      label: "Where your data lives",
+      cloudflare: "Cloud, replicated across regions",
       nas: "The drive in your home",
-      vps: "Your VPS provider's VM disk",
+      vps: "A VM disk at a cloud vendor",
     },
     {
       label: "Disk failure",
-      cloudflare: "Multi-replica, automatic",
-      nas: "Needs RAID; doesn't protect the whole machine/room",
-      vps: "Provider-dependent, usually single disk",
+      cloudflare: "Auto-replaced, you don't notice",
+      nas: "You may lose everything",
+      vps: "Vendor-dependent, may lose everything",
     },
     {
-      label: "Off-site redundancy",
-      cloudflare: "Built-in",
-      nas: "You have to build it",
-      vps: "Provider policy dependent",
+      label: "Power or network outage",
+      cloudflare: "Completely unaffected",
+      nas: "Whole thing goes down",
+      vps: "May go down too",
     },
     {
-      label: "Power / network outage",
-      cloudflare: "Invisible",
-      nas: "Total outage",
-      vps: "Depends on power and network",
+      label: "Off-site backup",
+      cloudflare: "Included",
+      nas: "You build it yourself",
+      vps: "Vendor-dependent",
     },
     {
-      label: "Global latency",
-      cloudflare: "Edge nodes serve nearby",
-      nas: "Requires frp / Tailscale / public IP",
-      vps: "Tied to provider region",
+      label: "Global access",
+      cloudflare: "Nearby edge, opens in a second",
+      nas: "You set up tunneling yourself",
+      vps: "Tied to the data center region",
     },
     {
-      label: "HTTPS and certificates",
-      cloudflare: "Free, auto-renewed",
-      nas: "Sign and renew yourself",
-      vps: "Sign and renew yourself",
-    },
-    {
-      label: "Day-to-day ops",
+      label: "Day-to-day upkeep",
       cloudflare: "None",
-      nas: "Patches, DB upgrades, watchdogs",
-      vps: "Patches, DB upgrades",
+      nas: "Patches, upgrades, monitoring",
+      vps: "Patches, upgrades",
     },
   ],
-  screenshotsHeading: "A look at the product",
-  screenshotsCaption:
-    "Timeline, editor, tag filter, and mobile navigation are wired to the backend. Features that aren't implemented don't show up in the UI.",
-  pricingHeading: "Three tiers",
+  screenshotsHeading: "What it looks like",
+  screenshotsCaption: "",
+  pricingHeading: "Pricing",
   pricingSubtitle:
-    "Starts on the Cloudflare free tier. Hosted SaaS will bill through Stripe (Phase 2).",
-  faqHeading: "Frequently asked",
+    "Free covers most people. Want zero upkeep? Pick Hosted and we run it for you.",
+  faqHeading: "Common questions",
   faqItems: [
     {
       q: "Is the free tier really enough?",
-      a: "5 GB D1 stores ~2.5M plain-text notes; 10 GB R2 stores 5,000–10,000 photos. R2 egress is free.",
+      a: "Yes. It fits 2.5M text notes plus 10k photos. Most people never come close.",
     },
     {
-      q: "Will my data be lost?",
-      a: "D1 and R2 persist on enterprise infrastructure with built-in redundancy. We still recommend periodic Memos-compatible exports.",
+      q: "Will I lose my data?",
+      a: "Very unlikely. We still recommend an occasional one-click export to your own drive.",
     },
     {
-      q: "Can I migrate from Memos / flomo?",
-      a: "Yes — import and export follow the Memos format with conflict strategies (overwrite / skip / keep both).",
+      q: "Can I move from Memos or flomo?",
+      a: "Yes. One-click import; you decide how to handle conflicts.",
     },
     {
-      q: "Do third-party Memos clients work?",
-      a: "We document verified clients in docs/memos-ecosystem.md. Scripts and MCP use the memos_pat_ token.",
-    },
-    {
-      q: "Is semantic search / AI review supported?",
-      a: "Semantic search is designed per docs/semantic-search.md; the daily review and random walk are already live. Hosted plans enable semantic search by default.",
-    },
-    {
-      q: "How do I contribute or report?",
-      a: "Open issues or PRs on the GitHub repository. Security issues should follow SECURITY.md.",
+      q: "Do my old third-party apps still work?",
+      a: "Yes. Common clients have been verified to connect directly.",
     },
   ],
 };

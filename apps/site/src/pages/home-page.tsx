@@ -109,20 +109,18 @@ function Hero({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <HeroStat
             icon={<Icon1 className="size-5 text-flame-500" />}
-            title="5 GB D1"
+            title="5 GB"
             body={locale === "zh-CN" ? "约 250 万条笔记" : "~2.5M notes"}
           />
           <HeroStat
             icon={<Icon2 className="size-5 text-flame-500" />}
-            title="10 GB R2"
-            body={
-              locale === "zh-CN" ? "5,000–10,000 张图片" : "5,000–10,000 photos"
-            }
+            title="10 GB"
+            body={locale === "zh-CN" ? "1 万张图片" : "~10k photos"}
           />
           <HeroStat
             icon={<Icon3 className="size-5 text-flame-500" />}
             title={locale === "zh-CN" ? "0 服务器" : "0 servers"}
-            body={locale === "zh-CN" ? "全球边缘节点" : "Global edge network"}
+            body={locale === "zh-CN" ? "7×24 在线" : "Online 24/7"}
           />
         </div>
       </div>
