@@ -176,7 +176,7 @@ const ZH_PRICING_PAGE: PricingPage = {
   ],
   legalHeading: "使用条款与隐私",
   legal: [
-    "FlareMo 是 Apache-2.0 开源软件；Hosted 服务条款在 Phase 2 上线时单独发布。",
+    "FlareMo 是 AGPL-3.0 开源软件；Hosted 服务条款在 Phase 2 上线时单独发布。",
     "Hosted 默认收集最少必要数据（账号、邮箱、笔记元数据）。笔记正文加密备份可选。",
     "FlareMo 不会读取或索引用户的笔记内容用于训练或商业分析。",
   ],
@@ -224,7 +224,7 @@ const EN_PRICING_PAGE: PricingPage = {
   ],
   legalHeading: "Terms and privacy",
   legal: [
-    "FlareMo is Apache-2.0 open source; Hosted terms of service will be published separately when Phase 2 ships.",
+    "FlareMo is AGPL-3.0 open source; Hosted terms of service will be published separately when Phase 2 ships.",
     "Hosted collects only the minimum data needed (account, email, memo metadata). Encrypted backups of note bodies are optional.",
     "FlareMo will not read or index your notes for training or analytics.",
   ],
