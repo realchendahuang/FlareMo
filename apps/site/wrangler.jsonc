@@ -1,16 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "flaremo-site",
-  "main": "@tanstack/react-start/server-entry",
   "compatibility_date": "2026-07-10",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1
-  },
   "assets": {
-    "directory": ".output/public",
-    "binding": "ASSETS",
+    "directory": "./dist/site",
     "not_found_handling": "404-page"
   }
 }

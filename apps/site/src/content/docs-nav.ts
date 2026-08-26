@@ -24,7 +24,13 @@ const EN_GROUPS: Record<DocGroup, string> = {
 
 export function getDocNavGroups(locale: Locale): DocNavGroup[] {
   const labels = locale === "zh-CN" ? ZH_GROUPS : EN_GROUPS;
-  const order: DocGroup[] = ["start", "concept", "compatibility", "agent", "reference"];
+  const order: DocGroup[] = [
+    "start",
+    "concept",
+    "compatibility",
+    "agent",
+    "reference",
+  ];
   return order.map((id) => ({ id, label: labels[id] }));
 }
 

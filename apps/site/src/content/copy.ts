@@ -66,7 +66,8 @@ const ZH_HOME: HomeContent = {
     },
     {
       title: "可撤销公开分享",
-      description: "Memos 兼容格式导入导出；分享链接带 token、过期时间和状态检查。",
+      description:
+        "Memos 兼容格式导入导出；分享链接带 token、过期时间和状态检查。",
     },
   ],
   comparisonHeading: "为什么放在 Cloudflare 上比 NAS 更稳",
@@ -153,7 +154,8 @@ const ZH_HOME: HomeContent = {
 
 const EN_HOME: HomeContent = {
   heroEyebrow: "Cloudflare-native · Personal knowledge",
-  heroTitle: "A personal note system that runs 24/7 on a free Cloudflare account",
+  heroTitle:
+    "A personal note system that runs 24/7 on a free Cloudflare account",
   heroSubtitle:
     "Built-in database, object storage, and a global edge network. No server to buy, no database to install, no backup scripts to write.",
   primaryCta: "Deploy to Cloudflare",
@@ -187,7 +189,8 @@ const EN_HOME: HomeContent = {
     },
     {
       title: "Revocable public shares",
-      description: "Memos-compatible import and export; share links carry a token, expiry, and state check.",
+      description:
+        "Memos-compatible import and export; share links carry a token, expiry, and state check.",
     },
   ],
   comparisonHeading: "Why Cloudflare is more reliable than a home NAS",

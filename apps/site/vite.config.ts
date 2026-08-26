@@ -1,31 +1,22 @@
-import { defineConfig } from "vite";
-import { cloudflare } from "@cloudflare/vite-plugin";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   build: {
-    chunkSizeWarningLimit: 700,
+    outDir: "dist/site",
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
+    manifest: true,
   },
+  plugins: [react(), tailwindcss()],
   resolve: {
-    tsconfigPaths: true,
+    alias: {
+      "@": path.resolve(dirname, "./src"),
+    },
   },
-  plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
-    tanstackStart({
-      prerender: {
-        enabled: true,
-        autoSubfolderIndex: true,
-        autoStaticPathsDiscovery: true,
-        crawlLinks: true,
-        concurrency: 14,
-        filter: ({ path }) => !path.startsWith("/api"),
-      },
-      sitemap: { enabled: true, host: "https://flaremo.app" },
-    }),
-    viteReact(),
-    tailwindcss(),
-  ],
 });

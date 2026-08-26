@@ -99,53 +99,45 @@
 
 | 选型 | 理由 |
 | --- | --- |
-| **TanStack Start + Vite + React 19** | 用户偏好；React Router 兄弟生态一致；与 apps/web 同构 19。 |
-| **`@cloudflare/vite-plugin`** | TanStack Start 在 Cloudflare Workers 上的官方适配器。 |
-| **Static prerender + crawlLinks** | SEO 首选；首字节即 HTML；Lighthouse ≥ 95。 |
-| **`not_found_handling: 404-page`** | 未匹配 URL 返回真 404（不是 SPA 200）。 |
-| **Workers Static Assets** | 与 apps/web 主 Worker 同样的部署模型；不需要 Cloudflare Pages。 |
+| **React 19 + Vite** | 与 apps/web 完全同构；用户偏好 React + Vite。 |
+| **TanStack Router（code-based）** | 与 apps/web 同栈（`createRouter` + code-based routes，非 file-based、非 TanStack Start）。 |
+| **构建期 SSG（scripts/build.mjs）** | SEO 首选；每个路由产出完整静态 HTML（SEO head + body）；用 `react-dom/server` 的 `renderToString` + `router.load()` + `createMemoryHistory`，不依赖 TanStack Start。 |
+| **Workers Static Assets** | 与 apps/web 主 Worker 同样的部署模型；不需要 Cloudflare Pages、不需要服务端 Worker 逻辑。 |
+| **Tailwind CSS 4** | 与 apps/web 一致（`@tailwindcss/vite`）。 |
+
+> 早期尝试过 TanStack Start（`@tanstack/react-start` + `@cloudflare/vite-plugin`），但 2026 Q3 的依赖链（react-start 1.168.49 / react-router 1.170.32 / router-core 1.171.27）在 pnpm + rolldown 下存在 `_getAssetMatches` 导出缺失的版本不匹配问题，无法构建。已改为项目同栈的 SSG 方案，SEO 效果等同（甚至更可控）。
 
 ### 包结构
 
 ```
 apps/site/
+├── index.html              ← dev 壳（vite）；生产由 SSG 覆盖
 ├── public/                 ← 静态资源：robots.txt、favicon、og-image.svg、品牌 PNG
+├── scripts/
+│   └── build.mjs           ← SSG 构建脚本（vite build + renderRoute 每个路径）
 ├── src/
-│   ├── client.tsx          ← 客户端 hydrate
-│   ├── server.tsx          ← SSR renderToReadableStream
-│   ├── router.tsx          ← createRouter + routeTree.gen.ts
-│   ├── root.tsx            ← HTML shell（用 __root.tsx 替代）
-│   ├── routeTree.gen.ts    ← TanStack Router 自动生成
+│   ├── main.tsx            ← client 入口（hydrate/createRoot 双模式）
+│   ├── router.tsx          ← code-based route tree（createRoute，与 apps/web 同构）
+│   ├── ssr-render.tsx      ← SSR 渲染（renderToString + createMemoryHistory）
 │   ├── styles/
 │   │   ├── tokens.css      ← Ember 调色板 + Tailwind v4
 │   │   └── prose.css       ← docs markdown 排版
 │   ├── lib/
 │   │   ├── cn.ts           ← tailwind-merge
 │   │   ├── seo.ts          ← SEO head 构造器 + JSON-LD
-│   │   ├── route-head.ts   ← route 适配层
+│   │   ├── html-shell.ts   ← 完整 HTML shell（SEO head + body）
+│   │   ├── route-meta.ts   ← 路由元数据表（path → title/desc/jsonLd）
 │   │   └── docs-source.generated.ts ← docs markdown 静态注册
 │   ├── content/
 │   │   ├── copy.ts         ← 首页文案中英文
 │   │   ├── pricing.ts      ← Pricing tier + 页面文案
 │   │   └── docs-nav.ts     ← sidebar 分组元数据
-│   ├── components/         ← SiteMark / SiteNav / SiteFooter / DeployButton / LocaleSwitcher
-│   ├── pages/              ← 真实页面组件
-│   └── routes/             ← file-based route 文件（src/routes/ → URL）
-│       ├── __root.tsx
-│       ├── index.tsx
-│       ├── pricing.tsx
-│       ├── hosted.tsx
-│       ├── docs.index.tsx
-│       ├── docs.$slug.tsx
-│       ├── en.index.tsx
-│       ├── en.pricing.tsx
-│       ├── en.hosted.tsx
-│       ├── en.docs.index.tsx
-│       └── en.docs.$slug.tsx
-├── app.config.ts           ← 不需要（Vite plugin 直驱）
-├── vite.config.ts          ← tanstackStart + cloudflare + tailwind
+│   ├── components/         ← SiteMark / SiteNav / SiteFooter / DeployButton / LocaleSwitcher / RootLayout
+│   ├── pages/              ← 页面组件（home / pricing / hosted / docs-index / docs-detail / not-found）
+│   └── dist/site/          ← SSG 输出（html + assets + public）
+├── vite.config.ts          ← react + tailwindcss，outDir: dist/site
 ├── tsconfig.json / tsconfig.app.json / tsconfig.node.json
-├── wrangler.jsonc          ← name: flaremo-site, main: @tanstack/react-start/server-entry
+├── wrangler.jsonc          ← name: flaremo-site, assets.directory: ./dist/site, 404-page
 └── package.json
 ```
 
@@ -154,7 +146,7 @@ apps/site/
 | 项 | 实现 |
 | --- | --- |
 | `robots.txt` | 允许全部 + sitemap 指向 |
-| `sitemap.xml` | TanStack Start `sitemap: { enabled: true, host: ... }` 自动产出 |
+| `sitemap.xml` | `scripts/build.mjs` 构建时自动产出 |
 | `<title>` | 每个路由通过 `head` 设置（构建期注入） |
 | `<meta description>` | 每个路由独立 |
 | OG / Twitter | `og:title`、`og:description`、`og:image`、`og:url`、`og:locale`、`og:site_name`、`twitter:card=summary_large_image` |

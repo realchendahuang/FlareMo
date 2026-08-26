@@ -18,11 +18,7 @@ export function SiteMark({
 }: BrandMarkProps) {
   return (
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      <img
-        alt={iconAlt}
-        className={`${iconSize} shrink-0`}
-        src={iconSrc}
-      />
+      <img alt={iconAlt} className={`${iconSize} shrink-0`} src={iconSrc} />
       {withWordmark ? (
         <span className="font-heading text-base font-semibold tracking-tight">
           FlareMo

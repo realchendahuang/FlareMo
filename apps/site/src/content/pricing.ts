@@ -184,7 +184,8 @@ const ZH_PRICING_PAGE: PricingPage = {
 
 const EN_PRICING_PAGE: PricingPage = {
   title: "Pricing",
-  subtitle: "Free is forever; Pro and Team are billed through Stripe (Phase 2).",
+  subtitle:
+    "Free is forever; Pro and Team are billed through Stripe (Phase 2).",
   intro:
     "We deliberately made the Free tier actually useful. The marginal cost of the Hosted SaaS is covered by the Cloudflare free tier. Pro and Team are where the real cost (semantic-search embedding inference and edge compute) lives.",
   deploymentHeading: "Cloudflare free tier reference",
@@ -193,8 +194,14 @@ const EN_PRICING_PAGE: PricingPage = {
     { label: "R2 storage", value: "10 GB (~5,000–10,000 photos)" },
     { label: "R2 egress", value: "Free" },
     { label: "Workers requests", value: "100k / day free" },
-    { label: "Vectorize dimensions", value: "5M stored / 30M queried per month free" },
-    { label: "Workers AI", value: "Per-neuron billed, daily free allowance after binding" },
+    {
+      label: "Vectorize dimensions",
+      value: "5M stored / 30M queried per month free",
+    },
+    {
+      label: "Workers AI",
+      value: "Per-neuron billed, daily free allowance after binding",
+    },
   ],
   faqHeading: "Pricing FAQ",
   faqItems: [

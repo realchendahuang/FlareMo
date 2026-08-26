@@ -1,8 +1,13 @@
 import { useLocation } from "@tanstack/react-router";
-import { ShieldCheck, Sparkles, Cloud, Languages, Bot, Share2 } from "lucide-react";
-import { SiteNav } from "@/components/site-nav";
-import { SiteFooter } from "@/components/site-footer";
-import { DeployButton, DEPLOY_BUTTON_URL } from "@/components/deploy-button";
+import {
+  Bot,
+  Cloud,
+  Languages,
+  Share2,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { DEPLOY_BUTTON_URL, DeployButton } from "@/components/deploy-button";
 import { getHomeContent } from "@/content/copy";
 import { getPricingTiers } from "@/content/pricing";
 import type { Locale } from "@/lib/seo";
@@ -18,40 +23,44 @@ export function HomePage() {
   const locale: Locale = pathname.startsWith("/en") ? "en-US" : "zh-CN";
   const home = getHomeContent(locale);
   const tiers = getPricingTiers(locale);
-  const featureIcons = locale === "zh-CN" ? ZH_FEATURE_LUCIDE : EN_FEATURE_LUCIDE;
+  const featureIcons =
+    locale === "zh-CN" ? ZH_FEATURE_LUCIDE : EN_FEATURE_LUCIDE;
   const heroIcons = locale === "zh-CN" ? ZH_HERO_LUCIDE : EN_HERO_LUCIDE;
 
   return (
-    <>
-      <SiteNav currentPath={pathname} locale={locale} />
-      <main>
-        <Hero
-          locale={locale}
-          eyebrow={home.heroEyebrow}
-          title={home.heroTitle}
-          subtitle={home.heroSubtitle}
-          primary={home.primaryCta}
-          secondary={home.secondaryCta}
-          icons={heroIcons}
-        />
-        <Features heading={home.featuresHeading} items={home.features} icons={featureIcons} />
-        <Comparison
-          heading={home.comparisonHeading}
-          intro={home.comparisonIntro}
-          rows={home.comparisonRows}
-          locale={locale}
-        />
-        <Screenshots heading={home.screenshotsHeading} caption={home.screenshotsCaption} />
-        <PricingSummary
-          heading={home.pricingHeading}
-          subtitle={home.pricingSubtitle}
-          tiers={tiers}
-          locale={locale}
-        />
-        <Faq heading={home.faqHeading} items={home.faqItems} />
-      </main>
-      <SiteFooter locale={locale} />
-    </>
+    <main>
+      <Hero
+        locale={locale}
+        eyebrow={home.heroEyebrow}
+        title={home.heroTitle}
+        subtitle={home.heroSubtitle}
+        primary={home.primaryCta}
+        secondary={home.secondaryCta}
+        icons={heroIcons}
+      />
+      <Features
+        heading={home.featuresHeading}
+        items={home.features}
+        icons={featureIcons}
+      />
+      <Comparison
+        heading={home.comparisonHeading}
+        intro={home.comparisonIntro}
+        rows={home.comparisonRows}
+        locale={locale}
+      />
+      <Screenshots
+        heading={home.screenshotsHeading}
+        caption={home.screenshotsCaption}
+      />
+      <PricingSummary
+        heading={home.pricingHeading}
+        subtitle={home.pricingSubtitle}
+        tiers={tiers}
+        locale={locale}
+      />
+      <Faq heading={home.faqHeading} items={home.faqItems} />
+    </main>
   );
 }
 
@@ -89,7 +98,10 @@ function Hero({
           </p>
           <div className="flex flex-wrap gap-3">
             <DeployButton href={DEPLOY_BUTTON_URL}>{primary}</DeployButton>
-            <DeployButton href={locale === "zh-CN" ? "/hosted" : "/en/hosted"} variant="secondary">
+            <DeployButton
+              href={locale === "zh-CN" ? "/hosted" : "/en/hosted"}
+              variant="secondary"
+            >
               {secondary}
             </DeployButton>
           </div>
@@ -103,7 +115,9 @@ function Hero({
           <HeroStat
             icon={<Icon2 className="size-5 text-flame-500" />}
             title="10 GB R2"
-            body={locale === "zh-CN" ? "5,000–10,000 张图片" : "5,000–10,000 photos"}
+            body={
+              locale === "zh-CN" ? "5,000–10,000 张图片" : "5,000–10,000 photos"
+            }
           />
           <HeroStat
             icon={<Icon3 className="size-5 text-flame-500" />}
@@ -127,7 +141,9 @@ function HeroStat({
 }) {
   return (
     <div className="rounded-2xl border border-border/60 bg-background p-4 shadow-sm">
-      <div className="mb-3 flex size-9 items-center justify-center rounded-xl bg-accent">{icon}</div>
+      <div className="mb-3 flex size-9 items-center justify-center rounded-xl bg-accent">
+        {icon}
+      </div>
       <div className="text-base font-semibold tracking-tight">{title}</div>
       <div className="text-sm text-muted-foreground">{body}</div>
     </div>
@@ -146,7 +162,9 @@ function Features({
   return (
     <section className="border-b border-border/60 bg-background py-20">
       <div className="container-x space-y-10">
-        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{heading}</h2>
+        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+          {heading}
+        </h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {items.map((item, idx) => {
             const Icon = icons[idx] ?? Sparkles;
@@ -158,8 +176,12 @@ function Features({
                 <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-accent text-flame-500">
                   <Icon className="size-5" />
                 </div>
-                <h3 className="text-base font-semibold tracking-tight">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p>
+                <h3 className="text-base font-semibold tracking-tight">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {item.description}
+                </p>
               </article>
             );
           })}
@@ -184,7 +206,9 @@ function Comparison({
     <section className="border-b border-border/60 bg-secondary/30 py-20">
       <div className="container-x space-y-8">
         <header className="space-y-3">
-          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{heading}</h2>
+          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+            {heading}
+          </h2>
           <p className="max-w-2xl text-base text-muted-foreground">{intro}</p>
         </header>
         <div className="overflow-x-auto rounded-2xl border border-border/60 bg-background shadow-xs">
@@ -192,7 +216,9 @@ function Comparison({
             <thead>
               <tr className="bg-secondary/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-4 py-3 font-medium"> </th>
-                <th className="px-4 py-3 font-medium text-flame-600">Cloudflare</th>
+                <th className="px-4 py-3 font-medium text-flame-600">
+                  Cloudflare
+                </th>
                 <th className="px-4 py-3 font-medium">
                   {locale === "zh-CN" ? "家用 NAS" : "Home NAS"}
                 </th>
@@ -202,10 +228,18 @@ function Comparison({
             <tbody>
               {rows.map((row) => (
                 <tr className="border-t border-border/60" key={row.label}>
-                  <th className="px-4 py-3 text-left align-top font-medium">{row.label}</th>
-                  <td className="px-4 py-3 align-top text-foreground">{row.cloudflare}</td>
-                  <td className="px-4 py-3 align-top text-muted-foreground">{row.nas}</td>
-                  <td className="px-4 py-3 align-top text-muted-foreground">{row.vps}</td>
+                  <th className="px-4 py-3 text-left align-top font-medium">
+                    {row.label}
+                  </th>
+                  <td className="px-4 py-3 align-top text-foreground">
+                    {row.cloudflare}
+                  </td>
+                  <td className="px-4 py-3 align-top text-muted-foreground">
+                    {row.nas}
+                  </td>
+                  <td className="px-4 py-3 align-top text-muted-foreground">
+                    {row.vps}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -216,11 +250,19 @@ function Comparison({
   );
 }
 
-function Screenshots({ heading, caption }: { heading: string; caption: string }) {
+function Screenshots({
+  heading,
+  caption,
+}: {
+  heading: string;
+  caption: string;
+}) {
   return (
     <section className="border-b border-border/60 bg-background py-20">
       <div className="container-x space-y-8">
-        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{heading}</h2>
+        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+          {heading}
+        </h2>
         <p className="max-w-2xl text-base text-muted-foreground">{caption}</p>
         <div className="flex flex-wrap items-end justify-center gap-8 rounded-3xl border border-border/60 bg-gradient-to-br from-background via-background to-flame-50/30 p-8 shadow-xs">
           <img
@@ -256,8 +298,12 @@ function PricingSummary({
     <section className="border-b border-border/60 bg-secondary/30 py-20">
       <div className="container-x space-y-10">
         <header className="space-y-3 text-center">
-          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{heading}</h2>
-          <p className="mx-auto max-w-2xl text-base text-muted-foreground">{subtitle}</p>
+          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+            {heading}
+          </h2>
+          <p className="mx-auto max-w-2xl text-base text-muted-foreground">
+            {subtitle}
+          </p>
         </header>
         <div className="grid gap-6 md:grid-cols-3">
           {tiers.map((tier) => (
@@ -274,14 +320,22 @@ function PricingSummary({
                   {locale === "zh-CN" ? "推荐" : "Recommended"}
                 </span>
               ) : null}
-              <h3 className="text-lg font-semibold tracking-tight">{tier.name}</h3>
+              <h3 className="text-lg font-semibold tracking-tight">
+                {tier.name}
+              </h3>
               <div className="mt-1 flex items-baseline gap-1">
-                <span className="text-3xl font-semibold tracking-tight">{tier.price}</span>
+                <span className="text-3xl font-semibold tracking-tight">
+                  {tier.price}
+                </span>
                 {tier.period ? (
-                  <span className="text-xs text-muted-foreground">{tier.period}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {tier.period}
+                  </span>
                 ) : null}
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{tier.tagline}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {tier.tagline}
+              </p>
               <ul className="mt-5 space-y-2 text-sm">
                 {tier.features.map((f) => (
                   <li className="flex gap-2" key={f}>
@@ -317,7 +371,9 @@ function Faq({
   return (
     <section className="bg-background py-20">
       <div className="container-x space-y-8">
-        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{heading}</h2>
+        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+          {heading}
+        </h2>
         <div className="grid gap-4 md:grid-cols-2">
           {items.map((item) => (
             <details
@@ -330,7 +386,9 @@ function Faq({
                   +
                 </span>
               </summary>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.a}</p>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {item.a}
+              </p>
             </details>
           ))}
         </div>

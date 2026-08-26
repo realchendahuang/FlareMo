@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import type { Locale } from "@/lib/seo";
 import { SiteMark } from "@/components/site-mark";
+import type { Locale } from "@/lib/seo";
 
 type SiteFooterProps = {
   locale: Locale;
@@ -59,9 +59,18 @@ export function SiteFooter({ locale }: SiteFooterProps) {
           </p>
         </div>
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
-          <FooterColumn heading={locale === "zh-CN" ? "产品" : "Product"} items={links.product} />
-          <FooterColumn heading={locale === "zh-CN" ? "文档" : "Docs"} items={links.docs} />
-          <FooterColumn heading={locale === "zh-CN" ? "项目" : "Project"} items={links.project} />
+          <FooterColumn
+            heading={locale === "zh-CN" ? "产品" : "Product"}
+            items={links.product}
+          />
+          <FooterColumn
+            heading={locale === "zh-CN" ? "文档" : "Docs"}
+            items={links.docs}
+          />
+          <FooterColumn
+            heading={locale === "zh-CN" ? "项目" : "Project"}
+            items={links.project}
+          />
         </div>
       </div>
     </footer>
@@ -77,7 +86,9 @@ function FooterColumn({
 }) {
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold tracking-tight text-foreground">{heading}</h3>
+      <h3 className="text-sm font-semibold tracking-tight text-foreground">
+        {heading}
+      </h3>
       <ul className="space-y-2">
         {items.map((item) => (
           <li key={item.to}>

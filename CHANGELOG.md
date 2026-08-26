@@ -7,6 +7,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 ### 新增能力
 
 - 新增 `apps/site` 包：FlareMo 官方营销站与文档镜像，部署到 `flaremo.app`，与主 Worker `flaremo` 完全解耦。
+- 技术栈与 `apps/web` 完全同构：React 19 + Vite + TanStack Router（code-based）+ Tailwind CSS 4；构建期用 `scripts/build.mjs` 做 SSG，每个路由产出完整静态 HTML（SEO head + body），客户端 hydrate。
 - 首页 `/` 与 `/en/`：Hero（D1 5GB / R2 10GB / 0 服务器）+ 6 张 feature 卡片 + Cloudflare vs NAS vs VPS 对比表 + 截图墙 + 三档定价 + 6 条 FAQ。
 - 定价页 `/pricing` 与 `/en/pricing`：Free / Pro / Team 三档，Pro 高亮；Cloudflare 免费层对照表；Pricing FAQ；使用条款与隐私。
 - 文档镜像 `/docs` 与 `/en/docs`：侧边栏 5 组（开始 / 架构与概念 / 兼容与生态 / Agent 集成 / 参考），覆盖 15 篇中文 + 4 篇已译英文；中文页 `react-markdown` 渲染 + GitHub 风格锚点。

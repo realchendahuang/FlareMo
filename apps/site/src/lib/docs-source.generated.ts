@@ -10,9 +10,13 @@ import agentDeploy from "../../../../docs/agent-deploy.md?raw";
 import agentIngestion from "../../../../docs/agent-ingestion.md?raw";
 import agentMemory from "../../../../docs/agent-memory.md?raw";
 import architectureNotes from "../../../../docs/architecture-notes.md?raw";
-import deployButtonTest from "../../../../docs/deploy-button-test.md?raw";
 import deploy from "../../../../docs/deploy.md?raw";
+import deployButtonTest from "../../../../docs/deploy-button-test.md?raw";
 import designSystem from "../../../../docs/design-system.md?raw";
+import enAgentDeploy from "../../../../docs/en/agent-deploy.md?raw";
+import enDeploy from "../../../../docs/en/deploy.md?raw";
+import enMemosCompatibility from "../../../../docs/en/memos-compatibility.md?raw";
+import enUpdate from "../../../../docs/en/update.md?raw";
 import maintenance from "../../../../docs/maintenance.md?raw";
 import memosCompatibility from "../../../../docs/memos-compatibility.md?raw";
 import memosEcosystem from "../../../../docs/memos-ecosystem.md?raw";
@@ -21,11 +25,6 @@ import release from "../../../../docs/release.md?raw";
 import semanticSearch from "../../../../docs/semantic-search.md?raw";
 import techStack from "../../../../docs/tech-stack.md?raw";
 import update from "../../../../docs/update.md?raw";
-
-import enAgentDeploy from "../../../../docs/en/agent-deploy.md?raw";
-import enDeploy from "../../../../docs/en/deploy.md?raw";
-import enMemosCompatibility from "../../../../docs/en/memos-compatibility.md?raw";
-import enUpdate from "../../../../docs/en/update.md?raw";
 
 export type DocLocale = "zh-CN" | "en-US";
 
@@ -52,7 +51,10 @@ export type DocGroup =
 
 export type DocMeta = Omit<DocEntry, "body">;
 
-const ZH_DOCS: Record<string, { title: string; group: DocGroup; body: string }> = {
+const ZH_DOCS: Record<
+  string,
+  { title: string; group: DocGroup; body: string; fallbackFromZh?: boolean }
+> = {
   "agent-deploy": {
     title: "Agent 部署 Runbook",
     group: "agent",
@@ -130,7 +132,10 @@ const ZH_DOCS: Record<string, { title: string; group: DocGroup; body: string }> 
   },
 };
 
-const EN_DOCS: Record<string, { title: string; group: DocGroup; body: string; fallbackFromZh?: boolean }> = {
+const EN_DOCS: Record<
+  string,
+  { title: string; group: DocGroup; body: string; fallbackFromZh?: boolean }
+> = {
   deploy: {
     title: "Deploying FlareMo",
     group: "start",
@@ -223,47 +228,65 @@ const EN_DOCS: Record<string, { title: string; group: DocGroup; body: string; fa
 };
 
 const DESCRIPTIONS_ZH: Record<string, string> = {
-  "agent-deploy": "写给 Codex / Claude Code / Cursor Agent 等可执行命令的 Agent 用的部署 runbook。",
-  "agent-ingestion": "让 Agent、Telegram、IM 渠道直接写入 FlareMo 的设计、字段与冲突策略。",
-  "agent-memory": "AI 跨 session 长期记忆：六工具、权限层级、与 memo 的双向连接。",
-  "architecture-notes": "事实源、兼容层、认证边界、Worker 与 D1 / R2 / Vectorize 的职责划分。",
+  "agent-deploy":
+    "写给 Codex / Claude Code / Cursor Agent 等可执行命令的 Agent 用的部署 runbook。",
+  "agent-ingestion":
+    "让 Agent、Telegram、IM 渠道直接写入 FlareMo 的设计、字段与冲突策略。",
+  "agent-memory":
+    "AI 跨 session 长期记忆：六工具、权限层级、与 memo 的双向连接。",
+  "architecture-notes":
+    "事实源、兼容层、认证边界、Worker 与 D1 / R2 / Vectorize 的职责划分。",
   "deploy-button-test": "Deploy Button 真实部署的步骤记录与已知边界。",
   deploy: "一键部署按钮、Agent 部署、手动部署三种路径，以及预部署清单。",
-  "design-system": "Ember 设计语言：暖调中性 + 火焰品牌色，圆角、阴影与文案规则。",
+  "design-system":
+    "Ember 设计语言：暖调中性 + 火焰品牌色，圆角、阴影与文案规则。",
   maintenance: "运维手册：备份、灾备演练、迁移、回滚。",
   "memos-compatibility": "/api/v1 子集与四类 memo 事件的 webhook outbox 边界。",
   "memos-ecosystem": "已验证的 Memos 第三方客户端与配置示例。",
   "product-requirements": "对标 flomo 的需求池与依赖关系，决策输入而非承诺。",
   release: "发版流程：tag、CHANGELOG、migration notes、升级说明。",
-  "semantic-search": "Vectorize 存派生 embedding，D1 仍是事实源；命中回 D1 校验 ACL。",
+  "semantic-search":
+    "Vectorize 存派生 embedding，D1 仍是事实源；命中回 D1 校验 ACL。",
   "tech-stack": "已确定的技术栈与版本约束。",
   update: "升级 FlareMo：上游同步 workflow、PR 流程、回退。",
 };
 
 const DESCRIPTIONS_EN: Record<string, string> = {
-  deploy: "Three deployment paths: Deploy Button, Agent deployment, and manual.",
-  "agent-deploy": "Runbook for command-capable agents (Codex, Claude Code, Cursor, ...).",
-  "memos-compatibility": "The /api/v1 subset and the four memo-event webhook outbox boundaries.",
+  deploy:
+    "Three deployment paths: Deploy Button, Agent deployment, and manual.",
+  "agent-deploy":
+    "Runbook for command-capable agents (Codex, Claude Code, Cursor, ...).",
+  "memos-compatibility":
+    "The /api/v1 subset and the four memo-event webhook outbox boundaries.",
   update: "Upgrading FlareMo: upstream sync workflow, PR flow, and rollbacks.",
-  "agent-ingestion": "Designing Agent, Telegram, and IM capture paths and conflict policies. (Chinese source; English translation pending.)",
-  "agent-memory": "Long-term AI memory across sessions: six tools, permission tiers, memo links. (Chinese source; English translation pending.)",
-  "architecture-notes": "Source of truth, compatibility layer, auth boundary. (Chinese source; English translation pending.)",
-  "deploy-button-test": "Real-world Deploy Button deployment records and known edges. (Chinese source; English translation pending.)",
-  "design-system": "Ember design language: warm neutrals plus the flame brand color, radii, shadows, copy rules. (Chinese source; English translation pending.)",
-  maintenance: "Operations handbook: backup, drill, and migration. (Chinese source; English translation pending.)",
-  "memos-ecosystem": "Verified Memos third-party clients and configuration examples. (Chinese source; English translation pending.)",
-  "product-requirements": "Flomo-aligned requirement pool and dependencies. (Chinese source; English translation pending.)",
-  release: "Release flow: tag, CHANGELOG, migration notes, upgrade instructions. (Chinese source; English translation pending.)",
-  "semantic-search": "Vectorize holds derived embeddings; D1 is the source of truth. (Chinese source; English translation pending.)",
-  "tech-stack": "Confirmed tech stack and version constraints. (Chinese source; English translation pending.)",
+  "agent-ingestion":
+    "Designing Agent, Telegram, and IM capture paths and conflict policies. (Chinese source; English translation pending.)",
+  "agent-memory":
+    "Long-term AI memory across sessions: six tools, permission tiers, memo links. (Chinese source; English translation pending.)",
+  "architecture-notes":
+    "Source of truth, compatibility layer, auth boundary. (Chinese source; English translation pending.)",
+  "deploy-button-test":
+    "Real-world Deploy Button deployment records and known edges. (Chinese source; English translation pending.)",
+  "design-system":
+    "Ember design language: warm neutrals plus the flame brand color, radii, shadows, copy rules. (Chinese source; English translation pending.)",
+  maintenance:
+    "Operations handbook: backup, drill, and migration. (Chinese source; English translation pending.)",
+  "memos-ecosystem":
+    "Verified Memos third-party clients and configuration examples. (Chinese source; English translation pending.)",
+  "product-requirements":
+    "Flomo-aligned requirement pool and dependencies. (Chinese source; English translation pending.)",
+  release:
+    "Release flow: tag, CHANGELOG, migration notes, upgrade instructions. (Chinese source; English translation pending.)",
+  "semantic-search":
+    "Vectorize holds derived embeddings; D1 is the source of truth. (Chinese source; English translation pending.)",
+  "tech-stack":
+    "Confirmed tech stack and version constraints. (Chinese source; English translation pending.)",
 };
 
 export function listDocs(locale: DocLocale): DocMeta[] {
   const source = locale === "zh-CN" ? ZH_DOCS : EN_DOCS;
   return Object.entries(source)
-    .filter(([, doc]) =>
-      locale === "zh-CN" ? true : !doc.fallbackFromZh,
-    )
+    .filter(([, doc]) => (locale === "zh-CN" ? true : !doc.fallbackFromZh))
     .map(([slug, doc]) => ({
       slug,
       locale,

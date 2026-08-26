@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { SiteMark } from "@/components/site-mark";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { SiteMark } from "@/components/site-mark";
 import type { Locale } from "@/lib/seo";
 
 type NavItem = {
@@ -94,7 +94,11 @@ export function SiteNav({ locale, currentPath }: SiteNavProps) {
   );
 }
 
-function isActive(currentPath: string, itemTo: string, locale: Locale): boolean {
+function isActive(
+  currentPath: string,
+  itemTo: string,
+  locale: Locale,
+): boolean {
   if (itemTo === "/") {
     return locale === "zh-CN" ? currentPath === "/" : currentPath === "/en";
   }

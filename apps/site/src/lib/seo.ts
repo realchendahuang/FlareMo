@@ -51,7 +51,9 @@ export function localeHref(path: string, locale: Locale): string {
 
 function fullTitle(title: string, locale: Locale): string {
   if (title === SITE_NAME) return title;
-  return locale === "zh-CN" ? `${title} · ${SITE_NAME}` : `${title} · ${SITE_NAME}`;
+  return locale === "zh-CN"
+    ? `${title} · ${SITE_NAME}`
+    : `${title} · ${SITE_NAME}`;
 }
 
 export function buildSeoHead(input: SeoInput): SeoHead {
