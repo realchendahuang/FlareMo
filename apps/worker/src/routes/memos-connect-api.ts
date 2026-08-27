@@ -53,6 +53,7 @@ import {
   replaceMemoRelations,
   revokeAuthSessionByToken,
   revokeMemoShare,
+  SELF_HOST_UNLIMITED,
   type UserNotificationDto,
   updateAttachmentMemo,
   updateFlaremoUserProfile,
@@ -2062,6 +2063,7 @@ async function getPublicInstanceContext(
     bearerSession: false,
     nativeAccessToken: false,
     session: null,
+    limits: SELF_HOST_UNLIMITED,
   };
 }
 

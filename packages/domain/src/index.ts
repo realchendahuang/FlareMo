@@ -6,6 +6,7 @@ export * from "./embedding-outbox";
 export * from "./errors";
 export * from "./ids";
 export * from "./import-export";
+export * from "./limits";
 export * from "./memo-context";
 export * from "./memo-filter";
 export * from "./memory";
