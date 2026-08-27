@@ -420,6 +420,17 @@ AI 工作流围绕个人知识库展开：
 9. 基于 OpenAPI 增加 MCP。
 10. 接入 Vectorize 和 AI 能力。
 
+## 组装入口与计划限额
+
+worker 的路由表不再挂在模块级常量上，而是由 `createFlareMoApp(options)` 工厂构建：每次调用返回全新 Hono 实例，default 导出的 `ExportedHandler` 只是该工厂的默认消费者。外部组合壳（未来 FlareMo 多用户部署形态的私有入口）可以 import 同一工厂，追加自己的中间件与路由，不必复制或 patch 内核。
+
+计划限额以注入数据的形式进入请求上下文，而不是散落的条件分支：
+
+- domain 层的 `PlanLimits` 只包含「数字或 null」的字段；`SELF_HOST_UNLIMITED` 是自部署恒定值。domain 不知道订阅概念的存在。
+- `createFlareMoApp` 接受可选的 `resolvePlanLimits(env)`；默认实现恒返回 `SELF_HOST_UNLIMITED`，解析结果经每个请求首个中间件写入 Hono Variables（`planLimits`），`getRequestContext` 系列将其放入返回值的 `limits` 字段。
+- 超限场景使用 `QuotaExceededError`（HTTP 429），走既有 `DomainError` 映射。
+- 本仓库不实现任何订阅解析器；云端 resolver 属于外部组合壳的注入物。
+
 ## 结论
 
 FlareMo 的架构核心是：

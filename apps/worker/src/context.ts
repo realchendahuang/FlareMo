@@ -3,6 +3,8 @@ import {
   ForbiddenError,
   getFlaremoUserByAuthSessionToken,
   getFlaremoUserByAuthUserId,
+  type PlanLimits,
+  SELF_HOST_UNLIMITED,
   UnauthorizedError,
 } from "@flaremo/domain";
 import type { Context } from "hono";
@@ -16,6 +18,14 @@ import { authenticateMemosAccessToken } from "./memos-native-auth";
 
 export type HonoBindings = {
   Bindings: FlareMoEnv;
+  Variables: {
+    /**
+     * Resolved once per request by createFlareMoApp's limits middleware.
+     * Self-hosted deployments always carry SELF_HOST_UNLIMITED; hosted
+     * shells swap in a subscription-backed resolver via factory options.
+     */
+    planLimits: PlanLimits;
+  };
 };
 
 export type RequestCredential = "session" | "pat";
@@ -42,6 +52,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
           bearerSession: false,
           nativeAccessToken: true,
           session: null,
+          limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
         };
       }
 
@@ -56,6 +67,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
         bearerSession: true,
         nativeAccessToken: false,
         session: session.session,
+        limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
       };
     }
     const verification = await auth.api.verifyApiKey({
@@ -82,6 +94,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
       bearerSession: false,
       nativeAccessToken: false,
       session: null,
+      limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
     };
   }
 
@@ -111,6 +124,7 @@ export async function getOptionalRequestContext(c: Context<HonoBindings>) {
         bearerSession: false,
         nativeAccessToken: false,
         session: null,
+        limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
       };
     }
     throw error;
@@ -148,6 +162,7 @@ export async function getBrowserRequestContext(
     bearerSession: false,
     nativeAccessToken: false,
     session: null,
+    limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
   };
 }
 
