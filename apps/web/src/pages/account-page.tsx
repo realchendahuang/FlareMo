@@ -715,6 +715,18 @@ function PlanQuotaBars({
           limit: plan.user.limits.semanticSearchQueriesPerMonth,
           format: localeFormat,
         },
+        {
+          key: "usage.planMemos",
+          used: plan.user.usage.maxMemosPerUser,
+          limit: plan.user.limits.maxMemosPerUser,
+          format: localeFormat,
+        },
+        {
+          key: "usage.planMemories",
+          used: plan.user.usage.maxMemoryItemsPerUser,
+          limit: plan.user.limits.maxMemoryItemsPerUser,
+          format: localeFormat,
+        },
       ]
     : null;
   const userLimited = userRows?.filter((row) => row.limit !== null) ?? [];

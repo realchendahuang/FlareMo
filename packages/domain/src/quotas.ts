@@ -1,6 +1,12 @@
 import type { FlareMoDb } from "@flaremo/db";
-import { attachments, usageCounters, users } from "@flaremo/db";
-import { and, eq, sql } from "drizzle-orm";
+import {
+  attachments,
+  memoryItems,
+  memos,
+  usageCounters,
+  users,
+} from "@flaremo/db";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { QuotaExceededError } from "./errors";
 import type { PlanLimits, PlanLimitValue, UserPlanLimits } from "./limits";
 import type { UsageMetric } from "./usage";
@@ -165,6 +171,82 @@ export async function assertAttachmentStorageQuota(
   }
 }
 
+/**
+ * Stock memo count for one user: normal + archived count against the quota;
+ * trash and hard-deleted rows do not.
+ */
+export async function countUserMemos(
+  db: FlareMoDb,
+  userId: string,
+): Promise<number> {
+  const row = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(memos)
+    .where(
+      and(
+        eq(memos.userId, userId),
+        inArray(memos.status, ["normal", "archived"]),
+      ),
+    )
+    .get();
+  return row?.total ?? 0;
+}
+
+/** Stock memory count for one user: active + archived. */
+export async function countUserMemories(
+  db: FlareMoDb,
+  userId: string,
+): Promise<number> {
+  const row = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(memoryItems)
+    .where(
+      and(
+        eq(memoryItems.userId, userId),
+        inArray(memoryItems.status, ["active", "archived"]),
+      ),
+    )
+    .get();
+  return row?.total ?? 0;
+}
+
+/**
+ * Throws when the user's living-memo stock (plus `additional` about to be
+ * written, e.g. an import bundle) would reach the per-user cap.
+ */
+export async function assertMemoCountQuota(
+  db: FlareMoDb,
+  userLimits: UserPlanLimits | null | undefined,
+  userId: string,
+  additionalCount = 1,
+): Promise<void> {
+  const limit = userLimits?.maxMemosPerUser ?? null;
+  if (limit === null) return;
+  const used = await countUserMemos(db, userId);
+  if (used + additionalCount > limit) {
+    throw new QuotaExceededError(
+      `Memo count quota exceeded (${limit} notes per user)`,
+    );
+  }
+}
+
+/** Same as assertMemoCountQuota for the Agent Memory stock. */
+export async function assertMemoryCountQuota(
+  db: FlareMoDb,
+  userLimits: UserPlanLimits | null | undefined,
+  userId: string,
+  additionalCount = 1,
+): Promise<void> {
+  const limit = userLimits?.maxMemoryItemsPerUser ?? null;
+  if (limit === null) return;
+  const used = await countUserMemories(db, userId);
+  if (used + additionalCount > limit) {
+    throw new QuotaExceededError(
+      `Memory count quota exceeded (${limit} memories per user)`,
+    );
+  }
+}
+
 export async function countFlaremoUsers(db: FlareMoDb): Promise<number> {
   const row = await db
     .select({ total: sql<number>`count(*)` })
@@ -205,6 +287,8 @@ export type UserPlanUsageReport = {
     attachmentStorageBytes: number;
     aiEmbeddingTokensPerMonth: number;
     semanticSearchQueriesPerMonth: number;
+    maxMemosPerUser: number;
+    maxMemoryItemsPerUser: number;
   };
 };
 
@@ -247,6 +331,8 @@ export async function reportPlanUsage(
           scope.userId,
           "search_queries",
         ),
+        maxMemosPerUser: await countUserMemos(db, scope.userId),
+        maxMemoryItemsPerUser: await countUserMemories(db, scope.userId),
       },
     };
   }

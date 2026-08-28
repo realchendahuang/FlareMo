@@ -442,6 +442,8 @@ worker 的路由表不再挂在模块级常量上，而是由 `createFlareMoApp(
 
 **Per-user 限额（共享 SaaS 实例）**：部署级限额对「公开注册、多用户共享一个部署」的形态会锁死全体，因此内核还接受一层 per-user 限额（`UserPlanLimits`，只有存储/tokens/搜索三个维度——成员数天然是部署级，不做 per-user 形态）。注入途径：`createFlareMoApp` 的 `resolveUserPlanLimits(env, userId)` 选项，或 `FLAREMO_USER_LIMITS_JSON` 环境变量（用户无关的静态配置）。生效优先级 per-user → 部署级 → 不限量；per-user 生效时用量按该 user 读取（`usage_counters` 本就按 user 分桶，附件存储按 userId 过滤求和），outbox 也按任务归属用户判断预算。`plan` 响应在配置了 per-user 限额时附带 `user` 段，面板渲染「个人限额」分组。
 
+**存量条数维度**：`UserPlanLimits` 另有 `maxMemosPerUser` / `maxMemoryItemsPerUser`（共享实例按条计费的主货币）。条数是存量口径——memo 按 `normal + archived` 计（回收站不算），memory 按 `active + archived` 计。检查在 domain `createMemo` / `createMemory` 内部执行（可选 `scope` 参数沿调用链透传），导入路径以 bundle 条数预检；`additionalCount` 默认 1 表示「一次写入即将发生」，恰好满额允许、超出才 429。Projects/Tasks/引用关系/回顾/导入导出/MCP 接入是零边际成本能力，**不设限**。
+
 ## 结论
 
 FlareMo 的架构核心是：

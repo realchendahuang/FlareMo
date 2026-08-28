@@ -1676,12 +1676,17 @@ async function createConnectMemo(
 ) {
   const body = record(value);
   const memo = record(body.memo);
-  const created = await createMemo(context.db, context.user, {
-    content: requiredString(memo.content, "memo.content"),
-    visibility: visibilityToLegacy(memo.visibility),
-    payload: currentPayload(memo),
-    source: "memos-connect",
-  });
+  const created = await createMemo(
+    context.db,
+    context.user,
+    {
+      content: requiredString(memo.content, "memo.content"),
+      visibility: visibilityToLegacy(memo.visibility),
+      payload: currentPayload(memo),
+      source: "memos-connect",
+    },
+    { userLimits: context.userLimits, userId: context.user.id },
+  );
   return connectMemoWithDetails(context, created.id);
 }
 

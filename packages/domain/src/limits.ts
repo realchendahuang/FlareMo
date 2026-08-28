@@ -35,6 +35,10 @@ export type UserPlanLimits = {
   attachmentStorageBytes: PlanLimitValue;
   aiEmbeddingTokensPerMonth: PlanLimitValue;
   semanticSearchQueriesPerMonth: PlanLimitValue;
+  /** Stock count of living memos (normal + archived; trash excluded). */
+  maxMemosPerUser: PlanLimitValue;
+  /** Stock count of living memories (active + archived). */
+  maxMemoryItemsPerUser: PlanLimitValue;
 };
 
 /**
@@ -55,8 +59,14 @@ export function parseUserPlanLimits(
   }
   if (typeof parsed !== "object" || parsed === null) return null;
   const record = parsed as Record<string, unknown>;
+  // A missing key is safe to treat as null: null means "fall through to the
+  // deployment-level limit for this dimension", never "unlimited". Only a
+  // payload with no valid dimension at all counts as not-configured.
+  let known = 0;
   const read = (key: string): PlanLimitValue | undefined => {
     const value = record[key];
+    if (value === undefined) return null;
+    known += 1;
     if (value === null) return null;
     if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
       return value;
@@ -66,10 +76,15 @@ export function parseUserPlanLimits(
   const attachmentStorageBytes = read("attachmentStorageBytes");
   const aiEmbeddingTokensPerMonth = read("aiEmbeddingTokensPerMonth");
   const semanticSearchQueriesPerMonth = read("semanticSearchQueriesPerMonth");
+  const maxMemosPerUser = read("maxMemosPerUser");
+  const maxMemoryItemsPerUser = read("maxMemoryItemsPerUser");
   if (
+    known === 0 ||
     attachmentStorageBytes === undefined ||
     aiEmbeddingTokensPerMonth === undefined ||
-    semanticSearchQueriesPerMonth === undefined
+    semanticSearchQueriesPerMonth === undefined ||
+    maxMemosPerUser === undefined ||
+    maxMemoryItemsPerUser === undefined
   ) {
     return null;
   }
@@ -77,5 +92,7 @@ export function parseUserPlanLimits(
     attachmentStorageBytes,
     aiEmbeddingTokensPerMonth,
     semanticSearchQueriesPerMonth,
+    maxMemosPerUser,
+    maxMemoryItemsPerUser,
   };
 }

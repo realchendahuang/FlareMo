@@ -232,6 +232,8 @@ const messages = {
     "usage.planStorage": "附件存储",
     "usage.planEmbeddingTokens": "本月 Embedding Tokens",
     "usage.planSearchQueries": "本月语义搜索",
+    "usage.planMemos": "笔记条数",
+    "usage.planMemories": "Agent 记忆条数",
     "usage.planMembers": "成员数",
     "usage.disclaimer":
       "以上为自测估算，非 Cloudflare 官方账单；最终计费以 Cloudflare Dashboard 为准。",
@@ -693,6 +695,8 @@ const messages = {
     "usage.planStorage": "Attachment storage",
     "usage.planEmbeddingTokens": "Embedding tokens this month",
     "usage.planSearchQueries": "Semantic searches this month",
+    "usage.planMemos": "Notes",
+    "usage.planMemories": "Agent memories",
     "usage.planMembers": "Members",
     "usage.disclaimer":
       "Self-measured estimate, not Cloudflare's official bill; final billing is per the Cloudflare Dashboard.",

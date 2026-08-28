@@ -6,9 +6,13 @@ import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { QuotaExceededError } from "./errors";
 import { SELF_HOST_UNLIMITED, type UserPlanLimits } from "./limits";
+import { createMemory } from "./memory";
+import { createMemo } from "./memos";
 import {
   assertAttachmentStorageQuota,
   assertMemberQuota,
+  assertMemoCountQuota,
+  assertMemoryCountQuota,
   assertMonthlyQuota,
   countFlaremoUsers,
   estimateTokenCount,
@@ -176,6 +180,8 @@ describe("plan quota checks", () => {
       attachmentStorageBytes: 500,
       aiEmbeddingTokensPerMonth: null,
       semanticSearchQueriesPerMonth: null,
+      maxMemosPerUser: null,
+      maxMemoryItemsPerUser: null,
     };
 
     // The member is within their own 500-byte quota despite the deployment
@@ -215,6 +221,73 @@ describe("plan quota checks", () => {
     ).rejects.toThrow(QuotaExceededError);
   });
 
+  it("enforces per-user memo and memory stock caps", async () => {
+    const member = await createFlaremoMember(db, {
+      email: "member@example.com",
+      name: "Member",
+    });
+    // Owner owns one living memo; member none.
+    await createMemo(db, owner, {
+      content: "owner memo",
+      visibility: "private",
+      source: "web",
+    });
+    const ownerLimits: UserPlanLimits = {
+      attachmentStorageBytes: null,
+      aiEmbeddingTokensPerMonth: null,
+      semanticSearchQueriesPerMonth: null,
+      maxMemosPerUser: 1,
+      maxMemoryItemsPerUser: null,
+    };
+
+    await expect(
+      assertMemoCountQuota(db, ownerLimits, member.id),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertMemoCountQuota(db, ownerLimits, owner.id),
+    ).rejects.toThrow(QuotaExceededError);
+    // Imports pre-check the bundle size against remaining headroom:
+    // member has 0 memos and a cap of 1, so a bundle of 2 must be rejected
+    // while exactly 1 (reaching the cap) is allowed.
+    await expect(
+      assertMemoCountQuota(db, ownerLimits, member.id, 1),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertMemoCountQuota(db, ownerLimits, member.id, 2),
+    ).rejects.toThrow(QuotaExceededError);
+
+    const memoryLimits: UserPlanLimits = {
+      ...ownerLimits,
+      maxMemosPerUser: null,
+      maxMemoryItemsPerUser: 2,
+    };
+    await createMemory(
+      db,
+      owner,
+      { type: "user" },
+      {
+        content: "memory one",
+        type: "semantic",
+        kind: "fact",
+        scopeType: "global",
+        scopeKey: null,
+        tier: "normal",
+        importance: 50,
+        confidence: 50,
+      },
+    );
+    // Owner has 1 memory against a cap of 2: one more fits, two do not.
+    await expect(
+      assertMemoryCountQuota(db, memoryLimits, owner.id, 1),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertMemoryCountQuota(db, memoryLimits, owner.id, 2),
+    ).rejects.toThrow(QuotaExceededError);
+    // Unset limits never constrain.
+    await assertMemoCountQuota(db, null, owner.id);
+    await assertMemoryCountQuota(db, null, owner.id);
+  });
+
   it("reports a per-user section in the plan usage report", async () => {
     await insertAttachment(owner.id, 700);
     await incrementUsageCounter(db, owner, "search_queries", 3);
@@ -222,6 +295,8 @@ describe("plan quota checks", () => {
       attachmentStorageBytes: 1000,
       aiEmbeddingTokensPerMonth: null,
       semanticSearchQueriesPerMonth: 100,
+      maxMemosPerUser: null,
+      maxMemoryItemsPerUser: null,
     };
 
     const report = await reportPlanUsage(db, SELF_HOST_UNLIMITED, {

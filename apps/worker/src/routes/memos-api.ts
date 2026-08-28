@@ -13,6 +13,7 @@ import {
 } from "@flaremo/contracts";
 import {
   assertAttachmentStorageQuota,
+  assertMemoCountQuota,
   bindMemoAttachments,
   createAttachmentMetadata,
   createDataTask,
@@ -84,8 +85,11 @@ memosApi.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {
 
 memosApi.post("/memos", zValidator("json", createMemoSchema), async (c) => {
   try {
-    const { db, user } = await getRequestContext(c);
-    const memo = await createMemo(db, user, c.req.valid("json"));
+    const { db, user, userLimits } = await getRequestContext(c);
+    const memo = await createMemo(db, user, c.req.valid("json"), {
+      userLimits,
+      userId: user.id,
+    });
     return c.json(memoToDto(memo, user), 201);
   } catch (error) {
     return jsonError(c, error);
@@ -539,6 +543,7 @@ memosApi.post(
         bundleAttachmentBytes(bundle.attachments),
         { userLimits, userId: user.id },
       );
+      await assertMemoCountQuota(db, userLimits, user.id, bundle.memos.length);
       const r2Keys = new Map<string, string>();
       const r2Etags = new Map<string, string | null>();
       for (const attachment of bundle.attachments) {
@@ -851,6 +856,12 @@ memosApi.post(
         limits,
         bundleAttachmentBytes(body.bundle.attachments),
         { userLimits, userId: user.id },
+      );
+      await assertMemoCountQuota(
+        db,
+        userLimits,
+        user.id,
+        body.bundle.memos.length,
       );
       const r2Keys = new Map<string, string>();
       const r2Etags = new Map<string, string | null>();
