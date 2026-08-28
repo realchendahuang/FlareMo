@@ -2,6 +2,30 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.11.0
+
+Per-user 限额版本。为「公开注册、多用户共享一个部署」的 SaaS 形态补上按用户计量的限额层：在部署级 PlanLimits 之上新增 `UserPlanLimits`（存储 / embedding tokens / 语义搜索三个维度），生效优先级 per-user → 部署级 → 不限量。自托管不配置 per-user 载荷时行为与 v0.10.0 完全一致。
+
+### 新增能力
+
+- `UserPlanLimits` 注入层（#114）：`createFlareMoApp` 新增 `resolveUserPlanLimits(env, userId)` 选项，或直接用 `FLAREMO_USER_LIMITS_JSON` 环境变量（严格解析：畸形/缺键载荷视为「未配置」，绝不部分生效成不限量）。成员数上限保持部署级，不做 per-user 形态。
+- #109 的全部执行点（上传、导入、语义搜索、memory_recall、embedding outbox）按 scope 生效：per-user 限额生效时按该用户的用量判断（`usage_counters` 本就按 user 分桶，附件存储按 userId 求和）；outbox 按任务归属用户逐任务判断，一个用户预算耗尽不影响其他用户。
+- `/api/app/usage/vector` 的 `plan` 段在配置 per-user 限额时附带 `user` 子段；账户用量面板新增「个人限额」分组（部署限额分组改名「部署限额」）。
+
+### Memos 兼容面变化
+
+- `/api/v1/*` 兼容面不变。新增的 429 仅在部署显式配置 per-user 限额且该用户超限时出现。
+
+### Cloudflare、数据库与认证影响
+
+- 无数据库 migration、无新增 Cloudflare 资源、无必需的 secret 变化。
+- 需要按用户限额的部署：给 Worker 增加 `FLAREMO_USER_LIMITS_JSON` 变量（非 secret）；不需要则什么都不用做。
+
+### 升级说明
+
+- 自托管直接 `pnpm deploy`，无需任何步骤，行为不变。
+- 多用户部署（app.flaremo.app）升级后建议配置 per-user 限额再继续开放注册。
+
 ## v0.10.0
 
 开放内核与计划限额版本。这个版本为 可组合内核打下地基：AGPL-3.0-only 许可证、`createFlareMoApp` 组装工厂、可注入的 `PlanLimits` 在内核四个执行点被真正执行（附件存储 / 月度 embedding tokens / 月度语义搜索 / 成员数），并新增内核导入边界架构测试。自托管部署行为完全不变（限额全 null = 不限量）；多用户部署形态的差异化从这一版起纯粹是注入限额的数字差异。
