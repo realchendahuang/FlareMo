@@ -157,7 +157,9 @@ Better Auth 是 FlareMo 的应用层认证事实源，按请求使用当前 Work
 
 PAT 由 cookie session 或 Better Auth session bearer 下的账户接口创建、列出和撤销，明文只在创建响应返回一次；`memos_pat_` 本身只能访问私有业务数据，不能调用账户 PAT 管理接口。`memos_pat_` 是 FlareMo-native credential，用于保护当前兼容 API 子集，不代表 Memos Server 的完整 auth parity。
 
-当前没有 email provider，因此 Better Auth 的自助忘记密码流程保持关闭。密码恢复走管理员兜底：owner 在后台为成员生成一次性重置链接（`auth_verifications` 存 token，用户自行设密，管理员不接触明文）；owner 自己忘记密码时，可用独立 `FLAREMO_RECOVERY_SECRET` 走 `/recover` 页面进入 Better Auth reset-password 流程。恢复成功后撤销全部 session 和 PAT，不创建第二个用户。该 secret 不是登录凭据，恢复结束后必须立即轮换或删除。
+邮件能力是可选 seam（`FLAREMO_EMAIL_PROVIDER`）：`none`（自托管默认，零配置）或 `cloudflare`（Workers Paid 的 `EMAIL` binding）。provider 为 `cloudflare` 时，浏览器注册强制邮箱验证（24 小时一次性 token），并解锁三个自助流程：重发验证邮件、邮件找回密码（1 小时 token，走 Better Auth 原生 reset-password，成功后撤销全部 session）、换邮箱验证新地址（确认前旧邮箱继续有效）。此时 Memos 兼容注册面（current `/api/v1/auth/signup`、Connect `AuthService.SignUp`）返回 403，因为兼容客户端无法完成邮箱验证流程。provider 为 `none` 时这些流程全部退回原行为：注册不验证邮箱、密码恢复走管理员兜底（owner 在后台为成员生成一次性重置链接，`auth_verifications` 存 token，用户自行设密，管理员不接触明文）；owner 自己忘记密码时，可用独立 `FLAREMO_RECOVERY_SECRET` 走 `/recover` 页面进入 Better Auth reset-password 流程。恢复成功后撤销全部 session 和 PAT，不创建第二个用户。该 secret 不是登录凭据，恢复结束后必须立即轮换或删除。
+
+凭据端点支持可选的 per-IP 限频：部署通过 Cloudflare rate-limiting binding 绑定 `RATE_LIMITER` 后，注册、重发验证、忘记密码和 Better Auth 的 sign-in/sign-up/reset 路径按 IP 分桶节流（超限返回 429）；未绑定该 binding 的部署行为不变。binding 故障时 fail-open（放行并记录错误日志），限频是加固手段而非正确性闸门。
 
 Cloudflare Access 可以在这三层之前作为外层 policy。它只负责入口门禁，Access identity 或 Service Token 不会自动提供 FlareMo 应用用户身份；启用时请求仍需 cookie session 或 PAT。公开分享可在 Access 上对最窄路径做 bypass，但不跳过 FlareMo share token 校验。
 

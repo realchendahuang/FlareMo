@@ -35,6 +35,7 @@ import {
   sendVerificationEmail,
 } from "../email";
 import { jsonError } from "../http";
+import { rateLimitGuard } from "../rate-limit";
 
 export const authApi = new Hono<HonoBindings>();
 
@@ -91,6 +92,8 @@ authApi.get("/register/status", async (c) => {
 });
 
 authApi.post("/register", zValidator("json", registerSchema), async (c) => {
+  const throttled = await rateLimitGuard(c, "register");
+  if (throttled) return throttled;
   const db = createDb(c.env.DB);
   const status = await getAuthBootstrapStatus(db);
   if (status.state !== "complete") {
@@ -210,6 +213,8 @@ authApi.post(
   "/resend-verification",
   zValidator("json", emailRequestSchema),
   async (c) => {
+    const throttled = await rateLimitGuard(c, "email");
+    if (throttled) return throttled;
     if (resolveEmailConfig(c.env).provider === "none") {
       return c.json(
         { error: { message: "Email verification is not enabled." } },
@@ -257,6 +262,8 @@ authApi.post(
   "/forgot-password",
   zValidator("json", emailRequestSchema),
   async (c) => {
+    const throttled = await rateLimitGuard(c, "email");
+    if (throttled) return throttled;
     if (resolveEmailConfig(c.env).provider === "none") {
       return c.json(
         { error: { message: "Password reset email is not configured." } },
