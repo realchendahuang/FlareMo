@@ -491,14 +491,16 @@ async function pruneEmbeddingOutbox(db: FlareMoDb, before: Date) {
     );
 }
 
-function chunkIdsForMemo(memoId: string): string[] {
+/** All possible vector ids for a memo (deleteByIds no-ops missing ids). */
+export function chunkIdsForMemo(memoId: string): string[] {
   return Array.from(
     { length: EMBEDDING_MAX_CHUNKS },
     (_, index) => `${memoId}#chunks/${index}`,
   );
 }
 
-function memoryIdVector(memoryId: string): string {
+/** Memories are atomic conclusions (no chunking): vector id = resource id. */
+export function memoryIdVector(memoryId: string): string {
   // Memories are atomic conclusions (no chunking), so the vector id is the
   // resource id itself.
   return memoryId;

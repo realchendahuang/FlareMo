@@ -275,6 +275,13 @@ const messages = {
     "auth.emailChangeVerificationSent":
       "确认邮件已发送到新邮箱，点击邮件里的链接后新邮箱才会生效。",
     "auth.verifyEmailChangeTitle": "确认新邮箱",
+    "auth.deleteAccountTitle": "注销账户",
+    "auth.deleteAccountDescription":
+      "永久删除你的账户、全部笔记、附件、智能记忆、项目与配额数据，并撤销所有登录会话和访问令牌。此操作不可撤销。",
+    "auth.deleteAccountPassword": "输入当前密码确认注销",
+    "auth.deleteAccountSubmit": "永久删除我的账户",
+    "auth.deleteAccountSubmitting": "正在删除…",
+    "auth.deleteAccountFailed": "注销失败，请确认密码后重试。",
     "auth.verifyEmailChangeSuccess": "新邮箱已生效，下次请使用新邮箱登录。",
     "auth.verifyEmailChangeInvalid":
       "链接无效或已过期，请到账户页重新发起修改。",
@@ -770,6 +777,14 @@ const messages = {
     "auth.emailChangeVerificationSent":
       "A confirmation email was sent to your new address. The change takes effect after you click the link in it.",
     "auth.verifyEmailChangeTitle": "Confirm new email",
+    "auth.deleteAccountTitle": "Delete account",
+    "auth.deleteAccountDescription":
+      "Permanently delete your account with all notes, attachments, agent memories, projects, and quota data, and revoke every session and access token. This cannot be undone.",
+    "auth.deleteAccountPassword": "Confirm with your current password",
+    "auth.deleteAccountSubmit": "Permanently delete my account",
+    "auth.deleteAccountSubmitting": "Deleting…",
+    "auth.deleteAccountFailed":
+      "Could not delete the account. Check your password and try again.",
     "auth.verifyEmailChangeSuccess":
       "New email confirmed. Use it to sign in from now on.",
     "auth.verifyEmailChangeInvalid":
