@@ -679,6 +679,15 @@ function VectorUsagePanel({
 // Used-vs-limit rows for the injectable plan quotas. Rows with a null limit
 // (self-hosted default) stay hidden so the panel stays noise-free; when every
 // limit is null there is nothing to render.
+type QuotaRow = {
+  key: TranslationKey;
+  used: number;
+  limit: number | null;
+  format: (value: number) => string;
+};
+
+const localeFormat = (value: number) => value.toLocaleString();
+
 function PlanQuotaBars({
   plan,
   t,
@@ -686,12 +695,31 @@ function PlanQuotaBars({
   plan: NonNullable<VectorUsageReport["plan"]>;
   t: (key: TranslationKey) => string;
 }) {
-  const rows: Array<{
-    key: TranslationKey;
-    used: number;
-    limit: number | null;
-    format: (value: number) => string;
-  }> = [
+  const userRows: QuotaRow[] | null = plan.user
+    ? [
+        {
+          key: "usage.planStorage",
+          used: plan.user.usage.attachmentStorageBytes,
+          limit: plan.user.limits.attachmentStorageBytes,
+          format: formatBytes,
+        },
+        {
+          key: "usage.planEmbeddingTokens",
+          used: plan.user.usage.aiEmbeddingTokensPerMonth,
+          limit: plan.user.limits.aiEmbeddingTokensPerMonth,
+          format: localeFormat,
+        },
+        {
+          key: "usage.planSearchQueries",
+          used: plan.user.usage.semanticSearchQueriesPerMonth,
+          limit: plan.user.limits.semanticSearchQueriesPerMonth,
+          format: localeFormat,
+        },
+      ]
+    : null;
+  const userLimited = userRows?.filter((row) => row.limit !== null) ?? [];
+
+  const deploymentRows: QuotaRow[] = [
     {
       key: "usage.planStorage",
       used: plan.usage.attachmentStorageBytes,
@@ -702,35 +730,54 @@ function PlanQuotaBars({
       key: "usage.planEmbeddingTokens",
       used: plan.usage.aiEmbeddingTokensPerMonth,
       limit: plan.limits.aiEmbeddingTokensPerMonth,
-      format: (value) => value.toLocaleString(),
+      format: localeFormat,
     },
     {
       key: "usage.planSearchQueries",
       used: plan.usage.semanticSearchQueriesPerMonth,
       limit: plan.limits.semanticSearchQueriesPerMonth,
-      format: (value) => value.toLocaleString(),
+      format: localeFormat,
     },
     {
       key: "usage.planMembers",
       used: plan.usage.maxMembersPerDeployment,
       limit: plan.limits.maxMembersPerDeployment,
-      format: (value) => value.toLocaleString(),
+      format: localeFormat,
     },
   ];
-  const limited = rows.filter((row) => row.limit !== null);
-  if (limited.length === 0) return null;
+  const deploymentLimited = deploymentRows.filter((row) => row.limit !== null);
+
+  if (userLimited.length === 0 && deploymentLimited.length === 0) return null;
   return (
     <div className="flex flex-col gap-3 border-t pt-4">
-      <p className="text-sm font-medium">{t("usage.planTitle")}</p>
-      {limited.map((row) => (
-        <UsageBar
-          key={row.key}
-          label={t(row.key)}
-          used={row.used}
-          limit={row.limit as number}
-          formatValue={row.format}
-        />
-      ))}
+      {userLimited.length > 0 && (
+        <>
+          <p className="text-sm font-medium">{t("usage.planUserTitle")}</p>
+          {userLimited.map((row) => (
+            <UsageBar
+              key={`user-${row.key}`}
+              label={t(row.key)}
+              used={row.used}
+              limit={row.limit as number}
+              formatValue={row.format}
+            />
+          ))}
+        </>
+      )}
+      {deploymentLimited.length > 0 && (
+        <>
+          <p className="text-sm font-medium">{t("usage.planTitle")}</p>
+          {deploymentLimited.map((row) => (
+            <UsageBar
+              key={`deployment-${row.key}`}
+              label={t(row.key)}
+              used={row.used}
+              limit={row.limit as number}
+              formatValue={row.format}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }

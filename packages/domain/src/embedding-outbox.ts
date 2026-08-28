@@ -13,8 +13,12 @@ import {
   embeddingVersion,
   type VectorIndex,
 } from "./embedding";
-import type { PlanLimits } from "./limits";
-import { estimateTokenCount, readMonthlyUsageTotal } from "./quotas";
+import type { PlanLimits, UserPlanLimits } from "./limits";
+import {
+  estimateTokenCount,
+  readMonthlyUsageTotal,
+  readUserMonthlyUsage,
+} from "./quotas";
 import { incrementUsageCounter } from "./usage";
 
 export type EmbeddingResourceType = "memo" | "memory";
@@ -42,6 +46,11 @@ export type EmbeddingDispatchDeps = {
    * (next month, or after a plan raise) instead of failing into retries.
    */
   limits?: PlanLimits;
+  /**
+   * Per-user budget for shared deployments. When set, each task is judged
+   * against its owner's own usage; it wins over the deployment budget.
+   */
+  userLimits?: UserPlanLimits | null;
 };
 
 /**
@@ -102,7 +111,15 @@ export async function dispatchEmbeddingOutbox(
   for (const task of claimed) {
     // Re-check inside the batch: earlier embeds in this sweep may have spent
     // the remaining budget, so release the rest rather than overshooting.
-    if (!(await embeddingBudgetAvailable(db, deps.limits))) {
+    // Each task is judged against its own user when per-user limits apply.
+    if (
+      !(await embeddingBudgetAvailable(
+        db,
+        deps.limits,
+        deps.userLimits,
+        task.userId,
+      ))
+    ) {
       await unclaimEmbeddingTask(db, task, nowIso);
       continue;
     }
@@ -125,11 +142,17 @@ export async function dispatchEmbeddingOutbox(
 async function embeddingBudgetAvailable(
   db: FlareMoDb,
   limits?: PlanLimits,
+  userLimits?: UserPlanLimits | null,
+  userId?: string,
 ): Promise<boolean> {
-  const limit = limits?.aiEmbeddingTokensPerMonth;
-  if (limit === null || limit === undefined) return true;
-  const used = await readMonthlyUsageTotal(db, "embedding_tokens");
-  return used < limit;
+  const scoped = userLimits?.aiEmbeddingTokensPerMonth ?? null;
+  const effective = scoped ?? limits?.aiEmbeddingTokensPerMonth ?? null;
+  if (effective === null) return true;
+  const used =
+    scoped !== null && userId
+      ? await readUserMonthlyUsage(db, userId, "embedding_tokens")
+      : await readMonthlyUsageTotal(db, "embedding_tokens");
+  return used < effective;
 }
 
 /** Release a claimed task without consuming a retry attempt. */

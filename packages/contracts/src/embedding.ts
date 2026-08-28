@@ -66,6 +66,23 @@ export const planUsageReportSchema = z.object({
     semanticSearchQueriesPerMonth: z.number().int(),
     maxMembersPerDeployment: z.number().int(),
   }),
+  // Per-user section: present only when the deployment configures
+  // per-user quotas (shared sign-up instances). No member dimension —
+  // the member cap is deployment-scoped by definition.
+  user: z
+    .object({
+      limits: z.object({
+        attachmentStorageBytes: planLimitValueSchema,
+        aiEmbeddingTokensPerMonth: planLimitValueSchema,
+        semanticSearchQueriesPerMonth: planLimitValueSchema,
+      }),
+      usage: z.object({
+        attachmentStorageBytes: z.number().int(),
+        aiEmbeddingTokensPerMonth: z.number().int(),
+        semanticSearchQueriesPerMonth: z.number().int(),
+      }),
+    })
+    .optional(),
 });
 
 export type PlanUsageReport = z.infer<typeof planUsageReportSchema>;

@@ -21,7 +21,7 @@ import { createMemory, type MemoryActor } from "./memory";
 import { createMemo, hardDeleteMemo } from "./memos";
 import { readMonthlyUsageTotal } from "./quotas";
 import { incrementUsageCounter } from "./usage";
-import { ensureSingleUser } from "./users";
+import { createFlaremoMember, ensureSingleUser } from "./users";
 
 const USER_ACTOR: MemoryActor = { type: "user" };
 
@@ -251,6 +251,59 @@ describe("embedding outbox", () => {
       0,
     );
     expect(await readMonthlyUsageTotal(db, "embedding_calls")).toBe(1);
+  });
+
+  it("judges each task against its own user when per-user limits apply", async () => {
+    const spent = await createMemo(db, user, {
+      content: "这个用户的预算已耗尽",
+      visibility: "private",
+      source: "web",
+    });
+    const fresh = await createFlaremoMember(db, {
+      email: "fresh@example.com",
+      name: "Fresh",
+    });
+    const freshMemo = await createMemo(db, fresh, {
+      content: "新用户预算充足，正常索引",
+      visibility: "private",
+      source: "web",
+    });
+    await incrementUsageCounter(db, user, "embedding_tokens", 100);
+    const userLimits = {
+      aiEmbeddingTokensPerMonth: 100,
+      attachmentStorageBytes: null,
+      semanticSearchQueriesPerMonth: null,
+    };
+
+    let embedCalls = 0;
+    const provider: EmbeddingProvider = {
+      ...fakeProvider(),
+      async embed(texts) {
+        embedCalls += 1;
+        return fakeProvider().embed(texts);
+      },
+    };
+    await dispatchEmbeddingOutbox(db, {
+      provider,
+      memosIndex: new FakeVectorIndex(),
+      memoriesIndex: null,
+      userLimits,
+    });
+
+    // The spent user's task pauses (pending, no embed); the fresh user's
+    // task still processes because their own budget is untouched.
+    const rows = await db.select().from(embeddingTasks);
+    const spentRow = rows.find((row) => row.resourceId === spent.id);
+    const freshRow = rows.find((row) => row.resourceId === freshMemo.id);
+    expect(spentRow?.status).toBe("pending");
+    expect(freshRow?.status).toBe("succeeded");
+    expect(embedCalls).toBe(1);
+    const freshMemoRow = await db
+      .select()
+      .from(memos)
+      .where(eq(memos.id, freshMemo.id))
+      .get();
+    expect(freshMemoRow?.embeddingStatus).toBe("indexed");
   });
 
   it("pauses when the monthly budget is spent and resumes later", async () => {

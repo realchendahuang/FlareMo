@@ -146,7 +146,7 @@ appApi.get(
   zValidator("query", semanticMemoSearchQuerySchema),
   async (c) => {
     try {
-      const { db, user, limits } = await getRequestContext(c);
+      const { db, user, limits, userLimits } = await getRequestContext(c);
       const provider = createEmbeddingProvider(c.env);
       const index = createVectorIndex(c.env, "memo");
       if (!provider || !index) {
@@ -158,6 +158,7 @@ appApi.get(
         limits.semanticSearchQueriesPerMonth,
         "search_queries",
         "Monthly semantic search quota exceeded",
+        { userLimits, userId: user.id },
       );
       const hits = await semanticSearchMemos(
         db,
@@ -210,7 +211,7 @@ appApi.get(
 
 appApi.get("/usage/vector", async (c) => {
   try {
-    const { db, user, limits } = await getRequestContext(c);
+    const { db, user, limits, userLimits } = await getRequestContext(c);
     const config = resolveEmbeddingConfig(c.env);
     const storedLimit = Number.parseInt(
       c.env.FLAREMO_VECTORIZE_STORED_LIMIT?.trim() || "5000000",
@@ -235,7 +236,10 @@ appApi.get("/usage/vector", async (c) => {
         memoriesIndex: createVectorIndex(c.env, "memory"),
       },
     );
-    const plan = await reportPlanUsage(db, limits);
+    const plan = await reportPlanUsage(db, limits, {
+      userId: user.id,
+      userLimits,
+    });
     return c.json({ ...report, plan });
   } catch (error) {
     return jsonError(c, error);

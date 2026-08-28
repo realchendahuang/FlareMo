@@ -12,7 +12,9 @@ import {
   finalizeAttachmentCleanup,
   listAttachmentCleanupCandidates,
   type PlanLimits,
+  parseUserPlanLimits,
   SELF_HOST_UNLIMITED,
+  type UserPlanLimits,
 } from "@flaremo/domain";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -56,6 +58,16 @@ import { tasksApi } from "./routes/tasks-api";
  */
 export type FlareMoAppOptions = {
   resolvePlanLimits?: (env: FlareMoEnv) => Promise<PlanLimits> | PlanLimits;
+  /**
+   * Per-user limits for shared deployments (e.g. public sign-up instances).
+   * Defaults to the FLAREMO_USER_LIMITS_JSON env payload, which is user-agnostic.
+   * External composition shells may resolve per-user plans here; subscription concepts stay
+   * outside the kernel — this only ever returns numbers-or-null.
+   */
+  resolveUserPlanLimits?: (
+    env: FlareMoEnv,
+    userId: string,
+  ) => Promise<UserPlanLimits | null> | UserPlanLimits | null;
 };
 
 export function createFlareMoApp(
@@ -63,10 +75,14 @@ export function createFlareMoApp(
 ): Hono<HonoBindings> {
   const resolvePlanLimits =
     options.resolvePlanLimits ?? ((env: FlareMoEnv) => SELF_HOST_UNLIMITED);
+  const resolveUserPlanLimits =
+    options.resolveUserPlanLimits ??
+    ((env: FlareMoEnv) => parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON));
   const app = new Hono<HonoBindings>();
 
   app.use("*", async (c, next) => {
     c.set("planLimits", await resolvePlanLimits(c.env));
+    c.set("resolveUserPlanLimits", resolveUserPlanLimits);
     await next();
   });
 
@@ -217,6 +233,7 @@ const handler = {
         memosIndex: createVectorIndex(env, "memo"),
         memoriesIndex: createVectorIndex(env, "memory"),
         limits: SELF_HOST_UNLIMITED,
+        userLimits: parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON),
       }).catch(() => undefined),
     );
     return response;
@@ -228,6 +245,7 @@ const handler = {
       memosIndex: createVectorIndex(env, "memo"),
       memoriesIndex: createVectorIndex(env, "memory"),
       limits: SELF_HOST_UNLIMITED,
+      userLimits: parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON),
     });
     const db = createDb(env.DB);
     const cutoff = new Date(

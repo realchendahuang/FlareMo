@@ -1548,6 +1548,70 @@ describe("FlareMo Worker API", () => {
     expect(body.error.message).toContain("storage quota");
   });
 
+  it("applies per-user limits independently of the deployment limits", async () => {
+    const userLimitsApp = createFlareMoApp({
+      resolveUserPlanLimits: (env, userId) =>
+        userId === "users/owner" // the bootstrap owner only
+          ? {
+              attachmentStorageBytes: 10,
+              aiEmbeddingTokensPerMonth: null,
+              semanticSearchQueriesPerMonth: null,
+            }
+          : null,
+      resolvePlanLimits: () => SELF_HOST_UNLIMITED,
+    });
+
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File(["inline attachment"], "inline.txt", { type: "text/plain" }),
+    );
+    const response = await userLimitsApp.fetch(
+      new Request("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        headers: {
+          cookie: sessionCookie,
+          "x-flaremo-wire": "legacy",
+          origin: "http://flaremo.test",
+        },
+        body: formData,
+      }),
+      env,
+    );
+    expect(response.status).toBe(429);
+  });
+
+  it("reports the per-user section on the usage endpoint when configured", async () => {
+    const userLimitsApp = createFlareMoApp({
+      resolveUserPlanLimits: () => ({
+        attachmentStorageBytes: 1024,
+        aiEmbeddingTokensPerMonth: 200_000,
+        semanticSearchQueriesPerMonth: null,
+      }),
+    });
+    const response = await userLimitsApp.fetch(
+      new Request("http://flaremo.test/api/app/usage/vector", {
+        headers: { cookie: sessionCookie },
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      plan?: {
+        user?: {
+          limits: Record<string, number | null>;
+          usage: Record<string, number>;
+        };
+      };
+    };
+    expect(body.plan?.user?.limits).toEqual({
+      attachmentStorageBytes: 1024,
+      aiEmbeddingTokensPerMonth: 200_000,
+      semanticSearchQueriesPerMonth: null,
+    });
+    expect(body.plan?.user?.usage.attachmentStorageBytes).toBe(0);
+  });
+
   it("rejects a registration over the member cap with 429", async () => {
     const quotaApp = createFlareMoApp({
       resolvePlanLimits: () => ({
