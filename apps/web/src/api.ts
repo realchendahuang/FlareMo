@@ -608,6 +608,13 @@ export async function verifyEmailChange(token: string) {
   );
 }
 
+export async function deleteAccount(currentPassword: string) {
+  return apiRequest<{ ok: true }>("/api/app/account", {
+    method: "DELETE",
+    body: JSON.stringify({ current_password: currentPassword }),
+  });
+}
+
 export async function getCurrentFlareMoUser() {
   return apiRequest<CurrentFlareMoUser>("/api/app/me");
 }

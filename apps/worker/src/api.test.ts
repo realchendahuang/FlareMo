@@ -100,6 +100,10 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const reactionsSchema = await readFile(
+      resolve(import.meta.dirname, "../../../migrations/0006_silent_kylun.sql"),
+      "utf8",
+    );
     const sseEvents = await readFile(
       resolve(
         import.meta.dirname,
@@ -136,18 +140,27 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const projectsSchema = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0013_nosy_luke_cage.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
     await applyMigration(db, offlineCapture);
     await applyMigration(db, offlineAttachments);
     await applyMigration(db, nativeAuth);
+    await applyMigration(db, reactionsSchema);
     await applyMigration(db, sseEvents);
     await applyMigration(db, userServiceParity);
     await applyMigration(db, webhookOutbox);
     await applyMigration(db, dataTasks);
     await applyMigration(db, memorySchema);
     await applyMigration(db, embeddingSchema);
+    await applyMigration(db, projectsSchema);
     sessionCookie = await bootstrapAndSignIn();
   });
 
@@ -2144,6 +2157,157 @@ describe("FlareMo Worker API", () => {
     );
     expect(sessionRead.status).toBe(200);
     expect(keys).toHaveLength(2);
+  });
+
+  it("lets a member delete their own account after password confirmation", async () => {
+    const open = await app.fetch(
+      new Request("http://flaremo.test/api/app/admin/settings", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: sessionCookie,
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({ registration_open: true }),
+      }),
+      env,
+    );
+    expect(open.status).toBe(200);
+
+    const register = await app.fetch(
+      new Request("http://flaremo.test/api/auth/flaremo/register", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          name: "Doomed",
+          email: "doomed@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(register.status).toBe(201);
+
+    const signIn = await app.fetch(
+      new Request("http://flaremo.test/api/auth/sign-in/email", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          email: "doomed@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(signIn.status).toBe(200);
+    const memberCookie = extractCookieHeader(signIn);
+
+    const memo = await app.fetch(
+      new Request("http://flaremo.test/api/v1/memos", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+          cookie: memberCookie,
+        },
+        body: JSON.stringify({ content: "goodbye" }),
+      }),
+      env,
+    );
+    expect(memo.status).toBe(200);
+
+    // The owner cannot self-delete through the app.
+    const ownerDelete = await app.fetch(
+      new Request("http://flaremo.test/api/app/account", {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+          cookie: sessionCookie,
+        },
+        body: JSON.stringify({ current_password: TEST_PASSWORD }),
+      }),
+      env,
+    );
+    expect(ownerDelete.status).toBe(403);
+
+    // Wrong password refused; correct password deletes identity and data.
+    const wrongDelete = await app.fetch(
+      new Request("http://flaremo.test/api/app/account", {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+          cookie: memberCookie,
+        },
+        body: JSON.stringify({ current_password: "wrong-password-123" }),
+      }),
+      env,
+    );
+    expect(wrongDelete.status).toBe(400);
+
+    const deleted = await app.fetch(
+      new Request("http://flaremo.test/api/app/account", {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+          cookie: memberCookie,
+        },
+        body: JSON.stringify({ current_password: TEST_PASSWORD }),
+      }),
+      env,
+    );
+    expect(deleted.status).toBe(200);
+
+    const reSignIn = await app.fetch(
+      new Request("http://flaremo.test/api/auth/sign-in/email", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          email: "doomed@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(reSignIn.status).toBe(401);
+
+    // The member's memo is gone with the account.
+    const list = await app.fetch(
+      new Request("http://flaremo.test/api/v1/memos", {
+        headers: { cookie: memberCookie },
+      }),
+      env,
+    );
+    expect(list.status).toBe(401);
+
+    // The freed email can register again.
+    const reRegister = await app.fetch(
+      new Request("http://flaremo.test/api/auth/flaremo/register", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          name: "Doomed",
+          email: "doomed@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(reRegister.status).toBe(201);
   });
 
   it("rejects a registration over the member cap with 429", async () => {
