@@ -13,6 +13,9 @@ import {
   embeddingVersion,
   type VectorIndex,
 } from "./embedding";
+import type { PlanLimits } from "./limits";
+import { estimateTokenCount, readMonthlyUsageTotal } from "./quotas";
+import { incrementUsageCounter } from "./usage";
 
 export type EmbeddingResourceType = "memo" | "memory";
 export type EmbeddingTaskOperation = "index" | "reindex" | "delete";
@@ -33,6 +36,12 @@ export type EmbeddingDispatchDeps = {
   provider: EmbeddingProvider | null;
   memosIndex: VectorIndex | null;
   memoriesIndex: VectorIndex | null;
+  /**
+   * Monthly embedding-token budget. When set and exhausted, the sweep pauses:
+   * claimed tasks are released back to pending and resume on a later sweep
+   * (next month, or after a plan raise) instead of failing into retries.
+   */
+  limits?: PlanLimits;
 };
 
 /**
@@ -81,6 +90,8 @@ export async function dispatchEmbeddingOutbox(
   const nowIso = now.toISOString();
   await recoverExpiredEmbeddingLeases(db, nowIso);
 
+  if (!(await embeddingBudgetAvailable(db, deps.limits))) return;
+
   const tasks = await listClaimableEmbeddingTasks(db, nowIso);
   const claimed: EmbeddingTaskRow[] = [];
   for (const task of tasks) {
@@ -89,6 +100,12 @@ export async function dispatchEmbeddingOutbox(
   }
 
   for (const task of claimed) {
+    // Re-check inside the batch: earlier embeds in this sweep may have spent
+    // the remaining budget, so release the rest rather than overshooting.
+    if (!(await embeddingBudgetAvailable(db, deps.limits))) {
+      await unclaimEmbeddingTask(db, task, nowIso);
+      continue;
+    }
     try {
       await processEmbeddingTask(db, deps, task, nowIso);
       await markEmbeddingTaskSucceeded(db, task.id, nowIso);
@@ -103,6 +120,51 @@ export async function dispatchEmbeddingOutbox(
   }
 
   await pruneEmbeddingOutbox(db, new Date(now.getTime() - RETENTION_MS));
+}
+
+async function embeddingBudgetAvailable(
+  db: FlareMoDb,
+  limits?: PlanLimits,
+): Promise<boolean> {
+  const limit = limits?.aiEmbeddingTokensPerMonth;
+  if (limit === null || limit === undefined) return true;
+  const used = await readMonthlyUsageTotal(db, "embedding_tokens");
+  return used < limit;
+}
+
+/** Release a claimed task without consuming a retry attempt. */
+async function unclaimEmbeddingTask(
+  db: FlareMoDb,
+  task: EmbeddingTaskRow,
+  nowIso: string,
+) {
+  await db
+    .update(embeddingTasks)
+    .set({
+      status: "pending",
+      attempts: task.attempts,
+      leaseUntil: null,
+      updatedAt: nowIso,
+    })
+    .where(eq(embeddingTasks.id, task.id));
+}
+
+/**
+ * Attribute a successful embed call to the deployment's monthly budget.
+ * Best-effort: metering failures must never fail the indexing task itself.
+ */
+function recordEmbeddingUsage(db: FlareMoDb, userId: string, texts: string[]) {
+  return Promise.all([
+    incrementUsageCounter(
+      db,
+      { id: userId },
+      "embedding_tokens",
+      estimateTokenCount(texts),
+    ).catch(() => undefined),
+    incrementUsageCounter(db, { id: userId }, "embedding_calls", 1).catch(
+      () => undefined,
+    ),
+  ]);
 }
 
 async function processEmbeddingTask(
@@ -174,6 +236,7 @@ async function processMemoEmbeddingTask(
   }
 
   const vectors = await provider.embed(chunks);
+  await recordEmbeddingUsage(db, task.userId, chunks);
   const ids = chunkVectorIds(memo.id, chunks.length);
   await index.upsert(
     ids.map((id, index_) => ({
@@ -225,6 +288,7 @@ async function processMemoryEmbeddingTask(
   }
 
   const vectors = await provider.embed([memory.content]);
+  await recordEmbeddingUsage(db, task.userId, [memory.content]);
   await index.upsert([
     {
       id: memoryIdVector(memory.id),
@@ -462,6 +526,9 @@ export async function rebuildEmbeddingIndexes(
       const chunks = chunkText(memo.content);
       if (chunks.length > 0) {
         const vectors = await deps.provider.embed(chunks);
+        // Rebuild is a recovery path and is metered but never blocked: a
+        // spent budget pauses background indexing, not index repair.
+        await recordEmbeddingUsage(db, memo.userId, chunks);
         const ids = chunkVectorIds(memo.id, chunks.length);
         await deps.memosIndex.upsert(
           ids.map((id, index_) => ({
@@ -492,6 +559,7 @@ export async function rebuildEmbeddingIndexes(
     .where(eq(memoryItems.status, "active"));
   for (const memory of activeMemories) {
     const vectors = await deps.provider.embed([memory.content]);
+    await recordEmbeddingUsage(db, memory.userId, [memory.content]);
     await deps.memoriesIndex.upsert([
       {
         id: memory.id,

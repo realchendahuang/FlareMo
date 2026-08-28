@@ -1,5 +1,6 @@
 import { createDb } from "@flaremo/db";
 import {
+  assertMemberQuota,
   claimOwnerBootstrap,
   completeOwnerBootstrap,
   createFlaremoMemberWithLink,
@@ -9,7 +10,9 @@ import {
   getUserRegistrationAllowed,
   listMemosPersonalAccessTokens,
   markOwnerBootstrapRecoveryRequired,
+  QuotaExceededError,
   reconcileOwnerBootstrap,
+  SELF_HOST_UNLIMITED,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -89,6 +92,16 @@ authApi.post("/register", zValidator("json", registerSchema), async (c) => {
   const input = c.req.valid("json");
   const email = input.email.trim();
   const username = await deriveUniqueUsername(db, email);
+  // Pre-check before the Better Auth identity exists: failing only at link
+  // time would orphan an auth user on a spent member quota.
+  try {
+    await assertMemberQuota(db, c.get("planLimits") ?? SELF_HOST_UNLIMITED);
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return c.json({ error: { message: error.message } }, 429);
+    }
+    throw error;
+  }
   let auth: ReturnType<typeof createFlareMoAuth>;
   try {
     auth = createFlareMoAuth(c.env, db, { allowBootstrapSignUp: true });
@@ -109,13 +122,22 @@ authApi.post("/register", zValidator("json", registerSchema), async (c) => {
         displayUsername: input.name,
       },
     });
-    await createFlaremoMemberWithLink(db, {
-      authUserId: result.user.id,
-      email,
-      name: input.name,
-    });
+    await createFlaremoMemberWithLink(
+      db,
+      {
+        authUserId: result.user.id,
+        email,
+        name: input.name,
+      },
+      c.get("planLimits") ?? SELF_HOST_UNLIMITED,
+    );
     return c.json({ ok: true }, 201);
-  } catch {
+  } catch (error) {
+    // A spent member quota must surface as its own status, not drown in the
+    // generic "registration failed" path that hides Better Auth internals.
+    if (error instanceof QuotaExceededError) {
+      return c.json({ error: { message: error.message } }, 429);
+    }
     return c.json(
       { error: { message: "Registration could not be completed." } },
       400,
