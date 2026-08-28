@@ -766,6 +766,7 @@ memosCurrentApi.post("/attachments", async (c, next) => {
       context.db,
       context.limits,
       bytes.byteLength,
+      { userLimits: context.userLimits, userId: context.user.id },
     );
     const objectKey = createAttachmentObjectKey(
       context.user.id,

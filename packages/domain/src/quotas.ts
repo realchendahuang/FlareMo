@@ -2,9 +2,19 @@ import type { FlareMoDb } from "@flaremo/db";
 import { attachments, usageCounters, users } from "@flaremo/db";
 import { and, eq, sql } from "drizzle-orm";
 import { QuotaExceededError } from "./errors";
-import type { PlanLimits, PlanLimitValue } from "./limits";
+import type { PlanLimits, PlanLimitValue, UserPlanLimits } from "./limits";
 import type { UsageMetric } from "./usage";
 import { currentMonthKey } from "./usage";
+
+/**
+ * Per-request quota scope. When `userLimits` sets a dimension it wins over
+ * the deployment limit for that dimension, and usage is read for `userId`
+ * only; unset dimensions fall through to the deployment-wide check.
+ */
+export type QuotaScope = {
+  userLimits?: UserPlanLimits | null;
+  userId?: string;
+};
 
 /**
  * Quota enforcement primitives shared by the kernel's execution points. Every
@@ -48,30 +58,89 @@ export async function readMonthlyUsageTotal(
   return row?.total ?? 0;
 }
 
-/** Throws QuotaExceededError when the deployment's monthly budget is spent. */
+/** One user's monthly usage for one counter metric. */
+export async function readUserMonthlyUsage(
+  db: FlareMoDb,
+  userId: string,
+  metric: UsageMetric,
+): Promise<number> {
+  const row = await db
+    .select({
+      total: sql<number>`coalesce(sum(${usageCounters.count}), 0)`,
+    })
+    .from(usageCounters)
+    .where(
+      and(
+        eq(usageCounters.userId, userId),
+        eq(usageCounters.month, currentMonthKey()),
+        eq(usageCounters.metric, metric),
+      ),
+    )
+    .get();
+  return row?.total ?? 0;
+}
+
+const MONTHLY_METRIC_TO_USER_LIMIT_KEY = {
+  embedding_tokens: "aiEmbeddingTokensPerMonth",
+  search_queries: "semanticSearchQueriesPerMonth",
+} as const satisfies Record<
+  "embedding_tokens" | "search_queries",
+  keyof UserPlanLimits
+>;
+
+function userMonthlyLimit(
+  userLimits: UserPlanLimits | null | undefined,
+  metric: "embedding_tokens" | "search_queries",
+): PlanLimitValue {
+  if (!userLimits) return null;
+  return userLimits[MONTHLY_METRIC_TO_USER_LIMIT_KEY[metric]];
+}
+
+/**
+ * Throws QuotaExceededError when the monthly budget is spent. Without a
+ * scope this checks the deployment-wide total against the deployment limit;
+ * with a user limit in scope it checks that user's own usage instead.
+ */
 export async function assertMonthlyQuota(
   db: FlareMoDb,
   limit: PlanLimitValue,
   metric: UsageMetric,
   message: string,
+  scope?: QuotaScope,
 ): Promise<void> {
-  if (limit === null) return;
-  const used = await readMonthlyUsageTotal(db, metric);
-  if (used >= limit) {
+  if (metric !== "search_queries" && metric !== "embedding_tokens") {
+    throw new Error(`metric ${metric} has no monthly quota`);
+  }
+  const scopedLimit = userMonthlyLimit(scope?.userLimits, metric);
+  const effective = scopedLimit ?? limit;
+  if (effective === null) return;
+  const used =
+    scopedLimit !== null && scope?.userId
+      ? await readUserMonthlyUsage(db, scope.userId, metric)
+      : await readMonthlyUsageTotal(db, metric);
+  if (used >= effective) {
     throw new QuotaExceededError(message);
   }
 }
 
-/** Total bytes of live attachment objects recorded in D1, across all users. */
+/**
+ * Total bytes of live attachment objects recorded in D1. Without `userId`
+ * this spans all users (deployment-wide); with it, only that user's objects.
+ */
 export async function getAttachmentStorageBytes(
   db: FlareMoDb,
+  userId?: string,
 ): Promise<number> {
   const row = await db
     .select({
       total: sql<number>`coalesce(sum(${attachments.size}), 0)`,
     })
     .from(attachments)
-    .where(eq(attachments.state, "ready"))
+    .where(
+      userId
+        ? and(eq(attachments.state, "ready"), eq(attachments.userId, userId))
+        : eq(attachments.state, "ready"),
+    )
     .get();
   return row?.total ?? 0;
 }
@@ -80,13 +149,18 @@ export async function assertAttachmentStorageQuota(
   db: FlareMoDb,
   limits: PlanLimits,
   incomingBytes: number,
+  scope?: QuotaScope,
 ): Promise<void> {
-  const limit = limits.attachmentStorageBytes;
-  if (limit === null) return;
-  const stored = await getAttachmentStorageBytes(db);
-  if (stored + incomingBytes > limit) {
+  const userLimit = scope?.userLimits?.attachmentStorageBytes ?? null;
+  const effective = userLimit ?? limits.attachmentStorageBytes;
+  if (effective === null) return;
+  const stored =
+    userLimit !== null && scope?.userId
+      ? await getAttachmentStorageBytes(db, scope.userId)
+      : await getAttachmentStorageBytes(db);
+  if (stored + incomingBytes > effective) {
     throw new QuotaExceededError(
-      `Attachment storage quota exceeded (${formatBytes(limit)} plan limit)`,
+      `Attachment storage quota exceeded (${formatBytes(effective)} plan limit)`,
     );
   }
 }
@@ -121,14 +195,26 @@ export type PlanUsageReport = {
     semanticSearchQueriesPerMonth: number;
     maxMembersPerDeployment: number;
   };
+  /** Present only when per-user limits are configured on the deployment. */
+  user?: UserPlanUsageReport;
+};
+
+export type UserPlanUsageReport = {
+  limits: UserPlanLimits;
+  usage: {
+    attachmentStorageBytes: number;
+    aiEmbeddingTokensPerMonth: number;
+    semanticSearchQueriesPerMonth: number;
+  };
 };
 
 /** Used-vs-limit snapshot for the account usage panel. */
 export async function reportPlanUsage(
   db: FlareMoDb,
   limits: PlanLimits,
+  scope?: { userId: string; userLimits: UserPlanLimits | null },
 ): Promise<PlanUsageReport> {
-  return {
+  const report: PlanUsageReport = {
     limits,
     usage: {
       attachmentStorageBytes: await getAttachmentStorageBytes(db),
@@ -143,6 +229,28 @@ export async function reportPlanUsage(
       maxMembersPerDeployment: await countFlaremoUsers(db),
     },
   };
+  if (scope?.userLimits) {
+    report.user = {
+      limits: scope.userLimits,
+      usage: {
+        attachmentStorageBytes: await getAttachmentStorageBytes(
+          db,
+          scope.userId,
+        ),
+        aiEmbeddingTokensPerMonth: await readUserMonthlyUsage(
+          db,
+          scope.userId,
+          "embedding_tokens",
+        ),
+        semanticSearchQueriesPerMonth: await readUserMonthlyUsage(
+          db,
+          scope.userId,
+          "search_queries",
+        ),
+      },
+    };
+  }
+  return report;
 }
 
 function formatBytes(bytes: number): string {

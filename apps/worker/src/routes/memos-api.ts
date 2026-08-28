@@ -347,7 +347,7 @@ memosApi.get(
 
 memosApi.post("/attachments", async (c) => {
   try {
-    const { db, user, limits } = await getRequestContext(c);
+    const { db, user, limits, userLimits } = await getRequestContext(c);
     const formData = await c.req.formData();
     const file = formData.get("file");
     const memo = formData.get("memo");
@@ -367,7 +367,10 @@ memosApi.post("/attachments", async (c) => {
       if (existing) return c.json(attachmentToDto(existing));
     }
 
-    await assertAttachmentStorageQuota(db, limits, file.size);
+    await assertAttachmentStorageQuota(db, limits, file.size, {
+      userLimits,
+      userId: user.id,
+    });
 
     const objectKey = createAttachmentObjectKey(user.id, file.name);
     const object = await c.env.ATTACHMENTS.put(objectKey, file, {
@@ -528,12 +531,13 @@ memosApi.post(
   async (c) => {
     const writtenKeys: string[] = [];
     try {
-      const { db, user, limits } = await getRequestContext(c);
+      const { db, user, limits, userLimits } = await getRequestContext(c);
       const bundle = c.req.valid("json");
       await assertAttachmentStorageQuota(
         db,
         limits,
         bundleAttachmentBytes(bundle.attachments),
+        { userLimits, userId: user.id },
       );
       const r2Keys = new Map<string, string>();
       const r2Etags = new Map<string, string | null>();
@@ -837,7 +841,7 @@ memosApi.post(
     let taskId: string | undefined;
     const writtenKeys: string[] = [];
     try {
-      const { db, user, limits } = await getRequestContext(c);
+      const { db, user, limits, userLimits } = await getRequestContext(c);
       const body = c.req.valid("json");
       const task = await createDataTask(db, user, { kind: "import" });
       taskId = task.id;
@@ -846,6 +850,7 @@ memosApi.post(
         db,
         limits,
         bundleAttachmentBytes(body.bundle.attachments),
+        { userLimits, userId: user.id },
       );
       const r2Keys = new Map<string, string>();
       const r2Etags = new Map<string, string | null>();

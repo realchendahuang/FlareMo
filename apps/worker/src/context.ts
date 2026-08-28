@@ -4,8 +4,10 @@ import {
   getFlaremoUserByAuthSessionToken,
   getFlaremoUserByAuthUserId,
   type PlanLimits,
+  parseUserPlanLimits,
   SELF_HOST_UNLIMITED,
   UnauthorizedError,
+  type UserPlanLimits,
 } from "@flaremo/domain";
 import type { Context } from "hono";
 import {
@@ -25,10 +27,32 @@ export type HonoBindings = {
      * shells swap in a subscription-backed resolver via factory options.
      */
     planLimits: PlanLimits;
+    /**
+     * Stashed by the same middleware so authenticated context builders can
+     * resolve per-user limits after the user is known. Defaults to the
+     * user-agnostic FLAREMO_USER_LIMITS_JSON payload.
+     */
+    resolveUserPlanLimits: (
+      env: FlareMoEnv,
+      userId: string,
+    ) => Promise<UserPlanLimits | null> | UserPlanLimits | null;
   };
 };
 
 export type RequestCredential = "session" | "pat";
+
+/**
+ * Per-user quota limits for the authenticated user. `null` = not configured;
+ * only deployment-level limits (or none) apply.
+ */
+async function resolveUserLimits(
+  c: Context<HonoBindings>,
+  userId: string,
+): Promise<UserPlanLimits | null> {
+  const resolve = c.get("resolveUserPlanLimits");
+  if (!resolve) return parseUserPlanLimits(c.env.FLAREMO_USER_LIMITS_JSON);
+  return resolve(c.env, userId);
+}
 
 export async function getRequestContext(c: Context<HonoBindings>) {
   const db = createDb(c.env.DB);
@@ -53,6 +77,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
           nativeAccessToken: true,
           session: null,
           limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
+          userLimits: await resolveUserLimits(c, nativeAccess.user.id),
         };
       }
 
@@ -68,6 +93,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
         nativeAccessToken: false,
         session: session.session,
         limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
+        userLimits: await resolveUserLimits(c, session.user.id),
       };
     }
     const verification = await auth.api.verifyApiKey({
@@ -95,6 +121,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
       nativeAccessToken: false,
       session: null,
       limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
+      userLimits: await resolveUserLimits(c, user.id),
     };
   }
 
@@ -125,6 +152,7 @@ export async function getOptionalRequestContext(c: Context<HonoBindings>) {
         nativeAccessToken: false,
         session: null,
         limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
+        userLimits: null,
       };
     }
     throw error;
@@ -163,6 +191,7 @@ export async function getBrowserRequestContext(
     nativeAccessToken: false,
     session: null,
     limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
+    userLimits: await resolveUserLimits(c, user.id),
   };
 }
 

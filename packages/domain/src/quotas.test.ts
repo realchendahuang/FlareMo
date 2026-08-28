@@ -5,7 +5,7 @@ import { attachments, createDb } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { QuotaExceededError } from "./errors";
-import { SELF_HOST_UNLIMITED } from "./limits";
+import { SELF_HOST_UNLIMITED, type UserPlanLimits } from "./limits";
 import {
   assertAttachmentStorageQuota,
   assertMemberQuota,
@@ -161,6 +161,80 @@ describe("plan quota checks", () => {
     const raised = { ...SELF_HOST_UNLIMITED, maxMembersPerDeployment: 3 };
     await expect(assertMemberQuota(db, raised)).resolves.toBeUndefined();
     await assertMemberQuota(db, SELF_HOST_UNLIMITED);
+  });
+
+  it("scopes storage and monthly checks to the user when user limits apply", async () => {
+    const member = await createFlaremoMember(db, {
+      email: "member@example.com",
+      name: "Member",
+    });
+    // Owner owns 900 bytes, member owns 100 bytes.
+    await insertAttachment(owner.id, 900);
+    await insertAttachment(member.id, 100);
+
+    const userLimits: UserPlanLimits = {
+      attachmentStorageBytes: 500,
+      aiEmbeddingTokensPerMonth: null,
+      semanticSearchQueriesPerMonth: null,
+    };
+
+    // The member is within their own 500-byte quota despite the deployment
+    // holding 1000 bytes; the owner is over it.
+    await expect(
+      assertAttachmentStorageQuota(db, SELF_HOST_UNLIMITED, 50, {
+        userLimits,
+        userId: member.id,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertAttachmentStorageQuota(db, SELF_HOST_UNLIMITED, 50, {
+        userLimits,
+        userId: owner.id,
+      }),
+    ).rejects.toThrow(QuotaExceededError);
+
+    // Monthly metric: member used 2 of their own 2-query budget -> 429, even
+    // though the deployment-wide total (2) is under the deployment limit 10.
+    await incrementUsageCounter(db, owner, "search_queries", 2);
+    await expect(
+      assertMonthlyQuota(db, null, "search_queries", "over", {
+        userLimits: { ...userLimits, semanticSearchQueriesPerMonth: 2 },
+        userId: owner.id,
+      }),
+    ).rejects.toThrow(QuotaExceededError);
+    await expect(
+      assertMonthlyQuota(db, null, "search_queries", "over", {
+        userLimits: { ...userLimits, semanticSearchQueriesPerMonth: 2 },
+        userId: member.id,
+      }),
+    ).resolves.toBeUndefined();
+
+    // Without user limits the deployment-wide check still applies.
+    await expect(
+      assertMonthlyQuota(db, 1, "search_queries", "over"),
+    ).rejects.toThrow(QuotaExceededError);
+  });
+
+  it("reports a per-user section in the plan usage report", async () => {
+    await insertAttachment(owner.id, 700);
+    await incrementUsageCounter(db, owner, "search_queries", 3);
+    const userLimits: UserPlanLimits = {
+      attachmentStorageBytes: 1000,
+      aiEmbeddingTokensPerMonth: null,
+      semanticSearchQueriesPerMonth: 100,
+    };
+
+    const report = await reportPlanUsage(db, SELF_HOST_UNLIMITED, {
+      userId: owner.id,
+      userLimits,
+    });
+    expect(report.user?.limits).toEqual(userLimits);
+    expect(report.user?.usage.attachmentStorageBytes).toBe(700);
+    expect(report.user?.usage.semanticSearchQueriesPerMonth).toBe(3);
+    expect(report.user?.usage.aiEmbeddingTokensPerMonth).toBe(0);
+
+    const anonymous = await reportPlanUsage(db, SELF_HOST_UNLIMITED);
+    expect(anonymous.user).toBeUndefined();
   });
 
   it("reports used values for every plan dimension", async () => {

@@ -585,6 +585,7 @@ async function createConnectAttachment(
     context.db,
     context.limits,
     bytes.byteLength,
+    { userLimits: context.userLimits, userId: context.user.id },
   );
   const objectKey = createAttachmentObjectKey(
     context.user.id,
@@ -2076,6 +2077,7 @@ async function getPublicInstanceContext(
     nativeAccessToken: false,
     session: null,
     limits: SELF_HOST_UNLIMITED,
+    userLimits: null,
   };
 }
 

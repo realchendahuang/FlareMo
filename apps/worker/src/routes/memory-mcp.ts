@@ -427,6 +427,7 @@ async function callMemoryTool(
           context.limits.semanticSearchQueriesPerMonth,
           "search_queries",
           "Monthly semantic search quota exceeded",
+          { userLimits: context.userLimits, userId: context.user.id },
         );
         c.executionCtx.waitUntil(
           Promise.all([

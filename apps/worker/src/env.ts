@@ -4,6 +4,10 @@ export type FlareMoEnv = Env & {
   FLAREMO_RECOVERY_SECRET?: string;
   FLAREMO_PUBLIC_URL?: string;
   FLAREMO_TRUSTED_ORIGINS?: string;
+  // Per-user quota payload for shared deployments (numbers-or-null; see
+  // parseUserPlanLimits). Unset = no per-user limits; only deployment-level
+  // (or none) applies.
+  FLAREMO_USER_LIMITS_JSON?: string;
   // Semantic-search configuration. Provider/model/dimensions are non-secret;
   // the external HTTP provider's API URL/key are optional (the key is a secret).
   FLAREMO_EMBEDDING_PROVIDER?: string;
