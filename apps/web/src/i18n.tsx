@@ -252,6 +252,12 @@ const messages = {
     "auth.captchaRequired": "请先完成验证码。",
     "auth.captchaVerifying": "验证码校验中…",
     "auth.captchaFailed": "验证码校验失败，请重试。",
+    "auth.verifyEmailTitle": "验证邮箱",
+    "auth.verifyEmailSent": "验证邮件已发送到",
+    "auth.verifyEmailHint": "点击邮件里的链接完成验证，然后就可以登录了。",
+    "auth.verifyEmailVerifying": "正在验证…",
+    "auth.verifyEmailSuccess": "邮箱已验证，现在可以登录了。",
+    "auth.verifyEmailInvalid": "验证链接无效或已过期，请重新注册或联系管理员。",
     "auth.registering": "正在注册…",
     "auth.registerFailed": "注册失败，请检查输入后重试。",
     "auth.registrationClosed": "当前未开放注册，请联系管理员。",
@@ -718,6 +724,14 @@ const messages = {
     "auth.captchaRequired": "Complete the captcha first.",
     "auth.captchaVerifying": "Verifying captcha…",
     "auth.captchaFailed": "Captcha verification failed. Try again.",
+    "auth.verifyEmailTitle": "Verify your email",
+    "auth.verifyEmailSent": "A verification email was sent to",
+    "auth.verifyEmailHint":
+      "Click the link in the email to finish verifying, then sign in.",
+    "auth.verifyEmailVerifying": "Verifying…",
+    "auth.verifyEmailSuccess": "Email verified. You can sign in now.",
+    "auth.verifyEmailInvalid":
+      "This verification link is invalid or expired. Please register again or contact the administrator.",
     "auth.registering": "Signing up…",
     "auth.registerFailed": "Sign-up failed. Check your input and try again.",
     "auth.registrationClosed":
