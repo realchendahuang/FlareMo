@@ -2,6 +2,31 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.12.0
+
+按条计费与注册防护版本。共享 SaaS 实例的免费档主货币从字节换成条数（`maxMemosPerUser` / `maxMemoryItemsPerUser`），并新增厂商中立的注册验证码 seam（`none` / `http` / `tencent`），为公开注册铺路。
+
+### 新增能力
+
+- Per-user 存量条数限额（#115）：`UserPlanLimits` 新增 `maxMemosPerUser`（memo 按 normal+archived 计，回收站不算）与 `maxMemoryItemsPerUser`（memory 按 active+archived 计）。检查在 domain `createMemo` / `createMemory` 内部（`QuotaScope` 沿 checkpoint / createMemoryFromMemo / promoteMemoryToMemo 透传），全部 9 条创建路由 + 两条导入路径（按 bundle 条数预检）已接线。恰好满额允许、超出 429；`plan.user` 段与账户面板新增「笔记条数 / Agent 记忆条数」两行。
+- `parseUserPlanLimits` 放宽：缺键解析为 null（回落到部署级限额），仅当载荷无任何有效键才视为未配置——null 从不等于 unlimited。
+- 注册验证码 seam（#116）：`FLAREMO_CAPTCHA_PROVIDER` = `none`（默认）/ `http`（POST {ticket,randstr,ip} 到 `FLAREMO_CAPTCHA_VERIFY_URL`，任意平台可经此接入）/ `tencent`（腾讯云验证码 2.0，TC3-HMAC-SHA256 签名调 DescribeCaptchaResult，国内可达）。site key 走变量、secret 走 Wrangler secret；配置缺失 fail-closed。覆盖 Web / Memos current signup / Connect SignUp 三条注册路径；bootstrap 与管理端建号豁免。注册页按 `/register/status` 返回的 provider 动态加载腾讯控件（懒加载）或阻塞提交直至 ticket 头存在。
+- Projects/Tasks/引用关系/回顾/导入导出/MCP 接入**不设限**（零边际成本，设限只添摩擦）。
+
+### Memos 兼容面变化
+
+- `/api/v1/*` 兼容面不变。429/403 仅在部署显式配置 per-user 条数限额或验证码时出现。
+
+### Cloudflare、数据库与认证影响
+
+- 无数据库 migration、无新增必需资源。新增可选变量：`FLAREMO_CAPTCHA_PROVIDER` / `FLAREMO_CAPTCHA_SITE_KEY` / `FLAREMO_CAPTCHA_VERIFY_URL`；新增可选 secrets：`FLAREMO_CAPTCHA_SECRET_ID` / `FLAREMO_CAPTCHA_SECRET`（tencent 用）。
+- 启用验证码后，浏览器注册必须携带 ticket（Web 页自动处理）；无验证码配置时行为与 v0.11.0 完全一致。
+
+### 升级说明
+
+- 自托管直接 `pnpm deploy`，零配置，行为不变。
+- 公开 SaaS 实例（app.flaremo.app）建议配置 per-user 限额与验证码后再开放注册。
+
 ## v0.11.0
 
 Per-user 限额版本。为「公开注册、多用户共享一个部署」的 SaaS 形态补上按用户计量的限额层：在部署级 PlanLimits 之上新增 `UserPlanLimits`（存储 / embedding tokens / 语义搜索三个维度），生效优先级 per-user → 部署级 → 不限量。自托管不配置 per-user 载荷时行为与 v0.10.0 完全一致。
