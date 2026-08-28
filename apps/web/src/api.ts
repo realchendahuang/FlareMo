@@ -131,6 +131,10 @@ export const AUTHENTICATION_REQUIRED_EVENT = "flaremo:authentication-required";
 export type RegistrationStatus = {
   registration_open: boolean;
   initialized: boolean;
+  captcha: {
+    provider: "none" | "tencent" | "http";
+    site_key: string | null;
+  };
 };
 
 export type CurrentFlareMoUser = {
@@ -541,16 +545,25 @@ export async function getRegistrationStatus() {
   );
 }
 
-export async function registerAccount(input: {
-  name: string;
-  email: string;
-  password: string;
-}) {
+export async function registerAccount(
+  input: {
+    name: string;
+    email: string;
+    password: string;
+  },
+  captcha?: { ticket: string; randstr: string },
+) {
   return apiRequest<{ ok: true }>(
     "/api/auth/flaremo/register",
     {
       method: "POST",
       body: JSON.stringify(input),
+      headers: captcha
+        ? {
+            "x-flaremo-captcha-ticket": captcha.ticket,
+            "x-flaremo-captcha-randstr": captcha.randstr,
+          }
+        : undefined,
     },
     { authRequired: false },
   );

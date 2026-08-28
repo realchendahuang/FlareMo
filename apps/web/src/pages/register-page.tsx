@@ -8,6 +8,7 @@ import {
 } from "@/api";
 import { authClient } from "@/auth-client";
 import { AuthPageFrame, errorMessage } from "@/components/auth-page-frame";
+import { CaptchaField } from "@/components/captcha-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
@@ -34,6 +35,8 @@ export function RegisterPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [captchaTicket, setCaptchaTicket] = useState<string | null>(null);
+  const [captchaRandstr, setCaptchaRandstr] = useState("");
 
   if (session.data?.user) {
     return (
@@ -65,14 +68,25 @@ export function RegisterPage() {
       return;
     }
 
+    const captcha = registrationQuery.data?.captcha;
+    if (captcha && captcha.provider !== "none" && !captchaTicket) {
+      setFormError(t("auth.captchaRequired"));
+      return;
+    }
+
     setFormError(null);
     setIsSubmitting(true);
     try {
-      await registerAccount({
-        name: name.trim(),
-        email: email.trim(),
-        password,
-      });
+      await registerAccount(
+        {
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        },
+        captcha && captcha.provider !== "none" && captchaTicket
+          ? { ticket: captchaTicket, randstr: captchaRandstr }
+          : undefined,
+      );
       setPassword("");
       setPasswordConfirmation("");
       await navigate({ replace: true, to: "/login" });
@@ -176,6 +190,19 @@ export function RegisterPage() {
             />
           </label>
         </div>
+        {registrationQuery.data?.captcha &&
+          registrationQuery.data.captcha.provider !== "none" && (
+            <CaptchaField
+              disabled={isSubmitting}
+              onTicket={(ticket, randstr) => {
+                setCaptchaTicket(ticket);
+                setCaptchaRandstr(randstr);
+                setFormError(null);
+              }}
+              provider={registrationQuery.data.captcha.provider}
+              siteKey={registrationQuery.data.captcha.site_key}
+            />
+          )}
         {formError && (
           <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
             {formError}
