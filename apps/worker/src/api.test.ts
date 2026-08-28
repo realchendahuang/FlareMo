@@ -1581,6 +1581,44 @@ describe("FlareMo Worker API", () => {
     expect(response.status).toBe(429);
   });
 
+  it("rejects memo creation over the per-user count cap with 429", async () => {
+    const cappedApp = createFlareMoApp({
+      resolveUserPlanLimits: (_env, userId) =>
+        userId === "users/owner"
+          ? {
+              attachmentStorageBytes: null,
+              aiEmbeddingTokensPerMonth: null,
+              semanticSearchQueriesPerMonth: null,
+              maxMemosPerUser: 1,
+              maxMemoryItemsPerUser: null,
+            }
+          : null,
+    });
+
+    const createMemoRequest = () =>
+      cappedApp.fetch(
+        new Request("http://flaremo.test/api/v1/memos", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            cookie: sessionCookie,
+            "x-flaremo-wire": "legacy",
+            origin: "http://flaremo.test",
+          },
+          body: JSON.stringify({ content: "count cap probe" }),
+        }),
+        env,
+      );
+
+    const first = await createMemoRequest();
+    expect(first.status).toBe(201);
+    // The owner is now at the 1-memo cap; the next write must 429.
+    const second = await createMemoRequest();
+    expect(second.status).toBe(429);
+    const body = (await second.json()) as { error: { message: string } };
+    expect(body.error.message).toContain("Memo count quota");
+  });
+
   it("reports the per-user section on the usage endpoint when configured", async () => {
     const userLimitsApp = createFlareMoApp({
       resolveUserPlanLimits: () => ({

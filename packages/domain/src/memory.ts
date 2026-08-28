@@ -30,6 +30,7 @@ import {
 } from "./errors";
 import { createResourceId } from "./ids";
 import { createMemo } from "./memos";
+import { assertMemoryCountQuota, type QuotaScope } from "./quotas";
 
 export const MEMORY_MAX_CONTENT_LENGTH = 4_000;
 export const MEMORY_DEFAULT_RECALL_LIMIT = 8;
@@ -337,7 +338,9 @@ export async function createMemory(
   user: UserRow,
   actor: MemoryActor,
   input: MemoryWriteInput,
+  scope?: QuotaScope,
 ) {
+  await assertMemoryCountQuota(db, scope?.userLimits, user.id);
   const content = normalizeMemoryContent(input.content);
   if (!content) throw new ValidationError("Memory content cannot be empty.");
   assertMemoryContentLength(content);
@@ -1024,20 +1027,27 @@ export async function checkpointMemory(
   user: UserRow,
   actor: MemoryActor,
   input: CheckpointInput,
+  scope?: QuotaScope,
 ) {
   const scopeKey = input.scope_key ?? input.project_key ?? null;
-  const episode = await createMemory(db, user, actor, {
-    content: input.summary,
-    type: "episodic",
-    kind: "event",
-    scopeType: input.scope_type,
-    scopeKey,
-    tier: "normal",
-    importance: 50,
-    confidence: actor.type === "user" ? 100 : 50,
-    verification: actor.type === "user" ? "confirmed" : "observed",
-    sourceAgent: actor.type === "agent" ? actor.name : null,
-  });
+  const episode = await createMemory(
+    db,
+    user,
+    actor,
+    {
+      content: input.summary,
+      type: "episodic",
+      kind: "event",
+      scopeType: input.scope_type,
+      scopeKey,
+      tier: "normal",
+      importance: 50,
+      confidence: actor.type === "user" ? 100 : 50,
+      verification: actor.type === "user" ? "confirmed" : "observed",
+      sourceAgent: actor.type === "agent" ? actor.name : null,
+    },
+    scope,
+  );
 
   if (episode.duplicate) {
     throw new ConflictError("This checkpoint already exists.");
@@ -1046,18 +1056,24 @@ export async function checkpointMemory(
   const episodeId = episode.memory.id;
   const createdIds: string[] = [];
   for (const item of input.items) {
-    const result = await createMemory(db, user, actor, {
-      content: item.content,
-      type: item.type,
-      kind: item.kind,
-      scopeType: input.scope_type,
-      scopeKey,
-      tier: "normal",
-      importance: item.importance,
-      confidence: actor.type === "user" ? 100 : 50,
-      verification: actor.type === "user" ? "confirmed" : "observed",
-      sourceAgent: actor.type === "agent" ? actor.name : null,
-    });
+    const result = await createMemory(
+      db,
+      user,
+      actor,
+      {
+        content: item.content,
+        type: item.type,
+        kind: item.kind,
+        scopeType: input.scope_type,
+        scopeKey,
+        tier: "normal",
+        importance: item.importance,
+        confidence: actor.type === "user" ? 100 : 50,
+        verification: actor.type === "user" ? "confirmed" : "observed",
+        sourceAgent: actor.type === "agent" ? actor.name : null,
+      },
+      scope,
+    );
     const itemId = result.memory.id;
     createdIds.push(itemId);
     await db
@@ -1250,8 +1266,9 @@ export async function createMemoryFromMemo(
   actor: MemoryActor,
   input: MemoryWriteInput,
   memoId: string,
+  scope?: QuotaScope,
 ) {
-  const result = await createMemory(db, user, actor, input);
+  const result = await createMemory(db, user, actor, input, scope);
   if (result.duplicate) {
     // The same conclusion already exists; still record the derivation link if
     // this exact memo is not already linked.
@@ -1291,15 +1308,21 @@ export async function promoteMemoryToMemo(
   user: UserRow,
   actor: MemoryActor,
   memoryId: string,
+  scope?: QuotaScope,
 ): Promise<{ memory: MemoryDto; memo: string }> {
   const memory = await requireMemory(db, user, memoryId);
   assertAgentCanMutate(actor, memory);
 
-  const memo = await createMemo(db, user, {
-    content: memory.content,
-    visibility: "private",
-    source: "memory",
-  });
+  const memo = await createMemo(
+    db,
+    user,
+    {
+      content: memory.content,
+      visibility: "private",
+      source: "memory",
+    },
+    scope,
+  );
 
   await db.insert(memoryResourceLinks).values({
     id: createResourceId("memories"),

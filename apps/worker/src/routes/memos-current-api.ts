@@ -492,12 +492,17 @@ memosCurrentApi.post("/memos", async (c, next) => {
       throw new ValidationCurrentError("Memo content is required");
     }
     const context = await getRequestContext(c);
-    const memo = await createMemo(context.db, context.user, {
-      content: body.content.trim(),
-      visibility: currentVisibilityToLegacy(body.visibility),
-      payload: currentPayload(body),
-      source: "memos-api",
-    });
+    const memo = await createMemo(
+      context.db,
+      context.user,
+      {
+        content: body.content.trim(),
+        visibility: currentVisibilityToLegacy(body.visibility),
+        payload: currentPayload(body),
+        source: "memos-api",
+      },
+      { userLimits: context.userLimits, userId: context.user.id },
+    );
     return c.json(await currentMemoWithDetails(context, memo));
   } catch (error) {
     return currentJsonError(c, error);

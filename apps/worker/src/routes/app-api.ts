@@ -357,8 +357,11 @@ appApi.get("/memos/:id", async (c) => {
 
 appApi.post("/memos", zValidator("json", createMemoSchema), async (c) => {
   try {
-    const { db, user } = await getRequestContext(c);
-    const memo = await createMemo(db, user, c.req.valid("json"));
+    const { db, user, userLimits } = await getRequestContext(c);
+    const memo = await createMemo(db, user, c.req.valid("json"), {
+      userLimits,
+      userId: user.id,
+    });
     return c.json(memoToDto(memo, user), 201);
   } catch (error) {
     return jsonError(c, error);
@@ -385,7 +388,7 @@ appApi.post(
   zValidator("json", createMemoryFromMemoSchema),
   async (c) => {
     try {
-      const { db, user } = await getRequestContext(c);
+      const { db, user, userLimits } = await getRequestContext(c);
       const memoId = `memos/${c.req.param("id")}`;
       const memo = await getMemoById(db, user, memoId);
       if (!memo) throw new NotFoundError("Memo not found");
@@ -395,6 +398,7 @@ appApi.post(
         { type: "user" },
         createMemoryFromMemoInputToWrite(c.req.valid("json"), memo.content),
         memoId,
+        { userLimits, userId: user.id },
       );
       return c.json(result, result.duplicate ? 200 : 201);
     } catch (error) {

@@ -273,6 +273,8 @@ describe("embedding outbox", () => {
       aiEmbeddingTokensPerMonth: 100,
       attachmentStorageBytes: null,
       semanticSearchQueriesPerMonth: null,
+      maxMemosPerUser: null,
+      maxMemoryItemsPerUser: null,
     };
 
     let embedCalls = 0;
