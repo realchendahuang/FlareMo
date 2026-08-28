@@ -41,6 +41,56 @@ describe("Memos native auth and transport boundaries", () => {
     await mf.dispose();
   });
 
+  it("refuses compat signups when email verification is required", async () => {
+    // Open registration first so the email gate, not the closed switch, is
+    // what rejects these signups.
+    const open = await request("/api/app/admin/settings", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+        cookie: sessionCookie,
+      },
+      body: JSON.stringify({ registration_open: true }),
+    });
+    expect(open.status).toBe(200);
+
+    env.FLAREMO_EMAIL_PROVIDER = "cloudflare";
+    env.FLAREMO_EMAIL_FROM = "no-reply@flaremo.test";
+    (env as unknown as { EMAIL: unknown }).EMAIL = {
+      send: async () => ({ ok: true }),
+    };
+
+    // Memos current REST signup.
+    const currentSignup = await request("/api/v1/auth/signup", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+      },
+      body: JSON.stringify({
+        username: "compat-user",
+        password: TEST_PASSWORD,
+      }),
+    });
+    expect(currentSignup.status).toBe(403);
+
+    // Connect protocol SignUp.
+    const connectSignup = await request("/memos.api.v1.AuthService/SignUp", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "connect-protocol-version": "1",
+        origin: "http://flaremo.test",
+      },
+      body: JSON.stringify({
+        username: "compat-user",
+        password: TEST_PASSWORD,
+      }),
+    });
+    expect(connectSignup.status).toBe(403);
+  });
+
   it("rejects malformed, forged, expired, and wrongly-scoped native JWTs", async () => {
     const validClaims = {
       type: "access",

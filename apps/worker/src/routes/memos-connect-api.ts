@@ -18,6 +18,7 @@ import {
   deleteShortcut,
   deleteUserNotification,
   deleteUserWebhook,
+  ForbiddenError,
   finalizeAttachmentDelete,
   getAttachmentById,
   getAuthBootstrapStatus,
@@ -92,6 +93,7 @@ import {
   getRequestContext,
   type HonoBindings,
 } from "../context";
+import { resolveEmailConfig } from "../email";
 import type { FlareMoEnv } from "../env";
 import { fetchLinkMetadata } from "../memos-link-metadata";
 import {
@@ -2905,6 +2907,15 @@ async function connectAuthSignUp(
         "permission_denied",
         "User registration is disabled",
         403,
+      );
+    }
+    // With a transactional-email provider configured, registration requires
+    // verifying a real mailbox through the web app. This compat surface
+    // cannot complete that flow, so refuse rather than minting unverified
+    // accounts that bypass the deployment's anti-abuse gate.
+    if (resolveEmailConfig(c.env).provider !== "none") {
+      throw new ForbiddenError(
+        "Email verification is required. Please use the FlareMo web app to sign up.",
       );
     }
 
