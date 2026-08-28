@@ -1650,6 +1650,90 @@ describe("FlareMo Worker API", () => {
     expect(body.plan?.user?.usage.attachmentStorageBytes).toBe(0);
   });
 
+  it("enforces captcha on registration when a provider is configured", async () => {
+    const captchaApp = createFlareMoApp();
+    // Open public registration first (owner session via admin settings).
+    const open = await captchaApp.fetch(
+      new Request("http://flaremo.test/api/app/admin/settings", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: sessionCookie,
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({ registration_open: true }),
+      }),
+      env,
+    );
+    expect(open.status).toBe(200);
+
+    const registerWith = (requestEnv: Env, email: string, ticket?: string) =>
+      captchaApp.fetch(
+        new Request("http://flaremo.test/api/auth/flaremo/register", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "http://flaremo.test",
+            ...(ticket
+              ? {
+                  "x-flaremo-captcha-ticket": ticket,
+                  "x-flaremo-captcha-randstr": "randstr-1",
+                }
+              : {}),
+          },
+          body: JSON.stringify({
+            name: "Member",
+            email,
+            password: TEST_PASSWORD,
+          }),
+        }),
+        requestEnv,
+      );
+
+    // Provider `http` pointing at a stub verify endpoint: no ticket -> 403,
+    // verified ticket -> 201.
+    const httpEnv = {
+      ...env,
+      FLAREMO_CAPTCHA_PROVIDER: "http",
+      FLAREMO_CAPTCHA_VERIFY_URL: "https://captcha.test/verify",
+    } as Env;
+    const verifyCalls: Array<{ ticket: string }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      if (String(input).includes("captcha.test")) {
+        const body = JSON.parse(String(init?.body)) as { ticket: string };
+        verifyCalls.push(body);
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const missing = await registerWith(httpEnv, "member@example.com");
+      expect(missing.status).toBe(403);
+      const withTicket = await registerWith(
+        httpEnv,
+        "member2@example.com",
+        "ticket-abc",
+      );
+      expect(withTicket.status).toBe(201);
+      expect(verifyCalls).toHaveLength(1);
+      expect(verifyCalls[0]?.ticket).toBe("ticket-abc");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    // Provider `none` (default env): no captcha check at all.
+    const openRegister = await registerWith(env, "member3@example.com");
+    expect(openRegister.status).toBe(201);
+  });
+
   it("rejects a registration over the member cap with 429", async () => {
     const quotaApp = createFlareMoApp({
       resolvePlanLimits: () => ({

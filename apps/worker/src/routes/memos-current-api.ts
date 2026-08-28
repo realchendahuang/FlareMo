@@ -53,6 +53,7 @@ import {
   MAX_ATTACHMENT_BYTES,
 } from "../attachment-http";
 import { createFlareMoAuth } from "../auth";
+import { verifyCaptchaRequest } from "../captcha";
 import {
   assertTrustedCookieMutation,
   getOptionalRequestContext,
@@ -249,6 +250,7 @@ memosCurrentApi.post("/auth/signup", async (c, next) => {
     assertTrustedCookieMutation(c);
     const input = currentSignupSchema.parse(await c.req.json());
     await assertRegistrationOpen(c);
+    await verifyCaptchaRequest(c.env, c.req.raw);
     const username = input.username.trim();
     const email = input.email?.trim() || `${username}@flaremo.local`;
     const dbContext = await createAuthContext(c);
