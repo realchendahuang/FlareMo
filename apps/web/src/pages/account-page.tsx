@@ -55,6 +55,8 @@ export function AccountPage() {
   const [accountError, setAccountError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailVerificationPending, setEmailVerificationPending] =
+    useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -103,7 +105,10 @@ export function AccountPage() {
   });
   const changeEmailMutation = useMutation({
     mutationFn: changeEmail,
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      // With an email provider configured the change is only staged: the new
+      // address must confirm ownership before the login identity switches.
+      setEmailVerificationPending(result.verification_sent === true);
       await session.refetch();
     },
   });
@@ -162,6 +167,7 @@ export function AccountPage() {
 
   const handleEmailSubmit = async () => {
     setEmailError(null);
+    setEmailVerificationPending(false);
     try {
       await changeEmailMutation.mutateAsync({
         current_password: emailCurrentPassword,
@@ -403,6 +409,11 @@ export function AccountPage() {
                 <CardTitle>{t("auth.emailTitle")}</CardTitle>
               </CardHeader>
               <CardContent>
+                {emailVerificationPending && (
+                  <p className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+                    {t("auth.emailChangeVerificationSent")}
+                  </p>
+                )}
                 <form
                   className="grid gap-3 sm:grid-cols-2"
                   onSubmit={(event) => {

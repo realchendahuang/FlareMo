@@ -172,6 +172,23 @@ export async function deleteFlaremoUser(
  * copy in sync and enforces the table's unique-email constraint. The email is
  * normalized to lowercase so the two unique email columns stay comparable.
  */
+/**
+ * Whether the business `users` table already holds this (lowercased) email.
+ * Used for early conflict feedback on email-change requests; the authoritative
+ * unique-constraint enforcement stays inside updateFlaremoUserEmail.
+ */
+export async function isFlaremoUserEmailTaken(
+  db: FlareMoDb,
+  email: string,
+  excludeUserId?: string,
+): Promise<boolean> {
+  const normalized = email.trim().toLowerCase();
+  const taken = await db.query.users.findFirst({
+    where: eq(users.email, normalized),
+  });
+  return Boolean(taken && taken.id !== excludeUserId);
+}
+
 export async function updateFlaremoUserEmail(
   db: FlareMoDb,
   user: UserRow,

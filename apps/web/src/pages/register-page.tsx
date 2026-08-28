@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   getBootstrapStatus,
   getRegistrationStatus,
   registerAccount,
+  resendVerificationEmail,
 } from "@/api";
 import { authClient } from "@/auth-client";
 import { AuthPageFrame, errorMessage } from "@/components/auth-page-frame";
@@ -38,6 +39,11 @@ export function RegisterPage() {
   const [captchaTicket, setCaptchaTicket] = useState<string | null>(null);
   const [captchaRandstr, setCaptchaRandstr] = useState("");
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
+  const resendMutation = useMutation({
+    mutationFn: resendVerificationEmail,
+    onSuccess: () => setResent(true),
+  });
 
   if (session.data?.user) {
     return (
@@ -118,6 +124,24 @@ export function RegisterPage() {
           <p className="text-sm leading-6 text-muted-foreground">
             {t("auth.verifyEmailHint")}
           </p>
+          {resent ? (
+            <p className="text-sm leading-6 text-emerald-700 dark:text-emerald-300">
+              {t("auth.resendVerificationSent")}
+            </p>
+          ) : (
+            <Button
+              disabled={resendMutation.isPending || !registeredEmail}
+              onClick={() =>
+                registeredEmail &&
+                void resendMutation.mutateAsync(registeredEmail)
+              }
+              variant="outline"
+            >
+              {resendMutation.isPending
+                ? t("auth.resendVerificationSending")
+                : t("auth.resendVerification")}
+            </Button>
+          )}
           <Link
             className="text-sm font-medium text-flame-600 underline-offset-4 hover:underline"
             to="/login"
