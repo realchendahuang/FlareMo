@@ -118,6 +118,11 @@ const ResetPage = lazy(() =>
     default: module.ResetPage,
   })),
 );
+const VerifyEmailPage = lazy(() =>
+  import("@/pages/verify-email-page").then((module) => ({
+    default: module.VerifyEmailPage,
+  })),
+);
 const RecoverPage = lazy(() =>
   import("@/pages/recover-page").then((module) => ({
     default: module.RecoverPage,
@@ -1165,6 +1170,31 @@ const registerRoute = createRoute({
   component: RegisterRoutePage,
 });
 
+function VerifyEmailRoutePage() {
+  const { token } = verifyEmailRoute.useSearch();
+  if (!token) {
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <VerifyEmailPage token="" />
+      </Suspense>
+    );
+  }
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <VerifyEmailPage token={token} />
+    </Suspense>
+  );
+}
+
+const verifyEmailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/verify-email",
+  component: VerifyEmailRoutePage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: typeof search.token === "string" ? search.token : undefined,
+  }),
+});
+
 function ResetRoutePage() {
   const { token } = resetRoute.useSearch();
   return (
@@ -1358,6 +1388,7 @@ const router = createRouter({
     shareRoute,
     loginRoute,
     registerRoute,
+    verifyEmailRoute,
     resetRoute,
     recoverRoute,
     setupRoute,

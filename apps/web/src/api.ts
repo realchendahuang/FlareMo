@@ -131,6 +131,7 @@ export const AUTHENTICATION_REQUIRED_EVENT = "flaremo:authentication-required";
 export type RegistrationStatus = {
   registration_open: boolean;
   initialized: boolean;
+  email_verification_required: boolean;
   captcha: {
     provider: "none" | "tencent" | "http";
     site_key: string | null;
@@ -565,6 +566,14 @@ export async function registerAccount(
           }
         : undefined,
     },
+    { authRequired: false },
+  );
+}
+
+export async function verifyEmail(token: string) {
+  return apiRequest<{ ok: true }>(
+    `/api/auth/flaremo/verify-email?token=${encodeURIComponent(token)}`,
+    {},
     { authRequired: false },
   );
 }

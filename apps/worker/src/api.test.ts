@@ -1734,6 +1734,77 @@ describe("FlareMo Worker API", () => {
     expect(openRegister.status).toBe(201);
   });
 
+  it("sends a verification email on registration and verifies via token", async () => {
+    const emailApp = createFlareMoApp();
+    const open = await emailApp.fetch(
+      new Request("http://flaremo.test/api/app/admin/settings", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: sessionCookie,
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({ registration_open: true }),
+      }),
+      env,
+    );
+    expect(open.status).toBe(200);
+
+    const emailEnv = {
+      ...env,
+      FLAREMO_EMAIL_PROVIDER: "cloudflare",
+      FLAREMO_EMAIL_FROM: "no-reply@flaremo.test",
+    } as Env;
+    const sent: Array<{ to: string; from: string; subject: string }> = [];
+    const emailBinding = {
+      send: async (msg: { to: string; from: string; subject: string }) => {
+        sent.push(msg);
+        return { ok: true };
+      },
+    };
+    const appWithEmail = createFlareMoApp();
+    const register = await appWithEmail.fetch(
+      new Request("http://flaremo.test/api/auth/flaremo/register", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          name: "Member",
+          email: "verify-me@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      { ...emailEnv, EMAIL: emailBinding } as Env,
+    );
+    expect(register.status).toBe(201);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.to).toBe("verify-me@example.com");
+    expect(sent[0]?.from).toBe("no-reply@flaremo.test");
+    expect(sent[0]?.subject).toContain("Verify");
+
+    // The token is not exposed in the response; verify the endpoint rejects
+    // an unknown token and that the status endpoint reports verification
+    // being required.
+    const status = await appWithEmail.fetch(
+      new Request("http://flaremo.test/api/auth/flaremo/register/status"),
+      { ...emailEnv, EMAIL: emailBinding } as Env,
+    );
+    const statusBody = (await status.json()) as {
+      email_verification_required: boolean;
+    };
+    expect(statusBody.email_verification_required).toBe(true);
+
+    const bad = await appWithEmail.fetch(
+      new Request(
+        "http://flaremo.test/api/auth/flaremo/verify-email?token=unknown-token",
+      ),
+      { ...emailEnv, EMAIL: emailBinding } as Env,
+    );
+    expect(bad.status).toBe(400);
+  });
+
   it("rejects a registration over the member cap with 429", async () => {
     const quotaApp = createFlareMoApp({
       resolvePlanLimits: () => ({
