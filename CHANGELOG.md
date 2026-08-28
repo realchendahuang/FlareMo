@@ -2,6 +2,31 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.13.0
+
+注册邮件验证版本。公开注册的人机防线从验证码改为邮件验证（按 Kim 拍板：不要验证码，用 Cloudflare Workers Paid 计划的 Email Sending，不接第三方发信商）。
+
+### 新增能力
+
+- Email provider seam（#117）：\`FLAREMO_EMAIL_PROVIDER\` = \`none\`（默认，自托管注册行为不变）/ \`cloudflare\`（\`env.EMAIL.send()\`，Workers Paid 计划）。\`FLAREMO_EMAIL_FROM\` 指定已验证发件地址。
+- 注册流程：配置 provider 后，注册成功即 mint 单次 24h 验证 token（\`auth_verifications\`，\`email-verify:\` 命名空间，与密码重置同一机制）并发送验证邮件；发送失败返回 502（fail-closed，不产生静默未验证账号）。
+- \`GET /api/auth/flaremo/verify-email?token=\`：消费 token、置 \`auth_users.email_verified\`，单次使用（消费即删）。
+- \`/register/status\` 暴露 \`email_verification_required\`；注册页成功后显示「查收邮件」状态；新增 \`/verify-email\` 页（成功/过期两态，zh/en）。
+
+### Memos 兼容面变化
+
+- \`/api/v1/*\` 兼容面不变。邮件验证仅影响浏览器注册流程；Memos 客户端注册路径（current/Connect）暂不强制验证（后续迭代）。
+
+### Cloudflare、数据库与认证影响
+
+- 无数据库 migration。新增可选变量：\`FLAREMO_EMAIL_PROVIDER\` / \`FLAREMO_EMAIL_FROM\`；启用 \`cloudflare\` 需在 wrangler 配置 \`send_email\` binding（EMAIL）并在 Cloudflare 控制台开通 Email Sending、验证发件域名（SPF/DKIM）。
+- 未配置 provider 时行为与 v0.12.0 完全一致。
+
+### 升级说明
+
+- 自托管直接 \`pnpm deploy\`，零配置，行为不变。
+- 多用户部署（app.flaremo.app）：开通 Email Sending + 验证域名后配置 provider 即可启用注册邮件验证。
+
 ## v0.12.0
 
 按条计费与注册防护版本。共享多用户实例的免费档主货币从字节换成条数（`maxMemosPerUser` / `maxMemoryItemsPerUser`），并新增厂商中立的注册验证码 seam（`none` / `http` / `tencent`），为公开注册铺路。
