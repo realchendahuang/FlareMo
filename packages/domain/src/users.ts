@@ -1,6 +1,37 @@
 import type { FlareMoDb, UserRow } from "@flaremo/db";
-import { authUserLinks, authUsers, users } from "@flaremo/db";
-import { asc, eq } from "drizzle-orm";
+import {
+  attachments,
+  authAccounts,
+  authApiKeys,
+  authSessions,
+  authUserLinks,
+  authUsers,
+  dataTasks,
+  embeddingTasks,
+  memoRelations,
+  memoRevisions,
+  memoryItems,
+  memoryRelations,
+  memoryResourceLinks,
+  memoryRevisions,
+  memos,
+  memosNotifications,
+  memosSseEvents,
+  memosWebhookDeliveries,
+  memosWebhookEvents,
+  memosWebhooks,
+  memoTags,
+  projects,
+  reactions,
+  settings,
+  shares,
+  shortcuts,
+  taskActivity,
+  tasks,
+  usageCounters,
+  users,
+} from "@flaremo/db";
+import { asc, eq, inArray, or } from "drizzle-orm";
 import {
   ConflictError,
   ForbiddenError,
@@ -163,6 +194,143 @@ export async function deleteFlaremoUser(
     await db.delete(authUsers).where(eq(authUsers.id, link.authUserId));
   }
   await db.delete(users).where(eq(users.id, userId));
+}
+
+/**
+ * Resource identities a caller must clean outside D1 (R2 objects and Vectorize
+ * vectors) before/while the account rows go away.
+ */
+export type FlaremoAccountArtifacts = {
+  memoIds: string[];
+  memoryIds: string[];
+  attachmentR2Keys: string[];
+};
+
+/**
+ * Snapshot the account's out-of-D1 artifacts. Must be called BEFORE
+ * deleteFlaremoAccount: after the batch the attachment rows (R2 keys) and
+ * memo/memory rows (vector id sources) are gone.
+ */
+export async function collectFlaremoAccountArtifacts(
+  db: FlareMoDb,
+  userId: string,
+): Promise<FlaremoAccountArtifacts> {
+  const memoRows = await db
+    .select({ id: memos.id })
+    .from(memos)
+    .where(eq(memos.userId, userId));
+  const memoryRows = await db
+    .select({ id: memoryItems.id })
+    .from(memoryItems)
+    .where(eq(memoryItems.userId, userId));
+  const attachmentRows = await db
+    .select({ key: attachments.r2Key })
+    .from(attachments)
+    .where(eq(attachments.userId, userId));
+  return {
+    memoIds: memoRows.map((row) => row.id),
+    memoryIds: memoryRows.map((row) => row.id),
+    attachmentR2Keys: attachmentRows.map((row) => row.key),
+  };
+}
+
+/**
+ * Self-service account deletion. Every per-user row is deleted explicitly,
+ * children first, so the cleanup never depends on FK enforcement being
+ * enabled in the runtime (D1/SQLite PRAGMAs differ between local and remote)
+ * and cannot leave orphaned rows behind a missing cascade.
+ *
+ * The caller is responsible for the out-of-D1 artifacts returned by
+ * collectFlaremoAccountArtifacts (R2 objects, Vectorize vectors) and for
+ * refusing owner self-deletion.
+ */
+export async function deleteFlaremoAccount(
+  db: FlareMoDb,
+  userId: string,
+): Promise<void> {
+  if (userId === "users/owner") {
+    throw new ForbiddenError("The owner account cannot be deleted.");
+  }
+  const user = await getFlaremoUserById(db, userId);
+  if (!user) throw new NotFoundError("User not found");
+
+  const link = await db.query.authUserLinks.findFirst({
+    where: eq(authUserLinks.flaremoUserId, userId),
+  });
+  const authUserId = link?.authUserId ?? null;
+
+  const userWebhookIds = db
+    .select({ id: memosWebhooks.id })
+    .from(memosWebhooks)
+    .where(eq(memosWebhooks.userId, userId));
+
+  await db.batch([
+    db.delete(taskActivity).where(eq(taskActivity.userId, userId)),
+    db.delete(tasks).where(eq(tasks.userId, userId)),
+    db.delete(projects).where(eq(projects.userId, userId)),
+    // Embedding outbox rows are dropped here: vector cleanup happens
+    // synchronously in the caller via collectFlaremoAccountArtifacts, so a
+    // pending task must not outlive its owner.
+    db.delete(embeddingTasks).where(eq(embeddingTasks.userId, userId)),
+    db.delete(usageCounters).where(eq(usageCounters.userId, userId)),
+    db.delete(dataTasks).where(eq(dataTasks.userId, userId)),
+    db.delete(settings).where(eq(settings.userId, userId)),
+    db.delete(shares).where(eq(shares.userId, userId)),
+    db.delete(attachments).where(eq(attachments.userId, userId)),
+    db.delete(reactions).where(eq(reactions.creatorId, userId)),
+    db
+      .delete(memoRelations)
+      .where(
+        inArray(
+          memoRelations.memoId,
+          db
+            .select({ id: memos.id })
+            .from(memos)
+            .where(eq(memos.userId, userId)),
+        ),
+      ),
+    db.delete(memoRevisions).where(eq(memoRevisions.userId, userId)),
+    db.delete(memoTags).where(eq(memoTags.userId, userId)),
+    db.delete(memos).where(eq(memos.userId, userId)),
+    db.delete(memosSseEvents).where(eq(memosSseEvents.creatorId, userId)),
+    db
+      .delete(memosWebhookDeliveries)
+      .where(inArray(memosWebhookDeliveries.webhookId, userWebhookIds)),
+    db
+      .delete(memosWebhookEvents)
+      .where(eq(memosWebhookEvents.receiverId, userId)),
+    db.delete(memosWebhooks).where(eq(memosWebhooks.userId, userId)),
+    db
+      .delete(memosNotifications)
+      .where(
+        or(
+          eq(memosNotifications.receiverId, userId),
+          eq(memosNotifications.senderId, userId),
+        ),
+      ),
+    db.delete(shortcuts).where(eq(shortcuts.userId, userId)),
+    db
+      .delete(memoryResourceLinks)
+      .where(eq(memoryResourceLinks.userId, userId)),
+    db.delete(memoryRelations).where(eq(memoryRelations.userId, userId)),
+    db.delete(memoryRevisions).where(eq(memoryRevisions.userId, userId)),
+    db.delete(memoryItems).where(eq(memoryItems.userId, userId)),
+  ]);
+
+  // Better Auth identity last: sessions, PATs, accounts, then the user row
+  // itself, then the bridge and the domain user.
+  if (authUserId) {
+    await db.batch([
+      db.delete(authApiKeys).where(eq(authApiKeys.referenceId, authUserId)),
+      db.delete(authSessions).where(eq(authSessions.userId, authUserId)),
+      db.delete(authAccounts).where(eq(authAccounts.userId, authUserId)),
+      db.delete(authUsers).where(eq(authUsers.id, authUserId)),
+    ]);
+  }
+  await db.batch([
+    db.delete(authUserLinks).where(eq(authUserLinks.flaremoUserId, userId)),
+    db.delete(users).where(eq(users.id, userId)),
+  ]);
 }
 
 /**

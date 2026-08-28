@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import {
   changeEmail,
   createPersonalAccessToken,
+  deleteAccount,
   getCurrentFlareMoUser,
   getVectorUsage,
   listPersonalAccessTokens,
@@ -57,6 +58,17 @@ export function AccountPage() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailVerificationPending, setEmailVerificationPending] =
     useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteAccountMutation = useMutation({
+    mutationFn: deleteAccount,
+    onSuccess: async () => {
+      // The server deleted the account; every cached query is stale.
+      queryClient.clear();
+      await authClient.signOut().catch(() => undefined);
+      await navigate({ replace: true, to: "/login" });
+    },
+  });
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -473,6 +485,69 @@ export function AccountPage() {
                 </form>
               </CardContent>
             </Card>
+            {!isOwner && (
+              <Card className="border-destructive/30">
+                <CardHeader>
+                  <CardTitle>{t("auth.deleteAccountTitle")}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="flex flex-col gap-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      setDeleteError(null);
+                      void deleteAccountMutation
+                        .mutateAsync(deletePassword)
+                        .then(() => setDeletePassword(""))
+                        .catch((error: unknown) => {
+                          setDeleteError(
+                            errorMessage(error, t("auth.deleteAccountFailed")),
+                          );
+                        });
+                    }}
+                  >
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {t("auth.deleteAccountDescription")}
+                    </p>
+                    <label
+                      className="flex flex-col gap-1.5 text-sm font-medium"
+                      htmlFor="account-delete-password"
+                    >
+                      {t("auth.deleteAccountPassword")}
+                      <Input
+                        autoComplete="current-password"
+                        disabled={deleteAccountMutation.isPending}
+                        id="account-delete-password"
+                        required
+                        type="password"
+                        value={deletePassword}
+                        onChange={(event) =>
+                          setDeletePassword(event.target.value)
+                        }
+                      />
+                    </label>
+                    {deleteError && (
+                      <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
+                        {deleteError}
+                      </p>
+                    )}
+                    <Button
+                      className="w-fit"
+                      disabled={
+                        deleteAccountMutation.isPending ||
+                        deletePassword.length === 0
+                      }
+                      type="submit"
+                      variant="destructive"
+                    >
+                      {deleteAccountMutation.isPending
+                        ? t("auth.deleteAccountSubmitting")
+                        : t("auth.deleteAccountSubmit")}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="tokens" className="mt-4">
