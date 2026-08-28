@@ -152,7 +152,7 @@ export function LoginPage() {
         <p className="text-center text-sm">
           <Link
             className="text-muted-foreground underline-offset-4 hover:underline"
-            to="/recover"
+            to="/forgot-password"
           >
             {t("auth.forgotPasswordHint")}
           </Link>

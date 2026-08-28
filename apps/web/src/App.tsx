@@ -123,6 +123,16 @@ const VerifyEmailPage = lazy(() =>
     default: module.VerifyEmailPage,
   })),
 );
+const ForgotPasswordPage = lazy(() =>
+  import("@/pages/forgot-password-page").then((module) => ({
+    default: module.ForgotPasswordPage,
+  })),
+);
+const VerifyEmailChangePage = lazy(() =>
+  import("@/pages/verify-email-change-page").then((module) => ({
+    default: module.VerifyEmailChangePage,
+  })),
+);
 const RecoverPage = lazy(() =>
   import("@/pages/recover-page").then((module) => ({
     default: module.RecoverPage,
@@ -1195,6 +1205,38 @@ const verifyEmailRoute = createRoute({
   }),
 });
 
+function ForgotPasswordRoutePage() {
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <ForgotPasswordPage />
+    </Suspense>
+  );
+}
+
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/forgot-password",
+  component: ForgotPasswordRoutePage,
+});
+
+function VerifyEmailChangeRoutePage() {
+  const { token } = verifyEmailChangeRoute.useSearch();
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <VerifyEmailChangePage token={token ?? ""} />
+    </Suspense>
+  );
+}
+
+const verifyEmailChangeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/verify-email-change",
+  component: VerifyEmailChangeRoutePage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: typeof search.token === "string" ? search.token : undefined,
+  }),
+});
+
 function ResetRoutePage() {
   const { token } = resetRoute.useSearch();
   return (
@@ -1389,6 +1431,8 @@ const router = createRouter({
     loginRoute,
     registerRoute,
     verifyEmailRoute,
+    forgotPasswordRoute,
+    verifyEmailChangeRoute,
     resetRoute,
     recoverRoute,
     setupRoute,
