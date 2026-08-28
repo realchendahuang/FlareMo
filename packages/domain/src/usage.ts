@@ -35,14 +35,15 @@ export type VectorUsageReportResult = {
   queried_limit: number;
 };
 
-function currentMonth(): string {
+export function currentMonthKey(): string {
   return new Date().toISOString().slice(0, 7);
 }
 
 export type UsageMetric =
   | "queried_dims"
   | "embedding_tokens"
-  | "embedding_calls";
+  | "embedding_calls"
+  | "search_queries";
 
 async function readCounter(
   db: FlareMoDb,
@@ -55,7 +56,7 @@ async function readCounter(
     .where(
       and(
         eq(usageCounters.userId, user.id),
-        eq(usageCounters.month, currentMonth()),
+        eq(usageCounters.month, currentMonthKey()),
         eq(usageCounters.metric, metric),
       ),
     )
@@ -122,15 +123,16 @@ export async function reportVectorUsage(
 /**
  * Bump a month-bucketed counter atomically (upsert by user/month/metric).
  * Called fire-and-forget from the semantic search paths so usage tracking
- * never blocks or fails a query.
+ * never blocks or fails a query. Accepts a bare `{ id }` so outbox workers
+ * can attribute usage from a stored user id without re-reading the row.
  */
 export async function incrementUsageCounter(
   db: FlareMoDb,
-  user: UserRow,
+  user: Pick<UserRow, "id">,
   metric: UsageMetric,
   amount: number,
 ) {
-  const month = currentMonth();
+  const month = currentMonthKey();
   const now = new Date().toISOString();
   const existing = await db
     .select({ id: usageCounters.id })

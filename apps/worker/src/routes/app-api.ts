@@ -17,10 +17,12 @@ import {
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
 import { memos as memosTable } from "@flaremo/db";
 import {
+  assertMonthlyQuota,
   createMemo,
   createMemoryFromMemo,
   createMemoryFromMemoInputToWrite,
   deleteTag,
+  estimateTokenCount,
   getAuthUserById,
   getMemoById,
   getMemoStats,
@@ -38,7 +40,9 @@ import {
   moveMemoToTrash,
   NotFoundError,
   renameTag,
+  reportPlanUsage,
   reportVectorUsage,
+  SELF_HOST_UNLIMITED,
   semanticSearchMemos,
   type UserNotificationDto,
   updateMemo,
@@ -142,13 +146,19 @@ appApi.get(
   zValidator("query", semanticMemoSearchQuerySchema),
   async (c) => {
     try {
-      const { db, user } = await getRequestContext(c);
+      const { db, user, limits } = await getRequestContext(c);
       const provider = createEmbeddingProvider(c.env);
       const index = createVectorIndex(c.env, "memo");
       if (!provider || !index) {
         return c.json({ memos: [], degraded: true });
       }
       const query = c.req.valid("query");
+      await assertMonthlyQuota(
+        db,
+        limits.semanticSearchQueriesPerMonth,
+        "search_queries",
+        "Monthly semantic search quota exceeded",
+      );
       const hits = await semanticSearchMemos(
         db,
         user,
@@ -157,12 +167,23 @@ appApi.get(
         query.limit,
       );
       c.executionCtx.waitUntil(
-        incrementUsageCounter(
-          db,
-          user,
-          "queried_dims",
-          provider.dimensions,
-        ).catch(() => undefined),
+        Promise.all([
+          incrementUsageCounter(
+            db,
+            user,
+            "queried_dims",
+            provider.dimensions,
+          ).catch(() => undefined),
+          incrementUsageCounter(db, user, "search_queries", 1).catch(
+            () => undefined,
+          ),
+          incrementUsageCounter(
+            db,
+            user,
+            "embedding_tokens",
+            estimateTokenCount([query.q]),
+          ).catch(() => undefined),
+        ]),
       );
       const rows = await db
         .select()
@@ -189,7 +210,7 @@ appApi.get(
 
 appApi.get("/usage/vector", async (c) => {
   try {
-    const { db, user } = await getRequestContext(c);
+    const { db, user, limits } = await getRequestContext(c);
     const config = resolveEmbeddingConfig(c.env);
     const storedLimit = Number.parseInt(
       c.env.FLAREMO_VECTORIZE_STORED_LIMIT?.trim() || "5000000",
@@ -214,7 +235,8 @@ appApi.get("/usage/vector", async (c) => {
         memoriesIndex: createVectorIndex(c.env, "memory"),
       },
     );
-    return c.json(report);
+    const plan = await reportPlanUsage(db, limits);
+    return c.json({ ...report, plan });
   } catch (error) {
     return jsonError(c, error);
   }

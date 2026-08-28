@@ -1,4 +1,5 @@
 import {
+  assertMemberQuota,
   createFlaremoMemberWithLink,
   deleteFlaremoUser,
   deriveUniqueUsername,
@@ -97,6 +98,9 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
     const input = c.req.valid("json");
     const email = input.email;
     const username = await deriveUniqueUsername(context.db, email);
+    // Pre-check before the Better Auth identity exists so a spent member
+    // quota cannot orphan an auth user.
+    await assertMemberQuota(context.db, context.limits);
     const auth = createFlareMoAuth(c.env, context.db, {
       allowBootstrapSignUp: true,
     });
@@ -109,11 +113,15 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
         displayUsername: input.name,
       },
     });
-    const user = await createFlaremoMemberWithLink(context.db, {
-      authUserId: result.user.id,
-      email,
-      name: input.name,
-    });
+    const user = await createFlaremoMemberWithLink(
+      context.db,
+      {
+        authUserId: result.user.id,
+        email,
+        name: input.name,
+      },
+      context.limits,
+    );
     return c.json(
       {
         id: user.id,

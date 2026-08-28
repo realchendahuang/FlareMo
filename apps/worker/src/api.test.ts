@@ -11,10 +11,11 @@ import type {
 } from "@flaremo/contracts";
 import { FLAREMO_API_VERSION } from "@flaremo/contracts";
 import { createDb, memos } from "@flaremo/db";
+import { SELF_HOST_UNLIMITED } from "@flaremo/domain";
 import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import app from "./index";
+import app, { createFlareMoApp } from "./index";
 
 let mf: Miniflare;
 let env: Env;
@@ -1497,6 +1498,96 @@ describe("FlareMo Worker API", () => {
     }>(await fetchApp("http://flaremo.test/api/v1/memos?q=imported+via+task"));
     expect(listed.memos).toHaveLength(1);
     expect(listed.memos[0].name).toBe("memos/import-task-memo");
+  });
+
+  it("reports the plan usage section on the vector usage endpoint", async () => {
+    const report = await json<{
+      plan?: {
+        limits: Record<string, number | null>;
+        usage: Record<string, number>;
+      };
+    }>(await fetchApp("http://flaremo.test/api/app/usage/vector"));
+    // The kernel default is SELF_HOST_UNLIMITED: all limits null, counters at 0.
+    expect(report.plan).toBeDefined();
+    expect(report.plan?.limits).toEqual({
+      attachmentStorageBytes: null,
+      aiEmbeddingTokensPerMonth: null,
+      semanticSearchQueriesPerMonth: null,
+      maxMembersPerDeployment: null,
+    });
+    expect(report.plan?.usage.maxMembersPerDeployment).toBe(1);
+  });
+
+  it("rejects an attachment upload over the storage quota with 429", async () => {
+    const quotaApp = createFlareMoApp({
+      resolvePlanLimits: () => ({
+        ...SELF_HOST_UNLIMITED,
+        attachmentStorageBytes: 10,
+      }),
+    });
+
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File(["inline attachment"], "inline.txt", { type: "text/plain" }),
+    );
+    const response = await quotaApp.fetch(
+      new Request("http://flaremo.test/api/v1/attachments", {
+        method: "POST",
+        headers: {
+          cookie: sessionCookie,
+          "x-flaremo-wire": "legacy",
+          origin: "http://flaremo.test",
+        },
+        body: formData,
+      }),
+      env,
+    );
+    expect(response.status).toBe(429);
+    const body = await response.json<{ error: { message: string } }>();
+    expect(body.error.message).toContain("storage quota");
+  });
+
+  it("rejects a registration over the member cap with 429", async () => {
+    const quotaApp = createFlareMoApp({
+      resolvePlanLimits: () => ({
+        ...SELF_HOST_UNLIMITED,
+        maxMembersPerDeployment: 1,
+      }),
+    });
+
+    const open = await quotaApp.fetch(
+      new Request("http://flaremo.test/api/app/admin/settings", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: sessionCookie,
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({ registration_open: true }),
+      }),
+      env,
+    );
+    expect(open.status).toBe(200);
+
+    const response = await quotaApp.fetch(
+      new Request("http://flaremo.test/api/auth/flaremo/register", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          name: "Member",
+          email: "member@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(response.status).toBe(429);
+    const body = await response.json<{ error: { message: string } }>();
+    expect(body.error.message).toContain("Member limit");
   });
 });
 

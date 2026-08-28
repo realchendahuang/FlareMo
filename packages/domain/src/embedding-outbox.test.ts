@@ -16,8 +16,11 @@ import {
   dispatchEmbeddingOutbox,
   rebuildEmbeddingIndexes,
 } from "./embedding-outbox";
+import { SELF_HOST_UNLIMITED } from "./limits";
 import { createMemory, type MemoryActor } from "./memory";
 import { createMemo, hardDeleteMemo } from "./memos";
+import { readMonthlyUsageTotal } from "./quotas";
+import { incrementUsageCounter } from "./usage";
 import { ensureSingleUser } from "./users";
 
 const USER_ACTOR: MemoryActor = { type: "user" };
@@ -230,5 +233,76 @@ describe("embedding outbox", () => {
     expect(result.memoriesIndexed).toBe(1);
     expect(memosIndex.store.size).toBe(1);
     expect(memoriesIndex.store.size).toBe(1);
+  });
+
+  it("meters tokens and calls after a successful embed", async () => {
+    await createMemo(db, user, {
+      content: "计量这条笔记的 embedding 用量",
+      visibility: "private",
+      source: "web",
+    });
+    await dispatchEmbeddingOutbox(db, {
+      provider: fakeProvider(),
+      memosIndex: new FakeVectorIndex(),
+      memoriesIndex: null,
+    });
+
+    expect(await readMonthlyUsageTotal(db, "embedding_tokens")).toBeGreaterThan(
+      0,
+    );
+    expect(await readMonthlyUsageTotal(db, "embedding_calls")).toBe(1);
+  });
+
+  it("pauses when the monthly budget is spent and resumes later", async () => {
+    const memo = await createMemo(db, user, {
+      content: "预算耗尽时这条不会被索引",
+      visibility: "private",
+      source: "web",
+    });
+    await incrementUsageCounter(db, user, "embedding_tokens", 100);
+    const limits = { ...SELF_HOST_UNLIMITED, aiEmbeddingTokensPerMonth: 100 };
+
+    let embedCalls = 0;
+    const provider: EmbeddingProvider = {
+      ...fakeProvider(),
+      async embed(texts) {
+        embedCalls += 1;
+        return fakeProvider().embed(texts);
+      },
+    };
+    await dispatchEmbeddingOutbox(db, {
+      provider,
+      memosIndex: new FakeVectorIndex(),
+      memoriesIndex: null,
+      limits,
+    });
+
+    // The budget is spent: nothing embeds, the task stays pending with its
+    // retry budget intact, and the memo is not marked as failed.
+    expect(embedCalls).toBe(0);
+    const pending = await db.select().from(embeddingTasks);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.status).toBe("pending");
+    expect(pending[0]?.attempts).toBe(0);
+    const untouched = await db
+      .select()
+      .from(memos)
+      .where(eq(memos.id, memo.id))
+      .get();
+    expect(untouched?.embeddingStatus).not.toBe("indexed");
+
+    // A later sweep with budget available picks the task back up.
+    await dispatchEmbeddingOutbox(db, {
+      provider,
+      memosIndex: new FakeVectorIndex(),
+      memoriesIndex: null,
+    });
+    expect(embedCalls).toBe(1);
+    const indexed = await db
+      .select()
+      .from(memos)
+      .where(eq(memos.id, memo.id))
+      .get();
+    expect(indexed?.embeddingStatus).toBe("indexed");
   });
 });

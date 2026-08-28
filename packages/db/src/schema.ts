@@ -931,7 +931,12 @@ export const usageCounters = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     month: text("month").notNull(),
     metric: text("metric", {
-      enum: ["queried_dims", "embedding_tokens", "embedding_calls"],
+      enum: [
+        "queried_dims",
+        "embedding_tokens",
+        "embedding_calls",
+        "search_queries",
+      ],
     }).notNull(),
     count: integer("count").notNull().default(0),
     updatedAt: text("updated_at").notNull(),

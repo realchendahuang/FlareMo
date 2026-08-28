@@ -48,6 +48,28 @@ export const semanticRecallQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
+// Plan limits mirror the kernel's PlanLimits shape (numbers-or-null; null =
+// unlimited). They ride along on the usage report so the panel can render
+// used-vs-limit without a second request.
+export const planLimitValueSchema = z.number().int().nullable();
+
+export const planUsageReportSchema = z.object({
+  limits: z.object({
+    attachmentStorageBytes: planLimitValueSchema,
+    aiEmbeddingTokensPerMonth: planLimitValueSchema,
+    semanticSearchQueriesPerMonth: planLimitValueSchema,
+    maxMembersPerDeployment: planLimitValueSchema,
+  }),
+  usage: z.object({
+    attachmentStorageBytes: z.number().int(),
+    aiEmbeddingTokensPerMonth: z.number().int(),
+    semanticSearchQueriesPerMonth: z.number().int(),
+    maxMembersPerDeployment: z.number().int(),
+  }),
+});
+
+export type PlanUsageReport = z.infer<typeof planUsageReportSchema>;
+
 // Vector usage panel DTO. Stored dimensions are read from the Vectorize index
 // `describe()`; queried dimensions and embedding counters come from the D1
 // `usage_counters` table. These are self-measured, not Cloudflare's bill.
@@ -68,6 +90,7 @@ export const vectorUsageReportSchema = z.object({
   embedding_tokens_this_month: z.number().int(),
   stored_limit: z.number().int(),
   queried_limit: z.number().int(),
+  plan: planUsageReportSchema.optional(),
 });
 
 export type EmbeddingProvider = z.infer<typeof embeddingProviderSchema>;
