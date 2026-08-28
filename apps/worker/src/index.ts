@@ -27,6 +27,7 @@ import {
 import { createEmbeddingProvider, createVectorIndex } from "./embedding";
 import type { FlareMoEnv } from "./env";
 import { jsonError } from "./http";
+import { betterAuthRateLimitBucket, rateLimitGuard } from "./rate-limit";
 import { accountApi } from "./routes/account-api";
 import { adminApi } from "./routes/admin-api";
 import { appApi } from "./routes/app-api";
@@ -173,7 +174,17 @@ export function createFlareMoApp(
   });
 
   app.route("/api/auth/flaremo", authApi);
-  app.all("/api/auth/*", (c) => createFlareMoAuth(c.env).handler(c.req.raw));
+  app.all("/api/auth/*", async (c) => {
+    // Edge-throttle Better Auth's credential endpoints (sign-in, sign-up,
+    // password reset) per client IP. The bucket is null for session reads
+    // and other non-credential paths.
+    const bucket = betterAuthRateLimitBucket(new URL(c.req.raw.url).pathname);
+    if (bucket) {
+      const throttled = await rateLimitGuard(c, bucket);
+      if (throttled) return throttled;
+    }
+    return createFlareMoAuth(c.env).handler(c.req.raw);
+  });
   app.route("/api/app/account", accountApi);
   app.route("/api/app/admin", adminApi);
   app.route("/api/app/memory", memoryApi);
