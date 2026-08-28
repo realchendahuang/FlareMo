@@ -22,6 +22,7 @@ import {
   getBootstrapSecret,
   getRecoverySecret,
 } from "../auth";
+import { resolveCaptchaConfig, verifyCaptchaRequest } from "../captcha";
 import type { HonoBindings } from "../context";
 import { jsonError } from "../http";
 
@@ -67,9 +68,14 @@ authApi.get("/bootstrap/status", async (c) => {
 authApi.get("/register/status", async (c) => {
   const db = createDb(c.env.DB);
   const status = await getAuthBootstrapStatus(db);
+  const captcha = resolveCaptchaConfig(c.env);
   return c.json({
     registration_open: await getUserRegistrationAllowed(db),
     initialized: status.initialized,
+    captcha: {
+      provider: captcha.provider,
+      site_key: captcha.siteKey,
+    },
   });
 });
 
@@ -89,6 +95,11 @@ authApi.post("/register", zValidator("json", registerSchema), async (c) => {
     );
   }
 
+  try {
+    await verifyCaptchaRequest(c.env, c.req.raw);
+  } catch (error) {
+    return jsonError(c, error);
+  }
   const input = c.req.valid("json");
   const email = input.email.trim();
   const username = await deriveUniqueUsername(db, email);

@@ -4,6 +4,15 @@ export type FlareMoEnv = Env & {
   FLAREMO_RECOVERY_SECRET?: string;
   FLAREMO_PUBLIC_URL?: string;
   FLAREMO_TRUSTED_ORIGINS?: string;
+  // Registration captcha (pluggable provider; see src/captcha.ts). Site key
+  // is a public var; secrets are Wrangler secrets. Provider `http` requires
+  // FLAREMO_CAPTCHA_VERIFY_URL; `tencent` additionally requires the secret
+  // id/key pair.
+  FLAREMO_CAPTCHA_PROVIDER?: string;
+  FLAREMO_CAPTCHA_SITE_KEY?: string;
+  FLAREMO_CAPTCHA_VERIFY_URL?: string;
+  FLAREMO_CAPTCHA_SECRET_ID?: string;
+  FLAREMO_CAPTCHA_SECRET?: string;
   // Per-user quota payload for shared deployments (numbers-or-null; see
   // parseUserPlanLimits). Unset = no per-user limits; only deployment-level
   // (or none) applies.

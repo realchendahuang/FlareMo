@@ -84,6 +84,7 @@ import {
   MAX_ATTACHMENT_BYTES,
 } from "../attachment-http";
 import { createFlareMoAuth } from "../auth";
+import { verifyCaptchaRequest } from "../captcha";
 import {
   assertRequestCredentialBoundary,
   assertTrustedCookieMutation,
@@ -2907,6 +2908,7 @@ async function connectAuthSignUp(
       );
     }
 
+    await verifyCaptchaRequest(c.env, c.req.raw);
     const email = optionalString(body.email) ?? `${username}@flaremo.local`;
     const { authUserId, user, dto } = await createConnectUser(
       c,
