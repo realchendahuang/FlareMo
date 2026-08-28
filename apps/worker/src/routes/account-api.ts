@@ -1,5 +1,6 @@
 import {
   getMemosPersonalAccessToken,
+  isFlaremoUserEmailTaken,
   listMemosPersonalAccessTokens,
   NotFoundError,
   updateFlaremoUserEmail,
@@ -8,8 +9,9 @@ import {
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { createFlareMoAuth, MEMOS_PAT_CONFIG_ID } from "../auth";
+import { createFlareMoAuth, getPublicUrl, MEMOS_PAT_CONFIG_ID } from "../auth";
 import { getBrowserRequestContext, type HonoBindings } from "../context";
+import { resolveEmailConfig, sendEmailChangeVerificationEmail } from "../email";
 import { jsonError } from "../http";
 
 export const accountApi = new Hono<HonoBindings>();
@@ -103,7 +105,7 @@ accountApi.post("/email", zValidator("json", changeEmailSchema), async (c) => {
   try {
     const context = await getBrowserRequestContext(c);
     const input = c.req.valid("json");
-    const newEmail = input.new_email.trim();
+    const newEmail = input.new_email.trim().toLowerCase();
     const auth = createFlareMoAuth(c.env, context.db);
 
     // Changing the login identity re-authenticates the caller with their
@@ -119,8 +121,44 @@ accountApi.post("/email", zValidator("json", changeEmailSchema), async (c) => {
       throw new ValidationError("The current password is incorrect.");
     }
 
-    // The auth credential is updated first so a failed domain write cannot
-    // leave a login identity pointing at a stale address.
+    // When a transactional-email provider is configured, the change only
+    // takes effect after the NEW address confirms ownership through its
+    // verification link, so a typo cannot lock the account out of every
+    // future email flow.
+    if (resolveEmailConfig(c.env).provider !== "none") {
+      const existingAuthUser = await auth.findAuthUserByEmail(newEmail);
+      if (existingAuthUser && existingAuthUser.id !== context.authUserId) {
+        throw new ValidationError("That email is already in use.");
+      }
+      if (
+        await isFlaremoUserEmailTaken(context.db, newEmail, context.user.id)
+      ) {
+        throw new ValidationError("That email is already in use.");
+      }
+      const token = await auth.createEmailChangeToken(
+        context.authUserId,
+        newEmail,
+      );
+      const sent = await sendEmailChangeVerificationEmail(c.env, {
+        to: newEmail,
+        token,
+        publicUrl: getPublicUrl(c.env),
+      });
+      if (!sent) {
+        return c.json(
+          { error: { message: "Verification email could not be sent." } },
+          502,
+        );
+      }
+      const response = c.json({ ok: true, verification_sent: true });
+      response.headers.set("cache-control", "no-store");
+      return response;
+    }
+
+    // Self-hosted deployments without an email provider keep the immediate
+    // change: there is no verification channel, and blocking would strand
+    // operators. The auth credential is updated first so a failed domain
+    // write cannot leave a login identity pointing at a stale address.
     await auth.changeEmail({
       currentEmail: context.user.email,
       newEmail,
