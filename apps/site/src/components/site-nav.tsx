@@ -61,6 +61,13 @@ export function SiteNav({ locale, currentPath }: SiteNavProps) {
         </nav>
         <div className="flex items-center gap-2">
           <a
+            className="inline-flex items-center rounded-md bg-brand-gradient px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-105 active:translate-y-px"
+            href="https://app.flaremo.app"
+            rel="noopener noreferrer"
+          >
+            {locale === "zh-CN" ? "登录 / 注册" : "Sign in"}
+          </a>
+          <a
             className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
             href="https://github.com/realchendahuang/FlareMo"
             rel="noopener noreferrer"
