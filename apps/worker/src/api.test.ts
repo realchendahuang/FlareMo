@@ -2089,6 +2089,63 @@ describe("FlareMo Worker API", () => {
     expect(sent).toHaveLength(5);
   });
 
+  it("throttles credential endpoints when the rate limiter binding is set", async () => {
+    const keys: string[] = [];
+    const limitedEnv = {
+      ...env,
+      RATE_LIMITER: {
+        limit: async (input: { key: string }) => {
+          keys.push(input.key);
+          return { success: false };
+        },
+      },
+    } as Env;
+
+    const denied = await app.fetch(
+      new Request("http://flaremo.test/api/auth/flaremo/register", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+          "cf-connecting-ip": "203.0.113.7",
+        },
+        body: JSON.stringify({
+          name: "Member",
+          email: "rate-limit@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      limitedEnv,
+    );
+    expect(denied.status).toBe(429);
+    expect(keys[0]).toBe("register:203.0.113.7");
+
+    const signInDenied = await app.fetch(
+      new Request("http://flaremo.test/api/auth/sign-in/username", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+          "cf-connecting-ip": "203.0.113.7",
+        },
+        body: JSON.stringify({ username: "owner", password: TEST_PASSWORD }),
+      }),
+      limitedEnv,
+    );
+    expect(signInDenied.status).toBe(429);
+    expect(keys).toContain("auth:203.0.113.7");
+
+    // Session reads bypass the limiter entirely.
+    const sessionRead = await app.fetch(
+      new Request("http://flaremo.test/api/auth/get-session", {
+        headers: { "cf-connecting-ip": "203.0.113.7" },
+      }),
+      limitedEnv,
+    );
+    expect(sessionRead.status).toBe(200);
+    expect(keys).toHaveLength(2);
+  });
+
   it("rejects a registration over the member cap with 429", async () => {
     const quotaApp = createFlareMoApp({
       resolvePlanLimits: () => ({
