@@ -474,12 +474,16 @@ async function callMemoryTool(
         user,
         resolveAgent(args),
         rememberInputToWrite(input),
+        { userLimits: context.userLimits, userId: user.id },
       );
       return result;
     }
     case "memory_checkpoint": {
       const input = checkpointInputSchema.parse(args);
-      return checkpointMemory(db, user, resolveAgent(args), input);
+      return checkpointMemory(db, user, resolveAgent(args), input, {
+        userLimits: context.userLimits,
+        userId: user.id,
+      });
     }
     case "memory_link": {
       const input = linkInputSchema.parse(args);

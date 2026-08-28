@@ -72,12 +72,13 @@ memoryApi.get("/review", async (c) => {
 
 memoryApi.post("/", zValidator("json", createMemorySchema), async (c) => {
   try {
-    const { db, user } = await getBrowserRequestContext(c);
+    const { db, user, userLimits } = await getBrowserRequestContext(c);
     const result = await createMemory(
       db,
       user,
       USER_ACTOR,
       createMemoryInputToWrite(c.req.valid("json")),
+      { userLimits, userId: user.id },
     );
     return c.json(result, result.duplicate ? 200 : 201);
   } catch (error) {
@@ -193,12 +194,13 @@ memoryApi.post("/:id/archive", async (c) => {
 
 memoryApi.post("/:id/promote", async (c) => {
   try {
-    const { db, user } = await getBrowserRequestContext(c);
+    const { db, user, userLimits } = await getBrowserRequestContext(c);
     const result = await promoteMemoryToMemo(
       db,
       user,
       USER_ACTOR,
       parseMemoryId(c.req.param("id")),
+      { userLimits, userId: user.id },
     );
     return c.json(result, 201);
   } catch (error) {

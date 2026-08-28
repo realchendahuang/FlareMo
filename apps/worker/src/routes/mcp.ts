@@ -230,7 +230,10 @@ async function callTool(
       ...args,
       source: args.source ?? "mcp",
     }) as CreateMemoInput;
-    const memo = await createMemo(db, user, input);
+    const memo = await createMemo(db, user, input, {
+      userLimits: context.userLimits,
+      userId: user.id,
+    });
     return memoToDto(memo, user);
   }
 
@@ -1025,7 +1028,10 @@ async function streamableCreateMemo(
     payload: memoPayloadFromInput(input),
     source: optionalString(input, "source") ?? "mcp",
   }) as CreateMemoInput;
-  let memo = await createMemo(context.db, context.user, createInput);
+  let memo = await createMemo(context.db, context.user, createInput, {
+    userLimits: context.userLimits,
+    userId: context.user.id,
+  });
 
   const followUp: Parameters<typeof updateMemo>[3] = {};
   const state = normalizeMemoState(

@@ -17,6 +17,7 @@ import { compileMemoFilter } from "./memo-filter";
 import { insertMemosSseEvent } from "./memos-sse";
 import { findMentionedUsers, insertMemoNotification } from "./memos-user";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
+import { assertMemoCountQuota, type QuotaScope } from "./quotas";
 import { extractTags, normalizeMemoTags } from "./tags";
 
 export type MemoListResult = {
@@ -35,7 +36,9 @@ export async function createMemo(
   db: FlareMoDb,
   user: UserRow,
   input: CreateMemoInput,
+  scope?: QuotaScope,
 ): Promise<MemoRow> {
+  await assertMemoCountQuota(db, scope?.userLimits, user.id);
   const now = new Date().toISOString();
   const payload = normalizeMemoPayload(input.payload);
   const clientId = normalizeMemoClientId(payload.client_id);

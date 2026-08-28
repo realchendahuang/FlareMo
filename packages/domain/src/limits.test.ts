@@ -28,6 +28,17 @@ describe("parseUserPlanLimits", () => {
       attachmentStorageBytes: 1073741824,
       aiEmbeddingTokensPerMonth: 200000,
       semanticSearchQueriesPerMonth: null,
+      maxMemosPerUser: null,
+      maxMemoryItemsPerUser: null,
+    });
+    // A partial payload fills missing dimensions with null (fall through to
+    // the deployment limit) — null never means "unlimited".
+    expect(parseUserPlanLimits('{"maxMemosPerUser":500}')).toEqual({
+      attachmentStorageBytes: null,
+      aiEmbeddingTokensPerMonth: null,
+      semanticSearchQueriesPerMonth: null,
+      maxMemosPerUser: 500,
+      maxMemoryItemsPerUser: null,
     });
   });
 
@@ -37,11 +48,7 @@ describe("parseUserPlanLimits", () => {
     expect(parseUserPlanLimits("not json")).toBeNull();
     expect(parseUserPlanLimits("42")).toBeNull();
     expect(parseUserPlanLimits("{}")).toBeNull();
-    expect(
-      parseUserPlanLimits(
-        '{"attachmentStorageBytes":1,"aiEmbeddingTokensPerMonth":2}',
-      ),
-    ).toBeNull();
+    expect(parseUserPlanLimits("{}")).toBeNull();
     expect(
       parseUserPlanLimits(
         '{"attachmentStorageBytes":-5,"aiEmbeddingTokensPerMonth":2,"semanticSearchQueriesPerMonth":3}',
