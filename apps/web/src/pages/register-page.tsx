@@ -37,6 +37,7 @@ export function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [captchaTicket, setCaptchaTicket] = useState<string | null>(null);
   const [captchaRandstr, setCaptchaRandstr] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   if (session.data?.user) {
     return (
@@ -89,6 +90,13 @@ export function RegisterPage() {
       );
       setPassword("");
       setPasswordConfirmation("");
+      // With a transactional-email provider the account needs verification
+      // before it is fully usable; show the check-your-inbox state instead of
+      // silently dropping the user at the login form.
+      if (registrationQuery.data?.email_verification_required) {
+        setRegisteredEmail(email.trim());
+        return;
+      }
       await navigate({ replace: true, to: "/login" });
     } catch (error) {
       setFormError(errorMessage(error, t("auth.registerFailed")));
@@ -96,6 +104,30 @@ export function RegisterPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (registeredEmail) {
+    return (
+      <AuthPageFrame title={t("auth.verifyEmailTitle")}>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-6 text-muted-foreground">
+            {t("auth.verifyEmailSent")}{" "}
+            <span className="font-medium text-foreground">
+              {registeredEmail}
+            </span>
+          </p>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {t("auth.verifyEmailHint")}
+          </p>
+          <Link
+            className="text-sm font-medium text-flame-600 underline-offset-4 hover:underline"
+            to="/login"
+          >
+            {t("auth.signIn")}
+          </Link>
+        </div>
+      </AuthPageFrame>
+    );
+  }
 
   return (
     <AuthPageFrame title={t("auth.registerTitle")}>

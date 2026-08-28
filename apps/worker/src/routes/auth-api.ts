@@ -20,10 +20,12 @@ import { z } from "zod";
 import {
   createFlareMoAuth,
   getBootstrapSecret,
+  getPublicUrl,
   getRecoverySecret,
 } from "../auth";
 import { resolveCaptchaConfig, verifyCaptchaRequest } from "../captcha";
 import type { HonoBindings } from "../context";
+import { resolveEmailConfig, sendVerificationEmail } from "../email";
 import { jsonError } from "../http";
 
 export const authApi = new Hono<HonoBindings>();
@@ -72,6 +74,7 @@ authApi.get("/register/status", async (c) => {
   return c.json({
     registration_open: await getUserRegistrationAllowed(db),
     initialized: status.initialized,
+    email_verification_required: resolveEmailConfig(c.env).provider !== "none",
     captcha: {
       provider: captcha.provider,
       site_key: captcha.siteKey,
@@ -142,6 +145,23 @@ authApi.post("/register", zValidator("json", registerSchema), async (c) => {
       },
       c.get("planLimits") ?? SELF_HOST_UNLIMITED,
     );
+    // When a transactional-email provider is configured, registration is not
+    // complete until the address is verified; the account can still sign in
+    // but the UI prompts for verification.
+    if (resolveEmailConfig(c.env).provider !== "none") {
+      const token = await auth.createEmailVerificationToken(result.user.id);
+      const sent = await sendVerificationEmail(c.env, {
+        to: email,
+        token,
+        publicUrl: getPublicUrl(c.env),
+      });
+      if (!sent) {
+        return c.json(
+          { error: { message: "Verification email could not be sent." } },
+          502,
+        );
+      }
+    }
     return c.json({ ok: true }, 201);
   } catch (error) {
     // A spent member quota must surface as its own status, not drown in the
@@ -154,6 +174,24 @@ authApi.post("/register", zValidator("json", registerSchema), async (c) => {
       400,
     );
   }
+});
+
+authApi.get("/verify-email", async (c) => {
+  const token = c.req.query("token");
+  if (!token) {
+    return c.json({ error: { message: "Missing verification token." } }, 400);
+  }
+  const db = createDb(c.env.DB);
+  const auth = createFlareMoAuth(c.env, db);
+  const authUserId = await auth.consumeEmailVerificationToken(token);
+  if (!authUserId) {
+    return c.json(
+      { error: { message: "Verification link is invalid or expired." } },
+      400,
+    );
+  }
+  await auth.markEmailVerified(authUserId);
+  return c.json({ ok: true });
 });
 
 authApi.post("/bootstrap", zValidator("json", bootstrapSchema), async (c) => {

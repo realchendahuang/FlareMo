@@ -80,6 +80,18 @@ export type FlareMoAuth = {
    * flow without the admin ever learning the plaintext.
    */
   createPasswordResetToken: (authUserId: string) => Promise<string>;
+  /**
+   * Mint a single-use, 24h verification token for a Better Auth identity,
+   * stored in `auth_verifications` under the `email-verify:` namespace.
+   */
+  createEmailVerificationToken: (authUserId: string) => Promise<string>;
+  /** Mark a Better Auth identity's email as verified. */
+  markEmailVerified: (authUserId: string) => Promise<void>;
+  /**
+   * Consume a single-use email-verification token. Returns the auth user id
+   * it was minted for, or null when the token is unknown/expired/already used.
+   */
+  consumeEmailVerificationToken: (token: string) => Promise<string | null>;
   api: {
     createApiKey: (input: {
       body: {
@@ -225,6 +237,35 @@ export function createFlareMoAuth(
 
   return {
     ...auth,
+    createEmailVerificationToken: async (authUserId: string) => {
+      const authContext = await auth.$context;
+      const token = crypto.randomUUID();
+      const identifier = `email-verify:${token}`;
+      await authContext.internalAdapter.createVerificationValue({
+        identifier,
+        value: authUserId,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000),
+      });
+      return token;
+    },
+    markEmailVerified: async (authUserId: string) => {
+      const authContext = await auth.$context;
+      await authContext.internalAdapter.updateUser(authUserId, {
+        emailVerified: true,
+        updatedAt: new Date(),
+      });
+    },
+    consumeEmailVerificationToken: async (token: string) => {
+      const authContext = await auth.$context;
+      const identifier = `email-verify:${token}`;
+      const record =
+        await authContext.internalAdapter.findVerificationValue(identifier);
+      if (!record) return null;
+      await authContext.internalAdapter.deleteVerificationByIdentifier(
+        identifier,
+      );
+      return record.value;
+    },
     createPasswordResetToken: async (authUserId: string) => {
       // The token is the verification record's unique identifier under the
       // `reset-password:` prefix Better Auth's reset-password endpoint looks
