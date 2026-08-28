@@ -2,32 +2,44 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
-## Unreleased
+## v0.10.0
+
+开放内核与计划限额版本。这个版本为 可组合内核打下地基：AGPL-3.0-only 许可证、`createFlareMoApp` 组装工厂、可注入的 `PlanLimits` 在内核四个执行点被真正执行（附件存储 / 月度 embedding tokens / 月度语义搜索 / 成员数），并新增内核导入边界架构测试。自托管部署行为完全不变（限额全 null = 不限量）；多用户部署形态的差异化从这一版起纯粹是注入限额的数字差异。
 
 ### 新增能力
 
+- 许可证从 MIT 切换为 **AGPL-3.0-only**（#103）：全部 9 个包 SPDX 更新，README/CONTRIBUTING 写明版权人双许可权利与商标条款。
+- `createFlareMoApp(options)` 工厂（#105）：worker 路由表不再挂模块级常量，每次调用返回全新 Hono 实例；接受可选 `resolvePlanLimits(env)`，默认恒返回 `SELF_HOST_UNLIMITED`，解析结果经中间件写入 Hono Variables 并随请求上下文 `limits` 字段可用。
+- 计划限额真实执行（#109，`packages/domain/src/quotas.ts`）：
+  - 附件存储总量：三条上传路径 + 两条导入路径在写入 R2 前预检，超限返回 429；
+  - 月度 embedding tokens：outbox 每次 embed 成功后按估算 token（`ceil(chars/4)`）写入 `usage_counters`；预算耗尽时 sweep 暂停认领（任务保持 pending、不消耗重试次数，次月自动恢复）；全量重建只计量不阻断；
+  - 月度语义搜索：新增 `search_queries` 指标，`/api/app/search/semantic` 与 `memory_recall` 语义路径在 embed 前检查，超限 429；
+  - 成员数上限：Web 注册 / 管理员建号 / Memos 注册路径统一预检，注册在 Better Auth 身份创建之前预检以避免孤儿身份；429 在四套错误映射中透传。
+- `/api/app/usage/vector` 响应新增 `plan` 段（四维度 used/limit），账户用量面板渲染限额进度条（limit 为 null 不渲染）。
+- 内核导入边界架构测试（#107）：机械约束支付依赖不得进入内核、第三方导入必须注册在 workspace package、禁止非 registry 依赖声明。
+
+### 营销站与文档镜像（apps/site）
+
 - 新增 `apps/site` 包：FlareMo 官方营销站与文档镜像，部署到 `flaremo.app`，与主 Worker `flaremo` 完全解耦。
-- 技术栈与 `apps/web` 完全同构：React 19 + Vite + TanStack Router（code-based）+ Tailwind CSS 4；构建期用 `scripts/build.mjs` 做 SSG，每个路由产出完整静态 HTML（SEO head + body），客户端 hydrate。
-- 首页 `/` 与 `/en/`：Hero（D1 5GB / R2 10GB / 0 服务器）+ 6 张 feature 卡片 + Cloudflare vs NAS vs VPS 对比表 + 截图墙 + 三档定价 + 6 条 FAQ。
-- 定价页 `/pricing` 与 `/en/pricing`：Free / Pro / Team 三档，Pro 高亮；Cloudflare 免费层对照表；Pricing FAQ；使用条款与隐私。
-- 文档镜像 `/docs` 与 `/en/docs`：侧边栏 5 组（开始 / 架构与概念 / 兼容与生态 / Agent 集成 / 参考），覆盖 15 篇中文 + 4 篇已译英文；中文页 `react-markdown` 渲染 + GitHub 风格锚点。
-- 
-- 完整 SEO：`robots.txt`、TanStack Start 自动 `sitemap.xml`、每个路由独立 `head`、JSON-LD（`SoftwareApplication` / `Product` / `Article`）、`hreflang`（zh-CN / en-US / x-default）、OG image 占位（`public/og-image.svg`）。
+- 技术栈与 `apps/web` 完全同构：React 19 + Vite + TanStack Router（code-based）+ Tailwind CSS 4；构建期 SSG，每个路由产出完整静态 HTML，客户端 hydrate。
+- 首页 / 定价页 / 文档镜像 / 完整 SEO（sitemap、JSON-LD、hreflang、OG image）。
 
-### Cloudflare、数据库与兼容影响
+### Memos 兼容面变化
 
-- 新增独立 Worker `name: flaremo-site`，独立 `wrangler.jsonc`，独立 Cloudflare 部署目标。
-- 无数据库 migration、无 Cloudflare 资源创建（除 `flaremo-site` Worker 本身）、无新增主 Worker env var。
-- `/api/v1/*` Memos 兼容面不变；`/mcp` 语义不变；主 Worker（`flaremo.chendahuang.com`）行为不变。
+- `/api/v1/*` 兼容面不变；新增的 429 仅在部署显式注入限额时出现，自托管（不注入）永远不会触发。
 - 认证与 Origin 校验语义不变：cookie session 状态变更仍要求精确 Origin 匹配，PAT 请求语义不变。
-- `FLAREMO_PUBLIC_URL` 不动；不触碰 Better Auth 配置。
+
+### Cloudflare、数据库与认证影响
+
+- 无数据库 migration、无新增 Cloudflare 资源、无新增 env var 或 secret 要求。
+- `apps/site` 为独立 Worker `flaremo-site`，用 `pnpm deploy:site` 单独部署，不触发主 Worker。
+- Better Auth 配置不动；`FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS` 语义不变。
 
 ### 升级说明
 
-- 本次新增不要求任何迁移步骤；不会触碰现有 Cloudflare 资源。
-- `pnpm deploy:site` 单独部署营销站，不会触发主 Worker 部署。
-- 不写任何 secret、cookie、PAT 进代码、文档、release notes、日志或聊天。
-- 
+- 自托管用户直接 `pnpm deploy` 即可；无需任何迁移步骤，行为与 v0.9.0 一致。
+- `pnpm release v0.10.0` 与 Deploy Button 用户仓库的升级 PR 自动消费本 Release。
+- 后续多用户部署形态通过外部组合壳组合本内核，不影响公开仓升级路径。
 
 ## v0.9.0
 
