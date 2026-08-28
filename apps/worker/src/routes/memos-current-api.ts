@@ -60,6 +60,7 @@ import {
   getRequestContext,
   type HonoBindings,
 } from "../context";
+import { resolveEmailConfig } from "../email";
 import {
   authenticateMemosAccessToken,
   clearMemosRefreshCookie,
@@ -250,6 +251,15 @@ memosCurrentApi.post("/auth/signup", async (c, next) => {
     assertTrustedCookieMutation(c);
     const input = currentSignupSchema.parse(await c.req.json());
     await assertRegistrationOpen(c);
+    // With a transactional-email provider configured, registration requires
+    // verifying a real mailbox through the web app. This compat surface
+    // cannot complete that flow, so refuse rather than minting unverified
+    // accounts that bypass the deployment's anti-abuse gate.
+    if (resolveEmailConfig(c.env).provider !== "none") {
+      throw new ForbiddenCurrentError(
+        "Email verification is required. Please use the FlareMo web app to sign up.",
+      );
+    }
     await verifyCaptchaRequest(c.env, c.req.raw);
     const username = input.username.trim();
     const email = input.email?.trim() || `${username}@flaremo.local`;
