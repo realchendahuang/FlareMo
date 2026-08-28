@@ -16,6 +16,7 @@ export * from "./memos-sse";
 export * from "./memos-user";
 export * from "./memos-webhooks";
 export * from "./projects";
+export * from "./quotas";
 export * from "./registration";
 export * from "./relations";
 export * from "./review";

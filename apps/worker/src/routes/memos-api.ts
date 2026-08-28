@@ -12,6 +12,7 @@ import {
   updateMemoSchema,
 } from "@flaremo/contracts";
 import {
+  assertAttachmentStorageQuota,
   bindMemoAttachments,
   createAttachmentMetadata,
   createDataTask,
@@ -346,7 +347,7 @@ memosApi.get(
 
 memosApi.post("/attachments", async (c) => {
   try {
-    const { db, user } = await getRequestContext(c);
+    const { db, user, limits } = await getRequestContext(c);
     const formData = await c.req.formData();
     const file = formData.get("file");
     const memo = formData.get("memo");
@@ -365,6 +366,8 @@ memosApi.post("/attachments", async (c) => {
       const existing = await getAttachmentByClientId(db, user, clientId);
       if (existing) return c.json(attachmentToDto(existing));
     }
+
+    await assertAttachmentStorageQuota(db, limits, file.size);
 
     const objectKey = createAttachmentObjectKey(user.id, file.name);
     const object = await c.env.ATTACHMENTS.put(objectKey, file, {
@@ -525,8 +528,13 @@ memosApi.post(
   async (c) => {
     const writtenKeys: string[] = [];
     try {
-      const { db, user } = await getRequestContext(c);
+      const { db, user, limits } = await getRequestContext(c);
       const bundle = c.req.valid("json");
+      await assertAttachmentStorageQuota(
+        db,
+        limits,
+        bundleAttachmentBytes(bundle.attachments),
+      );
       const r2Keys = new Map<string, string>();
       const r2Etags = new Map<string, string | null>();
       for (const attachment of bundle.attachments) {
@@ -829,11 +837,16 @@ memosApi.post(
     let taskId: string | undefined;
     const writtenKeys: string[] = [];
     try {
-      const { db, user } = await getRequestContext(c);
+      const { db, user, limits } = await getRequestContext(c);
       const body = c.req.valid("json");
       const task = await createDataTask(db, user, { kind: "import" });
       taskId = task.id;
 
+      await assertAttachmentStorageQuota(
+        db,
+        limits,
+        bundleAttachmentBytes(body.bundle.attachments),
+      );
       const r2Keys = new Map<string, string>();
       const r2Etags = new Map<string, string | null>();
       for (const attachment of body.bundle.attachments) {
@@ -911,6 +924,18 @@ function sanitizeFilename(filename: string) {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+// Decoded-size estimate for a base64 attachment list; used to pre-check the
+// storage quota before any object of the bundle is written to R2.
+function bundleAttachmentBytes(attachments: { data_base64?: string }[]) {
+  return attachments.reduce(
+    (sum, attachment) =>
+      attachment.data_base64
+        ? sum + Math.ceil((attachment.data_base64.length * 3) / 4)
+        : sum,
+    0,
+  );
 }
 
 function estimateBundleJsonBytes(bundle: {

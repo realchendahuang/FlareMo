@@ -670,27 +670,103 @@ function VectorUsagePanel({
         used={report.queried_dimensions_this_month}
         limit={report.queried_limit}
       />
+      {report.plan && <PlanQuotaBars plan={report.plan} t={t} />}
       <p className="text-xs text-muted-foreground">{t("usage.disclaimer")}</p>
     </div>
   );
+}
+
+// Used-vs-limit rows for the injectable plan quotas. Rows with a null limit
+// (self-hosted default) stay hidden so the panel stays noise-free; when every
+// limit is null there is nothing to render.
+function PlanQuotaBars({
+  plan,
+  t,
+}: {
+  plan: NonNullable<VectorUsageReport["plan"]>;
+  t: (key: TranslationKey) => string;
+}) {
+  const rows: Array<{
+    key: TranslationKey;
+    used: number;
+    limit: number | null;
+    format: (value: number) => string;
+  }> = [
+    {
+      key: "usage.planStorage",
+      used: plan.usage.attachmentStorageBytes,
+      limit: plan.limits.attachmentStorageBytes,
+      format: formatBytes,
+    },
+    {
+      key: "usage.planEmbeddingTokens",
+      used: plan.usage.aiEmbeddingTokensPerMonth,
+      limit: plan.limits.aiEmbeddingTokensPerMonth,
+      format: (value) => value.toLocaleString(),
+    },
+    {
+      key: "usage.planSearchQueries",
+      used: plan.usage.semanticSearchQueriesPerMonth,
+      limit: plan.limits.semanticSearchQueriesPerMonth,
+      format: (value) => value.toLocaleString(),
+    },
+    {
+      key: "usage.planMembers",
+      used: plan.usage.maxMembersPerDeployment,
+      limit: plan.limits.maxMembersPerDeployment,
+      format: (value) => value.toLocaleString(),
+    },
+  ];
+  const limited = rows.filter((row) => row.limit !== null);
+  if (limited.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-3 border-t pt-4">
+      <p className="text-sm font-medium">{t("usage.planTitle")}</p>
+      {limited.map((row) => (
+        <UsageBar
+          key={row.key}
+          label={t(row.key)}
+          used={row.used}
+          limit={row.limit as number}
+          formatValue={row.format}
+        />
+      ))}
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) {
+    return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  }
+  if (bytes >= 1024 ** 2) {
+    return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${bytes} B`;
 }
 
 function UsageBar({
   label,
   used,
   limit,
+  formatValue,
 }: {
   label: string;
   used: number;
   limit: number;
+  formatValue?: (value: number) => string;
 }) {
+  const format = formatValue ?? ((value: number) => value.toLocaleString());
   const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between text-sm">
         <span>{label}</span>
         <span className="text-muted-foreground tabular-nums">
-          {used.toLocaleString()} / {limit.toLocaleString()}
+          {format(used)} / {format(limit)}
         </span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">

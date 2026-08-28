@@ -7,6 +7,8 @@ import {
   NotFoundError,
   ValidationError,
 } from "./errors";
+import type { PlanLimits } from "./limits";
+import { assertMemberQuota } from "./quotas";
 
 export type SingleUserConfig = {
   email: string;
@@ -82,12 +84,18 @@ export async function createFlaremoMember(
 /**
  * Create a member and bind it to an existing Better Auth identity in one
  * ownership boundary. Registration and admin creation both reach this path so
- * the auth-to-domain link is never written from an HTTP adapter.
+ * the auth-to-domain link is never written from an HTTP adapter. When a member
+ * cap is supplied (hosted plans), the deployment-wide headcount is checked
+ * first; bootstrap (`ensureSingleUser`) intentionally bypasses this.
  */
 export async function createFlaremoMemberWithLink(
   db: FlareMoDb,
   input: { authUserId: string; email: string; name: string },
+  limits?: PlanLimits,
 ): Promise<UserRow> {
+  if (limits) {
+    await assertMemberQuota(db, limits);
+  }
   const user = await createFlaremoMember(db, {
     email: input.email,
     name: input.name,

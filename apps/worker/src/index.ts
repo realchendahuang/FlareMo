@@ -216,6 +216,7 @@ const handler = {
         provider: createEmbeddingProvider(env),
         memosIndex: createVectorIndex(env, "memo"),
         memoriesIndex: createVectorIndex(env, "memory"),
+        limits: SELF_HOST_UNLIMITED,
       }).catch(() => undefined),
     );
     return response;
@@ -226,6 +227,7 @@ const handler = {
       provider: createEmbeddingProvider(env),
       memosIndex: createVectorIndex(env, "memo"),
       memoriesIndex: createVectorIndex(env, "memory"),
+      limits: SELF_HOST_UNLIMITED,
     });
     const db = createDb(env.DB);
     const cutoff = new Date(

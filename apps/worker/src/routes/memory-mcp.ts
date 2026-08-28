@@ -8,9 +8,11 @@ import {
   rememberInputSchema,
 } from "@flaremo/contracts";
 import {
+  assertMonthlyQuota,
   bootstrapMemory,
   checkpointMemory,
   createMemory,
+  estimateTokenCount,
   forgetMemory,
   incrementUsageCounter,
   linkMemory,
@@ -420,13 +422,33 @@ async function callMemoryTool(
       const provider = createEmbeddingProvider(c.env);
       const index = createVectorIndex(c.env, "memory");
       if (provider && index) {
+        await assertMonthlyQuota(
+          context.db,
+          context.limits.semanticSearchQueriesPerMonth,
+          "search_queries",
+          "Monthly semantic search quota exceeded",
+        );
         c.executionCtx.waitUntil(
-          incrementUsageCounter(
-            db,
-            user,
-            "queried_dims",
-            provider.dimensions,
-          ).catch(() => undefined),
+          Promise.all([
+            incrementUsageCounter(
+              context.db,
+              context.user,
+              "queried_dims",
+              provider.dimensions,
+            ).catch(() => undefined),
+            incrementUsageCounter(
+              context.db,
+              context.user,
+              "search_queries",
+              1,
+            ).catch(() => undefined),
+            incrementUsageCounter(
+              context.db,
+              context.user,
+              "embedding_tokens",
+              estimateTokenCount([input.query]),
+            ).catch(() => undefined),
+          ]),
         );
       }
       return recallMemories(

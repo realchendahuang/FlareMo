@@ -227,6 +227,11 @@ const messages = {
     "usage.vectors": "向量数",
     "usage.stored": "存储维度",
     "usage.queried": "本月查询维度",
+    "usage.planTitle": "计划限额",
+    "usage.planStorage": "附件存储",
+    "usage.planEmbeddingTokens": "本月 Embedding Tokens",
+    "usage.planSearchQueries": "本月语义搜索",
+    "usage.planMembers": "成员数",
     "usage.disclaimer":
       "以上为自测估算，非 Cloudflare 官方账单；最终计费以 Cloudflare Dashboard 为准。",
     "auth.unnamedToken": "未命名令牌",
@@ -682,6 +687,11 @@ const messages = {
     "usage.vectors": "Vectors",
     "usage.stored": "Stored dimensions",
     "usage.queried": "Queried dimensions this month",
+    "usage.planTitle": "Plan quota",
+    "usage.planStorage": "Attachment storage",
+    "usage.planEmbeddingTokens": "Embedding tokens this month",
+    "usage.planSearchQueries": "Semantic searches this month",
+    "usage.planMembers": "Members",
     "usage.disclaimer":
       "Self-measured estimate, not Cloudflare's official bill; final billing is per the Cloudflare Dashboard.",
     "auth.unnamedToken": "Unnamed token",
