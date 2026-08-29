@@ -1,13 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeftIcon } from "lucide-react";
 import { useMemo } from "react";
 import { getDailyReview, type Memo } from "@/api";
-import { AttachmentGallery } from "@/components/attachment-gallery";
-import { FlareMoLogo } from "@/components/flaremo-logo";
-import { LazyMemoContent } from "@/components/lazy-memo-content";
+import { MemoSnapshotCard } from "@/components/memo-snapshot-card";
+import { SubpageHeader } from "@/components/subpage-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Empty,
   EmptyDescription,
@@ -16,7 +12,6 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
-import { formatMemoTime } from "@/lib/memo";
 
 export function DailyReviewPage() {
   const { locale, t } = useI18n();
@@ -35,23 +30,7 @@ export function DailyReviewPage() {
   return (
     <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
       <main className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
-        <header className="flex items-center justify-between gap-3">
-          <Button asChild size="sm" variant="ghost">
-            <Link
-              search={{
-                q: undefined,
-                tag: undefined,
-                view: undefined,
-                untagged: undefined,
-              }}
-              to="/"
-            >
-              <ArrowLeftIcon data-icon="inline-start" />
-              {t("common.back")}
-            </Link>
-          </Button>
-          <FlareMoLogo markClassName="size-5" />
-        </header>
+        <SubpageHeader />
 
         <div className="px-1">
           <h1 className="font-heading text-xl font-semibold">
@@ -100,15 +79,7 @@ export function DailyReviewPage() {
                 : t("review.yearsAgoToday", { count: group.yearsAgo })}
             </h2>
             {group.memos.map((memo) => (
-              <Card key={memo.name}>
-                <CardContent className="flex flex-col gap-3">
-                  <time className="text-xs text-muted-foreground tabular-nums">
-                    {formatMemoTime(memo.create_time, locale)}
-                  </time>
-                  <LazyMemoContent content={memo.content} />
-                  <AttachmentGallery attachments={memo.attachments ?? []} />
-                </CardContent>
-              </Card>
+              <MemoSnapshotCard key={memo.name} locale={locale} memo={memo} />
             ))}
           </section>
         ))}

@@ -48,9 +48,9 @@ export function UpdateStatus() {
           variant="ghost"
         >
           <RefreshCwIcon />
-          <span className="text-xs font-medium">
-            {appInfo ? `v${appInfo.version}` : t("update.version")}
-          </span>
+          {appInfo && (
+            <span className="text-xs font-medium">v{appInfo.version}</span>
+          )}
           {updateAvailable && (
             <span
               aria-hidden="true"

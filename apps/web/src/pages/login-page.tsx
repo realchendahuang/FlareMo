@@ -3,10 +3,11 @@ import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { getBootstrapStatus, getRegistrationStatus } from "@/api";
 import { authClient } from "@/auth-client";
-import { AuthPageFrame, errorMessage } from "@/components/auth-page-frame";
+import { AuthPageFrame } from "@/components/auth-page-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 
 export function LoginPage() {
   const { t } = useI18n();

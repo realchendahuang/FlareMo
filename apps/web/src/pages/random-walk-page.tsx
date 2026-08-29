@@ -1,15 +1,8 @@
-import { Link } from "@tanstack/react-router";
-import {
-  ArrowLeftIcon,
-  FootprintsIcon,
-  Loader2Icon,
-  ShuffleIcon,
-} from "lucide-react";
+import { FootprintsIcon, Loader2Icon, ShuffleIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRandomWalkMemo, getWalkNextMemo } from "@/api";
-import { AttachmentGallery } from "@/components/attachment-gallery";
-import { FlareMoLogo } from "@/components/flaremo-logo";
-import { LazyMemoContent } from "@/components/lazy-memo-content";
+import { MemoSnapshotCard } from "@/components/memo-snapshot-card";
+import { SubpageHeader } from "@/components/subpage-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -94,7 +87,6 @@ export function RandomWalkPage() {
   };
 
   const restart = () => {
-    startedRef.current = true;
     void start();
   };
 
@@ -103,23 +95,7 @@ export function RandomWalkPage() {
   return (
     <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
       <main className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
-        <header className="flex items-center justify-between gap-3">
-          <Button asChild size="sm" variant="ghost">
-            <Link
-              search={{
-                q: undefined,
-                tag: undefined,
-                view: undefined,
-                untagged: undefined,
-              }}
-              to="/"
-            >
-              <ArrowLeftIcon data-icon="inline-start" />
-              {t("common.back")}
-            </Link>
-          </Button>
-          <FlareMoLogo markClassName="size-5" />
-        </header>
+        <SubpageHeader />
 
         <div className="px-1">
           <h1 className="font-heading text-xl font-semibold">
@@ -164,10 +140,10 @@ export function RandomWalkPage() {
             )}
             {step && (
               <>
-                <WalkStepCard
+                <MemoSnapshotCard
+                  badge={viaLabel(step, t)}
                   locale={locale}
-                  step={step}
-                  viaLabel={viaLabel(step, t)}
+                  memo={step.memo}
                 />
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
@@ -246,35 +222,6 @@ export function RandomWalkPage() {
         )}
       </main>
     </div>
-  );
-}
-
-function WalkStepCard({
-  locale,
-  step,
-  viaLabel,
-}: {
-  locale: string;
-  step: WalkStep;
-  viaLabel: string | null;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <time className="text-xs text-muted-foreground tabular-nums">
-            {formatMemoTime(step.memo.create_time, locale)}
-          </time>
-          {viaLabel && (
-            <span className="rounded-full bg-flame-100 px-2.5 py-1 text-xs font-medium text-flame-700 dark:bg-flame-400/12 dark:text-flame-200">
-              {viaLabel}
-            </span>
-          )}
-        </div>
-        <LazyMemoContent content={step.memo.content} />
-        <AttachmentGallery attachments={step.memo.attachments ?? []} />
-      </CardContent>
-    </Card>
   );
 }
 

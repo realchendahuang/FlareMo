@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { getRegistrationStatus, requestPasswordReset } from "@/api";
-import { AuthPageFrame, errorMessage } from "@/components/auth-page-frame";
+import { AuthPageFrame } from "@/components/auth-page-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 
 export function ForgotPasswordPage() {
   const { t } = useI18n();

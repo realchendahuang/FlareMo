@@ -166,10 +166,7 @@ export function FlareMoExplorer({
         ))}
       </nav>
 
-      <section className="mt-5 flex flex-col gap-1">
-        <div className="px-1 text-xs text-muted-foreground">
-          {t("review.sectionTitle")}
-        </div>
+      <section className="mt-5 flex flex-col gap-1 border-t border-border/60 pt-4">
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
           to="/review/daily"

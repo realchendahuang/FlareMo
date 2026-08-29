@@ -176,25 +176,22 @@ export function MemoComposer({
             <ListIcon />
           </Button>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            className="size-8 rounded-lg px-0"
-            disabled={isPending || !canSubmit}
-            size="icon-sm"
-            type="submit"
-            variant="brand"
-          >
-            {isPending ? (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <SendIcon
-                className="motion-safe:animate-scale-in"
-                data-icon="inline-start"
-              />
-            )}
-            <span className="sr-only">{t("common.save")}</span>
-          </Button>
-        </div>
+        <Button
+          className="size-8 rounded-lg px-0"
+          disabled={isPending || !canSubmit}
+          type="submit"
+          variant="brand"
+        >
+          {isPending ? (
+            <Loader2Icon className="animate-spin" data-icon="inline-start" />
+          ) : (
+            <SendIcon
+              className="motion-safe:animate-scale-in"
+              data-icon="inline-start"
+            />
+          )}
+          <span className="sr-only">{t("common.save")}</span>
+        </Button>
       </div>
     </form>
   );

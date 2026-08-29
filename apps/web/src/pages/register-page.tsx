@@ -8,11 +8,12 @@ import {
   resendVerificationEmail,
 } from "@/api";
 import { authClient } from "@/auth-client";
-import { AuthPageFrame, errorMessage } from "@/components/auth-page-frame";
+import { AuthPageFrame } from "@/components/auth-page-frame";
 import { CaptchaField } from "@/components/captcha-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 
 const MIN_PASSWORD_LENGTH = 12;
 

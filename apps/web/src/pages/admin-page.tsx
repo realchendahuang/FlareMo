@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CheckIcon,
   ClipboardIcon,
   KeyRoundIcon,
   Loader2Icon,
   Trash2Icon,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   type AdminUser,
   createAdminUser,
@@ -15,7 +17,16 @@ import {
   requestAdminPasswordReset,
   updateAdminSettings,
 } from "@/api";
-import { errorMessage } from "@/components/auth-page-frame";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -41,6 +53,7 @@ export function AdminPanel() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [resetLink, setResetLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
   const settingsQuery = useQuery({
     queryKey: ["admin-settings"],
@@ -93,7 +106,6 @@ export function AdminPanel() {
   };
 
   const handleDeleteUser = async (user: AdminUser) => {
-    if (!window.confirm(t("admin.deleteConfirm"))) return;
     try {
       await deleteUserMutation.mutateAsync(user.id);
     } catch (error) {
@@ -118,7 +130,7 @@ export function AdminPanel() {
       await navigator.clipboard.writeText(resetLink);
       setCopied(true);
     } catch {
-      setCreateError(t("admin.resetCopyFailed"));
+      toast.error(t("admin.resetCopyFailed"));
     }
   };
 
@@ -150,16 +162,8 @@ export function AdminPanel() {
               <Switch
                 checked={registrationOpen}
                 disabled={updateSettingsMutation.isPending}
-                onCheckedChange={async (next) => {
-                  try {
-                    await updateSettingsMutation.mutateAsync({
-                      registration_open: next,
-                    });
-                  } catch (error) {
-                    setCreateError(
-                      errorMessage(error, t("admin.settingsSaveFailed")),
-                    );
-                  }
+                onCheckedChange={(next) => {
+                  updateSettingsMutation.mutate({ registration_open: next });
                 }}
               />
             </div>
@@ -270,7 +274,7 @@ export function AdminPanel() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => void handleCopyResetLink()}>
                   {copied ? (
-                    <span>{t("auth.copied")}</span>
+                    <CheckIcon data-icon="inline-start" />
                   ) : (
                     <ClipboardIcon data-icon="inline-start" />
                   )}
@@ -341,7 +345,7 @@ export function AdminPanel() {
                       disabled={deleteUserMutation.isPending}
                       size="sm"
                       variant="outline"
-                      onClick={() => void handleDeleteUser(user)}
+                      onClick={() => setDeleteTarget(user)}
                     >
                       <Trash2Icon data-icon="inline-start" />
                       {t("admin.deleteUser")}
@@ -353,6 +357,35 @@ export function AdminPanel() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin.deleteUser")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("admin.deleteConfirm")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="ghost">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteTarget) void handleDeleteUser(deleteTarget);
+              }}
+            >
+              {t("admin.deleteUser")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

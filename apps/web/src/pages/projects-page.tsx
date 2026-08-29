@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
-  ArrowLeftIcon,
   CalendarDaysIcon,
   CheckCircle2Icon,
   CircleDotIcon,
@@ -15,7 +13,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
-import { cloneElement, isValidElement, useId, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   archiveProject,
@@ -32,7 +30,7 @@ import {
   updateProject,
   updateTask,
 } from "@/api";
-import { FlareMoLogo } from "@/components/flaremo-logo";
+import { SubpageHeader } from "@/components/subpage-header";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,10 +65,12 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 
 const ALL_TASKS = "all";
 
@@ -129,23 +129,7 @@ export function ProjectsPage() {
   return (
     <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4">
-        <header className="flex items-center justify-between gap-3">
-          <Button asChild size="sm" variant="ghost">
-            <Link
-              search={{
-                q: undefined,
-                tag: undefined,
-                view: undefined,
-                untagged: undefined,
-              }}
-              to="/"
-            >
-              <ArrowLeftIcon data-icon="inline-start" />
-              {t("common.back")}
-            </Link>
-          </Button>
-          <FlareMoLogo markClassName="size-5" />
-        </header>
+        <SubpageHeader />
 
         <div className="flex items-end justify-between gap-3 px-1">
           <h1 className="font-heading text-xl font-semibold">
@@ -218,17 +202,18 @@ export function ProjectsPage() {
           </section>
         </div>
 
-        <ProjectCreateDialog
+        <ProjectFormDialog
           open={creatingProject}
-          onCreated={invalidate}
           onOpenChange={setCreatingProject}
+          onSaved={invalidate}
         />
-        <TaskCreateDialog
+        <TaskFormDialog
           defaultProjectId={selectedProject?.id}
+          key={selected}
           open={creatingTask}
           projects={projects}
-          onCreated={invalidate}
           onOpenChange={setCreatingTask}
+          onSaved={invalidate}
         />
       </main>
     </div>
@@ -361,7 +346,7 @@ function ProjectRow({
       onMutated();
     },
     onError: (error) =>
-      toast.error(toError(error, t("toast.projectArchiveFailed"))),
+      toast.error(errorMessage(error, t("toast.projectArchiveFailed"))),
   });
 
   const deleteMutation = useMutation({
@@ -371,7 +356,7 @@ function ProjectRow({
       onMutated();
     },
     onError: (error) =>
-      toast.error(toError(error, t("toast.projectDeleteFailed"))),
+      toast.error(errorMessage(error, t("toast.projectDeleteFailed"))),
   });
 
   return (
@@ -438,11 +423,11 @@ function ProjectRow({
         </DropdownMenu>
       </div>
 
-      <ProjectEditDialog
+      <ProjectFormDialog
         open={editing}
         project={project}
-        onMutated={onMutated}
         onOpenChange={setEditing}
+        onSaved={onMutated}
       />
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>
@@ -469,46 +454,64 @@ function ProjectRow({
   );
 }
 
-function ProjectEditDialog({
+function ProjectFormDialog({
   open,
   project,
-  onMutated,
+  onSaved,
   onOpenChange,
 }: {
   open: boolean;
-  project: Project;
-  onMutated: () => void;
+  project?: Project;
+  onSaved: () => void;
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
-  const [name, setName] = useState(project.name);
-  const [description, setDescription] = useState(project.description ?? "");
+  const [name, setName] = useState(project?.name ?? "");
+  const [description, setDescription] = useState(project?.description ?? "");
 
-  const updateMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: () =>
-      updateProject(bareProjectId(project.id), {
-        name,
-        description: description || null,
-      }),
+      project
+        ? updateProject(bareProjectId(project.id), {
+            name,
+            description: description || null,
+          })
+        : createProject({ name, description: description || undefined }),
     onSuccess: () => {
-      toast.success(t("toast.projectUpdated"));
+      toast.success(
+        t(project ? "toast.projectUpdated" : "toast.projectCreated"),
+      );
+      if (!project) {
+        setName("");
+        setDescription("");
+      }
       onOpenChange(false);
-      onMutated();
+      onSaved();
     },
     onError: (error) =>
-      toast.error(toError(error, t("toast.projectUpdateFailed"))),
+      toast.error(
+        errorMessage(
+          error,
+          t(
+            project ? "toast.projectUpdateFailed" : "toast.projectCreateFailed",
+          ),
+        ),
+      ),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t("projects.editProject")}</DialogTitle>
+          <DialogTitle>
+            {project ? t("projects.editProject") : t("projects.newProject")}
+          </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <Field label={t("projects.field.name")}>
             <Input
               value={name}
+              placeholder={t("projects.namePlaceholder")}
               onChange={(event) => setName(event.target.value)}
             />
           </Field>
@@ -522,8 +525,8 @@ function ProjectEditDialog({
         </div>
         <DialogFooter>
           <Button
-            disabled={!name.trim() || updateMutation.isPending}
-            onClick={() => updateMutation.mutate()}
+            disabled={!name.trim() || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
           >
             {t("common.save")}
           </Button>
@@ -554,7 +557,7 @@ function TaskCard({
       onMutated();
     },
     onError: (error) =>
-      toast.error(toError(error, t("toast.taskUpdateFailed"))),
+      toast.error(errorMessage(error, t("toast.taskUpdateFailed"))),
   });
 
   const deleteMutation = useMutation({
@@ -564,7 +567,7 @@ function TaskCard({
       onMutated();
     },
     onError: (error) =>
-      toast.error(toError(error, t("toast.taskDeleteFailed"))),
+      toast.error(errorMessage(error, t("toast.taskDeleteFailed"))),
   });
 
   const advance = () => {
@@ -660,11 +663,12 @@ function TaskCard({
         </CardContent>
       </Card>
 
-      <TaskEditDialog
+      <TaskFormDialog
         open={editing}
+        projects={[]}
         task={task}
-        onMutated={onMutated}
         onOpenChange={setEditing}
+        onSaved={onMutated}
       />
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>
@@ -689,118 +693,80 @@ function TaskCard({
   );
 }
 
-function ProjectCreateDialog({
-  open,
-  onCreated,
-  onOpenChange,
-}: {
-  open: boolean;
-  onCreated: () => void;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createProject({ name, description: description || undefined }),
-    onSuccess: () => {
-      toast.success(t("toast.projectCreated"));
-      setName("");
-      setDescription("");
-      onOpenChange(false);
-      onCreated();
-    },
-    onError: (error) =>
-      toast.error(toError(error, t("toast.projectCreateFailed"))),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("projects.newProject")}</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <Field label={t("projects.field.name")}>
-            <Input
-              value={name}
-              placeholder={t("projects.namePlaceholder")}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <Field label={t("projects.field.description")}>
-            <Textarea
-              rows={3}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </Field>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!name.trim() || createMutation.isPending}
-            onClick={() => createMutation.mutate()}
-          >
-            {t("common.save")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function TaskCreateDialog({
+function TaskFormDialog({
+  task,
   defaultProjectId,
   open,
   projects,
-  onCreated,
+  onSaved,
   onOpenChange,
 }: {
+  task?: Task;
   defaultProjectId?: string;
   open: boolean;
   projects: Project[];
-  onCreated: () => void;
+  onSaved: () => void;
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
-  const [projectId, setProjectId] = useState<string>(defaultProjectId ?? "");
-  const [title, setTitle] = useState("");
-  const [notes, setNotes] = useState("");
-  const [priority, setPriority] = useState<TaskPriority>("none");
-  const [dueAt, setDueAt] = useState("");
+  const [projectId, setProjectId] = useState<string>(
+    task?.project_id ?? defaultProjectId ?? "",
+  );
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [notes, setNotes] = useState(task?.notes ?? "");
+  const [priority, setPriority] = useState<TaskPriority>(
+    task?.priority ?? "none",
+  );
+  const [dueAt, setDueAt] = useState(task?.due_at ?? "");
+  const [status, setStatus] = useState<TaskStatus>(task?.status ?? "todo");
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: () =>
-      createTask({
-        project_id: projectId,
-        title,
-        status: "todo",
-        notes: notes || undefined,
-        priority,
-        due_at: dueAt || undefined,
-      }),
+      task
+        ? updateTask(bareId(task.id), {
+            title,
+            notes,
+            priority,
+            due_at: dueAt || null,
+            status,
+          })
+        : createTask({
+            project_id: projectId,
+            title,
+            status: "todo",
+            notes: notes || undefined,
+            priority,
+            due_at: dueAt || undefined,
+          }),
     onSuccess: () => {
-      toast.success(t("toast.taskCreated"));
-      setTitle("");
-      setNotes("");
-      setPriority("none");
-      setDueAt("");
+      toast.success(t(task ? "toast.taskUpdated" : "toast.taskCreated"));
+      if (!task) {
+        setTitle("");
+        setNotes("");
+        setPriority("none");
+        setDueAt("");
+      }
       onOpenChange(false);
-      onCreated();
+      onSaved();
     },
     onError: (error) =>
-      toast.error(toError(error, t("toast.taskCreateFailed"))),
+      toast.error(
+        errorMessage(
+          error,
+          t(task ? "toast.taskUpdateFailed" : "toast.taskCreateFailed"),
+        ),
+      ),
   });
 
-  const needsProject = !defaultProjectId;
+  const needsProject = !task && !defaultProjectId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t("projects.newTask")}</DialogTitle>
+          <DialogTitle>
+            {task ? t("projects.editTask") : t("projects.newTask")}
+          </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           {needsProject && (
@@ -826,6 +792,23 @@ function TaskCreateDialog({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
+            {task && (
+              <Field label={t("projects.field.status")}>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  value={status}
+                  onChange={(event) =>
+                    setStatus(event.target.value as TaskStatus)
+                  }
+                >
+                  {STATUS_COLUMNS.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`projects.status.${value}`)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <Field label={t("projects.field.priority")}>
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
@@ -861,145 +844,16 @@ function TaskCreateDialog({
         </div>
         <DialogFooter>
           <Button
-            disabled={!title.trim() || !projectId || createMutation.isPending}
-            onClick={() => createMutation.mutate()}
+            disabled={
+              !title.trim() || (!task && !projectId) || saveMutation.isPending
+            }
+            onClick={() => saveMutation.mutate()}
           >
             {t("common.save")}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function TaskEditDialog({
-  open,
-  task,
-  onMutated,
-  onOpenChange,
-}: {
-  open: boolean;
-  task: Task;
-  onMutated: () => void;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { t } = useI18n();
-  const [title, setTitle] = useState(task.title);
-  const [notes, setNotes] = useState(task.notes ?? "");
-  const [priority, setPriority] = useState<TaskPriority>(task.priority);
-  const [dueAt, setDueAt] = useState(task.due_at ?? "");
-  const [status, setStatus] = useState<TaskStatus>(task.status);
-
-  const updateMutation = useMutation({
-    mutationFn: () =>
-      updateTask(bareId(task.id), {
-        title,
-        notes,
-        priority,
-        due_at: dueAt || null,
-        status,
-      }),
-    onSuccess: () => {
-      toast.success(t("toast.taskUpdated"));
-      onOpenChange(false);
-      onMutated();
-    },
-    onError: (error) =>
-      toast.error(toError(error, t("toast.taskUpdateFailed"))),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("projects.editTask")}</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <Field label={t("projects.field.title")}>
-            <Input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t("projects.field.status")}>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                value={status}
-                onChange={(event) =>
-                  setStatus(event.target.value as TaskStatus)
-                }
-              >
-                {STATUS_COLUMNS.map((value) => (
-                  <option key={value} value={value}>
-                    {t(`projects.status.${value}`)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label={t("projects.field.priority")}>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                value={priority}
-                onChange={(event) =>
-                  setPriority(event.target.value as TaskPriority)
-                }
-              >
-                {(Object.keys(PRIORITY_BADGE) as TaskPriority[]).map(
-                  (value) => (
-                    <option key={value} value={value}>
-                      {t(`projects.priority.${value}`)}
-                    </option>
-                  ),
-                )}
-              </select>
-            </Field>
-          </div>
-          <Field label={t("projects.field.dueDate")}>
-            <Input
-              type="date"
-              value={dueAt}
-              onChange={(event) => setDueAt(event.target.value)}
-            />
-          </Field>
-          <Field label={t("projects.field.notes")}>
-            <Textarea
-              rows={3}
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-          </Field>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!title.trim() || updateMutation.isPending}
-            onClick={() => updateMutation.mutate()}
-          >
-            {t("common.save")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  const id = useId();
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium" htmlFor={id}>
-        {label}
-      </label>
-      {isValidElement(children)
-        ? cloneElement(children as React.ReactElement<{ id?: string }>, { id })
-        : children}
-    </div>
   );
 }
 
@@ -1009,8 +863,4 @@ function bareId(id: string) {
 
 function bareProjectId(id: string) {
   return id.replace(/^projects\//, "");
-}
-
-function toError(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
 }
