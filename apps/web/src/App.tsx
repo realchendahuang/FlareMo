@@ -65,8 +65,8 @@ import {
   uploadAttachment,
 } from "@/api";
 import { authClient } from "@/auth-client";
+import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
-import type { MemoView as ViewMode } from "@/components/flaremo-sidebar";
 import { MemoComposer } from "@/components/memo-composer";
 import { MemoList } from "@/components/memo-list";
 import { NotificationBell } from "@/components/notification-bell";
@@ -247,7 +247,6 @@ function FlareMoApp() {
     () => semanticResultsQuery.data?.memos ?? [],
     [semanticResultsQuery.data],
   );
-  const semanticDegraded = semanticResultsQuery.data?.degraded ?? false;
 
   useEffect(() => {
     const focusSearch = () => {
@@ -739,15 +738,6 @@ function FlareMoApp() {
                 <div className="truncate px-1.5 py-1 text-sm font-semibold">
                   {query.trim() ? t("search.results") : viewTitle(view, t)}
                 </div>
-                {activeTag && (
-                  <button
-                    className="truncate rounded-md px-1.5 py-1 text-sm text-muted-foreground motion-safe:transition-colors hover:bg-muted"
-                    type="button"
-                    onClick={() => setActiveTag(undefined)}
-                  >
-                    #{activeTag}
-                  </button>
-                )}
               </div>
               <SearchBox
                 className="hidden w-[243px] md:block"
@@ -755,7 +745,6 @@ function FlareMoApp() {
                 onToggleSemantic={() => setSemanticMode((value) => !value)}
                 query={query}
                 semanticMode={semanticMode}
-                showShortcut
                 setQuery={setQuery}
                 t={t}
               />
@@ -818,13 +807,13 @@ function FlareMoApp() {
                   {t("search.syntaxHint")}
                 </p>
               )}
-              {semanticMode && query.trim() && !semanticDegraded && (
-                <p className="-mt-1 text-xs text-muted-foreground">
-                  {t("search.semanticEmpty")}
-                </p>
-              )}
               <MemoList
                 attachmentsByMemo={attachmentsByMemo}
+                emptyDescription={
+                  semanticMode && debouncedQuery
+                    ? t("search.semanticEmpty")
+                    : undefined
+                }
                 hasError={
                   semanticMode
                     ? semanticResultsQuery.isError
@@ -890,7 +879,6 @@ function SearchBox({
   className,
   inputRef,
   query,
-  showShortcut = false,
   semanticMode = false,
   onToggleSemantic,
   setQuery,
@@ -899,7 +887,6 @@ function SearchBox({
   className: string;
   inputRef?: RefObject<HTMLInputElement | null>;
   query: string;
-  showShortcut?: boolean;
   semanticMode?: boolean;
   onToggleSemantic?: () => void;
   setQuery: (value: string) => void;
@@ -937,11 +924,6 @@ function SearchBox({
           >
             <SparklesIcon className="size-4" />
           </button>
-        )}
-        {showShortcut && !onToggleSemantic && (
-          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shadow-xs">
-            ⌘K
-          </kbd>
         )}
       </div>
     </div>

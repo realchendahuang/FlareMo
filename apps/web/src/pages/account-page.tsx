@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
-  ArrowLeftIcon,
   CheckIcon,
   ClipboardIcon,
   EyeOffIcon,
@@ -23,8 +22,7 @@ import {
   type VectorUsageReport,
 } from "@/api";
 import { authClient } from "@/auth-client";
-import { errorMessage } from "@/components/auth-page-frame";
-import { FlareMoLogo } from "@/components/flaremo-logo";
+import { SubpageHeader } from "@/components/subpage-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type TranslationKey, useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 import { AdminPanel } from "./admin-page";
 
 const MIN_PASSWORD_LENGTH = 12;
@@ -237,23 +236,7 @@ export function AccountPage() {
   return (
     <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-        <header className="flex items-center justify-between gap-3">
-          <Button asChild size="sm" variant="ghost">
-            <Link
-              search={{
-                q: undefined,
-                tag: undefined,
-                view: undefined,
-                untagged: undefined,
-              }}
-              to="/"
-            >
-              <ArrowLeftIcon data-icon="inline-start" />
-              {t("auth.backToWorkspace")}
-            </Link>
-          </Button>
-          <FlareMoLogo markClassName="size-5" />
-        </header>
+        <SubpageHeader />
 
         <section className="flex flex-wrap items-end justify-between gap-3 border-b pb-4">
           <div>

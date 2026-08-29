@@ -419,17 +419,10 @@ test("creates, follows, reads, and removes memo relations", async ({
       .locator("..")
       .getByRole("link", { name: new RegExp(targetContent) }),
   ).toBeVisible();
-  // The inline review panel on the content tab surfaces outgoing links
-  // without opening the management tab.
+  // The related-notes panel on the content tab ranks the linked note first.
   await page.getByRole("tab", { name: /content|内容/i }).click();
-  await expect(
-    outgoing
-      .locator("..")
-      .getByRole("link", { name: new RegExp(targetContent) }),
-  ).toBeVisible();
-  // The related-notes panel ranks the directly linked note first.
   const related = page.getByRole("heading", {
-    name: /related notes|相关笔记/i,
+    name: /related notes|相关记录/i,
   });
   await expect(
     related
@@ -438,17 +431,11 @@ test("creates, follows, reads, and removes memo relations", async ({
   ).toBeVisible();
 
   await page.goto(`/memo/${target.id}`);
-  // Backlinks are also visible inline on the target note's content tab,
-  // alongside the related-notes panel.
+  // The related-notes panel on the content tab ranks the directly linked
+  // note first.
   await expect(
     page
-      .getByRole("heading", { name: /referenced by|被谁引用/i })
-      .locator("..")
-      .getByRole("link", { name: new RegExp(sourceContent) }),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByRole("heading", { name: /related notes|相关笔记/i })
+      .getByRole("heading", { name: /related notes|相关记录/i })
       .locator("..")
       .getByRole("link", { name: new RegExp(sourceContent) }),
   ).toBeVisible();

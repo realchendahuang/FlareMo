@@ -62,7 +62,6 @@ type MemoCardProps = {
   onRestore: (id: string) => void;
   onHardDelete: (id: string) => Promise<void>;
   share?: Share;
-  shareUrl?: string;
   searchQuery?: string;
   /** Position in the list, used to stagger the entrance animation. */
   index?: number;
@@ -81,13 +80,15 @@ export function MemoCard({
   onRestore,
   onHardDelete,
   share,
-  shareUrl,
   searchQuery,
   index = 0,
   onTagClick,
 }: MemoCardProps) {
   const { locale, t } = useI18n();
   const id = getMemoResourceId(memo);
+  const shareUrl = share
+    ? `${globalThis.location.origin}/share/${share.token}`
+    : undefined;
   const tags = memo.payload.tags ?? extractTags(memo.content);
   const isTrashed = memo.state === "trashed";
   const [isEditing, setIsEditing] = useState(false);
@@ -285,13 +286,10 @@ export function MemoCard({
               <AttachmentGallery attachments={attachments} />
             </div>
           )}
-          {share && (
+          {share && shareUrl && (
             <div className="mt-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-              <a
-                className="font-mono hover:text-foreground"
-                href={shareUrl ?? `/share/${share.token}`}
-              >
-                {shareUrl ?? `/share/${share.token}`}
+              <a className="font-mono hover:text-foreground" href={shareUrl}>
+                {shareUrl}
               </a>
             </div>
           )}

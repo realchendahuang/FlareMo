@@ -22,6 +22,8 @@ type MemoListProps = {
   attachmentsByMemo: Map<string, Attachment[]>;
   sharesByMemo: Map<string, Share>;
   searchQuery?: string;
+  /** Overrides the generic empty-state copy (e.g. semantic search). */
+  emptyDescription?: string;
   onArchive: (id: string) => void;
   onPin: (id: string, pinned: boolean) => void;
   onShare: (id: string) => void;
@@ -46,6 +48,7 @@ export function MemoList({
   attachmentsByMemo,
   sharesByMemo,
   searchQuery,
+  emptyDescription,
   onArchive,
   onPin,
   onShare,
@@ -102,7 +105,9 @@ export function MemoList({
             <InboxIcon />
           </EmptyMedia>
           <EmptyTitle>{t("list.emptyTitle")}</EmptyTitle>
-          <EmptyDescription>{t("list.emptyDescription")}</EmptyDescription>
+          <EmptyDescription>
+            {emptyDescription ?? t("list.emptyDescription")}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -112,7 +117,7 @@ export function MemoList({
     <>
       <div className="flex flex-col divide-y motion-safe:animate-fade">
         {memos.map((memo, index) => (
-          <MemoListItem
+          <MemoCard
             attachments={attachmentsByMemo.get(memo.name) ?? []}
             index={index}
             key={memo.name}
@@ -141,65 +146,10 @@ export function MemoList({
             {isFetchingNextPage && (
               <Loader2Icon className="animate-spin" data-icon="inline-start" />
             )}
-            {isFetchingNextPage ? t("list.loadingMore") : t("list.loadMore")}
+            {isFetchingNextPage ? t("common.loading") : t("list.loadMore")}
           </Button>
         </div>
       )}
     </>
-  );
-}
-
-function MemoListItem({
-  memo,
-  attachments,
-  share,
-  searchQuery,
-  index,
-  onArchive,
-  onPin,
-  onShare,
-  onUpdate,
-  onTrash,
-  onRestore,
-  onHardDelete,
-  onTagClick,
-}: Omit<
-  MemoListProps,
-  | "isLoading"
-  | "hasError"
-  | "hasNextPage"
-  | "isFetchingNextPage"
-  | "memos"
-  | "attachmentsByMemo"
-  | "sharesByMemo"
-  | "onLoadMore"
-  | "onRetry"
-> & {
-  memo: Memo;
-  attachments: Attachment[];
-  share?: Share;
-  searchQuery?: string;
-  index: number;
-}) {
-  const shareUrl = share
-    ? `${globalThis.location.origin}/share/${share.token}`
-    : undefined;
-  return (
-    <MemoCard
-      attachments={attachments}
-      index={index}
-      memo={memo}
-      searchQuery={searchQuery}
-      share={share}
-      shareUrl={shareUrl}
-      onArchive={onArchive}
-      onHardDelete={onHardDelete}
-      onPin={onPin}
-      onRestore={onRestore}
-      onShare={onShare}
-      onTagClick={onTagClick}
-      onTrash={onTrash}
-      onUpdate={onUpdate}
-    />
   );
 }

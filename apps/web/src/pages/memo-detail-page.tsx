@@ -1,12 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  ArrowLeftIcon,
   BrainIcon,
   ClipboardIcon,
   Link2Icon,
   Loader2Icon,
-  PlusIcon,
   RotateCcwIcon,
   UnlinkIcon,
 } from "lucide-react";
@@ -24,8 +22,19 @@ import {
   revokeShare,
 } from "@/api";
 import { AttachmentGallery } from "@/components/attachment-gallery";
-import { FlareMoLogo } from "@/components/flaremo-logo";
 import { LazyMemoContent } from "@/components/lazy-memo-content";
+import { SubpageHeader } from "@/components/subpage-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,7 +109,6 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
   });
   const relationMutation = useMutation({
     mutationFn: ({
-      action: _action,
       relations,
     }: {
       action: "add" | "remove";
@@ -145,23 +153,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
   return (
     <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-        <header className="flex items-center justify-between gap-3">
-          <Button asChild size="sm" variant="ghost">
-            <Link
-              search={{
-                q: undefined,
-                tag: undefined,
-                view: undefined,
-                untagged: undefined,
-              }}
-              to="/"
-            >
-              <ArrowLeftIcon data-icon="inline-start" />
-              {t("common.back")}
-            </Link>
-          </Button>
-          <FlareMoLogo markClassName="size-5" />
-        </header>
+        <SubpageHeader />
 
         {contextQuery.isLoading && (
           <div className="flex flex-col gap-3">
@@ -223,13 +215,11 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
             }
             onRevoke={(share) => revokeMutation.mutate(share)}
             onRemember={() => rememberMutation.mutate()}
-            pending={
-              relationMutation.isPending ||
-              restoreMutation.isPending ||
-              shareMutation.isPending ||
-              revokeMutation.isPending ||
-              rememberMutation.isPending
-            }
+            rememberPending={rememberMutation.isPending}
+            relationPending={relationMutation.isPending}
+            restorePending={restoreMutation.isPending}
+            revokePending={revokeMutation.isPending}
+            sharePending={shareMutation.isPending}
           />
         )}
       </main>
@@ -251,7 +241,11 @@ function MemoDetail({
   onRestore,
   onRemoveRelation,
   onRevoke,
-  pending,
+  rememberPending,
+  relationPending,
+  restorePending,
+  revokePending,
+  sharePending,
 }: {
   candidates: Awaited<ReturnType<typeof listMemos>>["memos"];
   context: Awaited<ReturnType<typeof getMemoContext>>;
@@ -266,7 +260,11 @@ function MemoDetail({
   onRestore: (revision: string) => void;
   onRemoveRelation: (name: string) => void;
   onRevoke: (share: string) => void;
-  pending: boolean;
+  rememberPending: boolean;
+  relationPending: boolean;
+  restorePending: boolean;
+  revokePending: boolean;
+  sharePending: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -282,7 +280,7 @@ function MemoDetail({
               {t(`visibility.${context.memo.visibility}`)}
             </Badge>
             <Button
-              disabled={pending}
+              disabled={rememberPending}
               size="sm"
               variant="ghost"
               onClick={onRemember}
@@ -336,22 +334,6 @@ function MemoDetail({
                 ))}
               </section>
             )}
-            {(context.relations.length > 0 || context.backlinks.length > 0) && (
-              <section className="flex flex-col gap-4 border-t border-border/60 pt-4">
-                {context.relations.length > 0 && (
-                  <RelationGroup
-                    label={t("detail.outgoing")}
-                    relations={context.relations}
-                  />
-                )}
-                {context.backlinks.length > 0 && (
-                  <RelationGroup
-                    label={t("detail.backlinks")}
-                    relations={context.backlinks}
-                  />
-                )}
-              </section>
-            )}
             {related.length > 0 && (
               <section className="flex flex-col gap-2 border-t border-border/60 pt-4">
                 <h2 className="text-sm font-medium">{t("detail.related")}</h2>
@@ -386,21 +368,12 @@ function MemoDetail({
           </TabsContent>
           <TabsContent className="flex flex-col gap-4 pt-4" value="relations">
             <div className="flex flex-col gap-2">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  aria-label={t("detail.relatedMemoPlaceholder")}
-                  placeholder={t("detail.relatedMemoPlaceholder")}
-                  value={relatedMemo}
-                  onChange={(event) => setRelatedMemo(event.target.value)}
-                />
-                <Button
-                  disabled={pending || !relatedMemo.trim()}
-                  onClick={() => onAddRelation(relatedMemo.trim())}
-                >
-                  <PlusIcon data-icon="inline-start" />
-                  {t("detail.addRelation")}
-                </Button>
-              </div>
+              <Input
+                aria-label={t("detail.relatedMemoPlaceholder")}
+                placeholder={t("detail.relatedMemoPlaceholder")}
+                value={relatedMemo}
+                onChange={(event) => setRelatedMemo(event.target.value)}
+              />
               {relatedMemo.trim().length >= 2 && (
                 <div className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-1">
                   {isSearching && (
@@ -416,7 +389,7 @@ function MemoDetail({
                   {candidates.map((candidate) => (
                     <button
                       className="rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-background"
-                      disabled={pending}
+                      disabled={relationPending}
                       key={candidate.name}
                       type="button"
                       onClick={() => onAddRelation(candidate.name)}
@@ -431,6 +404,7 @@ function MemoDetail({
               )}
             </div>
             <RelationGroup
+              emptyText={t("detail.noOutgoing")}
               label={t("detail.outgoing")}
               relations={context.relations}
               onRemove={onRemoveRelation}
@@ -460,7 +434,7 @@ function MemoDetail({
                   </p>
                 </div>
                 <Button
-                  disabled={pending}
+                  disabled={restorePending}
                   size="sm"
                   variant="outline"
                   onClick={() => onRestore(revision.name)}
@@ -473,8 +447,8 @@ function MemoDetail({
           </TabsContent>
           <TabsContent className="flex flex-col gap-3 pt-4" value="sharing">
             <div>
-              <Button disabled={pending} size="sm" onClick={onCreateShare}>
-                {pending ? (
+              <Button disabled={sharePending} size="sm" onClick={onCreateShare}>
+                {sharePending ? (
                   <Loader2Icon
                     className="animate-spin"
                     data-icon="inline-start"
@@ -514,15 +488,39 @@ function MemoDetail({
                   >
                     <ClipboardIcon />
                   </Button>
-                  <Button
-                    aria-label={t("detail.revokeShare")}
-                    disabled={pending}
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => onRevoke(share.id)}
-                  >
-                    <UnlinkIcon />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        aria-label={t("detail.revokeShare")}
+                        disabled={revokePending}
+                        size="icon-sm"
+                        variant="ghost"
+                      >
+                        <UnlinkIcon />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent size="sm">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {t("detail.revokeShareTitle")}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t("detail.revokeShareDescription")}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel variant="ghost">
+                          {t("common.cancel")}
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          onClick={() => onRevoke(share.id)}
+                        >
+                          {t("detail.revokeShare")}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               );
             })}
@@ -534,10 +532,12 @@ function MemoDetail({
 }
 
 function RelationGroup({
+  emptyText,
   label,
   onRemove,
   relations,
 }: {
+  emptyText?: string;
   label: string;
   onRemove?: (name: string) => void;
   relations: Awaited<ReturnType<typeof getMemoContext>>["relations"];
@@ -548,7 +548,7 @@ function RelationGroup({
       <h2 className="text-sm font-medium">{label}</h2>
       {relations.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          {t("detail.noRelations")}
+          {emptyText ?? t("detail.noRelations")}
         </p>
       )}
       {relations.map(({ relation, memo }) => (

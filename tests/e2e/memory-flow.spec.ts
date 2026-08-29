@@ -10,7 +10,7 @@ test("creates a memory and locks it", async ({ page }) => {
   // The dialog's content textarea is identified by its placeholder so it
   // cannot be confused with the page-level search input.
   const dialog = page.getByRole("dialog");
-  await dialog.getByPlaceholder("FlareMo 使用 D1 作为事实源").fill(content);
+  await dialog.locator("textarea").fill(content);
   await dialog.getByRole("button", { name: /save|保存/i }).click();
 
   // The memory starts confirmed, so it is a normal-tier memory and surfaces in
@@ -54,19 +54,20 @@ test("edits a memory from the memory card", async ({ page }) => {
   await page.getByRole("button", { name: /add memory|添加记忆/i }).click();
 
   const dialog = page.getByRole("dialog");
-  await dialog.getByPlaceholder("FlareMo 使用 D1 作为事实源").fill(content);
+  await dialog.locator("textarea").fill(content);
   await dialog.getByRole("button", { name: /save|保存/i }).click();
 
   await page.getByRole("tab", { name: /recent|最近/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
-  // The memory card offers an edit action that opens the edit dialog.
+  // The edit action lives in the memory card's overflow menu.
   await page
-    .getByRole("button", { name: /edit|编辑/i })
+    .getByRole("button", { name: /actions|操作/i })
     .first()
     .click();
+  await page.getByRole("menuitem", { name: /^edit$|^编辑$/i }).click();
   const editDialog = page.getByRole("dialog");
-  await editDialog.getByPlaceholder("FlareMo 使用 D1 作为事实源").fill(updated);
+  await editDialog.locator("textarea").fill(updated);
   await editDialog.getByRole("button", { name: /save|保存/i }).click();
 
   await expect(page.getByText(updated)).toBeVisible();
