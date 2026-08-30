@@ -35,7 +35,6 @@ export function HomePage() {
         title={home.heroTitle}
         subtitle={home.heroSubtitle}
         primary={home.primaryCta}
-        secondary={home.secondaryCta}
         icons={heroIcons}
       />
       <Features
@@ -57,7 +56,6 @@ export function HomePage() {
         heading={home.pricingHeading}
         subtitle={home.pricingSubtitle}
         tiers={tiers}
-        locale={locale}
       />
       <Faq heading={home.faqHeading} items={home.faqItems} />
     </main>
@@ -70,7 +68,6 @@ function Hero({
   title,
   subtitle,
   primary,
-  secondary,
   icons,
 }: {
   locale: Locale;
@@ -78,7 +75,6 @@ function Hero({
   title: string;
   subtitle: string;
   primary: string;
-  secondary: string;
   icons: typeof ZH_HERO_LUCIDE;
 }) {
   const [Icon1, Icon2, Icon3] = icons;
@@ -98,12 +94,6 @@ function Hero({
           </p>
           <div className="flex flex-wrap gap-3">
             <DeployButton href={DEPLOY_BUTTON_URL}>{primary}</DeployButton>
-            <DeployButton
-              href={DEPLOY_BUTTON_URL}
-              variant="secondary"
-            >
-              {secondary}
-            </DeployButton>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -285,12 +275,10 @@ function PricingSummary({
   heading,
   subtitle,
   tiers,
-  locale,
 }: {
   heading: string;
   subtitle: string;
   tiers: ReturnType<typeof getPricingTiers>;
-  locale: Locale;
 }) {
   return (
     <section className="border-b border-border/60 bg-secondary/30 py-20">
@@ -306,18 +294,9 @@ function PricingSummary({
         <div className="grid gap-6 md:grid-cols-3">
           {tiers.map((tier) => (
             <article
-              className={`flex flex-col rounded-2xl border p-6 shadow-xs transition-shadow ${
-                tier.highlight
-                  ? "border-flame-300 bg-background shadow-md"
-                  : "border-border/60 bg-background"
-              }`}
+              className="flex flex-col rounded-2xl border border-border/60 bg-background p-6 shadow-xs transition-shadow"
               key={tier.id}
             >
-              {tier.highlight ? (
-                <span className="mb-3 inline-flex w-fit items-center rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground">
-                  {locale === "zh-CN" ? "推荐" : "Recommended"}
-                </span>
-              ) : null}
               <h3 className="text-lg font-semibold tracking-tight">
                 {tier.name}
               </h3>

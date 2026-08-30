@@ -1,11 +1,10 @@
 import type { Locale } from "@/lib/seo";
 
 export type PricingTier = {
-  id: "free" | "pro" | "team";
+  id: "free";
   name: string;
   price: string;
   period?: string;
-  highlight?: boolean;
   tagline: string;
   features: string[];
   cta: string;
@@ -45,42 +44,6 @@ const TIERS_ZH: PricingTier[] = [
       "https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo",
     ctaVariant: "secondary",
   },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$4",
-    period: "/ 月",
-    highlight: true,
-    tagline: "自部署,自己管",
-    features: [
-      "自部署,零运维",
-      "包含 Free 全部能力",
-      "语义搜索(用自然语言找笔记)",
-      "5 万条笔记 + 25 GB 附件",
-      "绑定你自己的域名",
-      "5 台设备同步",
-    ],
-    cta: "自部署",
-    ctaHref: "/hosted",
-    ctaVariant: "primary",
-  },
-  {
-    id: "team",
-    name: "Team",
-    price: "$9",
-    period: "/ 席位 / 月",
-    tagline: "小团队共享 workspace",
-    features: [
-      "包含 Pro 全部能力",
-      "共享 workspace",
-      "成员管理与邀请",
-      "审计日志",
-      "优先支持",
-    ],
-    cta: "联系我们",
-    ctaHref: "mailto:hello@flaremo.app",
-    ctaVariant: "secondary",
-  },
 ];
 
 const TIERS_EN: PricingTier[] = [
@@ -103,49 +66,13 @@ const TIERS_EN: PricingTier[] = [
       "https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo",
     ctaVariant: "secondary",
   },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$4",
-    period: "/ month",
-    highlight: true,
-    tagline: "Self-host, you run it",
-    features: [
-      "Self-host, zero upkeep",
-      "Everything in Free",
-      "Semantic search — find notes by meaning",
-      "50k notes + 25 GB attachments",
-      "Bring your own domain",
-      "5 synced devices",
-    ],
-    cta: "Self-host",
-    ctaHref: "/en/hosted",
-    ctaVariant: "primary",
-  },
-  {
-    id: "team",
-    name: "Team",
-    price: "$9",
-    period: "/ seat / month",
-    tagline: "Small teams, shared workspace",
-    features: [
-      "Everything in Pro",
-      "Shared workspace",
-      "Members and invites",
-      "Audit log",
-      "Priority support",
-    ],
-    cta: "Contact us",
-    ctaHref: "mailto:hello@flaremo.app",
-    ctaVariant: "secondary",
-  },
 ];
 
 const ZH_PRICING_PAGE: PricingPage = {
   title: "定价",
   subtitle: "免费,自己部署。一个 Cloudflare 免费账号就够。",
   intro:
-    "我们刻意把 Free 档做成「真的够用」。自部署的边际成本由 Cloudflare 免费层覆盖，Pro / Team 才是真正烧钱的档位（语义搜索的 embedding 推理与边缘节点算力）。",
+    "FlareMo 是开源软件,部署到你自己的 Cloudflare 账号,免费额度对个人笔记完全够用。",
   deploymentHeading: "Cloudflare 免费层对照",
   deploymentRows: [
     { label: "D1 数据库存储", value: "5 GB（约 250 万条笔记）" },
@@ -158,36 +85,34 @@ const ZH_PRICING_PAGE: PricingPage = {
   faqHeading: "Pricing 常见问题",
   faqItems: [
     {
-      q: "自部署需要什么？",
-      a: "Phase 0 发布官网与文档；Phase 1 解锁自部署多用户；Phase 2 推出 自部署。",
+      q: "免费真的够用吗?",
+      a: "够。免费档能装 250 万条文字 + 一万张图片,普通人一辈子写不完。",
     },
     {
-      q: "免费真的够用吗？",
-      a: "可以，Phase 2 时通过 Stripe Customer Portal 自助升降级。数据通过导出/导入迁移。",
+      q: "部署需要什么?",
+      a: "一个免费 Cloudflare 账号,点一键部署按钮即可,不需要服务器和数据库。",
     },
     {
-      q: "语义搜索免费吗？",
-      a: "Vectorize 免费层 5M 存 / 30M 查 / 月；按一条 1024 维 embedding 算，单租户 50,000 条 memo 仍在线性范围内。",
+      q: "数据会丢吗?",
+      a: "数据存在 Cloudflare 的 D1 和 R2,多地冗余。建议偶尔一键导出备份,双保险。",
     },
     {
-      q: "数据安全吗？",
-      a: "Stripe 30 天内可申请全额退款，无附加条款。",
+      q: "能从 Memos 或 flomo 搬过来吗?",
+      a: "能。一键导入,冲突怎么处理你说了算。",
     },
   ],
   legalHeading: "使用条款与隐私",
   legal: [
-    "FlareMo 是 AGPL-3.0 开源软件；自部署实例的数据完全归你所有。",
+    "FlareMo 是 AGPL-3.0 开源软件,自部署实例的数据完全归你所有。",
     "FlareMo 不会读取或索引你的笔记内容用于训练或商业分析。",
-    "FlareMo 不会读取或索引用户的笔记内容用于训练或商业分析。",
   ],
 };
 
 const EN_PRICING_PAGE: PricingPage = {
   title: "Pricing",
-  subtitle:
-    "Free is forever; Pro and Team are billed through Stripe (Phase 2).",
+  subtitle: "Free, self-hosted. A free Cloudflare account is all you need.",
   intro:
-    "",
+    "FlareMo is open source. Deploy it to your own Cloudflare account — the free tier is more than enough for personal notes.",
   deploymentHeading: "Cloudflare free tier reference",
   deploymentRows: [
     { label: "D1 storage", value: "5 GB (~2.5M notes)" },
@@ -206,26 +131,25 @@ const EN_PRICING_PAGE: PricingPage = {
   faqHeading: "Pricing FAQ",
   faqItems: [
     {
-      q: "What do I need to deploy?",
-      a: "Phase 0 ships this site and docs. Phase 1 unlocks multi-user self-host. Phase 2 opens the Self-host. ",
-    },
-    {
       q: "Is the free tier really enough?",
-      a: "Yes — Phase 2 will use the Stripe Customer Portal for self-serve changes. Data moves via export/import.",
+      a: "Yes. It fits 2.5M text notes plus 10k photos. Most people never come close.",
     },
     {
-      q: "Is semantic search free?",
-      a: "Vectorize gives 5M stored / 30M queried dims per month for free; a single-tenant 50k-memo workspace stays well within that at 1024-dim embeddings.",
+      q: "What do I need to deploy?",
+      a: "A free Cloudflare account. Click the one-click deploy button — no server or database required.",
     },
     {
-      q: "Is my data safe?",
-      a: "Full refund available within 30 days via Stripe, no conditions.",
+      q: "Will I lose my data?",
+      a: "Data lives in Cloudflare D1 and R2 with multi-region redundancy. We still recommend an occasional one-click export to your own drive.",
+    },
+    {
+      q: "Can I move from Memos or flomo?",
+      a: "Yes. One-click import; you decide how to handle conflicts.",
     },
   ],
   legalHeading: "Terms and privacy",
   legal: [
-    "FlareMo is AGPL-3.0 open source; Data in your self-hosted instance is entirely yours.",
-    "FlareMo will not read or index your notes for training or analytics.",
+    "FlareMo is AGPL-3.0 open source; data in your self-hosted instance is entirely yours.",
     "FlareMo will not read or index your notes for training or analytics.",
   ],
 };

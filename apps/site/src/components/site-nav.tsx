@@ -18,14 +18,12 @@ const ZH_ITEMS: NavItem[] = [
   { to: "/", label: "首页" },
   { to: "/pricing", label: "定价" },
   { to: "/docs", label: "文档" },
-  { to: "/pricing", label: "定价" },
 ];
 
 const EN_ITEMS: NavItem[] = [
   { to: "/en", label: "Home" },
   { to: "/en/pricing", label: "Pricing" },
   { to: "/en/docs", label: "Docs" },
-  { to: "/en/pricing", label: "Pricing" },
 ];
 
 export function SiteNav({ locale, currentPath }: SiteNavProps) {

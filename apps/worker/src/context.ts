@@ -23,8 +23,9 @@ export type HonoBindings = {
   Variables: {
     /**
      * Resolved once per request by createFlareMoApp's limits middleware.
-     * Self-hosted deployments always carry SELF_HOST_UNLIMITED; hosted
-     * shells swap in a subscription-backed resolver via factory options.
+     * Self-hosted deployments always carry SELF_HOST_UNLIMITED; external
+     * composition shells swap in a subscription-backed resolver via factory
+     * options.
      */
     planLimits: PlanLimits;
     /**

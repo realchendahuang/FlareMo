@@ -7,7 +7,6 @@ import { RootLayout } from "@/components/root-layout";
 import { DocsDetailPage } from "@/pages/docs-detail-page";
 import { DocsIndexPage } from "@/pages/docs-index-page";
 import { HomePage } from "@/pages/home-page";
-import { HostedPage } from "@/pages/hosted-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { PricingPage } from "@/pages/pricing-page";
 
@@ -34,12 +33,6 @@ export function buildRouteTree() {
     component: PricingPage,
   });
 
-  const hostedRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/hosted",
-    component: HostedPage,
-  });
-
   const docsIndexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/docs",
@@ -64,12 +57,6 @@ export function buildRouteTree() {
     component: PricingPage,
   });
 
-  const enHostedRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/en/hosted",
-    component: HostedPage,
-  });
-
   const enDocsIndexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/en/docs",
@@ -91,12 +78,10 @@ export function buildRouteTree() {
   const routeTree = rootRoute.addChildren([
     indexRoute,
     pricingRoute,
-    hostedRoute,
     docsIndexRoute,
     docsSlugRoute,
     enIndexRoute,
     enPricingRoute,
-    enHostedRoute,
     enDocsIndexRoute,
     enDocsSlugRoute,
     notFoundRoute,

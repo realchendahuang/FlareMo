@@ -19,7 +19,6 @@
 - 定价页 `/pricing` 与 `/en/pricing`
 - 文档目录 `/docs` 与 `/en/docs`
 - 文档详情 `/docs/:slug` 与 `/en/docs/:slug`（覆盖 15 篇中文 + 4 篇英文）
-- 
 - 中英文切换（`<link rel="alternate" hreflang>` + 语言切换按钮）
 - 完整 SEO：`robots.txt`、`sitemap.xml`、JSON-LD、OG、Twitter、canonical
 - 独立 Worker `name: flaremo-site`，部署到 `flaremo.app`
@@ -28,7 +27,7 @@
 ### 不做
 
 - 自部署多用户 / 公开 signup
-- 多用户部署后端、配额中间件
+- Hosted SaaS 后端、Stripe webhook、配额中间件
 - 文档站交互式搜索（先静态）
 - `/changelog` 镜像
 - `/blog`（未定）
@@ -43,17 +42,17 @@
 
 ### 首页
 
-1. **Hero**：标题「一个免费 Cloudflare 账号就能 24 小时在线的个人笔记系统」+ 双 CTA（Deploy Button 主，自部署次）
+1. **Hero**：标题「一个免费 Cloudflare 账号就能 24 小时在线的个人笔记系统」+ 单 CTA（Deploy Button）
 2. **三列 Hero stat**：D1 5GB / R2 10GB / 0 服务器
 3. **Why FlareMo**：6 张 feature 卡片（D1+R2 / Better Auth + Memos / PWA / Agent Memory / 语义搜索 / 公开分享）
 4. **为什么 Cloudflare 比 NAS 更稳**：7 行对比表
 5. **看一眼产品**：两张截图（desktop + mobile）
-6. **三档定价**：Free / Pro / Team 卡（Pro 高亮）
+6. **定价**：Free 档卡片
 7. **常见问题**：6 条 FAQ
 
 ### Pricing 页
 
-- 三卡（与首页一致但展开）
+- Free 档卡片
 - Cloudflare 免费层对照表（6 行）
 - Pricing FAQ（4 条）
 - 使用条款与隐私（3 条）
@@ -67,9 +66,7 @@
 
 
 
-- 
-- 邮箱订阅表单（UI 层 `onSubmit` 只 `setSubmitted(true)`，不发请求）
-- 
+> 已移除：自部署占位页与订阅表单已从站点删除，营销站只保留自部署产品线。
 
 ## 设计语言
 
@@ -92,7 +89,7 @@
 - 英文：sentence case
 - 单位/货币：数字统一使用阿拉伯数字 + 单位，金额前加 `$`
 - 不混用「笔记/便签/memo」在 UI 文案
-- 空状态必须给下一步动作（空状态必须给下一步动作）
+- 空状态必须给下一步动作
 - emoji 仅在「English coming soon」之类容错场景出现；正文不引入
 
 ## 技术栈

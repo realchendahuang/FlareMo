@@ -38,26 +38,13 @@ const STATIC_META: Record<
   "/pricing": {
     locale: "zh-CN",
     title: "定价",
-    description:
-      "FlareMo 定价：Free 永久免费，Pro 与 Team 由 Stripe 结算，Phase 2 上线。",
+    description: "FlareMo 定价：免费自部署，一个 Cloudflare 免费账号即可运行。",
   },
   "/en/pricing": {
     locale: "en-US",
     title: "Pricing",
     description:
-      "FlareMo pricing: Free is forever, Pro and Team bill through Stripe (Phase 2).",
-  },
-  "/hosted": {
-    locale: "zh-CN",
-    title: "自部署",
-    description:
-      "FlareMo FlareMo 自部署通知。",
-  },
-  "/en/hosted": {
-    locale: "en-US",
-    title: "Self-host",
-    description:
-      "FlareMo self-host notification.",
+      "FlareMo pricing: free self-hosting on a free Cloudflare account.",
   },
   "/docs": {
     locale: "zh-CN",

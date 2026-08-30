@@ -39,17 +39,14 @@ export function getStaticRoutes(): RouteMeta[] {
       path: "/pricing",
       locale: "zh-CN",
       title: "定价",
-      description:
-        "FlareMo 定价：Free 永久免费，Pro 与 Team 由 Stripe 结算，Phase 2 上线。",
+      description: "FlareMo 定价：免费自部署，一个 Cloudflare 免费账号即可运行。",
       jsonLd: {
         "@type": "Product",
         name: "FlareMo",
         description:
-          "FlareMo pricing: Free is forever, Pro and Team bill through Stripe (Phase 2).",
+          "FlareMo pricing: free self-hosting on a free Cloudflare account.",
         offers: [
           { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
-          { "@type": "Offer", name: "Pro", price: "4", priceCurrency: "USD" },
-          { "@type": "Offer", name: "Team", price: "9", priceCurrency: "USD" },
         ],
       },
     },
@@ -58,32 +55,16 @@ export function getStaticRoutes(): RouteMeta[] {
       locale: "en-US",
       title: "Pricing",
       description:
-        "FlareMo pricing: Free is forever, Pro and Team bill through Stripe (Phase 2).",
+        "FlareMo pricing: free self-hosting on a free Cloudflare account.",
       jsonLd: {
         "@type": "Product",
         name: "FlareMo",
         description:
-          "FlareMo pricing: Free is forever, Pro and Team bill through Stripe (Phase 2).",
+          "FlareMo pricing: free self-hosting on a free Cloudflare account.",
         offers: [
           { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
-          { "@type": "Offer", name: "Pro", price: "4", priceCurrency: "USD" },
-          { "@type": "Offer", name: "Team", price: "9", priceCurrency: "USD" },
         ],
       },
-    },
-    {
-      path: "/hosted",
-      locale: "zh-CN",
-      title: "自部署",
-      description:
-        "FlareMo FlareMo 自部署通知。",
-    },
-    {
-      path: "/en/hosted",
-      locale: "en-US",
-      title: "Self-host",
-      description:
-        "FlareMo self-host notification.",
     },
     {
       path: "/docs",

@@ -10,7 +10,6 @@ const ZH_LINKS = {
   product: [
     { to: "/", label: "首页" },
     { to: "/pricing", label: "定价" },
-    { to: "/hosted", label: "自部署" },
   ],
   docs: [
     { to: "/docs", label: "文档总览" },
@@ -20,7 +19,6 @@ const ZH_LINKS = {
   project: [
     { to: "/docs/release", label: "发版规则" },
     { to: "/docs/product-requirements", label: "需求梳理" },
-    { to: "/docs/roadmap", label: "路线图" },
   ],
 };
 
@@ -28,7 +26,6 @@ const EN_LINKS = {
   product: [
     { to: "/en", label: "Home" },
     { to: "/en/pricing", label: "Pricing" },
-    { to: "/en/hosted", label: "Self-host" },
   ],
   docs: [
     { to: "/en/docs", label: "Docs overview" },
@@ -55,7 +52,7 @@ export function SiteFooter({ locale }: SiteFooterProps) {
           <SiteMark />
           <p className="max-w-xs text-sm text-muted-foreground">{copy}</p>
           <p className="text-xs text-muted-foreground/80">
-            © {new Date().getFullYear()} FlareMo · Apache-2.0
+            © {new Date().getFullYear()} FlareMo · AGPL-3.0
           </p>
         </div>
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">

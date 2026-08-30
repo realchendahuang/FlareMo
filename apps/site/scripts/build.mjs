@@ -46,8 +46,6 @@ function getAllPaths() {
     "/en",
     "/pricing",
     "/en/pricing",
-    "/hosted",
-    "/en/hosted",
     "/docs",
     "/en/docs",
     ...zhDocs.map((slug) => `/docs/${slug}`),

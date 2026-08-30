@@ -83,7 +83,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## v0.11.0
 
-Per-user 限额版本。为「公开注册、多用户共享一个部署」的 SaaS 形态补上按用户计量的限额层：在部署级 PlanLimits 之上新增 `UserPlanLimits`（存储 / embedding tokens / 语义搜索三个维度），生效优先级 per-user → 部署级 → 不限量。自托管不配置 per-user 载荷时行为与 v0.10.0 完全一致。
+Per-user 限额版本。为「公开注册、多用户共享一个部署」的形态补上按用户计量的限额层：在部署级 PlanLimits 之上新增 `UserPlanLimits`（存储 / embedding tokens / 语义搜索三个维度），生效优先级 per-user → 部署级 → 不限量。自托管不配置 per-user 载荷时行为与 v0.10.0 完全一致。
 
 ### 新增能力
 
@@ -107,7 +107,7 @@ Per-user 限额版本。为「公开注册、多用户共享一个部署」的 S
 
 ## v0.10.0
 
-开放内核与计划限额版本。这个版本为 可组合内核打下地基：AGPL-3.0-only 许可证、`createFlareMoApp` 组装工厂、可注入的 `PlanLimits` 在内核四个执行点被真正执行（附件存储 / 月度 embedding tokens / 月度语义搜索 / 成员数），并新增内核导入边界架构测试。自托管部署行为完全不变（限额全 null = 不限量）；多用户部署形态的差异化从这一版起纯粹是注入限额的数字差异。
+开放内核与计划限额版本。这个版本为可组合内核打下地基：AGPL-3.0-only 许可证、`createFlareMoApp` 组装工厂、可注入的 `PlanLimits` 在内核四个执行点被真正执行（附件存储 / 月度 embedding tokens / 月度语义搜索 / 成员数），并新增内核导入边界架构测试。自托管部署行为完全不变（限额全 null = 不限量）；多用户部署的差异化从这一版起纯粹是注入限额的数字差异。
 
 ### 新增能力
 
@@ -142,7 +142,6 @@ Per-user 限额版本。为「公开注册、多用户共享一个部署」的 S
 
 - 自托管用户直接 `pnpm deploy` 即可；无需任何迁移步骤，行为与 v0.9.0 一致。
 - `pnpm release v0.10.0` 与 Deploy Button 用户仓库的升级 PR 自动消费本 Release。
-- 后续多用户部署形态通过外部组合壳组合本内核，不影响公开仓升级路径。
 
 ## v0.9.0
 

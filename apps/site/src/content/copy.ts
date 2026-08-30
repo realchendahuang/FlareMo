@@ -5,7 +5,6 @@ export type HomeContent = {
   heroTitle: string;
   heroSubtitle: string;
   primaryCta: string;
-  secondaryCta: string;
   featuresHeading: string;
   features: Array<{
     title: string;
@@ -35,7 +34,6 @@ const ZH_HOME: HomeContent = {
   heroTitle: "搭一个你自己的私人笔记,永远在线、永远不丢",
   heroSubtitle: "不用买服务器,不用装数据库。手机电脑随时写、随时搜、随时找回。",
   primaryCta: "一键部署",
-  secondaryCta: "自部署",
   featuresHeading: "为什么用 FlareMo",
   features: [
     {
@@ -109,7 +107,7 @@ const ZH_HOME: HomeContent = {
   screenshotsHeading: "长这样",
   screenshotsCaption: "",
   pricingHeading: "价格",
-  pricingSubtitle: "免费档够大部分人用。要省心可以选 自部署,自己管。",
+  pricingSubtitle: "免费,自己部署。一个 Cloudflare 免费账号就够。",
   faqHeading: "常见问题",
   faqItems: [
     {
@@ -137,7 +135,6 @@ const EN_HOME: HomeContent = {
   heroSubtitle:
     "No server to buy. No database to set up. Write, search, and find anything from any device.",
   primaryCta: "Deploy now",
-  secondaryCta: "Self-host",
   featuresHeading: "Why FlareMo",
   features: [
     {
@@ -215,7 +212,7 @@ const EN_HOME: HomeContent = {
   screenshotsCaption: "",
   pricingHeading: "Pricing",
   pricingSubtitle:
-    "Free covers most people. Want zero upkeep? Pick self-hosting and you run it.",
+    "Free, self-hosted. A free Cloudflare account is all you need.",
   faqHeading: "Common questions",
   faqItems: [
     {

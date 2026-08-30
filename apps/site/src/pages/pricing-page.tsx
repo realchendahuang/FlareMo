@@ -30,18 +30,9 @@ export function PricingPage() {
         <div className="grid gap-6 md:grid-cols-3">
           {tiers.map((tier) => (
             <article
-              className={`flex flex-col rounded-2xl border p-6 shadow-xs transition-shadow ${
-                tier.highlight
-                  ? "border-flame-300 bg-background shadow-md"
-                  : "border-border/60 bg-background"
-              }`}
+              className="flex flex-col rounded-2xl border border-border/60 bg-background p-6 shadow-xs transition-shadow"
               key={tier.id}
             >
-              {tier.highlight ? (
-                <span className="mb-3 inline-flex w-fit items-center rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground">
-                  {locale === "zh-CN" ? "推荐" : "Recommended"}
-                </span>
-              ) : null}
               <h2 className="text-lg font-semibold tracking-tight">
                 {tier.name}
               </h2>
