@@ -30,7 +30,6 @@ import { resolveCaptchaConfig, verifyCaptchaRequest } from "../captcha";
 import type { HonoBindings } from "../context";
 import {
   resolveEmailConfig,
-  sendEmailChangeVerificationEmail,
   sendPasswordResetEmail,
   sendVerificationEmail,
 } from "../email";

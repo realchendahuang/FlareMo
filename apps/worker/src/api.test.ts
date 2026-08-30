@@ -1563,7 +1563,7 @@ describe("FlareMo Worker API", () => {
 
   it("applies per-user limits independently of the deployment limits", async () => {
     const userLimitsApp = createFlareMoApp({
-      resolveUserPlanLimits: (env, userId) =>
+      resolveUserPlanLimits: (_env, userId) =>
         userId === "users/owner" // the bootstrap owner only
           ? {
               attachmentStorageBytes: 10,

@@ -16,7 +16,7 @@ import {
   dispatchEmbeddingOutbox,
   rebuildEmbeddingIndexes,
 } from "./embedding-outbox";
-import { SELF_HOST_UNLIMITED } from "./limits";
+import { SELF_HOST_UNLIMITED, type UserPlanLimits } from "./limits";
 import { createMemory, type MemoryActor } from "./memory";
 import { createMemo, hardDeleteMemo } from "./memos";
 import { readMonthlyUsageTotal } from "./quotas";
@@ -143,7 +143,7 @@ describe("embedding outbox", () => {
   });
 
   it("stores vectors under the owning user's namespace", async () => {
-    const memo = await createMemo(db, user, {
+    const _memo = await createMemo(db, user, {
       content: "租户隔离的向量",
       visibility: "private",
       source: "web",
@@ -382,5 +382,59 @@ describe("embedding outbox", () => {
       .where(eq(memos.id, memo.id))
       .get();
     expect(indexed?.embeddingStatus).toBe("indexed");
+  });
+
+  it("resolves the per-user budget dynamically per task owner", async () => {
+    const freeMemo = await createMemo(db, user, {
+      content: "免费用户不索引",
+      visibility: "private",
+      source: "web",
+    });
+    const pro = await createFlaremoMember(db, {
+      email: "pro@example.com",
+      name: "Pro",
+    });
+    const proMemo = await createMemo(db, pro, {
+      content: "付费用户正常索引",
+      visibility: "private",
+      source: "web",
+    });
+
+    let embedCalls = 0;
+    const provider: EmbeddingProvider = {
+      ...fakeProvider(),
+      async embed(texts) {
+        embedCalls += 1;
+        return fakeProvider().embed(texts);
+      },
+    };
+    const FREE_LIMITS = {
+      aiEmbeddingTokensPerMonth: 0,
+      attachmentStorageBytes: null,
+      semanticSearchQueriesPerMonth: null,
+      maxMemosPerUser: null,
+      maxMemoryItemsPerUser: null,
+    } satisfies UserPlanLimits;
+    const PRO_LIMITS = {
+      aiEmbeddingTokensPerMonth: null,
+      attachmentStorageBytes: null,
+      semanticSearchQueriesPerMonth: null,
+      maxMemosPerUser: null,
+      maxMemoryItemsPerUser: null,
+    } satisfies UserPlanLimits;
+    await dispatchEmbeddingOutbox(db, {
+      provider,
+      memosIndex: new FakeVectorIndex(),
+      memoriesIndex: null,
+      resolveUserLimits: (userId) =>
+        userId === pro.id ? PRO_LIMITS : FREE_LIMITS,
+    });
+
+    const rows = await db.select().from(embeddingTasks);
+    const freeRow = rows.find((row) => row.resourceId === freeMemo.id);
+    const proRow = rows.find((row) => row.resourceId === proMemo.id);
+    expect(freeRow?.status).toBe("pending");
+    expect(proRow?.status).toBe("succeeded");
+    expect(embedCalls).toBe(1);
   });
 });

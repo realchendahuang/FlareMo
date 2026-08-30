@@ -75,7 +75,7 @@ export function createFlareMoApp(
   options: FlareMoAppOptions = {},
 ): Hono<HonoBindings> {
   const resolvePlanLimits =
-    options.resolvePlanLimits ?? ((env: FlareMoEnv) => SELF_HOST_UNLIMITED);
+    options.resolvePlanLimits ?? ((_env: FlareMoEnv) => SELF_HOST_UNLIMITED);
   const resolveUserPlanLimits =
     options.resolveUserPlanLimits ??
     ((env: FlareMoEnv) => parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON));
@@ -244,6 +244,9 @@ export async function runScheduledMaintenance(
   options: {
     limits?: PlanLimits;
     userLimits?: UserPlanLimits | null;
+    resolveUserLimits?: (
+      userId: string,
+    ) => Promise<UserPlanLimits | null> | UserPlanLimits | null;
   } = {},
 ): Promise<void> {
   const db = createDb(env.DB);
@@ -257,6 +260,7 @@ export async function runScheduledMaintenance(
       options.userLimits === undefined
         ? parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON)
         : options.userLimits,
+    resolveUserLimits: options.resolveUserLimits,
   });
   const cutoff = new Date(scheduledTime - 24 * 60 * 60 * 1_000).toISOString();
   const candidates = await listAttachmentCleanupCandidates(db, cutoff);

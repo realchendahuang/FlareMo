@@ -39,7 +39,8 @@ export function getStaticRoutes(): RouteMeta[] {
       path: "/pricing",
       locale: "zh-CN",
       title: "定价",
-      description: "FlareMo 定价：免费自部署，一个 Cloudflare 免费账号即可运行。",
+      description:
+        "FlareMo 定价：免费自部署，一个 Cloudflare 免费账号即可运行。",
       jsonLd: {
         "@type": "Product",
         name: "FlareMo",

@@ -42,7 +42,6 @@ import {
   renameTag,
   reportPlanUsage,
   reportVectorUsage,
-  SELF_HOST_UNLIMITED,
   semanticSearchMemos,
   type UserNotificationDto,
   updateMemo,
