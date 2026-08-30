@@ -306,7 +306,7 @@ describe("memory domain services", () => {
         },
       },
       index: {
-        async query(_vector: number[], _topK: number) {
+        async query(_vector: number[], _topK: number, _namespace?: string) {
           // Only the "pino" memory is considered a semantic match.
           return [{ id: pino.memory.id, score: 0.9 }];
         },

@@ -121,10 +121,11 @@ class HttpEmbeddingProvider implements EmbeddingProvider {
 class CloudflareVectorIndex implements VectorIndex {
   constructor(private readonly index: VectorizeIndex) {}
 
-  async query(vector: number[], topK: number) {
+  async query(vector: number[], topK: number, namespace?: string) {
     const result = await this.index.query(vector, {
       topK,
       returnMetadata: false,
+      ...(namespace ? { filter: { namespace } } : {}),
     });
     return result.matches.map((match) => ({
       id: match.id,
@@ -141,6 +142,7 @@ class CloudflareVectorIndex implements VectorIndex {
           string,
           string | number | boolean
         >,
+        ...(vector.namespace ? { namespace: vector.namespace } : {}),
       })),
     );
   }

@@ -34,7 +34,11 @@ class FakeVectorIndex implements VectorIndex {
   lastUpsert: VectorIndexVector[] = [];
   lastDeletedIds: string[] = [];
 
-  async query(_vector: number[], _topK: number): Promise<VectorIndexMatch[]> {
+  async query(
+    _vector: number[],
+    _topK: number,
+    _namespace?: string,
+  ): Promise<VectorIndexMatch[]> {
     return [];
   }
   async upsert(vectors: VectorIndexVector[]) {
@@ -136,6 +140,25 @@ describe("embedding outbox", () => {
       .get();
     expect(updated?.embeddingStatus).toBe("indexed");
     expect(updated?.embeddingVersion).toBe("test-model@4");
+  });
+
+  it("stores vectors under the owning user's namespace", async () => {
+    const memo = await createMemo(db, user, {
+      content: "租户隔离的向量",
+      visibility: "private",
+      source: "web",
+    });
+    const index = new FakeVectorIndex();
+    await dispatchEmbeddingOutbox(db, {
+      provider: fakeProvider(),
+      memosIndex: index,
+      memoriesIndex: null,
+    });
+
+    expect(index.store.size).toBe(1);
+    const [stored] = [...index.store.values()];
+    expect(stored).toBeDefined();
+    expect(stored?.namespace).toBe(user.id);
   });
 
   it("deletes vectors on hard delete", async () => {

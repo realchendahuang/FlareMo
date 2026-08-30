@@ -31,6 +31,8 @@ export interface VectorIndexVector {
   id: string;
   values: number[];
   metadata?: Record<string, unknown>;
+  /** Tenant bucket inside a shared index (e.g. userId). */
+  namespace?: string;
 }
 
 export interface VectorIndexInfo {
@@ -39,7 +41,16 @@ export interface VectorIndexInfo {
 }
 
 export interface VectorIndex {
-  query(vector: number[], topK: number): Promise<VectorIndexMatch[]>;
+  /**
+   * Query the index. When `namespace` is given, only vectors stored under
+   * that namespace participate (a single shared index can then serve many
+   * tenants without cross-tenant leakage).
+   */
+  query(
+    vector: number[],
+    topK: number,
+    namespace?: string,
+  ): Promise<VectorIndexMatch[]>;
   upsert(vectors: VectorIndexVector[]): Promise<void>;
   deleteByIds(ids: string[]): Promise<void>;
   describe(): Promise<VectorIndexInfo>;

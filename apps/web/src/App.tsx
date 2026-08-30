@@ -52,6 +52,7 @@ import {
   getDataTask,
   getMemoStats,
   getTagHierarchy,
+  getVectorUsage,
   hardDeleteMemo,
   listMemos,
   type Memo,
@@ -236,6 +237,23 @@ function FlareMoApp() {
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
   const isSearching = Boolean(debouncedQuery);
   const [semanticMode, setSemanticMode] = useState(false);
+
+  const vectorUsageQuery = useQuery({
+    queryKey: ["vector-usage"],
+    queryFn: () => getVectorUsage(),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  // Semantic search is hidden when the plan has no budget for it (quota 0)
+  // or the capability itself is disabled server-side.
+  const semanticEnabled = useMemo(() => {
+    const plan = vectorUsageQuery.data?.plan;
+    if (!plan) return false;
+    const limit =
+      plan.user?.limits.semanticSearchQueriesPerMonth ??
+      plan.limits.semanticSearchQueriesPerMonth;
+    return typeof limit === "number" && limit > 0;
+  }, [vectorUsageQuery.data]);
 
   const semanticResultsQuery = useQuery({
     queryKey: ["semantic-search", debouncedQuery],
@@ -742,7 +760,11 @@ function FlareMoApp() {
               <SearchBox
                 className="hidden w-[243px] md:block"
                 inputRef={desktopSearchRef}
-                onToggleSemantic={() => setSemanticMode((value) => !value)}
+                onToggleSemantic={
+                  semanticEnabled
+                    ? () => setSemanticMode((value) => !value)
+                    : undefined
+                }
                 query={query}
                 semanticMode={semanticMode}
                 setQuery={setQuery}
@@ -759,7 +781,11 @@ function FlareMoApp() {
             <SearchBox
               className="mb-3 md:hidden motion-safe:animate-rise"
               inputRef={mobileSearchRef}
-              onToggleSemantic={() => setSemanticMode((value) => !value)}
+              onToggleSemantic={
+                semanticEnabled
+                  ? () => setSemanticMode((value) => !value)
+                  : undefined
+              }
               query={query}
               semanticMode={semanticMode}
               setQuery={setQuery}

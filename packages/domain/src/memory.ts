@@ -81,6 +81,8 @@ export type RecallMemoriesInput = {
 export type RecallMemoriesDeps = {
   provider: import("./embedding").EmbeddingProvider;
   index: import("./embedding").VectorIndex;
+  /** Scopes the vector query to one tenant inside a shared index. */
+  namespace?: string;
 };
 
 export type LinkMemoryInput = {
@@ -874,6 +876,7 @@ export async function recallMemories(
         const matches = await deps.index.query(
           queryVector,
           MEMORY_RECALL_CANDIDATE_LIMIT,
+          deps.namespace,
         );
         const matchedIds = new Set(matches.map((match) => match.id));
         candidates = rows.filter((row) => matchedIds.has(row.id));

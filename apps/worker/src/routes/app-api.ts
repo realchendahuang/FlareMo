@@ -163,7 +163,7 @@ appApi.get(
       const hits = await semanticSearchMemos(
         db,
         user,
-        { provider, index },
+        { provider, index, namespace: user.id },
         query.q,
         query.limit,
       );

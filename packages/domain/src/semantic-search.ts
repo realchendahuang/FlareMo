@@ -6,6 +6,8 @@ import type { EmbeddingProvider, VectorIndex } from "./embedding";
 export type SemanticSearchDeps = {
   provider: EmbeddingProvider;
   index: VectorIndex;
+  /** Scopes the vector query to one tenant inside a shared index. */
+  namespace?: string;
 };
 
 export type SemanticMemoHit = {
@@ -39,8 +41,13 @@ export async function semanticSearchMemos(
   if (!queryVector || queryVector.length === 0) return [];
 
   // Over-fetch then re-filter, because chunk-level matches collapse to memo
-  // level and the D1 status check can drop some of them.
-  const matches = await deps.index.query(queryVector, Math.min(limit * 3, 50));
+  // level and the D1 status check can drop some of them. The namespace filter
+  // (when present) already restricts the vector query to this user's vectors.
+  const matches = await deps.index.query(
+    queryVector,
+    Math.min(limit * 3, 50),
+    deps.namespace,
+  );
   if (matches.length === 0) return [];
 
   const candidateIds = [

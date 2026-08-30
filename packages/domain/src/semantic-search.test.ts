@@ -23,8 +23,14 @@ let user: UserRow;
 class FakeVectorIndex implements VectorIndex {
   vectors = new Map<string, VectorIndexVector>();
   matches: VectorIndexMatch[] = [];
+  lastNamespace: string | undefined;
 
-  async query(_vector: number[], _topK: number): Promise<VectorIndexMatch[]> {
+  async query(
+    _vector: number[],
+    _topK: number,
+    namespace?: string,
+  ): Promise<VectorIndexMatch[]> {
+    this.lastNamespace = namespace;
     return this.matches;
   }
   async upsert(vectors: VectorIndexVector[]) {
@@ -149,5 +155,24 @@ describe("semanticSearchMemos", () => {
       10,
     );
     expect(hits).toEqual([]);
+  });
+
+  it("scopes the vector query to the caller's namespace", async () => {
+    const a = await createMemo(db, user, {
+      content: "租户隔离测试",
+      visibility: "private",
+      source: "web",
+    });
+    const index = new FakeVectorIndex();
+    index.matches = [{ id: `${a.id}#chunks/0`, score: 0.9 }];
+
+    await semanticSearchMemos(
+      db,
+      user,
+      { provider, index, namespace: user.id },
+      "租户",
+      10,
+    );
+    expect(index.lastNamespace).toBe(user.id);
   });
 });

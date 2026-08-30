@@ -232,6 +232,75 @@ export function createFlareMoApp(
   return app;
 }
 
+/**
+ * Daily maintenance run: dispatch webhook + embedding outboxes, clean up
+ * orphaned attachments and expired data-transfer tasks, and file "on this
+ * day" review notifications. Exported so a shared-instance shell (hosted
+ * composition) can drive the exact same sequence without mirroring it.
+ */
+export async function runScheduledMaintenance(
+  env: FlareMoEnv,
+  scheduledTime: number,
+  options: {
+    limits?: PlanLimits;
+    userLimits?: UserPlanLimits | null;
+  } = {},
+): Promise<void> {
+  const db = createDb(env.DB);
+  await dispatchMemosWebhookOutbox(db);
+  await dispatchEmbeddingOutbox(db, {
+    provider: createEmbeddingProvider(env),
+    memosIndex: createVectorIndex(env, "memo"),
+    memoriesIndex: createVectorIndex(env, "memory"),
+    limits: options.limits ?? SELF_HOST_UNLIMITED,
+    userLimits:
+      options.userLimits === undefined
+        ? parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON)
+        : options.userLimits,
+  });
+  const cutoff = new Date(scheduledTime - 24 * 60 * 60 * 1_000).toISOString();
+  const candidates = await listAttachmentCleanupCandidates(db, cutoff);
+  const objectKeys = candidates.map((attachment) => attachment.r2Key);
+  if (objectKeys.length > 0) {
+    await env.ATTACHMENTS.delete(objectKeys);
+  }
+  for (const attachment of candidates) {
+    await finalizeAttachmentCleanup(db, attachment.id);
+  }
+  // Reconcile data-transfer tasks: expire stale queued/running tasks whose
+  // lease lapsed (interrupted request), then garbage-collect completed task
+  // rows older than the TTL along with their R2 export artifacts.
+  const staleCount = await expireStaleDataTasks(db);
+  const expiredIds = await deleteExpiredDataTasks(db);
+  for (const id of expiredIds) {
+    const prefix = `exports/${id}`;
+    let cursor: string | undefined;
+    do {
+      const listing = await env.ATTACHMENTS.list({ prefix, cursor });
+      const keys = listing.objects.map((object) => object.key);
+      if (keys.length > 0) await env.ATTACHMENTS.delete(keys);
+      cursor = listing.truncated ? listing.cursor : undefined;
+    } while (cursor);
+  }
+  // Daily review reach-out: file one idempotent inbox row per user when the
+  // UTC calendar day has "on this day" history. The source-event unique
+  // index absorbs cron retries, so a repeat run for the same date is a no-op.
+  const reviewDate = new Date(scheduledTime).toISOString().slice(0, 10);
+  const reviewNotificationCount = await createDailyReviewNotifications(db, {
+    date: reviewDate,
+  });
+  console.log(
+    JSON.stringify({
+      message: "attachment cleanup complete",
+      count: candidates.length,
+      staleTaskCount: staleCount,
+      expiredTaskCount: expiredIds.length,
+      reviewNotificationCount,
+      scheduledTime,
+    }),
+  );
+}
+
 const handler = {
   async fetch(request: Request, env: FlareMoEnv, ctx?: ExecutionContext) {
     const response = await createFlareMoApp().fetch(request, env, ctx);
@@ -250,60 +319,7 @@ const handler = {
     return response;
   },
   async scheduled(controller: ScheduledController, env: FlareMoEnv) {
-    await dispatchMemosWebhookOutbox(createDb(env.DB));
-    await dispatchEmbeddingOutbox(createDb(env.DB), {
-      provider: createEmbeddingProvider(env),
-      memosIndex: createVectorIndex(env, "memo"),
-      memoriesIndex: createVectorIndex(env, "memory"),
-      limits: SELF_HOST_UNLIMITED,
-      userLimits: parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON),
-    });
-    const db = createDb(env.DB);
-    const cutoff = new Date(
-      controller.scheduledTime - 24 * 60 * 60 * 1_000,
-    ).toISOString();
-    const candidates = await listAttachmentCleanupCandidates(db, cutoff);
-    const objectKeys = candidates.map((attachment) => attachment.r2Key);
-    if (objectKeys.length > 0) {
-      await env.ATTACHMENTS.delete(objectKeys);
-    }
-    for (const attachment of candidates) {
-      await finalizeAttachmentCleanup(db, attachment.id);
-    }
-    // Reconcile data-transfer tasks: expire stale queued/running tasks whose
-    // lease lapsed (interrupted request), then garbage-collect completed task
-    // rows older than the TTL along with their R2 export artifacts.
-    const staleCount = await expireStaleDataTasks(db);
-    const expiredIds = await deleteExpiredDataTasks(db);
-    for (const id of expiredIds) {
-      const prefix = `exports/${id}`;
-      let cursor: string | undefined;
-      do {
-        const listing = await env.ATTACHMENTS.list({ prefix, cursor });
-        const keys = listing.objects.map((object) => object.key);
-        if (keys.length > 0) await env.ATTACHMENTS.delete(keys);
-        cursor = listing.truncated ? listing.cursor : undefined;
-      } while (cursor);
-    }
-    // Daily review reach-out: file one idempotent inbox row per user when the
-    // UTC calendar day has "on this day" history. The source-event unique
-    // index absorbs cron retries, so a repeat run for the same date is a no-op.
-    const reviewDate = new Date(controller.scheduledTime)
-      .toISOString()
-      .slice(0, 10);
-    const reviewNotificationCount = await createDailyReviewNotifications(db, {
-      date: reviewDate,
-    });
-    console.log(
-      JSON.stringify({
-        message: "attachment cleanup complete",
-        count: candidates.length,
-        staleTaskCount: staleCount,
-        expiredTaskCount: expiredIds.length,
-        reviewNotificationCount,
-        scheduledTime: controller.scheduledTime,
-      }),
-    );
+    await runScheduledMaintenance(env, controller.scheduledTime);
   },
 } satisfies ExportedHandler<FlareMoEnv>;
 

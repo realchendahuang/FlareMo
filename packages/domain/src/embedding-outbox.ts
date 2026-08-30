@@ -266,6 +266,7 @@ async function processMemoEmbeddingTask(
       id,
       values: vectors[index_] ?? [],
       metadata: { memo_id: memo.id, user_id: memo.userId },
+      namespace: task.userId,
     })),
   );
 
@@ -317,6 +318,7 @@ async function processMemoryEmbeddingTask(
       id: memoryIdVector(memory.id),
       values: vectors[0] ?? [],
       metadata: { memory_id: memory.id, user_id: memory.userId },
+      namespace: task.userId,
     },
   ]);
 
@@ -560,6 +562,7 @@ export async function rebuildEmbeddingIndexes(
             id,
             values: vectors[index_] ?? [],
             metadata: { memo_id: memo.id, user_id: memo.userId },
+            namespace: memo.userId,
           })),
         );
       }
@@ -590,6 +593,7 @@ export async function rebuildEmbeddingIndexes(
         id: memory.id,
         values: vectors[0] ?? [],
         metadata: { memory_id: memory.id, user_id: memory.userId },
+        namespace: memory.userId,
       },
     ]);
     await db
