@@ -85,32 +85,13 @@ curl http://127.0.0.1:8787/__scheduled
 
 FlareMo 的主数据在 D1，附件在 R2。备份必须同时覆盖两者。
 
-D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL dump，并把 dump 存到可信位置。`memos_fts` 是可由 `memos` 重建的 FTS5 虚拟索引；Wrangler 不支持整库导出包含虚拟表的数据库，因此导出时只选择下面的持久业务表，不导出 FTS shadow tables：
+D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL dump，并把 dump 存到可信位置。`memos_fts` 和 `memory_fts` 都是可由 D1 事实源重建的 FTS5 虚拟索引；Wrangler 不支持整库导出包含虚拟表的数据库，因此不能把 FTS shadow tables 当作备份目标。
 
 认证表也属于 D1 的持久业务数据。它们包含 session、账户关联和 PAT 的敏感校验数据，备份文件必须按生产数据同等敏感级别保存；不要把导出文件上传到 issue、聊天或公开 artifact。
 
-```bash
-pnpm exec wrangler d1 export DB --remote \
-  --table users \
-  --table auth_users \
-  --table auth_accounts \
-  --table auth_sessions \
-  --table auth_verifications \
-  --table auth_apikeys \
-  --table auth_user_links \
-  --table auth_bootstrap \
-  --table memos \
-  --table attachments \
-  --table memo_relations \
-  --table settings \
-  --table shares \
-  --table memo_tags \
-  --table memo_revisions \
-  --output ./backups/flaremo.sql \
-  --skip-confirmation
-```
+不要在文档或临时 shell 命令里维护第二份手写表清单。唯一清单在 [`scripts/persistence-manifest.mjs`](../scripts/persistence-manifest.mjs)：其中的 `RESTORE_TABLES` 覆盖身份、memo/SSE/webhook/通知、附件、导入导出任务、Agent Memory、用量、项目与任务等所有 D1 事实源表；`embedding_tasks` 则属于可由事实源重建的派生工作队列。`pnpm persistence:check` 会把这份清单与 `packages/db/src/schema.ts` 的每一个 `sqliteTable` 对比，少表、多表或重复分类都会失败；它也是 `pnpm verify` 的第一道门禁。
 
-当前 `pnpm backup:drill` 和远端恢复脚本已经把这些认证表纳入自动化导出、恢复和计数校验；仍需在每次认证 schema 变更后重新演练，不要把旧的 backup drill 结果当成新的认证数据恢复证明。
+日常演练请直接使用 `pnpm backup:drill`，真实远端恢复验证使用 `pnpm backup:drill:remote`。两个脚本从同一清单生成 Wrangler 的 `--table` 参数、按依赖顺序的恢复文件和源/目标逐表计数校验。每次认证或 schema 变更后仍需重新演练，不要把旧的 drill 结果当作新的恢复证明。
 
 R2 备份建议使用 S3 兼容工具同步 bucket：
 
@@ -126,13 +107,14 @@ rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments
 
 1. 创建新的 D1 database 和 R2 bucket。
 2. 对新的 D1 database 执行 FlareMo migrations。
-3. 先恢复 `users`，再恢复 `auth_users`，然后按外键依赖恢复 `auth_accounts`、`auth_sessions`、`auth_verifications`、`auth_apikeys`、`auth_user_links` 和 `auth_bootstrap`，最后恢复 memo、附件、关系、分享、设置等业务表。`pnpm backup:drill` 会生成按外键依赖排序的数据恢复文件，可作为恢复流程参考；插入 `memos` 时 migration 创建的 trigger 会重建 `memos_fts`。
+3. 使用 `pnpm backup:drill` 生成的按依赖排序恢复文件。它先恢复 identity roots 和 Better Auth 记录，再恢复 memo/SSE/webhook/通知、附件、数据任务、Agent Memory、用量、项目和任务等全部事实源；migration 的 trigger 会重建 `memos_fts` 与 `memory_fts`。
 4. 恢复 R2 对象。
-5. 更新 `wrangler.jsonc` 的 D1 `database_id` 和 R2 bucket name。
-6. 配置相同或有意轮换的 `BETTER_AUTH_SECRET`，并重新配置 `FLAREMO_BOOTSTRAP_SECRET`；不要把 secret 写入恢复 SQL 或仓库。
-7. 执行 `pnpm deploy:dry-run`。
-8. 执行 `pnpm deploy`。
-9. 检查 Better Auth bootstrap 状态、cookie session、PAT、PAT revoke 和公开分享；如果保留 Access，再检查 Access policy 和公开分享 bypass policy。
+5. 更新 `wrangler.jsonc` 的 D1 `database_id` 和 R2 bucket name；如启用了语义搜索，必须绑定一个**新建或已明确清空**的 Vectorize index。
+6. 恢复文件会清空旧的 `embedding_tasks` 状态，并为正常/归档 memo 与 active memory 写入新的 `reindex` 任务。部署后让 Worker 的请求 outbox 或 Cron 完成重建；不要把旧 D1 的 `indexed` 标记误当成新 Vectorize index 中真的存在向量。
+7. 配置相同或有意轮换的 `BETTER_AUTH_SECRET`，并重新配置 `FLAREMO_BOOTSTRAP_SECRET`；不要把 secret 写入恢复 SQL 或仓库。
+8. 执行 `pnpm deploy:dry-run`。
+9. 执行 `pnpm deploy`。
+10. 检查 Better Auth bootstrap 状态、cookie session、PAT、PAT revoke 和公开分享；如果保留 Access，再检查 Access policy 和公开分享 bypass policy。
 
 D1 migration 不等于备份。破坏性 migration 发布前必须先做 D1 dump。
 
@@ -144,7 +126,7 @@ D1 migration 不等于备份。破坏性 migration 发布前必须先做 D1 dump
 pnpm backup:drill
 ```
 
-它会导出本地 D1 持久业务表（跳过可重建的 FTS5 虚拟索引）、生成按表依赖排序的数据恢复文件、用 migrations 在隔离目录创建恢复 schema、导入数据、验证业务表与重建后的 FTS 索引、检查远端 migration 状态、确认 `flaremo-attachments` R2 bucket 存在，并在 `backups/` 下生成演练报告。`backups/` 是本地输出目录，不提交到 Git。
+它会从持久化清单导出本地 D1 事实源表（跳过可重建的 FTS5 虚拟索引与旧 embedding queue 状态）、生成按表依赖排序的数据恢复文件、为新 Vectorize index 重新入队 embedding 工作、用 migrations 在隔离目录创建恢复 schema、导入数据、逐表比较源/目标计数并验证重建后的 FTS 索引、检查远端 migration 状态、确认 `flaremo-attachments` R2 bucket 存在，并在 `backups/` 下生成演练报告。`backups/` 是本地输出目录，不提交到 Git。
 
 真实 Cloudflare 资源演练需要先创建临时 D1 和 R2，并明确传入目标，脚本不会猜测或覆盖生产绑定：
 
@@ -155,7 +137,7 @@ export FLAREMO_RESTORE_BUCKET="flaremo-restore-drill-YYYYMMDD"
 pnpm backup:drill:remote
 ```
 
-远端演练会导出生产 D1 持久数据，对临时 D1 应用 migrations，按依赖顺序恢复数据，比较所有业务表和 FTS 计数，并按 D1 中仍有效的 `r2_key` 逐个复制、下载和校验 R2 对象。最后脚本生成指向临时 D1/R2 的 Wrangler 配置并执行 deploy dry-run，但不会部署，也不会修改 `wrangler.jsonc`。
+远端演练会导出生产 D1 事实源，对临时 D1 应用 migrations，按依赖顺序恢复数据，比较持久化清单中的所有表和两份 FTS 索引计数，并按 D1 中仍有效的 `r2_key` 逐个复制、下载和校验 R2 对象。最后脚本生成指向临时 D1/R2 的 Wrangler 配置并执行 deploy dry-run，但不会部署，也不会修改 `wrangler.jsonc`。如有 Vectorize binding，目标配置还应指向独立或已清空的目标索引，再让重建任务运行。
 
 认证表恢复演练必须额外确认：bootstrap 状态仍为 `complete`、既有 owner 映射存在、session/PAT 的敏感值没有出现在报告中，并在必要时主动撤销旧 session/PAT。认证数据不能只按普通 memo 行计数。
 
@@ -168,7 +150,7 @@ pnpm exec wrangler r2 bucket delete "$FLAREMO_RESTORE_BUCKET"
 
 如果生产 D1 当前没有有效附件记录，R2 复制计数为 0 是正确结果；演练仍会验证源 bucket、目标 bucket 和恢复后的 attachment 元数据计数。不要扫描或复制 D1 未引用的未知对象。
 
-最近一次真实演练：2026-07-23。生产 D1 的 1 个用户、2 条 memo 和对应 FTS 行被恢复到临时 D1，源/目标业务表计数完全一致；生产当时没有有效 attachment，因此 R2 引用对象复制数为 0。指向临时 D1/R2 的 deploy dry-run 成功，随后临时资源被显式删除。
+历史真实演练（2026-07-23）只证明当时的早期表集合：生产 D1 的 1 个用户、2 条 memo 和对应 FTS 行被恢复到临时 D1，生产当时没有有效 attachment。它**不能**替代本清单引入后的全表恢复证明；在下一次生产 schema 或恢复流程变更前后，都应重新完成一次远端演练并更新本记录。
 
 ## 线上排障
 

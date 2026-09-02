@@ -21,6 +21,7 @@
     "test:e2e": "playwright test",
     "verify": "node ./scripts/preflight.mjs",
     "release": "node ./scripts/release.mjs",
+    "persistence:check": "node ./scripts/check-persistence-manifest.mjs",
     "backup:drill": "node ./scripts/backup-drill.mjs",
     "backup:drill:remote": "node ./scripts/remote-restore-drill.mjs",
     "screenshots": "node ./scripts/capture-screenshots.mjs",

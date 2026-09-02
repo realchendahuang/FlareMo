@@ -2,6 +2,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import {
+  assertDerivedIndexesComplete,
+  buildOrderedDataRestore,
+  buildPersistenceCountsQuery,
+  RESTORE_TABLES,
+  TABLE_EXPORT_ARGS,
+} from "./persistence-manifest.mjs";
 
 const targetDatabase = requiredEnv("FLAREMO_RESTORE_DATABASE");
 const targetDatabaseId = requiredEnv("FLAREMO_RESTORE_DATABASE_ID");
@@ -15,25 +22,6 @@ const orderedDump = join(outputDir, "d1-data-ordered.sql");
 const generatedConfig = join(outputDir, "wrangler.restore-drill.jsonc");
 const reportPath = join(outputDir, "report.md");
 const objectDir = join(outputDir, "r2");
-const backupTables = [
-  "users",
-  // Restore the identity root before Better Auth's dependent records.
-  "auth_users",
-  "auth_accounts",
-  "auth_sessions",
-  "auth_apikeys",
-  "auth_verifications",
-  "auth_user_links",
-  "auth_bootstrap",
-  "memos",
-  "settings",
-  "memo_tags",
-  "memo_revisions",
-  "memo_relations",
-  "attachments",
-  "shares",
-];
-const tableArgs = backupTables.flatMap((table) => ["--table", table]);
 const steps = [];
 
 mkdirSync(objectDir, { recursive: true });
@@ -77,7 +65,7 @@ step("export production D1 business data", () =>
     "export",
     sourceDatabase,
     "--remote",
-    ...tableArgs,
+    ...TABLE_EXPORT_ARGS,
     "--no-schema",
     "--output",
     dataDump,
@@ -87,19 +75,7 @@ step("export production D1 business data", () =>
 
 step("order D1 inserts by foreign-key dependency", () => {
   const dump = readFileSync(dataDump, "utf8");
-  const lines = ["PRAGMA defer_foreign_keys=TRUE;"];
-  for (const table of backupTables) {
-    lines.push(
-      ...dump
-        .split("\n")
-        .filter(
-          (line) =>
-            line.startsWith(`INSERT INTO "${table}" `) ||
-            line.startsWith(`INSERT INTO \`${table}\` `),
-        ),
-    );
-  }
-  writeFileSync(orderedDump, `${lines.join("\n")}\n`);
+  writeFileSync(orderedDump, buildOrderedDataRestore(dump));
 });
 
 step("apply migrations to target D1", () =>
@@ -131,16 +107,15 @@ step("restore production D1 data to target", () =>
 const sourceCounts = queryCounts(sourceDatabase);
 const targetCounts = queryCounts("DB", generatedConfig);
 step("compare source and target D1 counts", () => {
-  for (const key of Object.keys(sourceCounts)) {
-    if (sourceCounts[key] !== targetCounts[key]) {
+  for (const table of RESTORE_TABLES) {
+    if (sourceCounts[table] !== targetCounts[table]) {
       throw new Error(
-        `${key} mismatch: source=${sourceCounts[key]} target=${targetCounts[key]}`,
+        `${table} mismatch: source=${sourceCounts[table]} target=${targetCounts[table]}`,
       );
     }
   }
-  if (targetCounts.memos !== targetCounts.fts) {
-    throw new Error("Target FTS index was not rebuilt from restored memos");
-  }
+  assertDerivedIndexesComplete(sourceCounts);
+  assertDerivedIndexesComplete(targetCounts);
 });
 
 const attachments = query(
@@ -218,28 +193,7 @@ writeFileSync(
 console.log(`Remote restore drill report: ${reportPath}`);
 
 function queryCounts(database, config) {
-  const rows = query(
-    database,
-    [
-      "SELECT",
-      "(SELECT COUNT(*) FROM users) AS users,",
-      "(SELECT COUNT(*) FROM auth_users) AS auth_users,",
-      "(SELECT COUNT(*) FROM auth_accounts) AS auth_accounts,",
-      "(SELECT COUNT(*) FROM auth_sessions) AS auth_sessions,",
-      "(SELECT COUNT(*) FROM auth_apikeys) AS auth_apikeys,",
-      "(SELECT COUNT(*) FROM auth_verifications) AS auth_verifications,",
-      "(SELECT COUNT(*) FROM auth_user_links) AS auth_user_links,",
-      "(SELECT COUNT(*) FROM auth_bootstrap) AS auth_bootstrap,",
-      "(SELECT COUNT(*) FROM memos) AS memos,",
-      "(SELECT COUNT(*) FROM memo_tags) AS tags,",
-      "(SELECT COUNT(*) FROM memo_revisions) AS revisions,",
-      "(SELECT COUNT(*) FROM attachments WHERE deleted_at IS NULL) AS attachments,",
-      "(SELECT COUNT(*) FROM memo_relations) AS relations,",
-      "(SELECT COUNT(*) FROM shares) AS shares,",
-      "(SELECT COUNT(*) FROM memos_fts) AS fts;",
-    ].join(" "),
-    config,
-  );
+  const rows = query(database, buildPersistenceCountsQuery(), config);
   return rows[0] ?? {};
 }
 

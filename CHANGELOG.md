@@ -2,6 +2,18 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## Unreleased
+
+### 新增能力
+
+- 完整 Worker 生命周期工厂：公开导出 `createFlareMoWorker(options)`。它将同一份 `FlareMoAppOptions` 同时用于 HTTP routes、请求后的 webhook/embedding outbox 和 Cron maintenance；外部组合壳不再需要复制 default handler 的内部实现，也不会因只导出 `fetch` 而漏跑 durable work。
+- 灾备持久化清单：`scripts/persistence-manifest.mjs` 是所有 D1 `sqliteTable` 的唯一分类来源。恢复演练现在覆盖 memo/SSE/webhook/通知、数据任务、Agent Memory、用量、项目/任务等事实源表，逐表比较恢复计数，并在恢复后把 Vectorize 的 `embedding_tasks` 重建为待处理 reindex 工作。
+
+### 升级影响
+
+- 自托管 Worker 的 default export 行为不变。高级 host 若需要完整生产生命周期，应从 `createFlareMoApp` 迁移到 `createFlareMoWorker`；前者仍保留给测试和只需路由装配的场景。
+- 灾备流程在新 Vectorize index 上恢复时，必须使用新建或明确清空的 index，再让重建 outbox 执行；不能复用旧 D1 的 `indexed` 状态作为向量存在证明。
+
 ## v0.14.0
 
 邮件生命周期闭环 + 账号自助注销 + 可选限频版本。把 v0.13.0 引入的注册邮件验证补成完整闭环（重发、找回密码、换邮箱验证新地址），补上多用户部署的合规底线（自助注销），并为凭据端点提供厂商中立的 per-IP 限频（呼应「不要验证码」的决策：不接验证码平台，用 Cloudflare 原生 rate limiting binding 防刷）。

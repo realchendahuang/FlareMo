@@ -71,14 +71,25 @@ export type FlareMoAppOptions = {
   ) => Promise<UserPlanLimits | null> | UserPlanLimits | null;
 };
 
+type ResolvedFlareMoOptions = Required<FlareMoAppOptions>;
+
+function resolveFlareMoOptions(
+  options: FlareMoAppOptions,
+): ResolvedFlareMoOptions {
+  return {
+    resolvePlanLimits:
+      options.resolvePlanLimits ?? ((_env: FlareMoEnv) => SELF_HOST_UNLIMITED),
+    resolveUserPlanLimits:
+      options.resolveUserPlanLimits ??
+      ((env: FlareMoEnv) => parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON)),
+  };
+}
+
 export function createFlareMoApp(
   options: FlareMoAppOptions = {},
 ): Hono<HonoBindings> {
-  const resolvePlanLimits =
-    options.resolvePlanLimits ?? ((_env: FlareMoEnv) => SELF_HOST_UNLIMITED);
-  const resolveUserPlanLimits =
-    options.resolveUserPlanLimits ??
-    ((env: FlareMoEnv) => parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON));
+  const { resolvePlanLimits, resolveUserPlanLimits } =
+    resolveFlareMoOptions(options);
   const app = new Hono<HonoBindings>();
 
   app.use("*", async (c, next) => {
@@ -305,26 +316,72 @@ export async function runScheduledMaintenance(
   );
 }
 
-const handler = {
-  async fetch(request: Request, env: FlareMoEnv, ctx?: ExecutionContext) {
-    const response = await createFlareMoApp().fetch(request, env, ctx);
-    ctx?.waitUntil(
-      dispatchMemosWebhookOutbox(createDb(env.DB)).catch(() => undefined),
-    );
-    ctx?.waitUntil(
-      dispatchEmbeddingOutbox(createDb(env.DB), {
-        provider: createEmbeddingProvider(env),
-        memosIndex: createVectorIndex(env, "memo"),
-        memoriesIndex: createVectorIndex(env, "memory"),
-        limits: SELF_HOST_UNLIMITED,
-        userLimits: parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON),
-      }).catch(() => undefined),
-    );
-    return response;
-  },
-  async scheduled(controller: ScheduledController, env: FlareMoEnv) {
-    await runScheduledMaintenance(env, controller.scheduledTime);
-  },
-} satisfies ExportedHandler<FlareMoEnv>;
+async function dispatchRequestEmbeddingOutbox(
+  env: FlareMoEnv,
+  options: ResolvedFlareMoOptions,
+  hasCustomUserPlanLimits: boolean,
+) {
+  await dispatchEmbeddingOutbox(createDb(env.DB), {
+    provider: createEmbeddingProvider(env),
+    memosIndex: createVectorIndex(env, "memo"),
+    memoriesIndex: createVectorIndex(env, "memory"),
+    limits: await options.resolvePlanLimits(env),
+    userLimits: hasCustomUserPlanLimits
+      ? null
+      : parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON),
+    resolveUserLimits: hasCustomUserPlanLimits
+      ? (userId) => options.resolveUserPlanLimits(env, userId)
+      : undefined,
+  });
+}
 
-export default handler;
+/**
+ * Build the complete Worker lifecycle for an installation of FlareMo.
+ *
+ * `createFlareMoApp` intentionally only assembles HTTP routes so tests and
+ * advanced hosts can mount it. Production entrypoints should use this factory:
+ * it keeps request outbox dispatch and Cron maintenance coupled to the same
+ * plan-limit policy as the HTTP application.
+ */
+export function createFlareMoWorker(
+  options: FlareMoAppOptions = {},
+): ExportedHandler<FlareMoEnv> {
+  const resolvedOptions = resolveFlareMoOptions(options);
+  const hasCustomUserPlanLimits = options.resolveUserPlanLimits !== undefined;
+
+  return {
+    async fetch(request, env, ctx) {
+      const response = await createFlareMoApp(resolvedOptions).fetch(
+        request,
+        env,
+        ctx,
+      );
+      const db = createDb(env.DB);
+      // `ExecutionContext` is part of the Worker handler contract. Keeping
+      // this post-response work on `waitUntil` avoids changing the route-only
+      // test semantics for direct handler calls without a Worker runtime.
+      ctx?.waitUntil(dispatchMemosWebhookOutbox(db).catch(() => undefined));
+      ctx?.waitUntil(
+        dispatchRequestEmbeddingOutbox(
+          env,
+          resolvedOptions,
+          hasCustomUserPlanLimits,
+        ).catch(() => undefined),
+      );
+      return response;
+    },
+    async scheduled(controller, env) {
+      await runScheduledMaintenance(env, controller.scheduledTime, {
+        limits: await resolvedOptions.resolvePlanLimits(env),
+        userLimits: hasCustomUserPlanLimits
+          ? null
+          : parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON),
+        resolveUserLimits: hasCustomUserPlanLimits
+          ? (userId) => resolvedOptions.resolveUserPlanLimits(env, userId)
+          : undefined,
+      });
+    },
+  };
+}
+
+export default createFlareMoWorker();

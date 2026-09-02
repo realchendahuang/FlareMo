@@ -1,6 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import {
+  assertDerivedIndexesComplete,
+  buildOrderedDataRestore,
+  buildPersistenceCountsQuery,
+  RESTORE_TABLES,
+  TABLE_EXPORT_ARGS,
+} from "./persistence-manifest.mjs";
 
 const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
 const backupDir = resolve("backups", `drill-${stamp}`);
@@ -9,29 +16,12 @@ const d1DataDump = join(backupDir, "d1-data.sql");
 const orderedDataDump = join(backupDir, "d1-data-ordered.sql");
 const report = join(backupDir, "report.md");
 const restorePersistDir = join(backupDir, "restore-d1");
-const backupTables = [
-  "users",
-  // Restore the identity root before Better Auth's dependent records.
-  "auth_users",
-  "auth_accounts",
-  "auth_sessions",
-  "auth_apikeys",
-  "auth_verifications",
-  "auth_user_links",
-  "auth_bootstrap",
-  "memos",
-  "settings",
-  "memo_tags",
-  "memo_revisions",
-  "memo_relations",
-  "attachments",
-  "shares",
-];
-const tableArgs = backupTables.flatMap((table) => ["--table", table]);
 
 mkdirSync(backupDir, { recursive: true });
 
 const steps = [];
+let sourceCounts;
+let restoredCounts;
 
 step("export local D1 dump", () =>
   run("pnpm", [
@@ -41,7 +31,7 @@ step("export local D1 dump", () =>
     "export",
     "DB",
     "--local",
-    ...tableArgs,
+    ...TABLE_EXPORT_ARGS,
     "--output",
     d1Dump,
     "--skip-confirmation",
@@ -56,7 +46,7 @@ step("export local D1 data", () =>
     "export",
     "DB",
     "--local",
-    ...tableArgs,
+    ...TABLE_EXPORT_ARGS,
     "--no-schema",
     "--output",
     d1DataDump,
@@ -72,7 +62,7 @@ step("verify D1 dump exists", () => {
   if (!dump.includes("CREATE TABLE") && !dump.includes("INSERT INTO")) {
     throw new Error("D1 dump does not look like a SQL backup.");
   }
-  for (const table of backupTables) {
+  for (const table of RESTORE_TABLES) {
     if (!dump.includes(`CREATE TABLE \`${table}\``)) {
       throw new Error(`D1 dump is missing the ${table} table.`);
     }
@@ -82,22 +72,14 @@ step("verify D1 dump exists", () => {
   }
 });
 
+step("snapshot source D1 counts and derived indexes", () => {
+  sourceCounts = queryLocalCounts();
+  assertDerivedIndexesComplete(sourceCounts);
+});
+
 step("prepare ordered D1 data restore file", () => {
   const dataDump = readFileSync(d1DataDump, "utf8");
-  const lines = ["PRAGMA defer_foreign_keys=TRUE;"];
-
-  for (const table of backupTables) {
-    const tableInserts = dataDump
-      .split("\n")
-      .filter(
-        (line) =>
-          line.startsWith(`INSERT INTO "${table}" `) ||
-          line.startsWith(`INSERT INTO \`${table}\` `),
-      );
-    lines.push(...tableInserts);
-  }
-
-  writeFileSync(orderedDataDump, `${lines.join("\n")}\n`);
+  writeFileSync(orderedDataDump, buildOrderedDataRestore(dataDump));
 });
 
 step("create isolated restore schema from migrations", () =>
@@ -130,37 +112,17 @@ step("restore D1 data into isolated local database", () =>
   ]),
 );
 
-step("verify restored D1 schema", () =>
-  run("pnpm", [
-    "exec",
-    "wrangler",
-    "d1",
-    "execute",
-    "DB",
-    "--local",
-    "--persist-to",
-    restorePersistDir,
-    "--command",
-    [
-      "SELECT",
-      "(SELECT COUNT(*) FROM users) AS user_count,",
-      "(SELECT COUNT(*) FROM auth_users) AS auth_user_count,",
-      "(SELECT COUNT(*) FROM auth_accounts) AS auth_account_count,",
-      "(SELECT COUNT(*) FROM auth_sessions) AS auth_session_count,",
-      "(SELECT COUNT(*) FROM auth_apikeys) AS auth_apikey_count,",
-      "(SELECT COUNT(*) FROM auth_verifications) AS auth_verification_count,",
-      "(SELECT COUNT(*) FROM auth_user_links) AS auth_link_count,",
-      "(SELECT COUNT(*) FROM auth_bootstrap) AS auth_bootstrap_count,",
-      "(SELECT COUNT(*) FROM memos) AS memo_count,",
-      "(SELECT COUNT(*) FROM memo_tags) AS tag_count,",
-      "(SELECT COUNT(*) FROM memo_revisions) AS revision_count,",
-      "(SELECT COUNT(*) FROM attachments) AS attachment_count,",
-      "(SELECT COUNT(*) FROM shares) AS share_count,",
-      "(SELECT COUNT(*) FROM memos_fts) AS fts_count,",
-      "(SELECT COUNT(*) FROM memos) = (SELECT COUNT(*) FROM memos_fts) AS fts_complete;",
-    ].join(" "),
-  ]),
-);
+step("compare restored D1 source-of-truth counts", () => {
+  restoredCounts = queryLocalCounts(restorePersistDir);
+  for (const table of RESTORE_TABLES) {
+    if (sourceCounts[table] !== restoredCounts[table]) {
+      throw new Error(
+        `${table} mismatch: source=${sourceCounts[table]} restored=${restoredCounts[table]}`,
+      );
+    }
+  }
+  assertDerivedIndexesComplete(restoredCounts);
+});
 
 step("list remote D1 migrations", () =>
   run("pnpm", [
@@ -192,6 +154,8 @@ writeFileSync(
     `- D1 dump: ${d1Dump}`,
     `- D1 data restore file: ${orderedDataDump}`,
     `- Restore target: ${restorePersistDir}`,
+    `- Source counts: ${JSON.stringify(sourceCounts)}`,
+    `- Restored counts: ${JSON.stringify(restoredCounts)}`,
     "",
     "## Steps",
     "",
@@ -201,9 +165,9 @@ writeFileSync(
     "",
     "1. Create a fresh D1 database and R2 bucket.",
     "2. Apply FlareMo migrations to the fresh D1 database.",
-    "3. Restore D1 data from the ordered data restore file generated by this drill. The file places `users` and `auth_users` before Better Auth dependent tables, then restores the auth-to-domain link and bootstrap state before business data.",
+    "3. Restore D1 data from the ordered data restore file generated by this drill. The file places identity roots before dependent records, restores every source-of-truth table from the persistence manifest, then recreates pending embedding work from D1 rows.",
     "4. Better Auth session rows and API-key hashes are sensitive backup data; keep the drill output private and never treat it as a public fixture.",
-    "5. The migrations and memo insert triggers rebuild the derived `memos_fts` index; do not restore FTS shadow tables.",
+    "5. The migrations and insert triggers rebuild derived `memos_fts` and `memory_fts` indexes; do not restore FTS shadow tables. Bind a fresh or explicitly cleared Vectorize index before letting the restored embedding outbox run.",
     "6. Restore R2 objects with an S3-compatible sync tool such as rclone.",
     "7. Update `wrangler.jsonc` bindings and run `pnpm deploy:dry-run` before deploy.",
     "",
@@ -211,6 +175,29 @@ writeFileSync(
 );
 
 console.log(`Backup drill report: ${report}`);
+
+function queryLocalCounts(persistTo) {
+  const persistArgs = persistTo ? ["--persist-to", persistTo] : [];
+  const result = run(
+    "pnpm",
+    [
+      "exec",
+      "wrangler",
+      "d1",
+      "execute",
+      "DB",
+      "--local",
+      "--command",
+      buildPersistenceCountsQuery(),
+      "--json",
+      ...persistArgs,
+    ],
+    { capture: true },
+  );
+  const payload = JSON.parse(result.stdout);
+  if (!payload[0]?.success) throw new Error("Local D1 count query failed.");
+  return payload[0].results?.[0] ?? {};
+}
 
 function step(name, fn) {
   try {

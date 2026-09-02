@@ -424,7 +424,7 @@ AI 工作流围绕个人知识库展开：
 
 ## 组装入口与计划限额
 
-worker 的路由表不再挂在模块级常量上，而是由 `createFlareMoApp(options)` 工厂构建：每次调用返回全新 Hono 实例，default 导出的 `ExportedHandler` 只是该工厂的默认消费者。外部组合壳（未来多用户部署形态的私有入口）可以 import 同一工厂，追加自己的中间件与路由，不必复制或 patch 内核。
+worker 的路由表不再挂在模块级常量上，而是由 `createFlareMoApp(options)` 工厂构建：每次调用返回全新 Hono 实例。生产 default export 和外部共享部署应使用 `createFlareMoWorker(options)`：它在同一组注入限额下组合 HTTP 路由、请求后的 webhook/embedding outbox 与 Cron maintenance。`createFlareMoApp` 保留给测试或需要挂载额外路由的高级场景；外部组合壳不能只包一层 `fetch`，否则会悄悄跳过 durable work。
 
 计划限额以注入数据的形式进入请求上下文，而不是散落的条件分支：
 
