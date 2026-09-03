@@ -147,6 +147,13 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const teamModeSchema = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0014_steep_carnage.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
@@ -161,6 +168,7 @@ describe("FlareMo Worker API", () => {
     await applyMigration(db, memorySchema);
     await applyMigration(db, embeddingSchema);
     await applyMigration(db, projectsSchema);
+    await applyMigration(db, teamModeSchema);
     sessionCookie = await bootstrapAndSignIn();
   });
 
@@ -2350,6 +2358,134 @@ describe("FlareMo Worker API", () => {
     expect(response.status).toBe(429);
     const body = await response.json<{ error: { message: string } }>();
     expect(body.error.message).toContain("Member limit");
+  });
+
+  it("enforces team visibility and retains team content after removal", async () => {
+    const createMemberResponse = await app.fetch(
+      new Request("http://flaremo.test/api/app/admin/users", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: sessionCookie,
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          name: "Team Member",
+          email: "team-member@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(createMemberResponse.status).toBe(201);
+    const member = await createMemberResponse.json<{ id: string }>();
+
+    const updateRole = async (role: "admin" | "member") =>
+      app.fetch(
+        new Request(
+          `http://flaremo.test/api/app/admin/users/${encodeURIComponent(member.id)}/role`,
+          {
+            method: "PATCH",
+            headers: {
+              "content-type": "application/json",
+              cookie: sessionCookie,
+              origin: "http://flaremo.test",
+            },
+            body: JSON.stringify({ role }),
+          },
+        ),
+        env,
+      );
+    expect((await updateRole("admin")).status).toBe(200);
+    expect((await updateRole("member")).status).toBe(200);
+
+    const signIn = await app.fetch(
+      new Request("http://flaremo.test/api/auth/sign-in/email", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          email: "team-member@example.com",
+          password: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(signIn.status).toBe(200);
+    const memberCookie = extractCookieHeader(signIn);
+
+    const createMemberMemo = async (visibility: "private" | "protected") => {
+      const response = await app.fetch(
+        new Request("http://flaremo.test/api/app/memos", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            cookie: memberCookie,
+            origin: "http://flaremo.test",
+          },
+          body: JSON.stringify({
+            content: `${visibility} member memo`,
+            visibility,
+          }),
+        }),
+        env,
+      );
+      expect(response.status).toBe(201);
+      return response.json<{ id: string }>();
+    };
+    const privateMemo = await createMemberMemo("private");
+    const teamMemo = await createMemberMemo("protected");
+
+    const readAsOwner = (memoId: string) =>
+      app.fetch(
+        new Request(`http://flaremo.test/api/app/memos/${memoId}`, {
+          headers: { cookie: sessionCookie },
+        }),
+        env,
+      );
+    expect((await readAsOwner(privateMemo.id)).status).toBe(404);
+    const teamResponse = await readAsOwner(teamMemo.id);
+    expect(teamResponse.status).toBe(200);
+    expect(
+      await teamResponse.json<{
+        can_manage: boolean;
+        memo: { creator_name?: string };
+      }>(),
+    ).toMatchObject({
+      can_manage: true,
+      memo: { creator_name: "Team Member" },
+    });
+
+    const removeResponse = await app.fetch(
+      new Request(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent(member.id)}`,
+        {
+          method: "DELETE",
+          headers: { cookie: sessionCookie, origin: "http://flaremo.test" },
+        },
+      ),
+      env,
+    );
+    expect(removeResponse.status).toBe(200);
+    expect(
+      (
+        await app.fetch(
+          new Request("http://flaremo.test/api/app/health", {
+            headers: { cookie: memberCookie },
+          }),
+          env,
+        )
+      ).status,
+    ).toBe(401);
+    expect((await readAsOwner(privateMemo.id)).status).toBe(404);
+    const retainedResponse = await readAsOwner(teamMemo.id);
+    expect(retainedResponse.status).toBe(200);
+    expect(
+      (await retainedResponse.json<{ memo: { creator_name?: string } }>()).memo
+        .creator_name,
+    ).toBe("Team Member");
   });
 });
 

@@ -49,6 +49,7 @@ import {
   createShare,
   deleteTag,
   downloadExportJson,
+  getCurrentFlareMoUser,
   getDataTask,
   getMemoStats,
   getTagHierarchy,
@@ -242,6 +243,11 @@ function FlareMoApp() {
     queryKey: ["vector-usage"],
     queryFn: () => getVectorUsage(),
     staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  const currentUserQuery = useQuery({
+    queryKey: ["current-flaremo-user"],
+    queryFn: getCurrentFlareMoUser,
     retry: false,
   });
   // Semantic search is hidden when the plan has no budget for it (quota 0)
@@ -835,6 +841,7 @@ function FlareMoApp() {
               )}
               <MemoList
                 attachmentsByMemo={attachmentsByMemo}
+                currentUser={currentUserQuery.data}
                 emptyDescription={
                   semanticMode && debouncedQuery
                     ? t("search.semanticEmpty")

@@ -21,7 +21,7 @@ publicApi.get("/shares/:token", async (c) => {
         expires_at: shareDto.expires_at,
         create_time: shareDto.create_time,
       },
-      memo: memoToDto(share.memo, share.user),
+      memo: memoToDto(share.memo, share.user, share.user.name),
       attachments: share.attachments.map((attachment) => {
         const blobUrl = `/api/public/shares/${share.share.token}/attachments/${attachment.id.replace(/^attachments\//, "")}/blob`;
         return {

@@ -3,6 +3,7 @@ import {
   ForbiddenError,
   getFlaremoUserByAuthSessionToken,
   getFlaremoUserByAuthUserId,
+  isActiveTeamMember,
   type PlanLimits,
   parseUserPlanLimits,
   SELF_HOST_UNLIMITED,
@@ -69,6 +70,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
         token,
       });
       if (nativeAccess) {
+        assertActiveMember(nativeAccess.user);
         return {
           db,
           user: nativeAccess.user,
@@ -84,6 +86,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
 
       const session = await getFlaremoUserByAuthSessionToken(db, token);
       if (!session) throw new UnauthorizedError();
+      assertActiveMember(session.user);
 
       return {
         db,
@@ -112,6 +115,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
       verification.key.referenceId,
     );
     if (!user) throw new UnauthorizedError();
+    assertActiveMember(user);
 
     return {
       db,
@@ -182,6 +186,7 @@ export async function getBrowserRequestContext(
 
   const user = await getFlaremoUserByAuthUserId(db, session.user.id);
   if (!user) throw new UnauthorizedError();
+  assertActiveMember(user);
 
   return {
     db,
@@ -244,6 +249,10 @@ function getBearerToken(headers: Headers): string | null {
     throw new UnauthorizedError();
   }
   return token;
+}
+
+function assertActiveMember(user: Parameters<typeof isActiveTeamMember>[0]) {
+  if (!isActiveTeamMember(user)) throw new UnauthorizedError();
 }
 
 export type ReturnTypeOfRequestContext = Awaited<

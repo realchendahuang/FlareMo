@@ -317,6 +317,11 @@ export async function getMemoParent(
       ),
     )
     .get();
+  if (relation) {
+    await getMemoById(db, user, relation.relatedMemoId, {
+      includeDeleted: true,
+    });
+  }
   return relation?.relatedMemoId;
 }
 

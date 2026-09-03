@@ -31,7 +31,7 @@ import {
   usageCounters,
   users,
 } from "@flaremo/db";
-import { asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, count, eq, inArray, ne, or } from "drizzle-orm";
 import {
   ConflictError,
   ForbiddenError,
@@ -71,6 +71,7 @@ export async function ensureSingleUser(
     name: config.name,
     avatarUrl: null,
     role: "owner" as const,
+    status: "active" as const,
     createdAt: now,
     updatedAt: now,
   };
@@ -104,6 +105,7 @@ export async function createFlaremoMember(
     name: config.name,
     avatarUrl: null,
     role: "member" as const,
+    status: "active" as const,
     createdAt: now,
     updatedAt: now,
   };
@@ -139,8 +141,68 @@ export async function createFlaremoMemberWithLink(
   return user;
 }
 
-export async function listFlaremoUsers(db: FlareMoDb): Promise<UserRow[]> {
-  return db.select().from(users).orderBy(asc(users.createdAt));
+export async function listFlaremoUsers(
+  db: FlareMoDb,
+  options: { includeRemoved?: boolean } = {},
+): Promise<UserRow[]> {
+  const query = db.select().from(users);
+  return options.includeRemoved
+    ? query.orderBy(asc(users.createdAt))
+    : query.where(eq(users.status, "active")).orderBy(asc(users.createdAt));
+}
+
+export async function getFlaremoUserNames(
+  db: FlareMoDb,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await db
+    .select({ id: users.id, name: users.name })
+    .from(users)
+    .where(inArray(users.id, [...new Set(userIds)]));
+  return new Map(rows.map((row) => [row.id, row.name]));
+}
+
+export async function updateFlaremoUserRole(
+  db: FlareMoDb,
+  userId: string,
+  role: "admin" | "member",
+): Promise<UserRow> {
+  if (userId === "users/owner") {
+    throw new ForbiddenError("The owner role cannot be changed.");
+  }
+  const user = await getFlaremoUserById(db, userId);
+  if (user?.status !== "active") {
+    throw new NotFoundError("Active member not found");
+  }
+  if (user.role === "admin" && role === "member") {
+    await assertAnotherActiveAdmin(db, userId);
+  }
+  const updatedAt = new Date().toISOString();
+  await db
+    .update(users)
+    .set({ role, updatedAt })
+    .where(and(eq(users.id, userId), eq(users.status, "active")));
+  return (await getFlaremoUserById(db, userId)) ?? { ...user, role, updatedAt };
+}
+
+async function assertAnotherActiveAdmin(db: FlareMoDb, excludedUserId: string) {
+  const row = await db
+    .select({ value: count() })
+    .from(users)
+    .where(
+      and(
+        eq(users.status, "active"),
+        inArray(users.role, ["owner", "admin"]),
+        ne(users.id, excludedUserId),
+      ),
+    )
+    .get();
+  if ((row?.value ?? 0) < 1) {
+    throw new ForbiddenError(
+      "The last active administrator cannot be changed.",
+    );
+  }
 }
 
 /**
@@ -173,32 +235,8 @@ export async function deriveUniqueUsername(
 }
 
 /**
- * Delete a non-owner user. The auth identity is removed first so its sessions,
- * accounts, and API keys cascade, then the domain row is removed so memos and
- * other owned resources cascade. The owner bootstrap identity is immutable.
- */
-export async function deleteFlaremoUser(
-  db: FlareMoDb,
-  userId: string,
-): Promise<void> {
-  if (userId === "users/owner") {
-    throw new ForbiddenError("The owner account cannot be deleted.");
-  }
-  const user = await getFlaremoUserById(db, userId);
-  if (!user) throw new NotFoundError("User not found");
-
-  const link = await db.query.authUserLinks.findFirst({
-    where: eq(authUserLinks.flaremoUserId, userId),
-  });
-  if (link) {
-    await db.delete(authUsers).where(eq(authUsers.id, link.authUserId));
-  }
-  await db.delete(users).where(eq(users.id, userId));
-}
-
-/**
  * Resource identities a caller must clean outside D1 (R2 objects and Vectorize
- * vectors) before/while the account rows go away.
+ * vectors) while removing a member.
  */
 export type FlaremoAccountArtifacts = {
   memoIds: string[];
@@ -206,93 +244,122 @@ export type FlaremoAccountArtifacts = {
   attachmentR2Keys: string[];
 };
 
+export type FlaremoMemberRemovalArtifacts = FlaremoAccountArtifacts & {
+  attachmentIds: string[];
+};
+
 /**
- * Snapshot the account's out-of-D1 artifacts. Must be called BEFORE
- * deleteFlaremoAccount: after the batch the attachment rows (R2 keys) and
- * memo/memory rows (vector id sources) are gone.
+ * Immediately block a member and revoke every application credential, then
+ * return the private/personal artifacts that must be removed outside D1.
+ * Repeating the call for an already removed member is safe and lets an admin
+ * retry a failed R2/Vectorize cleanup before finalizing D1 deletion.
  */
-export async function collectFlaremoAccountArtifacts(
+export async function beginFlaremoMemberRemoval(
   db: FlareMoDb,
   userId: string,
-): Promise<FlaremoAccountArtifacts> {
-  const memoRows = await db
+): Promise<FlaremoMemberRemovalArtifacts> {
+  if (userId === "users/owner") {
+    throw new ForbiddenError("The owner account cannot be removed.");
+  }
+  const user = await getFlaremoUserById(db, userId);
+  if (!user) throw new NotFoundError("Member not found");
+  if (user.status === "active" && user.role === "admin") {
+    await assertAnotherActiveAdmin(db, userId);
+  }
+
+  const link = await db.query.authUserLinks.findFirst({
+    where: eq(authUserLinks.flaremoUserId, userId),
+  });
+  const authUserId = link?.authUserId;
+  const removedEmail = `removed+${user.id.replace(/[^a-zA-Z0-9]/g, "-")}@flaremo.invalid`;
+  await db
+    .update(users)
+    .set({
+      email: removedEmail,
+      status: "removed",
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(users.id, userId));
+  if (authUserId) {
+    await db.batch([
+      db.delete(authApiKeys).where(eq(authApiKeys.referenceId, authUserId)),
+      db.delete(authSessions).where(eq(authSessions.userId, authUserId)),
+      db.delete(authAccounts).where(eq(authAccounts.userId, authUserId)),
+      db.delete(authUserLinks).where(eq(authUserLinks.authUserId, authUserId)),
+      db.delete(authUsers).where(eq(authUsers.id, authUserId)),
+    ]);
+  }
+
+  const privateMemoRows = await db
     .select({ id: memos.id })
     .from(memos)
-    .where(eq(memos.userId, userId));
+    .where(and(eq(memos.userId, userId), eq(memos.visibility, "private")));
+  const privateMemoIds = privateMemoRows.map((row) => row.id);
   const memoryRows = await db
     .select({ id: memoryItems.id })
     .from(memoryItems)
     .where(eq(memoryItems.userId, userId));
   const attachmentRows = await db
-    .select({ key: attachments.r2Key })
+    .select({
+      id: attachments.id,
+      memoId: attachments.memoId,
+      key: attachments.r2Key,
+    })
     .from(attachments)
     .where(eq(attachments.userId, userId));
+  const privateMemoSet = new Set(privateMemoIds);
+  const privateAttachments = attachmentRows.filter(
+    (attachment) =>
+      attachment.memoId === null || privateMemoSet.has(attachment.memoId),
+  );
+
   return {
-    memoIds: memoRows.map((row) => row.id),
+    memoIds: privateMemoIds,
     memoryIds: memoryRows.map((row) => row.id),
-    attachmentR2Keys: attachmentRows.map((row) => row.key),
+    attachmentIds: privateAttachments.map((attachment) => attachment.id),
+    attachmentR2Keys: privateAttachments.map((attachment) => attachment.key),
   };
 }
 
 /**
- * Self-service account deletion. Every per-user row is deleted explicitly,
- * children first, so the cleanup never depends on FK enforcement being
- * enabled in the runtime (D1/SQLite PRAGMAs differ between local and remote)
- * and cannot leave orphaned rows behind a missing cascade.
- *
- * The caller is responsible for the out-of-D1 artifacts returned by
- * collectFlaremoAccountArtifacts (R2 objects, Vectorize vectors) and for
- * refusing owner self-deletion.
+ * Delete only a removed member's private and personal D1 data. Team/public
+ * memos and their attachments stay attached to the historical author row.
  */
-export async function deleteFlaremoAccount(
+export async function finalizeFlaremoMemberRemoval(
   db: FlareMoDb,
   userId: string,
+  artifacts: FlaremoMemberRemovalArtifacts,
 ): Promise<void> {
-  if (userId === "users/owner") {
-    throw new ForbiddenError("The owner account cannot be deleted.");
-  }
   const user = await getFlaremoUserById(db, userId);
-  if (!user) throw new NotFoundError("User not found");
-
-  const link = await db.query.authUserLinks.findFirst({
-    where: eq(authUserLinks.flaremoUserId, userId),
-  });
-  const authUserId = link?.authUserId ?? null;
+  if (!user) throw new NotFoundError("Member not found");
+  if (user.status !== "removed") {
+    throw new ConflictError("Member removal has not started.");
+  }
 
   const userWebhookIds = db
     .select({ id: memosWebhooks.id })
     .from(memosWebhooks)
     .where(eq(memosWebhooks.userId, userId));
+  const privateMemoIds = artifacts.memoIds;
+  const privateAttachmentIds = artifacts.attachmentIds;
 
   await db.batch([
     db.delete(taskActivity).where(eq(taskActivity.userId, userId)),
     db.delete(tasks).where(eq(tasks.userId, userId)),
     db.delete(projects).where(eq(projects.userId, userId)),
-    // Embedding outbox rows are dropped here: vector cleanup happens
-    // synchronously in the caller via collectFlaremoAccountArtifacts, so a
-    // pending task must not outlive its owner.
-    db.delete(embeddingTasks).where(eq(embeddingTasks.userId, userId)),
     db.delete(usageCounters).where(eq(usageCounters.userId, userId)),
     db.delete(dataTasks).where(eq(dataTasks.userId, userId)),
     db.delete(settings).where(eq(settings.userId, userId)),
     db.delete(shares).where(eq(shares.userId, userId)),
-    db.delete(attachments).where(eq(attachments.userId, userId)),
     db.delete(reactions).where(eq(reactions.creatorId, userId)),
     db
-      .delete(memoRelations)
+      .delete(memosSseEvents)
       .where(
-        inArray(
-          memoRelations.memoId,
-          db
-            .select({ id: memos.id })
-            .from(memos)
-            .where(eq(memos.userId, userId)),
+        and(
+          eq(memosSseEvents.creatorId, userId),
+          eq(memosSseEvents.visibility, "private"),
         ),
       ),
-    db.delete(memoRevisions).where(eq(memoRevisions.userId, userId)),
-    db.delete(memoTags).where(eq(memoTags.userId, userId)),
-    db.delete(memos).where(eq(memos.userId, userId)),
-    db.delete(memosSseEvents).where(eq(memosSseEvents.creatorId, userId)),
     db
       .delete(memosWebhookDeliveries)
       .where(inArray(memosWebhookDeliveries.webhookId, userWebhookIds)),
@@ -317,20 +384,44 @@ export async function deleteFlaremoAccount(
     db.delete(memoryItems).where(eq(memoryItems.userId, userId)),
   ]);
 
-  // Better Auth identity last: sessions, PATs, accounts, then the user row
-  // itself, then the bridge and the domain user.
-  if (authUserId) {
+  if (privateMemoIds.length > 0) {
     await db.batch([
-      db.delete(authApiKeys).where(eq(authApiKeys.referenceId, authUserId)),
-      db.delete(authSessions).where(eq(authSessions.userId, authUserId)),
-      db.delete(authAccounts).where(eq(authAccounts.userId, authUserId)),
-      db.delete(authUsers).where(eq(authUsers.id, authUserId)),
+      db
+        .delete(embeddingTasks)
+        .where(
+          and(
+            eq(embeddingTasks.userId, userId),
+            inArray(embeddingTasks.resourceId, privateMemoIds),
+          ),
+        ),
+      db
+        .delete(memoRelations)
+        .where(
+          or(
+            inArray(memoRelations.memoId, privateMemoIds),
+            inArray(memoRelations.relatedMemoId, privateMemoIds),
+          ),
+        ),
+      db
+        .delete(memoRevisions)
+        .where(inArray(memoRevisions.memoId, privateMemoIds)),
+      db.delete(memoTags).where(inArray(memoTags.memoId, privateMemoIds)),
+      db.delete(memos).where(inArray(memos.id, privateMemoIds)),
     ]);
   }
-  await db.batch([
-    db.delete(authUserLinks).where(eq(authUserLinks.flaremoUserId, userId)),
-    db.delete(users).where(eq(users.id, userId)),
-  ]);
+  if (privateAttachmentIds.length > 0) {
+    await db
+      .delete(attachments)
+      .where(inArray(attachments.id, privateAttachmentIds));
+  }
+  await db
+    .delete(embeddingTasks)
+    .where(
+      and(
+        eq(embeddingTasks.userId, userId),
+        eq(embeddingTasks.resourceType, "memory"),
+      ),
+    );
 }
 
 /**

@@ -3,6 +3,7 @@ import type { UserRow } from "@flaremo/db";
 import { createDb } from "@flaremo/db";
 import {
   assertAttachmentStorageQuota,
+  beginFlaremoMemberRemoval,
   bindMemoAttachments,
   compileAttachmentFilter,
   createAttachmentMetadata,
@@ -13,13 +14,13 @@ import {
   createShortcut,
   createUserWebhook,
   type DomainError,
-  deleteFlaremoUser,
   deleteMemoReaction,
   deleteShortcut,
   deleteUserNotification,
   deleteUserWebhook,
   ForbiddenError,
   finalizeAttachmentDelete,
+  finalizeFlaremoMemberRemoval,
   getAttachmentById,
   getAuthBootstrapStatus,
   getAuthUserById,
@@ -80,6 +81,7 @@ import {
   publicUserToDto,
 } from "@flaremo/memos";
 import { type Context, Hono } from "hono";
+import { cleanupFlaremoArtifacts } from "../artifact-cleanup";
 import {
   createAttachmentObjectKey,
   MAX_ATTACHMENT_BYTES,
@@ -737,7 +739,9 @@ async function connectUserMethod(
       if (target.id === context.user.id) {
         throw new ConnectInputError("You cannot delete your own account");
       }
-      await deleteFlaremoUser(context.db, target.id);
+      const artifacts = await beginFlaremoMemberRemoval(context.db, target.id);
+      await cleanupFlaremoArtifacts(c.env, artifacts);
+      await finalizeFlaremoMemberRemoval(context.db, target.id, artifacts);
       return connectValue(c, {}, transport);
     }
     case "UpdateUser": {
@@ -2097,6 +2101,7 @@ function publicOwnerFallback(name: string | undefined): UserRow {
     name: name?.trim() || "Owner",
     avatarUrl: null,
     role: "owner",
+    status: "active",
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -2468,7 +2473,7 @@ function connectNotificationToDto(notification: UserNotificationDto) {
   const sender = notification.senderUser;
   const senderUser = {
     name: sender.id,
-    role: sender.role === "owner" ? "ADMIN" : "USER",
+    role: sender.role === "member" ? "USER" : "ADMIN",
     username: notification.senderUsername ?? sender.id.replace(/^users\//u, ""),
     email: notification.senderEmail ?? sender.email,
     displayName: sender.name,

@@ -1,7 +1,8 @@
 import type { FlareMoDb, UserRow } from "@flaremo/db";
-import { memos } from "@flaremo/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { memos, users } from "@flaremo/db";
+import { and, inArray } from "drizzle-orm";
 import type { EmbeddingProvider, VectorIndex } from "./embedding";
+import { memoReadScope } from "./team-permissions";
 
 export type SemanticSearchDeps = {
   provider: EmbeddingProvider;
@@ -40,14 +41,20 @@ export async function semanticSearchMemos(
   const [queryVector] = await deps.provider.embed([trimmed]);
   if (!queryVector || queryVector.length === 0) return [];
 
-  // Over-fetch then re-filter, because chunk-level matches collapse to memo
-  // level and the D1 status check can drop some of them. The namespace filter
-  // (when present) already restricts the vector query to this user's vectors.
-  const matches = await deps.index.query(
-    queryVector,
-    Math.min(limit * 3, 50),
-    deps.namespace,
-  );
+  // Embeddings remain stored under the author's namespace. Team search queries
+  // every author's bucket, including removed authors whose team/public memos
+  // are intentionally retained. Vectorize only supplies candidates; the D1
+  // scope below remains the authorization boundary and drops private hits.
+  const namespaces = deps.namespace
+    ? [deps.namespace]
+    : (await db.select({ id: users.id }).from(users)).map((row) => row.id);
+  const matches = (
+    await Promise.all(
+      namespaces.map((namespace) =>
+        deps.index.query(queryVector, Math.min(limit * 3, 50), namespace),
+      ),
+    )
+  ).flat();
   if (matches.length === 0) return [];
 
   const candidateIds = [
@@ -58,7 +65,7 @@ export async function semanticSearchMemos(
     .from(memos)
     .where(
       and(
-        eq(memos.userId, user.id),
+        memoReadScope(user),
         inArray(memos.id, candidateIds),
         inArray(memos.status, ["normal", "archived"]),
       ),

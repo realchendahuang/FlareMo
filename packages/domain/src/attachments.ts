@@ -1,5 +1,5 @@
 import type { AttachmentRow, FlareMoDb, UserRow } from "@flaremo/db";
-import { attachments } from "@flaremo/db";
+import { attachments, memos } from "@flaremo/db";
 import {
   and,
   asc,
@@ -17,6 +17,11 @@ import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
 import { insertMemosSseEvent } from "./memos-sse";
+import {
+  assertCanEditMemo,
+  isActiveTeamMember,
+  memoReadScope,
+} from "./team-permissions";
 
 export type CreateAttachmentMetadataInput = {
   memoId?: string | null;
@@ -78,7 +83,8 @@ export async function createAttachmentMetadata(
   const memoId = input.memoId ? parseResourceName(input.memoId, "memos") : null;
   const clientId = normalizeAttachmentClientId(input.clientId);
   if (memoId) {
-    await getMemoById(db, user, memoId);
+    const memo = await getMemoById(db, user, memoId);
+    assertCanEditMemo(user, memo);
   }
   if (!input.filename.trim()) {
     throw new ValidationError("Attachment filename is required");
@@ -126,14 +132,15 @@ export async function listAttachments(
   input: ListAttachmentsInput = {},
 ) {
   const filters = [
-    eq(attachments.userId, user.id),
     isNull(attachments.deletedAt),
     eq(attachments.state, "ready"),
   ];
   if (input.memoId) {
-    filters.push(
-      eq(attachments.memoId, parseResourceName(input.memoId, "memos")),
-    );
+    const memoId = parseResourceName(input.memoId, "memos");
+    await getMemoById(db, user, memoId);
+    filters.push(eq(attachments.memoId, memoId));
+  } else {
+    filters.push(eq(attachments.userId, user.id));
   }
 
   return db
@@ -178,12 +185,16 @@ export async function listAttachmentsPage(
     ? decodeAttachmentPageToken(input.pageToken, orderBy, scopeKey)
     : undefined;
   const filters = [
-    eq(attachments.userId, user.id),
     isNull(attachments.deletedAt),
     eq(attachments.state, "ready"),
   ];
   const scopedMemoId = memoId ?? filterMemoId;
-  if (scopedMemoId) filters.push(eq(attachments.memoId, scopedMemoId));
+  if (scopedMemoId) {
+    await getMemoById(db, user, scopedMemoId);
+    filters.push(eq(attachments.memoId, scopedMemoId));
+  } else {
+    filters.push(eq(attachments.userId, user.id));
+  }
   if (!input.filterPredicate && input.filter?.filenameEquals !== undefined) {
     filters.push(eq(attachments.filename, input.filter.filenameEquals));
   }
@@ -349,7 +360,6 @@ export async function listMemoAttachmentsForViewer(
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   await getMemoByIdForViewer(db, user, normalizedMemoId);
-  if (user) return listMemoAttachments(db, user, normalizedMemoId);
   return db
     .select()
     .from(attachments)
@@ -370,13 +380,15 @@ export async function listAllMemoAttachments(
   memoId: string,
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, normalizedMemoId, { includeDeleted: true });
+  const memo = await getMemoById(db, user, normalizedMemoId, {
+    includeDeleted: true,
+  });
+  assertCanEditMemo(user, memo);
   return db
     .select()
     .from(attachments)
     .where(
       and(
-        eq(attachments.userId, user.id),
         eq(attachments.memoId, normalizedMemoId),
         isNull(attachments.deletedAt),
       ),
@@ -396,7 +408,6 @@ export async function markMemoAttachmentsDeleting(
     .set({ state: "deleting", updatedAt: now })
     .where(
       and(
-        eq(attachments.userId, user.id),
         inArray(
           attachments.id,
           rows.map((attachment) => attachment.id),
@@ -415,13 +426,16 @@ export async function listAttachmentsForMemos(
     return [];
   }
 
+  const allowedMemoIds = db
+    .select({ id: memos.id })
+    .from(memos)
+    .where(and(memoReadScope(user), inArray(memos.id, memoIds)));
   return db
     .select()
     .from(attachments)
     .where(
       and(
-        eq(attachments.userId, user.id),
-        inArray(attachments.memoId, memoIds),
+        inArray(attachments.memoId, allowedMemoIds),
         isNull(attachments.deletedAt),
         eq(attachments.state, "ready"),
       ),
@@ -434,15 +448,18 @@ export async function listAttachmentsForMemosForViewer(
   user: UserRow | null,
   memoIds: string[],
 ) {
-  if (user) return listAttachmentsForMemos(db, user, memoIds);
   if (memoIds.length === 0) return [];
 
+  const allowedMemoIds = db
+    .select({ id: memos.id })
+    .from(memos)
+    .where(and(memoReadScope(user), inArray(memos.id, memoIds)));
   return db
     .select()
     .from(attachments)
     .where(
       and(
-        inArray(attachments.memoId, memoIds),
+        inArray(attachments.memoId, allowedMemoIds),
         isNull(attachments.deletedAt),
         eq(attachments.state, "ready"),
       ),
@@ -458,7 +475,6 @@ export async function getAttachmentById(
 ) {
   const filters = [
     eq(attachments.id, parseResourceName(id, "attachments")),
-    eq(attachments.userId, user.id),
     isNull(attachments.deletedAt),
   ];
   if (!options.includeUnavailable) filters.push(eq(attachments.state, "ready"));
@@ -470,7 +486,32 @@ export async function getAttachmentById(
     throw new NotFoundError("Attachment not found");
   }
 
+  if (row.memoId) {
+    await getMemoById(db, user, row.memoId, {
+      includeDeleted: options.includeUnavailable,
+    });
+  } else if (!isActiveTeamMember(user) || row.userId !== user.id) {
+    throw new NotFoundError("Attachment not found");
+  }
+
   return row;
+}
+
+async function assertCanManageAttachment(
+  db: FlareMoDb,
+  user: UserRow,
+  attachment: AttachmentRow,
+) {
+  if (!attachment.memoId) {
+    if (!isActiveTeamMember(user) || attachment.userId !== user.id) {
+      throw new NotFoundError("Attachment not found");
+    }
+    return;
+  }
+  const memo = await getMemoById(db, user, attachment.memoId, {
+    includeDeleted: true,
+  });
+  assertCanEditMemo(user, memo);
 }
 
 export async function getAttachmentByClientId(
@@ -519,6 +560,7 @@ export async function bindMemoAttachments(
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   const memo = await getMemoById(db, user, normalizedMemoId);
+  assertCanEditMemo(user, memo);
   const ids = attachmentNames.map((name) =>
     parseResourceName(name, "attachments"),
   );
@@ -546,12 +588,7 @@ export async function bindMemoAttachments(
   const clearExisting = db
     .update(attachments)
     .set({ memoId: null, updatedAt: now })
-    .where(
-      and(
-        eq(attachments.userId, user.id),
-        eq(attachments.memoId, normalizedMemoId),
-      ),
-    );
+    .where(and(eq(attachments.memoId, normalizedMemoId)));
 
   if (ids.length > 0) {
     // Attachment binding is a memo mutation in upstream Memos. Keep the
@@ -596,13 +633,20 @@ export async function updateAttachmentMemo(
   memoId: string | null,
 ) {
   const attachment = await getAttachmentById(db, user, id);
+  await assertCanManageAttachment(db, user, attachment);
   const normalizedMemoId = memoId ? parseResourceName(memoId, "memos") : null;
-  if (normalizedMemoId) await getMemoById(db, user, normalizedMemoId);
+  if (normalizedMemoId) {
+    const memo = await getMemoById(db, user, normalizedMemoId);
+    assertCanEditMemo(user, memo);
+  }
   await db
     .update(attachments)
     .set({ memoId: normalizedMemoId, updatedAt: new Date().toISOString() })
     .where(
-      and(eq(attachments.id, attachment.id), eq(attachments.userId, user.id)),
+      and(
+        eq(attachments.id, attachment.id),
+        eq(attachments.userId, attachment.userId),
+      ),
     );
   return getAttachmentById(db, user, attachment.id);
 }
@@ -613,12 +657,16 @@ export async function softDeleteAttachment(
   id: string,
 ) {
   const attachment = await getAttachmentById(db, user, id);
+  await assertCanManageAttachment(db, user, attachment);
   const now = new Date().toISOString();
   await db
     .update(attachments)
     .set({ deletedAt: now, updatedAt: now, memoId: null })
     .where(
-      and(eq(attachments.id, attachment.id), eq(attachments.userId, user.id)),
+      and(
+        eq(attachments.id, attachment.id),
+        eq(attachments.userId, attachment.userId),
+      ),
     );
   return attachment;
 }
@@ -631,12 +679,16 @@ export async function markAttachmentDeleting(
   const attachment = await getAttachmentById(db, user, id, {
     includeUnavailable: true,
   });
+  await assertCanManageAttachment(db, user, attachment);
   const now = new Date().toISOString();
   await db
     .update(attachments)
     .set({ state: "deleting", updatedAt: now })
     .where(
-      and(eq(attachments.id, attachment.id), eq(attachments.userId, user.id)),
+      and(
+        eq(attachments.id, attachment.id),
+        eq(attachments.userId, attachment.userId),
+      ),
     );
   return { ...attachment, state: "deleting" as const, updatedAt: now };
 }
@@ -649,12 +701,16 @@ export async function finalizeAttachmentDelete(
   const attachment = await getAttachmentById(db, user, id, {
     includeUnavailable: true,
   });
+  await assertCanManageAttachment(db, user, attachment);
   const now = new Date().toISOString();
   await db
     .update(attachments)
     .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
     .where(
-      and(eq(attachments.id, attachment.id), eq(attachments.userId, user.id)),
+      and(
+        eq(attachments.id, attachment.id),
+        eq(attachments.userId, attachment.userId),
+      ),
     );
   return attachment;
 }

@@ -1,9 +1,10 @@
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { memoRevisions } from "@flaremo/db";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { NotFoundError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById, updateMemo } from "./memos";
+import { assertCanEditMemo } from "./team-permissions";
 
 export async function listMemoRevisions(
   db: FlareMoDb,
@@ -12,18 +13,19 @@ export async function listMemoRevisions(
   limit = 50,
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, normalizedMemoId, { includeDeleted: true });
-  return db
+  const memo = await getMemoById(db, user, normalizedMemoId, {
+    includeDeleted: true,
+  });
+  assertCanEditMemo(user, memo);
+  const rows = await db
     .select()
     .from(memoRevisions)
-    .where(
-      and(
-        eq(memoRevisions.memoId, normalizedMemoId),
-        eq(memoRevisions.userId, user.id),
-      ),
-    )
+    .where(eq(memoRevisions.memoId, normalizedMemoId))
     .orderBy(desc(memoRevisions.createdAt))
     .limit(Math.min(Math.max(limit, 1), 100));
+  return memo.userId === user.id
+    ? rows
+    : rows.filter((revision) => revision.visibility !== "private");
 }
 
 export async function getMemoRevision(
@@ -35,9 +37,16 @@ export async function getMemoRevision(
   const revision = await db
     .select()
     .from(memoRevisions)
-    .where(and(eq(memoRevisions.id, id), eq(memoRevisions.userId, user.id)))
+    .where(eq(memoRevisions.id, id))
     .get();
   if (!revision) throw new NotFoundError("Memo revision not found");
+  const memo = await getMemoById(db, user, revision.memoId, {
+    includeDeleted: true,
+  });
+  assertCanEditMemo(user, memo);
+  if (memo.userId !== user.id && revision.visibility === "private") {
+    throw new NotFoundError("Memo revision not found");
+  }
   return revision;
 }
 

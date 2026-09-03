@@ -24,6 +24,7 @@ import {
   deleteTag,
   estimateTokenCount,
   getAuthUserById,
+  getFlaremoUserNames,
   getMemoById,
   getMemoStats,
   getRandomMemo,
@@ -78,6 +79,7 @@ appApi.get("/me", async (c) => {
     return c.json({
       id: user.id,
       role: user.role,
+      status: user.status,
       name: user.name,
       email: authUser?.email ?? user.email,
       username: authUser?.username ?? user.id.replace(/^users\//, ""),
@@ -113,6 +115,10 @@ appApi.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {
   try {
     const { db, user } = await getRequestContext(c);
     const result = await listMemos(db, user, c.req.valid("query"));
+    const creatorNames = await getFlaremoUserNames(
+      db,
+      result.memos.map((memo) => memo.userId),
+    );
     const attachments = await listAttachmentsForMemos(
       db,
       user,
@@ -125,7 +131,14 @@ appApi.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {
       current.push(attachment);
       attachmentsByMemo.set(attachment.memoId, current);
     }
-    return c.json(memosToListResponse({ ...result, attachmentsByMemo, user }));
+    return c.json(
+      memosToListResponse({
+        ...result,
+        attachmentsByMemo,
+        creatorNames,
+        user,
+      }),
+    );
   } catch (error) {
     return jsonError(c, error);
   }
@@ -162,7 +175,7 @@ appApi.get(
       const hits = await semanticSearchMemos(
         db,
         user,
-        { provider, index, namespace: user.id },
+        { provider, index },
         query.q,
         query.limit,
       );
@@ -198,8 +211,14 @@ appApi.get(
       const ordered = hits
         .map((hit) => byId.get(hit.id))
         .filter((row): row is MemoRow => row !== undefined);
+      const creatorNames = await getFlaremoUserNames(
+        db,
+        ordered.map((memo) => memo.userId),
+      );
       return c.json({
-        memos: ordered.map((memo) => memoToDto(memo, user)),
+        memos: ordered.map((memo) =>
+          memoToDto(memo, user, creatorNames.get(memo.userId)),
+        ),
         degraded: false,
       });
     } catch (error) {

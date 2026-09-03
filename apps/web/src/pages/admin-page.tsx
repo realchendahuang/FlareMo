@@ -12,10 +12,9 @@ import {
   type AdminUser,
   createAdminUser,
   deleteAdminUser,
-  getAdminSettings,
   listAdminUsers,
   requestAdminPasswordReset,
-  updateAdminSettings,
+  updateAdminUserRole,
 } from "@/api";
 import {
   AlertDialog,
@@ -32,13 +31,11 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 
@@ -55,23 +52,12 @@ export function AdminPanel() {
   const [copied, setCopied] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
-  const settingsQuery = useQuery({
-    queryKey: ["admin-settings"],
-    queryFn: getAdminSettings,
-    retry: false,
-  });
   const usersQuery = useQuery({
     queryKey: ["admin-users"],
     queryFn: listAdminUsers,
     retry: false,
   });
 
-  const updateSettingsMutation = useMutation({
-    mutationFn: updateAdminSettings,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
-    },
-  });
   const createUserMutation = useMutation({
     mutationFn: createAdminUser,
     onSuccess: () => {
@@ -85,6 +71,16 @@ export function AdminPanel() {
     mutationFn: deleteAdminUser,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+  });
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: "admin" | "member" }) =>
+      updateAdminUserRole(id, role),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["current-flaremo-user"],
+      });
     },
   });
 
@@ -124,6 +120,17 @@ export function AdminPanel() {
     }
   };
 
+  const handleUpdateRole = async (user: AdminUser) => {
+    try {
+      await updateRoleMutation.mutateAsync({
+        id: user.id,
+        role: user.role === "admin" ? "member" : "admin",
+      });
+    } catch (error) {
+      setCreateError(errorMessage(error, t("admin.roleUpdateFailed")));
+    }
+  };
+
   const handleCopyResetLink = async () => {
     if (!resetLink) return;
     try {
@@ -134,48 +141,8 @@ export function AdminPanel() {
     }
   };
 
-  const registrationOpen = settingsQuery.data?.registration_open ?? false;
-
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("admin.registrationTitle")}</CardTitle>
-          <CardDescription>
-            {t("admin.registrationDescription")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {settingsQuery.isLoading ? (
-            <Skeleton className="h-8 w-full" />
-          ) : settingsQuery.isError ? (
-            <p className="text-sm text-destructive">
-              {t("admin.settingsLoadFailed")}
-            </p>
-          ) : (
-            <div className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3">
-              <span className="text-sm font-medium">
-                {registrationOpen
-                  ? t("admin.registrationOpen")
-                  : t("admin.registrationClosedState")}
-              </span>
-              <Switch
-                checked={registrationOpen}
-                disabled={updateSettingsMutation.isPending}
-                onCheckedChange={(next) => {
-                  updateSettingsMutation.mutate({ registration_open: next });
-                }}
-              />
-            </div>
-          )}
-          {updateSettingsMutation.isError && (
-            <p className="mt-3 text-sm text-destructive">
-              {t("admin.settingsSaveFailed")}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>{t("admin.usersTitle")}</CardTitle>
@@ -320,11 +287,13 @@ export function AdminPanel() {
                     <p className="truncate text-sm font-medium">{user.name}</p>
                     <Badge variant="secondary">@{user.username}</Badge>
                     <Badge
-                      variant={user.role === "owner" ? "default" : "outline"}
+                      variant={user.role !== "member" ? "default" : "outline"}
                     >
                       {user.role === "owner"
                         ? t("admin.role.owner")
-                        : t("admin.role.member")}
+                        : user.role === "admin"
+                          ? t("admin.role.admin")
+                          : t("admin.role.member")}
                     </Badge>
                   </div>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -333,6 +302,16 @@ export function AdminPanel() {
                 </div>
                 {user.role !== "owner" && (
                   <div className="flex items-center gap-2">
+                    <Button
+                      disabled={updateRoleMutation.isPending}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void handleUpdateRole(user)}
+                    >
+                      {user.role === "admin"
+                        ? t("admin.makeMember")
+                        : t("admin.makeAdmin")}
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"

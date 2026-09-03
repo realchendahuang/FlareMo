@@ -231,7 +231,8 @@ export function AccountPage() {
     await navigate({ replace: true, to: "/login" });
   };
 
-  const isOwner = meQuery.data?.role === "owner";
+  const isTeamAdmin =
+    meQuery.data?.role === "owner" || meQuery.data?.role === "admin";
 
   return (
     <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
@@ -262,7 +263,7 @@ export function AccountPage() {
             <TabsTrigger value="security">{t("auth.tab.security")}</TabsTrigger>
             <TabsTrigger value="tokens">{t("auth.tab.tokens")}</TabsTrigger>
             <TabsTrigger value="usage">{t("auth.tab.usage")}</TabsTrigger>
-            {isOwner && (
+            {isTeamAdmin && (
               <TabsTrigger value="admin">{t("auth.tab.admin")}</TabsTrigger>
             )}
           </TabsList>
@@ -468,7 +469,7 @@ export function AccountPage() {
                 </form>
               </CardContent>
             </Card>
-            {!isOwner && (
+            {meQuery.data?.role !== "owner" && (
               <Card className="border-destructive/30">
                 <CardHeader>
                   <CardTitle>{t("auth.deleteAccountTitle")}</CardTitle>
@@ -690,7 +691,7 @@ export function AccountPage() {
             </Card>
           </TabsContent>
 
-          {isOwner && (
+          {isTeamAdmin && (
             <TabsContent value="admin" className="mt-4">
               <AdminPanel />
             </TabsContent>

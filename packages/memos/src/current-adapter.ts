@@ -23,7 +23,7 @@ export type CurrentMemoRelation = {
 
 export function currentMemoToDto(
   memo: MemoRow,
-  user: UserRow,
+  _user: UserRow,
   options: {
     attachments?: AttachmentRow[];
     relations?: CurrentMemoRelation[];
@@ -38,7 +38,7 @@ export function currentMemoToDto(
   return {
     name: memo.id,
     state: currentMemoState(memo.status),
-    creator: user.id,
+    creator: memo.userId,
     createTime: memo.createdAt,
     updateTime: memo.updatedAt,
     content: memo.content,
@@ -183,7 +183,7 @@ export function currentRelationToDto(
 export function currentUserToDto(user: UserRow, authUser?: AuthUserRow | null) {
   return {
     name: user.id,
-    role: user.role === "owner" ? "ADMIN" : "USER",
+    role: user.role === "member" ? "USER" : "ADMIN",
     username: authUser?.username ?? user.id.replace(/^users\//, ""),
     email: authUser?.email ?? user.email,
     displayName: user.name,
@@ -197,7 +197,7 @@ export function currentUserToDto(user: UserRow, authUser?: AuthUserRow | null) {
 export function publicUserToDto(user: UserRow, username?: string) {
   return {
     name: user.id,
-    role: user.role === "owner" ? "ADMIN" : "USER",
+    role: user.role === "member" ? "USER" : "ADMIN",
     username: username ?? user.id.replace(/^users\//, ""),
     displayName: user.name,
     ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),

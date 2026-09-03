@@ -6,6 +6,7 @@ import { NotFoundError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
 import { insertMemosSseEvent } from "./memos-sse";
+import { assertCanEditMemo, memoReadScope } from "./team-permissions";
 
 export async function listMemoRelations(
   db: FlareMoDb,
@@ -14,10 +15,11 @@ export async function listMemoRelations(
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   await getMemoByIdForViewer(db, user, normalizedMemoId);
-  return db
+  const rows = await db
     .select()
     .from(memoRelations)
     .where(eq(memoRelations.memoId, normalizedMemoId));
+  return filterReadableRelations(db, user, normalizedMemoId, rows);
 }
 
 /**
@@ -33,7 +35,7 @@ export async function listMemoRelationsForViewer(
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   await getMemoByIdForViewer(db, user, normalizedMemoId);
-  return db
+  const rows = await db
     .select()
     .from(memoRelations)
     .where(
@@ -43,6 +45,7 @@ export async function listMemoRelationsForViewer(
       ),
     )
     .orderBy(asc(memoRelations.createdAt), asc(memoRelations.memoId));
+  return filterReadableRelations(db, user, normalizedMemoId, rows);
 }
 
 export async function replaceMemoRelations(
@@ -53,6 +56,7 @@ export async function replaceMemoRelations(
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
   const memo = await getMemoById(db, user, normalizedMemoId);
+  assertCanEditMemo(user, memo);
 
   const rows: Array<{
     memoId: string;
@@ -83,7 +87,7 @@ export async function replaceMemoRelations(
     const relatedRows = await db
       .select({ id: memos.id })
       .from(memos)
-      .where(and(eq(memos.userId, user.id), inArray(memos.id, relatedIds)));
+      .where(and(memoReadScope(user), inArray(memos.id, relatedIds)));
     if (relatedRows.length !== relatedIds.length) {
       throw new NotFoundError("One or more related memos were not found");
     }
@@ -176,6 +180,30 @@ async function getRelatedMemos(db: FlareMoDb, user: UserRow, ids: string[]) {
   const rows = await db
     .select()
     .from(memos)
-    .where(and(eq(memos.userId, user.id), inArray(memos.id, ids)));
+    .where(and(memoReadScope(user), inArray(memos.id, ids)));
   return new Map(rows.map((memo) => [memo.id, memo] as const));
+}
+
+async function filterReadableRelations(
+  db: FlareMoDb,
+  user: UserRow | null,
+  memoId: string,
+  rows: Array<typeof memoRelations.$inferSelect>,
+) {
+  const relatedIds = [
+    ...new Set(
+      rows.map((row) =>
+        row.memoId === memoId ? row.relatedMemoId : row.memoId,
+      ),
+    ),
+  ];
+  if (relatedIds.length === 0) return [];
+  const readable = await db
+    .select({ id: memos.id })
+    .from(memos)
+    .where(and(memoReadScope(user), inArray(memos.id, relatedIds)));
+  const readableIds = new Set(readable.map((row) => row.id));
+  return rows.filter((row) =>
+    readableIds.has(row.memoId === memoId ? row.relatedMemoId : row.memoId),
+  );
 }

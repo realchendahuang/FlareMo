@@ -456,7 +456,7 @@ async function signAccessToken(input: {
     },
     {
       type: "access",
-      role: input.identity.user.role === "owner" ? "ADMIN" : "USER",
+      role: input.identity.user.role === "member" ? "USER" : "ADMIN",
       status: "NORMAL",
       username:
         input.identity.authUser.username?.trim() ||

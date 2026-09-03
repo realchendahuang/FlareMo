@@ -66,6 +66,7 @@ describe("projects and tasks domain services", () => {
       "0011_daffy_ultron.sql",
       "0012_slow_nick_fury.sql",
       "0013_nosy_luke_cage.sql",
+      "0014_steep_carnage.sql",
     ];
     for (const name of migrationNames) {
       const sql = await readFile(

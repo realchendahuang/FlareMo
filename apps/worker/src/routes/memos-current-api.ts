@@ -2,14 +2,15 @@ import { createDb, type UserRow } from "@flaremo/db";
 import {
   assertAttachmentStorageQuota,
   assertMemberQuota,
+  beginFlaremoMemberRemoval,
   bindMemoAttachments,
   createAttachmentMetadata,
   createFlaremoMemberWithLink,
   createMemo,
   createMemoShare,
   type DomainError,
-  deleteFlaremoUser,
   finalizeAttachmentDelete,
+  finalizeFlaremoMemberRemoval,
   getAttachmentById,
   getAuthBootstrapStatus,
   getAuthUserById,
@@ -48,6 +49,7 @@ import {
 } from "@flaremo/memos";
 import { Hono } from "hono";
 import { z } from "zod";
+import { cleanupFlaremoArtifacts } from "../artifact-cleanup";
 import {
   createAttachmentObjectKey,
   MAX_ATTACHMENT_BYTES,
@@ -1055,7 +1057,9 @@ memosCurrentApi.delete("/users/:user", async (c, next) => {
     if (userId === context.user.id) {
       throw new ForbiddenCurrentError("You cannot delete your own account");
     }
-    await deleteFlaremoUser(context.db, userId);
+    const artifacts = await beginFlaremoMemberRemoval(context.db, userId);
+    await cleanupFlaremoArtifacts(c.env, artifacts);
+    await finalizeFlaremoMemberRemoval(context.db, userId, artifacts);
     return c.body(null, 200);
   } catch (error) {
     return currentJsonError(c, error);

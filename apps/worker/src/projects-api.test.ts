@@ -55,6 +55,7 @@ describe("FlareMo projects API", () => {
       "0011_daffy_ultron.sql",
       "0012_slow_nick_fury.sql",
       "0013_nosy_luke_cage.sql",
+      "0014_steep_carnage.sql",
     ]) {
       await applyMigration(
         db,

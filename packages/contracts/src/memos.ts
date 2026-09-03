@@ -146,6 +146,7 @@ export const memoDtoSchema = z.object({
   update_time: z.string(),
   display_time: z.string(),
   creator: z.string(),
+  creator_name: z.string().optional(),
   attachments: z.array(attachmentDtoSchema).optional(),
 });
 
@@ -260,6 +261,7 @@ export const memoRelationContextResponseSchema = z.object({
 
 export const memoContextResponseSchema = z.object({
   memo: memoDtoSchema,
+  can_manage: z.boolean(),
   attachments: z.array(attachmentDtoSchema),
   shares: z.array(shareDtoSchema),
   relations: z.array(memoRelationContextSchema),

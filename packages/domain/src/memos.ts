@@ -11,7 +11,12 @@ import type { FlareMoDb, MemoPayload, MemoRow, UserRow } from "@flaremo/db";
 import { attachments, memoRevisions, memos, memoTags } from "@flaremo/db";
 import { and, asc, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { insertEmbeddingTask } from "./embedding-outbox";
-import { ConflictError, NotFoundError, ValidationError } from "./errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "./errors";
 import { createResourceId } from "./ids";
 import { compileMemoFilter } from "./memo-filter";
 import { insertMemosSseEvent } from "./memos-sse";
@@ -19,6 +24,12 @@ import { findMentionedUsers, insertMemoNotification } from "./memos-user";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
 import { assertMemoCountQuota, type QuotaScope } from "./quotas";
 import { extractTags, normalizeMemoTags } from "./tags";
+import {
+  assertCanDeleteMemo,
+  assertCanEditMemo,
+  isActiveTeamMember,
+  memoReadScope,
+} from "./team-permissions";
 
 export type MemoListResult = {
   memos: MemoRow[];
@@ -38,13 +49,16 @@ export async function createMemo(
   input: CreateMemoInput,
   scope?: QuotaScope,
 ): Promise<MemoRow> {
+  if (!isActiveTeamMember(user)) {
+    throw new ForbiddenError("Removed members cannot create memos.");
+  }
   await assertMemoCountQuota(db, scope?.userLimits, user.id);
   const now = new Date().toISOString();
   const payload = normalizeMemoPayload(input.payload);
   const clientId = normalizeMemoClientId(payload.client_id);
   if (clientId) {
     payload.client_id = clientId;
-    const existing = await getMemoByClientId(db, user, clientId);
+    const existing = await getMemoByClientId(db, user.id, clientId);
     if (existing) return existing;
   }
   const tags = normalizeMemoTags(payload.tags ?? extractTags(input.content));
@@ -127,7 +141,7 @@ export async function createMemo(
     // A second tab can submit the same queued entry at the same time. The
     // unique `(user_id, client_id)` index is the final idempotency boundary.
     if (clientId) {
-      const existing = await getMemoByClientId(db, user, clientId);
+      const existing = await getMemoByClientId(db, user.id, clientId);
       if (existing) return existing;
     }
     throw error;
@@ -145,8 +159,9 @@ export async function listMemos(
 
 /**
  * List memos using the same visibility boundary as the Memos API. An
- * anonymous viewer is intentionally restricted to normal public memos; the
- * authenticated single-user path retains the existing owner-scoped behavior.
+ * anonymous viewer is intentionally restricted to normal public memos. Active
+ * members receive their own rows plus normal team/public rows, while team
+ * administrators may also manage non-private archived or trashed rows.
  */
 export async function listMemosForViewer(
   db: FlareMoDb,
@@ -162,9 +177,7 @@ export async function listMemosForViewer(
   const orderColumn = query.order_by.startsWith("updated_at")
     ? memos.updatedAt
     : memos.createdAt;
-  const filters = user
-    ? [eq(memos.userId, user.id)]
-    : [eq(memos.visibility, "public"), eq(memos.status, "normal")];
+  const filters = [memoReadScope(user)];
 
   // The established `state` query parameter wins over a search scope so that
   // Memos-compatible clients retain their existing filtering semantics.
@@ -199,7 +212,6 @@ export async function listMemosForViewer(
       sql`EXISTS (
         SELECT 1 FROM ${attachments}
         WHERE ${attachments.memoId} = ${memos.id}
-          ${user ? sql`AND ${attachments.userId} = ${user.id}` : sql``}
           AND ${attachments.deletedAt} IS NULL
           AND ${attachments.state} = 'ready'
       )`,
@@ -231,7 +243,6 @@ export async function listMemosForViewer(
       sql`EXISTS (
         SELECT 1 FROM ${memoTags}
         WHERE ${memoTags.memoId} = ${memos.id}
-          ${user ? sql`AND ${memoTags.userId} = ${user.id}` : sql``}
           AND (
             ${memoTags.tag} = ${tag}
             OR ${memoTags.tag} LIKE ${`${escapedPrefix}%`} ESCAPE '\\'
@@ -245,7 +256,6 @@ export async function listMemosForViewer(
       sql`NOT EXISTS (
         SELECT 1 FROM ${memoTags}
         WHERE ${memoTags.memoId} = ${memos.id}
-          ${user ? sql`AND ${memoTags.userId} = ${user.id}` : sql``}
       )`,
     );
   }
@@ -409,13 +419,7 @@ export async function getMemoByIdForViewer(
   id: string,
   options: { includeDeleted?: boolean } = {},
 ): Promise<MemoRow> {
-  const filters = user
-    ? [eq(memos.id, id), eq(memos.userId, user.id)]
-    : [
-        eq(memos.id, id),
-        eq(memos.visibility, "public"),
-        eq(memos.status, "normal"),
-      ];
+  const filters = [eq(memos.id, id), memoReadScope(user)];
   if (!options.includeDeleted) {
     filters.push(inArray(memos.status, ["normal", "archived", "trashed"]));
   }
@@ -435,13 +439,13 @@ export async function getMemoByIdForViewer(
 
 async function getMemoByClientId(
   db: FlareMoDb,
-  user: UserRow,
+  userId: string,
   clientId: string,
 ): Promise<MemoRow | undefined> {
   return db
     .select()
     .from(memos)
-    .where(and(eq(memos.userId, user.id), eq(memos.clientId, clientId)))
+    .where(and(eq(memos.userId, userId), eq(memos.clientId, clientId)))
     .get();
 }
 
@@ -452,6 +456,7 @@ export async function updateMemo(
   input: UpdateMemoInput,
 ): Promise<MemoRow> {
   const existing = await getMemoById(db, user, id, { includeDeleted: true });
+  assertCanEditMemo(user, existing);
   const now = new Date().toISOString();
   const status = input.status;
   const metadataChanged =
@@ -472,7 +477,7 @@ export async function updateMemo(
   // idempotency key is not silently dropped.
   const nextClientId = requestedClientId ?? persistedClientId;
   if (nextClientId && nextClientId !== existing.clientId) {
-    const owner = await getMemoByClientId(db, user, nextClientId);
+    const owner = await getMemoByClientId(db, existing.userId, nextClientId);
     if (owner && owner.id !== existing.id) {
       throw new ConflictError("Memo client_id is already in use");
     }
@@ -509,7 +514,7 @@ export async function updateMemo(
           : existing.deletedAt,
   };
   const webhookEventStatement = insertMemosWebhookEvent(db, {
-    receiverId: user.id,
+    receiverId: existing.userId,
     activityType:
       status === "deleted" ? "memos.memo.deleted" : "memos.memo.updated",
     creator: user,
@@ -548,7 +553,7 @@ export async function updateMemo(
     type: status === "deleted" ? "memo.deleted" : "memo.updated",
     name: existing.id,
     visibility: input.visibility ?? existing.visibility,
-    creatorId: user.id,
+    creatorId: existing.userId,
     createdAt: now,
   });
 
@@ -558,7 +563,7 @@ export async function updateMemo(
   const embeddingTaskStatement =
     input.content !== undefined || input.status !== undefined
       ? insertEmbeddingTask(db, {
-          userId: user.id,
+          userId: existing.userId,
           resourceType: "memo",
           resourceId: existing.id,
           operation: "reindex",
@@ -569,11 +574,11 @@ export async function updateMemo(
   const updateStatement = db
     .update(memos)
     .set(patch)
-    .where(and(eq(memos.id, id), eq(memos.userId, user.id)));
+    .where(and(eq(memos.id, id), eq(memos.userId, existing.userId)));
   const revisionStatement = db.insert(memoRevisions).values({
     id: revisionId ?? createResourceId("revisions"),
     memoId: existing.id,
-    userId: user.id,
+    userId: existing.userId,
     content: existing.content,
     visibility: existing.visibility,
     payload: existing.payload,
@@ -581,7 +586,7 @@ export async function updateMemo(
   });
   const deleteTagsStatement = db
     .delete(memoTags)
-    .where(and(eq(memoTags.memoId, id), eq(memoTags.userId, user.id)));
+    .where(and(eq(memoTags.memoId, id), eq(memoTags.userId, existing.userId)));
   if (metadataChanged && tags.length > 0 && shouldCreateRevision) {
     await db.batch([
       revisionStatement,
@@ -590,7 +595,7 @@ export async function updateMemo(
       db.insert(memoTags).values(
         tags.map((tag) => ({
           memoId: id,
-          userId: user.id,
+          userId: existing.userId,
           tag,
           createdAt: now,
         })),
@@ -646,36 +651,37 @@ export async function hardDeleteMemo(
   id: string,
 ): Promise<void> {
   const existing = await getMemoById(db, user, id, { includeDeleted: true });
+  assertCanDeleteMemo(user, existing);
   const now = new Date().toISOString();
   const eventStatement = insertMemosSseEvent(db, {
     type: "memo.deleted",
     name: existing.id,
     visibility: existing.visibility,
-    creatorId: user.id,
+    creatorId: existing.userId,
     createdAt: now,
   });
   const webhookEventStatement = insertMemosWebhookEvent(db, {
-    receiverId: user.id,
+    receiverId: existing.userId,
     activityType: "memos.memo.deleted",
     creator: user,
     memo: existing,
     createdAt: now,
   });
   const embeddingTaskStatement = insertEmbeddingTask(db, {
-    userId: user.id,
+    userId: existing.userId,
     resourceType: "memo",
     resourceId: existing.id,
     operation: "delete",
     createdAt: now,
   });
   await db.batch([
-    db
-      .delete(attachments)
-      .where(and(eq(attachments.memoId, id), eq(attachments.userId, user.id))),
+    db.delete(attachments).where(eq(attachments.memoId, id)),
     eventStatement,
     webhookEventStatement,
     embeddingTaskStatement,
-    db.delete(memos).where(and(eq(memos.id, id), eq(memos.userId, user.id))),
+    db
+      .delete(memos)
+      .where(and(eq(memos.id, id), eq(memos.userId, existing.userId))),
   ]);
 }
 

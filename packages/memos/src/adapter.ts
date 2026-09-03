@@ -22,7 +22,11 @@ type MemoRelationRow = {
   createdAt: string;
 };
 
-export function memoToDto(memo: MemoRow, user: UserRow): MemoDto {
+export function memoToDto(
+  memo: MemoRow,
+  _user: UserRow,
+  creatorName?: string,
+): MemoDto {
   return {
     name: memo.id,
     id: memo.id.replace(/^memos\//, ""),
@@ -34,7 +38,8 @@ export function memoToDto(memo: MemoRow, user: UserRow): MemoDto {
     create_time: memo.createdAt,
     update_time: memo.updatedAt,
     display_time: memo.createdAt,
-    creator: user.id,
+    creator: memo.userId,
+    ...(creatorName ? { creator_name: creatorName } : {}),
   };
 }
 
@@ -92,13 +97,14 @@ export function memoRevisionToDto(revision: MemoRevisionRow): MemoRevisionDto {
 
 export function memosToListResponse(input: {
   attachmentsByMemo?: ReadonlyMap<string, AttachmentRow[]>;
+  creatorNames?: ReadonlyMap<string, string>;
   memos: MemoRow[];
   user: UserRow;
   nextPageToken?: string;
 }): ListMemosResponse {
   return {
     memos: input.memos.map((memo) => ({
-      ...memoToDto(memo, input.user),
+      ...memoToDto(memo, input.user, input.creatorNames?.get(memo.userId)),
       ...(input.attachmentsByMemo
         ? {
             attachments: (input.attachmentsByMemo.get(memo.id) ?? []).map(

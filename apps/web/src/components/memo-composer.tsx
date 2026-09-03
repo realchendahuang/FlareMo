@@ -1,16 +1,20 @@
 import {
+  Globe2Icon,
   HashIcon,
   ImageIcon,
   ListIcon,
   Loader2Icon,
+  LockIcon,
   PaperclipIcon,
   SendIcon,
+  ShieldIcon,
   XIcon,
 } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useI18n } from "@/i18n";
 import type { MemoCaptureInput } from "@/lib/local-memo-capture";
 import { extractTags } from "@/lib/memo";
@@ -130,6 +134,50 @@ export function MemoComposer({
       )}
       <div className="flex h-10 items-center justify-between gap-2 rounded-b-xl bg-card px-3 pb-1">
         <div className="flex min-w-0 items-center gap-1">
+          <ToggleGroup
+            aria-label={t("visibility.label")}
+            size="sm"
+            type="single"
+            value={draft.visibility}
+            variant="outline"
+            onValueChange={(value) => {
+              if (!value) return;
+              if (
+                value === "public" &&
+                draft.visibility !== "public" &&
+                !window.confirm(t("visibility.publicConfirm"))
+              ) {
+                return;
+              }
+              onDraftChange({
+                ...draft,
+                visibility: value as MemoCaptureInput["visibility"],
+              });
+            }}
+          >
+            <ToggleGroupItem
+              aria-label={t("visibility.private")}
+              title={t("visibility.private")}
+              value="private"
+            >
+              <LockIcon />
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              aria-label={t("visibility.protected")}
+              title={t("visibility.protected")}
+              value="protected"
+            >
+              <ShieldIcon />
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              aria-label={t("visibility.public")}
+              title={t("visibility.public")}
+              value="public"
+            >
+              <Globe2Icon />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <div className="hidden h-4 w-px bg-border sm:block" />
           <Button
             aria-label={t("composer.addTag")}
             disabled={isPending}

@@ -140,14 +140,11 @@ export type RegistrationStatus = {
 
 export type CurrentFlareMoUser = {
   id: string;
-  role: "owner" | "member";
+  role: "owner" | "admin" | "member";
+  status: "active" | "removed";
   name: string;
   email: string;
   username: string;
-};
-
-export type AdminSettings = {
-  registration_open: boolean;
 };
 
 export type AdminUser = {
@@ -155,7 +152,8 @@ export type AdminUser = {
   email: string;
   name: string;
   username: string;
-  role: "owner" | "member";
+  role: "owner" | "admin" | "member";
+  status: "active" | "removed";
   created_at: string;
 };
 
@@ -619,19 +617,6 @@ export async function getCurrentFlareMoUser() {
   return apiRequest<CurrentFlareMoUser>("/api/app/me");
 }
 
-export async function getAdminSettings() {
-  return apiRequest<AdminSettings>("/api/app/admin/settings");
-}
-
-export async function updateAdminSettings(input: {
-  registration_open: boolean;
-}) {
-  return apiRequest<AdminSettings>("/api/app/admin/settings", {
-    method: "PATCH",
-    body: JSON.stringify(input),
-  });
-}
-
 export async function listAdminUsers() {
   return apiRequest<{ users: AdminUser[] }>("/api/app/admin/users");
 }
@@ -652,6 +637,19 @@ export async function deleteAdminUser(id: string) {
     `/api/app/admin/users/${encodeURIComponent(id)}`,
     {
       method: "DELETE",
+    },
+  );
+}
+
+export async function updateAdminUserRole(
+  id: string,
+  role: "admin" | "member",
+) {
+  return apiRequest<AdminUser>(
+    `/api/app/admin/users/${encodeURIComponent(id)}/role`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
     },
   );
 }

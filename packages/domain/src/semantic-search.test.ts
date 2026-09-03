@@ -14,7 +14,7 @@ import type {
 } from "./embedding";
 import { createMemo } from "./memos";
 import { semanticSearchMemos } from "./semantic-search";
-import { ensureSingleUser } from "./users";
+import { createFlaremoMember, ensureSingleUser } from "./users";
 
 let mf: Miniflare;
 let db: ReturnType<typeof createDb>;
@@ -24,6 +24,7 @@ class FakeVectorIndex implements VectorIndex {
   vectors = new Map<string, VectorIndexVector>();
   matches: VectorIndexMatch[] = [];
   lastNamespace: string | undefined;
+  namespaces: string[] = [];
 
   async query(
     _vector: number[],
@@ -31,6 +32,7 @@ class FakeVectorIndex implements VectorIndex {
     namespace?: string,
   ): Promise<VectorIndexMatch[]> {
     this.lastNamespace = namespace;
+    if (namespace) this.namespaces.push(namespace);
     return this.matches;
   }
   async upsert(vectors: VectorIndexVector[]) {
@@ -89,6 +91,7 @@ describe("semanticSearchMemos", () => {
       "0010_deep_gateway.sql",
       "0011_daffy_ultron.sql",
       "0012_slow_nick_fury.sql",
+      "0014_steep_carnage.sql",
     ];
     for (const name of migrationNames) {
       const sql = await readFile(
@@ -174,5 +177,40 @@ describe("semanticSearchMemos", () => {
       10,
     );
     expect(index.lastNamespace).toBe(user.id);
+  });
+
+  it("returns team memos but never another member's private memo", async () => {
+    const member = await createFlaremoMember(db, {
+      email: "member@example.com",
+      name: "Member",
+    });
+    const privateMemo = await createMemo(db, user, {
+      content: "owner private",
+      visibility: "private",
+      source: "web",
+    });
+    const teamMemo = await createMemo(db, user, {
+      content: "owner team",
+      visibility: "protected",
+      source: "web",
+    });
+    const index = new FakeVectorIndex();
+    index.matches = [
+      { id: `${privateMemo.id}#chunks/0`, score: 0.95 },
+      { id: `${teamMemo.id}#chunks/0`, score: 0.9 },
+    ];
+
+    const hits = await semanticSearchMemos(
+      db,
+      member,
+      { provider, index },
+      "owner",
+      10,
+    );
+
+    expect(hits).toEqual([{ id: teamMemo.id, score: 0.9 }]);
+    expect(index.namespaces).toEqual(
+      expect.arrayContaining([user.id, member.id]),
+    );
   });
 });

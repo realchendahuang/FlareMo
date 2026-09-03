@@ -14,13 +14,19 @@ export const users = sqliteTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     avatarUrl: text("avatar_url"),
-    role: text("role", { enum: ["owner", "member"] })
+    role: text("role", { enum: ["owner", "admin", "member"] })
       .notNull()
       .default("owner"),
+    status: text("status", { enum: ["active", "removed"] })
+      .notNull()
+      .default("active"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [uniqueIndex("users_email_idx").on(table.email)],
+  (table) => [
+    uniqueIndex("users_email_idx").on(table.email),
+    index("users_role_status_idx").on(table.role, table.status),
+  ],
 );
 
 // Better Auth owns authentication identities. These tables intentionally stay

@@ -7,9 +7,10 @@ import {
   shares,
 } from "@flaremo/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { NotFoundError } from "./errors";
 import { parseResourceName } from "./ids";
 import { listMemoriesForMemo } from "./memory";
+import { getMemoById } from "./memos";
+import { canEditMemo, isTeamAdmin, memoReadScope } from "./team-permissions";
 
 export async function getMemoContextData(
   db: FlareMoDb,
@@ -17,20 +18,17 @@ export async function getMemoContextData(
   memoId: string,
 ) {
   const id = parseResourceName(memoId, "memos");
-  const [memoRows, attachmentRows, shareRows, relations, backlinks, revisions] =
+  const memo = await getMemoById(db, user, id, { includeDeleted: true });
+  const canManage = canEditMemo(user, memo);
+
+  const [attachmentRows, shareRows, relations, backlinks, revisionRows] =
     await db.batch([
-      db
-        .select()
-        .from(memos)
-        .where(and(eq(memos.id, id), eq(memos.userId, user.id)))
-        .limit(1),
       db
         .select()
         .from(attachments)
         .where(
           and(
             eq(attachments.memoId, id),
-            eq(attachments.userId, user.id),
             isNull(attachments.deletedAt),
             eq(attachments.state, "ready"),
           ),
@@ -38,27 +36,14 @@ export async function getMemoContextData(
       db
         .select()
         .from(shares)
-        .where(
-          and(
-            eq(shares.memoId, id),
-            eq(shares.userId, user.id),
-            isNull(shares.revokedAt),
-          ),
-        ),
+        .where(and(eq(shares.memoId, id), isNull(shares.revokedAt))),
       db.select().from(memoRelations).where(eq(memoRelations.memoId, id)),
       db
         .select()
         .from(memoRelations)
         .where(eq(memoRelations.relatedMemoId, id)),
-      db
-        .select()
-        .from(memoRevisions)
-        .where(
-          and(eq(memoRevisions.memoId, id), eq(memoRevisions.userId, user.id)),
-        ),
+      db.select().from(memoRevisions).where(eq(memoRevisions.memoId, id)),
     ]);
-  const memo = memoRows[0];
-  if (!memo) throw new NotFoundError("Memo not found");
 
   const relatedMemoIds = [
     ...relations.map((relation) => relation.relatedMemoId),
@@ -71,7 +56,7 @@ export async function getMemoContextData(
           .from(memos)
           .where(
             and(
-              eq(memos.userId, user.id),
+              memoReadScope(user),
               inArray(memos.id, [...new Set(relatedMemoIds)]),
             ),
           )
@@ -79,13 +64,23 @@ export async function getMemoContextData(
   const memoById = new Map(relatedMemos.map((item) => [item.id, item]));
   const now = Date.now();
   const memories = await listMemoriesForMemo(db, user, id);
+  const revisions =
+    memo.userId === user.id
+      ? revisionRows
+      : isTeamAdmin(user)
+        ? revisionRows.filter((revision) => revision.visibility !== "private")
+        : [];
 
   return {
     memo,
+    canManage,
     attachments: attachmentRows,
-    shares: shareRows.filter(
-      (share) => !share.expiresAt || new Date(share.expiresAt).getTime() > now,
-    ),
+    shares: canManage
+      ? shareRows.filter(
+          (share) =>
+            !share.expiresAt || new Date(share.expiresAt).getTime() > now,
+        )
+      : [],
     relations: relations.flatMap((relation) => {
       const relatedMemo = memoById.get(relation.relatedMemoId);
       return relatedMemo ? [{ relation, memo: relatedMemo }] : [];

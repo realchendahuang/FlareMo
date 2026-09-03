@@ -1,19 +1,24 @@
 import {
   assertMemberQuota,
+  beginFlaremoMemberRemoval,
   createFlaremoMemberWithLink,
-  deleteFlaremoUser,
   deriveUniqueUsername,
   ForbiddenError,
+  finalizeFlaremoMemberRemoval,
   getAuthUserById,
   getAuthUserIdByFlaremoUserId,
+  getFlaremoUserById,
   getUserRegistrationAllowed,
+  isTeamAdmin,
   listFlaremoUsers,
   NotFoundError,
   setUserRegistrationAllowed,
+  updateFlaremoUserRole,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { cleanupFlaremoArtifacts } from "../artifact-cleanup";
 import { createFlareMoAuth } from "../auth";
 import { getBrowserRequestContext, type HonoBindings } from "../context";
 import { jsonError } from "../http";
@@ -30,6 +35,20 @@ const createUserSchema = z.object({
   password: z.string().min(12).max(128),
 });
 
+const updateUserRoleSchema = z.object({
+  role: z.enum(["admin", "member"]),
+});
+
+async function teamAdminContext(
+  c: Parameters<typeof getBrowserRequestContext>[0],
+) {
+  const context = await getBrowserRequestContext(c);
+  if (!isTeamAdmin(context.user)) {
+    throw new ForbiddenError("Team administrator access is required.");
+  }
+  return context;
+}
+
 async function ownerContext(c: Parameters<typeof getBrowserRequestContext>[0]) {
   const context = await getBrowserRequestContext(c);
   if (context.user.role !== "owner") {
@@ -38,6 +57,9 @@ async function ownerContext(c: Parameters<typeof getBrowserRequestContext>[0]) {
   return context;
 }
 
+// Kept as a compatibility endpoint for existing deployments and clients. The
+// team-management UI does not expose this switch; adding members is the normal
+// team-mode path and registration remains closed by default.
 adminApi.get("/settings", async (c) => {
   try {
     const { db } = await ownerContext(c);
@@ -55,8 +77,10 @@ adminApi.patch(
   async (c) => {
     try {
       const { db } = await ownerContext(c);
-      const input = c.req.valid("json");
-      await setUserRegistrationAllowed(db, input.registration_open);
+      await setUserRegistrationAllowed(
+        db,
+        c.req.valid("json").registration_open,
+      );
       return c.json({
         registration_open: await getUserRegistrationAllowed(db),
       });
@@ -68,21 +92,22 @@ adminApi.patch(
 
 adminApi.get("/users", async (c) => {
   try {
-    const { db } = await ownerContext(c);
-    const users = await listFlaremoUsers(db);
+    const { db } = await teamAdminContext(c);
+    const members = await listFlaremoUsers(db);
     const rows = await Promise.all(
-      users.map(async (user) => {
-        const authUserId = await getAuthUserIdByFlaremoUserId(db, user.id);
+      members.map(async (member) => {
+        const authUserId = await getAuthUserIdByFlaremoUserId(db, member.id);
         const authUser = authUserId
           ? await getAuthUserById(db, authUserId)
           : null;
         return {
-          id: user.id,
-          email: authUser?.email ?? user.email,
-          name: user.name,
-          username: authUser?.username ?? user.id.replace(/^users\//, ""),
-          role: user.role,
-          created_at: user.createdAt,
+          id: member.id,
+          email: authUser?.email ?? member.email,
+          name: member.name,
+          username: authUser?.username ?? member.id.replace(/^users\//, ""),
+          role: member.role,
+          status: member.status,
+          created_at: member.createdAt,
         };
       }),
     );
@@ -94,12 +119,12 @@ adminApi.get("/users", async (c) => {
 
 adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
   try {
-    const context = await ownerContext(c);
+    const context = await teamAdminContext(c);
     const input = c.req.valid("json");
     const email = input.email;
     const username = await deriveUniqueUsername(context.db, email);
-    // Pre-check before the Better Auth identity exists so a spent member
-    // quota cannot orphan an auth user.
+    // Check before Better Auth creates an identity so quota failures cannot
+    // leave an orphaned login account.
     await assertMemberQuota(context.db, context.limits);
     const auth = createFlareMoAuth(c.env, context.db, {
       allowBootstrapSignUp: true,
@@ -113,7 +138,7 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
         displayUsername: input.name,
       },
     });
-    const user = await createFlaremoMemberWithLink(
+    const member = await createFlaremoMemberWithLink(
       context.db,
       {
         authUserId: result.user.id,
@@ -124,12 +149,13 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
     );
     return c.json(
       {
-        id: user.id,
+        id: member.id,
         email,
-        name: user.name,
+        name: member.name,
         username,
-        role: user.role,
-        created_at: user.createdAt,
+        role: member.role,
+        status: member.status,
+        created_at: member.createdAt,
       },
       201,
     );
@@ -138,18 +164,56 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
   }
 });
 
+adminApi.patch(
+  "/users/:id/role",
+  zValidator("json", updateUserRoleSchema),
+  async (c) => {
+    try {
+      const context = await teamAdminContext(c);
+      const member = await updateFlaremoUserRole(
+        context.db,
+        c.req.param("id"),
+        c.req.valid("json").role,
+      );
+      const authUserId = await getAuthUserIdByFlaremoUserId(
+        context.db,
+        member.id,
+      );
+      const authUser = authUserId
+        ? await getAuthUserById(context.db, authUserId)
+        : null;
+      return c.json({
+        id: member.id,
+        email: authUser?.email ?? member.email,
+        name: member.name,
+        username: authUser?.username ?? member.id.replace(/^users\//, ""),
+        role: member.role,
+        status: member.status,
+        created_at: member.createdAt,
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
 adminApi.delete("/users/:id", async (c) => {
   try {
-    const context = await ownerContext(c);
+    const context = await teamAdminContext(c);
     const id = c.req.param("id");
     if (id === context.user.id) {
-      throw new ForbiddenError("You cannot delete your own account.");
+      throw new ForbiddenError("You cannot remove yourself from the team.");
     }
     if (!/^users\//.test(id)) {
-      throw new NotFoundError("User not found");
+      throw new NotFoundError("Member not found");
     }
-    await deleteFlaremoUser(context.db, id);
-    return c.body(null, 200);
+
+    // Access is revoked before external cleanup starts. If R2 or Vectorize is
+    // temporarily unavailable, retrying this endpoint safely resumes cleanup.
+    const artifacts = await beginFlaremoMemberRemoval(context.db, id);
+    await cleanupFlaremoArtifacts(c.env, artifacts);
+    await finalizeFlaremoMemberRemoval(context.db, id, artifacts);
+    return c.json({ ok: true });
   } catch (error) {
     return jsonError(c, error);
   }
@@ -157,11 +221,15 @@ adminApi.delete("/users/:id", async (c) => {
 
 adminApi.post("/users/:id/reset-password", async (c) => {
   try {
-    const context = await ownerContext(c);
+    const context = await teamAdminContext(c);
     const id = c.req.param("id");
+    const member = await getFlaremoUserById(context.db, id);
+    if (member?.status !== "active") {
+      throw new NotFoundError("Active member not found");
+    }
     const authUserId = await getAuthUserIdByFlaremoUserId(context.db, id);
     if (!authUserId) {
-      throw new NotFoundError("User not found");
+      throw new NotFoundError("Member not found");
     }
     const auth = createFlareMoAuth(c.env, context.db);
     const token = await auth.createPasswordResetToken(authUserId);

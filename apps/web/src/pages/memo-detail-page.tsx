@@ -179,6 +179,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
                 ),
             )}
             context={contextQuery.data}
+            canManage={contextQuery.data.can_manage}
             isSearching={relationCandidatesQuery.isFetching}
             locale={locale}
             related={relatedQuery.data?.memos ?? []}
@@ -228,6 +229,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
 }
 
 function MemoDetail({
+  canManage,
   candidates,
   context,
   isSearching,
@@ -247,6 +249,7 @@ function MemoDetail({
   revokePending,
   sharePending,
 }: {
+  canManage: boolean;
   candidates: Awaited<ReturnType<typeof listMemos>>["memos"];
   context: Awaited<ReturnType<typeof getMemoContext>>;
   isSearching: boolean;
@@ -273,6 +276,7 @@ function MemoDetail({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-sm font-normal text-muted-foreground">
             {formatMemoTime(context.memo.display_time, locale)}
+            {context.memo.creator_name ? ` · ${context.memo.creator_name}` : ""}
           </CardTitle>
           <div className="flex flex-wrap gap-2">
             {context.memo.pinned && <Badge>{t("memo.pinnedBadge")}</Badge>}
@@ -301,8 +305,12 @@ function MemoDetail({
                 ? ` (${context.relations.length + context.backlinks.length})`
                 : ""}
             </TabsTrigger>
-            <TabsTrigger value="history">{t("detail.history")}</TabsTrigger>
-            <TabsTrigger value="sharing">{t("detail.sharing")}</TabsTrigger>
+            {canManage && (
+              <TabsTrigger value="history">{t("detail.history")}</TabsTrigger>
+            )}
+            {canManage && (
+              <TabsTrigger value="sharing">{t("detail.sharing")}</TabsTrigger>
+            )}
           </TabsList>
           <TabsContent className="flex flex-col gap-5 pt-4" value="content">
             <LazyMemoContent
@@ -367,164 +375,176 @@ function MemoDetail({
             )}
           </TabsContent>
           <TabsContent className="flex flex-col gap-4 pt-4" value="relations">
-            <div className="flex flex-col gap-2">
-              <Input
-                aria-label={t("detail.relatedMemoPlaceholder")}
-                placeholder={t("detail.relatedMemoPlaceholder")}
-                value={relatedMemo}
-                onChange={(event) => setRelatedMemo(event.target.value)}
-              />
-              {relatedMemo.trim().length >= 2 && (
-                <div className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-1">
-                  {isSearching && (
-                    <p className="px-2 py-1 text-xs text-muted-foreground">
-                      {t("detail.searchingRelations")}
-                    </p>
-                  )}
-                  {!isSearching && candidates.length === 0 && (
-                    <p className="px-2 py-1 text-xs text-muted-foreground">
-                      {t("detail.noRelationCandidates")}
-                    </p>
-                  )}
-                  {candidates.map((candidate) => (
-                    <button
-                      className="rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-background"
-                      disabled={relationPending}
-                      key={candidate.name}
-                      type="button"
-                      onClick={() => onAddRelation(candidate.name)}
-                    >
-                      <span className="line-clamp-2">{candidate.content}</span>
-                      <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
-                        {candidate.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {canManage && (
+              <div className="flex flex-col gap-2">
+                <Input
+                  aria-label={t("detail.relatedMemoPlaceholder")}
+                  placeholder={t("detail.relatedMemoPlaceholder")}
+                  value={relatedMemo}
+                  onChange={(event) => setRelatedMemo(event.target.value)}
+                />
+                {relatedMemo.trim().length >= 2 && (
+                  <div className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-1">
+                    {isSearching && (
+                      <p className="px-2 py-1 text-xs text-muted-foreground">
+                        {t("detail.searchingRelations")}
+                      </p>
+                    )}
+                    {!isSearching && candidates.length === 0 && (
+                      <p className="px-2 py-1 text-xs text-muted-foreground">
+                        {t("detail.noRelationCandidates")}
+                      </p>
+                    )}
+                    {candidates.map((candidate) => (
+                      <button
+                        className="rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-background"
+                        disabled={relationPending}
+                        key={candidate.name}
+                        type="button"
+                        onClick={() => onAddRelation(candidate.name)}
+                      >
+                        <span className="line-clamp-2">
+                          {candidate.content}
+                        </span>
+                        <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
+                          {candidate.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <RelationGroup
               emptyText={t("detail.noOutgoing")}
               label={t("detail.outgoing")}
               relations={context.relations}
-              onRemove={onRemoveRelation}
+              onRemove={canManage ? onRemoveRelation : undefined}
             />
             <RelationGroup
               label={t("detail.backlinks")}
               relations={context.backlinks}
             />
           </TabsContent>
-          <TabsContent className="flex flex-col gap-2 pt-4" value="history">
-            {context.revisions.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                {t("detail.noRevisions")}
-              </p>
-            )}
-            {context.revisions.map((revision) => (
-              <div
-                className="flex items-start justify-between gap-3 rounded-lg border p-3"
-                key={revision.name}
-              >
-                <div className="min-w-0">
-                  <div className="text-xs text-muted-foreground">
-                    {formatMemoTime(revision.create_time, locale)}
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm">
-                    {revision.content}
-                  </p>
-                </div>
-                <Button
-                  disabled={restorePending}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onRestore(revision.name)}
+          {canManage && (
+            <TabsContent className="flex flex-col gap-2 pt-4" value="history">
+              {context.revisions.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {t("detail.noRevisions")}
+                </p>
+              )}
+              {context.revisions.map((revision) => (
+                <div
+                  className="flex items-start justify-between gap-3 rounded-lg border p-3"
+                  key={revision.name}
                 >
-                  <RotateCcwIcon data-icon="inline-start" />
-                  {t("detail.restoreRevision")}
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground">
+                      {formatMemoTime(revision.create_time, locale)}
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-sm">
+                      {revision.content}
+                    </p>
+                  </div>
+                  <Button
+                    disabled={restorePending}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onRestore(revision.name)}
+                  >
+                    <RotateCcwIcon data-icon="inline-start" />
+                    {t("detail.restoreRevision")}
+                  </Button>
+                </div>
+              ))}
+            </TabsContent>
+          )}
+          {canManage && (
+            <TabsContent className="flex flex-col gap-3 pt-4" value="sharing">
+              <div>
+                <Button
+                  disabled={sharePending}
+                  size="sm"
+                  onClick={onCreateShare}
+                >
+                  {sharePending ? (
+                    <Loader2Icon
+                      className="animate-spin"
+                      data-icon="inline-start"
+                    />
+                  ) : (
+                    <Link2Icon data-icon="inline-start" />
+                  )}
+                  {t("detail.createShare")}
                 </Button>
               </div>
-            ))}
-          </TabsContent>
-          <TabsContent className="flex flex-col gap-3 pt-4" value="sharing">
-            <div>
-              <Button disabled={sharePending} size="sm" onClick={onCreateShare}>
-                {sharePending ? (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
-                ) : (
-                  <Link2Icon data-icon="inline-start" />
-                )}
-                {t("detail.createShare")}
-              </Button>
-            </div>
-            {context.shares.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                {t("detail.noShares")}
-              </p>
-            )}
-            {context.shares.map((share) => {
-              const url = `${globalThis.location.origin}/share/${share.token}`;
-              return (
-                <div
-                  className="flex items-center gap-2 rounded-lg border p-3"
-                  key={share.name}
-                >
-                  <a
-                    className="min-w-0 flex-1 truncate font-mono text-xs hover:text-primary"
-                    href={url}
+              {context.shares.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {t("detail.noShares")}
+                </p>
+              )}
+              {context.shares.map((share) => {
+                const url = `${globalThis.location.origin}/share/${share.token}`;
+                return (
+                  <div
+                    className="flex items-center gap-2 rounded-lg border p-3"
+                    key={share.name}
                   >
-                    {url}
-                  </a>
-                  <Button
-                    aria-label={t("common.copy")}
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(url);
-                      toast.success(t("toast.copied"));
-                    }}
-                  >
-                    <ClipboardIcon />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        aria-label={t("detail.revokeShare")}
-                        disabled={revokePending}
-                        size="icon-sm"
-                        variant="ghost"
-                      >
-                        <UnlinkIcon />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent size="sm">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {t("detail.revokeShareTitle")}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {t("detail.revokeShareDescription")}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel variant="ghost">
-                          {t("common.cancel")}
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          variant="destructive"
-                          onClick={() => onRevoke(share.id)}
+                    <a
+                      className="min-w-0 flex-1 truncate font-mono text-xs hover:text-primary"
+                      href={url}
+                    >
+                      {url}
+                    </a>
+                    <Button
+                      aria-label={t("common.copy")}
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(url);
+                        toast.success(t("toast.copied"));
+                      }}
+                    >
+                      <ClipboardIcon />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          aria-label={t("detail.revokeShare")}
+                          disabled={revokePending}
+                          size="icon-sm"
+                          variant="ghost"
                         >
-                          {t("detail.revokeShare")}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              );
-            })}
-          </TabsContent>
+                          <UnlinkIcon />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent size="sm">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            {t("detail.revokeShareTitle")}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {t("detail.revokeShareDescription")}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel variant="ghost">
+                            {t("common.cancel")}
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => onRevoke(share.id)}
+                          >
+                            {t("detail.revokeShare")}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                );
+              })}
+            </TabsContent>
+          )}
         </Tabs>
       </CardContent>
     </Card>

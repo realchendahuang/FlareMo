@@ -464,7 +464,7 @@ async function callMemoryTool(
           kinds: input.kinds,
           limit: input.limit,
         },
-        provider && index ? { provider, index, namespace: user.id } : undefined,
+        provider && index ? { provider, index } : undefined,
       );
     }
     case "memory_remember": {

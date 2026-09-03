@@ -1,14 +1,20 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { UserRow } from "@flaremo/db";
-import { createDb } from "@flaremo/db";
+import { createDb, memos } from "@flaremo/db";
+import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ConflictError, ValidationError } from "./errors";
+import { createMemo } from "./memos";
 import {
+  beginFlaremoMemberRemoval,
   createFlaremoMember,
   ensureSingleUser,
+  finalizeFlaremoMemberRemoval,
+  getFlaremoUserById,
   updateFlaremoUserEmail,
+  updateFlaremoUserRole,
 } from "./users";
 
 let mf: Miniflare;
@@ -54,6 +60,7 @@ describe("updateFlaremoUserEmail", () => {
       "0011_daffy_ultron.sql",
       "0012_slow_nick_fury.sql",
       "0013_nosy_luke_cage.sql",
+      "0014_steep_carnage.sql",
     ];
     for (const name of migrationNames) {
       const sql = await readFile(
@@ -100,5 +107,50 @@ describe("updateFlaremoUserEmail", () => {
   it("allows re-using the current email value", async () => {
     const updated = await updateFlaremoUserEmail(db, user, "owner@example.com");
     expect(updated.email).toBe("owner@example.com");
+  });
+
+  it("removes private data while retaining team content and its author", async () => {
+    const member = await createFlaremoMember(db, {
+      email: "member@example.com",
+      name: "Member",
+    });
+    const privateMemo = await createMemo(db, member, {
+      content: "private",
+      visibility: "private",
+      source: "web",
+    });
+    const teamMemo = await createMemo(db, member, {
+      content: "team",
+      visibility: "protected",
+      source: "web",
+    });
+
+    const artifacts = await beginFlaremoMemberRemoval(db, member.id);
+    expect(artifacts.memoIds).toEqual([privateMemo.id]);
+    expect((await getFlaremoUserById(db, member.id))?.status).toBe("removed");
+
+    await finalizeFlaremoMemberRemoval(db, member.id, artifacts);
+    const rows = await db
+      .select()
+      .from(memos)
+      .where(eq(memos.userId, member.id));
+    expect(rows.map((row) => row.id)).toEqual([teamMemo.id]);
+    expect(await getFlaremoUserById(db, member.id)).toMatchObject({
+      name: "Member",
+      status: "removed",
+    });
+  });
+
+  it("supports assigning and removing the team administrator role", async () => {
+    const member = await createFlaremoMember(db, {
+      email: "admin@example.com",
+      name: "Admin",
+    });
+    expect((await updateFlaremoUserRole(db, member.id, "admin")).role).toBe(
+      "admin",
+    );
+    expect((await updateFlaremoUserRole(db, member.id, "member")).role).toBe(
+      "member",
+    );
   });
 });

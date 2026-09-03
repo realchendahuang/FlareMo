@@ -67,6 +67,7 @@ type MemoCardProps = {
   index?: number;
   /** Called when a tag chip is clicked to filter the timeline by that tag. */
   onTagClick?: (tag: string) => void;
+  canManage?: boolean;
 };
 
 export function MemoCard({
@@ -83,6 +84,7 @@ export function MemoCard({
   searchQuery,
   index = 0,
   onTagClick,
+  canManage = false,
 }: MemoCardProps) {
   const { locale, t } = useI18n();
   const id = getMemoResourceId(memo);
@@ -149,67 +151,70 @@ export function MemoCard({
           <span className="truncate tabular-nums">
             {formatMemoRelativeTime(memo.display_time, locale)}
           </span>
+          {memo.creator_name && <span>· {memo.creator_name}</span>}
         </Link>
         <div className="flex shrink-0 items-center gap-1">
           {memo.visibility !== "private" && (
             <VisibilityBadge visibility={memo.visibility} />
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                aria-label={t("common.actions")}
-                className="opacity-100 motion-safe:transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-                size="icon-sm"
-                variant="ghost"
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuGroup>
-                {isTrashed ? (
-                  <>
-                    <DropdownMenuItem onClick={() => onRestore(id)}>
-                      <RotateCcwIcon />
-                      {t("memo.restore")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={() => setIsDeleteDialogOpen(true)}
-                    >
-                      <Trash2Icon />
-                      {t("memo.deleteForever")}
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
-                    <DropdownMenuItem onClick={startEditing}>
-                      <Edit3Icon />
-                      {t("common.edit")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onPin(id, !memo.pinned)}>
-                      <PinIcon />
-                      {memo.pinned ? t("memo.unpin") : t("memo.pin")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onArchive(id)}>
-                      <ArchiveIcon />
-                      {memo.state === "archived"
-                        ? t("memo.moveToTimeline")
-                        : t("view.archive")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onShare(id)}>
-                      <Share2Icon />
-                      {t("memo.share")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onTrash(id)}>
-                      <Trash2Icon />
-                      {t("memo.moveToTrash")}
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  aria-label={t("common.actions")}
+                  className="opacity-100 motion-safe:transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  {isTrashed ? (
+                    <>
+                      <DropdownMenuItem onClick={() => onRestore(id)}>
+                        <RotateCcwIcon />
+                        {t("memo.restore")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setIsDeleteDialogOpen(true)}
+                      >
+                        <Trash2Icon />
+                        {t("memo.deleteForever")}
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={startEditing}>
+                        <Edit3Icon />
+                        {t("common.edit")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onPin(id, !memo.pinned)}>
+                        <PinIcon />
+                        {memo.pinned ? t("memo.unpin") : t("memo.pin")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onArchive(id)}>
+                        <ArchiveIcon />
+                        {memo.state === "archived"
+                          ? t("memo.moveToTimeline")
+                          : t("view.archive")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onShare(id)}>
+                        <Share2Icon />
+                        {t("memo.share")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onTrash(id)}>
+                        <Trash2Icon />
+                        {t("memo.moveToTrash")}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
       {isEditing ? (
@@ -235,7 +240,15 @@ export function MemoCard({
               type="single"
               value={draftVisibility}
               onValueChange={(value) => {
-                if (value) setDraftVisibility(value as MemoVisibility);
+                if (!value) return;
+                if (
+                  value === "public" &&
+                  draftVisibility !== "public" &&
+                  !window.confirm(t("visibility.publicConfirm"))
+                ) {
+                  return;
+                }
+                setDraftVisibility(value as MemoVisibility);
               }}
               size="sm"
               variant="outline"

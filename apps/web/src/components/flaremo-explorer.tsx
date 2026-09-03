@@ -200,9 +200,6 @@ export function FlareMoExplorer({
       </section>
 
       <section className="mt-5 flex flex-col gap-2 px-1">
-        <div className="text-xs text-muted-foreground">
-          {t("explorer.tags")}
-        </div>
         <button
           aria-pressed={untagged}
           className={cn(

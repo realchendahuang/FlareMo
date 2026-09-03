@@ -5,6 +5,7 @@ import {
   type UserRow,
 } from "@flaremo/db";
 import { and, asc, gt, sql } from "drizzle-orm";
+import { isActiveTeamMember } from "./team-permissions";
 
 export const MEMOS_SSE_EVENT_TYPES = [
   "memo.created",
@@ -54,8 +55,8 @@ export async function getLatestMemosSseEventId(db: FlareMoDb) {
 
 /**
  * Read a bounded replay page using the same visibility rules as upstream
- * Memos' SSE hub: private events are visible to their creator or an admin;
- * protected/public events are visible to any authenticated subscriber.
+ * Memos' SSE hub: private events are visible only to their creator;
+ * protected/public events are visible to any active team member.
  */
 export async function listMemosSseEvents(
   db: FlareMoDb,
@@ -77,7 +78,7 @@ export function canReceiveMemosSseEvent(
   event: MemosSseEventRow,
   user: UserRow,
 ) {
-  if (user.role === "owner") return true;
+  if (!isActiveTeamMember(user)) return false;
   if (event.visibility !== "private") return true;
   return event.creatorId === user.id;
 }

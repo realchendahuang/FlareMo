@@ -5,6 +5,7 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId, createToken, parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
+import { assertCanEditMemo } from "./team-permissions";
 
 export async function createMemoShare(
   db: FlareMoDb,
@@ -13,7 +14,8 @@ export async function createMemoShare(
   input: CreateShareInput = {},
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, normalizedMemoId);
+  const memo = await getMemoById(db, user, normalizedMemoId);
+  assertCanEditMemo(user, memo);
   const expiresAt = input.expires_at ?? null;
   if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
     throw new ValidationError("Share expiry must be in the future");
@@ -24,7 +26,7 @@ export async function createMemoShare(
     .from(shares)
     .where(
       and(
-        eq(shares.userId, user.id),
+        eq(shares.userId, memo.userId),
         eq(shares.memoId, normalizedMemoId),
         isNull(shares.revokedAt),
       ),
@@ -40,7 +42,7 @@ export async function createMemoShare(
   const row = {
     id: createResourceId("shares"),
     memoId: normalizedMemoId,
-    userId: user.id,
+    userId: memo.userId,
     token: createToken(),
     expiresAt,
     createdAt: now,
@@ -59,7 +61,6 @@ export async function getShareByIdOrToken(
 ) {
   const row = await db.query.shares.findFirst({
     where: and(
-      eq(shares.userId, user.id),
       isNull(shares.revokedAt),
       or(
         eq(shares.id, parseResourceName(idOrToken, "shares")),
@@ -76,6 +77,11 @@ export async function getShareByIdOrToken(
     throw new NotFoundError("Share not found");
   }
 
+  const memo = await getMemoById(db, user, row.memoId, {
+    includeDeleted: true,
+  });
+  assertCanEditMemo(user, memo);
+
   return row;
 }
 
@@ -90,9 +96,12 @@ export async function listMemoShares(
   options: { includeRevoked?: boolean } = {},
 ) {
   const normalizedMemoId = parseResourceName(memoId, "memos");
-  await getMemoById(db, user, normalizedMemoId, { includeDeleted: true });
+  const memo = await getMemoById(db, user, normalizedMemoId, {
+    includeDeleted: true,
+  });
+  assertCanEditMemo(user, memo);
   const filters = [
-    eq(shares.userId, user.id),
+    eq(shares.userId, memo.userId),
     eq(shares.memoId, normalizedMemoId),
   ];
   if (!options.includeRevoked) filters.push(isNull(shares.revokedAt));
@@ -116,7 +125,7 @@ export async function revokeMemoShare(
   await db
     .update(shares)
     .set({ revokedAt: now, updatedAt: now })
-    .where(and(eq(shares.id, share.id), eq(shares.userId, user.id)));
+    .where(eq(shares.id, share.id));
   return { ...share, revokedAt: now, updatedAt: now };
 }
 
@@ -150,7 +159,6 @@ export async function getPublicShareByToken(db: FlareMoDb, token: string) {
       .where(
         and(
           eq(attachments.memoId, share.memoId),
-          eq(attachments.userId, share.userId),
           isNull(attachments.deletedAt),
           eq(attachments.state, "ready"),
         ),
