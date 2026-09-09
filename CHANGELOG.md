@@ -2,17 +2,38 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
-## Unreleased
+## v0.15.0
+
+团队模式版本。为多用户部署补齐团队协作闭环：owner/admin/member 角色、管理员成员管理、三档可见性权限矩阵、可重试的成员移除清理；同时发布 Worker 生命周期工厂 `createFlareMoWorker`（HTTP routes、请求后 outbox、Queue 消费与 Cron maintenance 同一入口）和灾备持久化清单，自托管配置新增两个 Queue。
 
 ### 新增能力
 
-- 完整 Worker 生命周期工厂：公开导出 `createFlareMoWorker(options)`。它将同一份 `FlareMoAppOptions` 同时用于 HTTP routes、请求后的 webhook/embedding outbox 和 Cron maintenance；外部组合壳不再需要复制 default handler 的内部实现，也不会因只导出 `fetch` 而漏跑 durable work。
-- 灾备持久化清单：`scripts/persistence-manifest.mjs` 是所有 D1 `sqliteTable` 的唯一分类来源。恢复演练现在覆盖 memo/SSE/webhook/通知、数据任务、Agent Memory、用量、项目/任务等事实源表，逐表比较恢复计数，并在恢复后把 Vectorize 的 `embedding_tasks` 重建为待处理 reindex 工作。
+- 完整 Worker 生命周期工厂：公开导出 `createFlareMoWorker(options)`。它将同一份 `FlareMoAppOptions` 同时用于 HTTP routes、请求后的 webhook/embedding outbox、Queue 消费和 Cron maintenance；外部组合壳不再需要复制 default handler 的内部实现，也不会因只导出 `fetch` 而漏跑 durable work。
+- 团队角色与成员管理：`owner`（初始化账号，不可删除或降级）/ `admin`（团队管理员）/ `member` 三角色，成员状态 `active`/`removed`。「团队管理」界面支持查看有效成员、添加成员、设置/取消管理员、移出成员、为成员生成一次性密码重置链接。添加成员只需姓名 + 邮箱：服务端创建账号并签发 1 小时一次性激活链接（`/reset?token=…`），成员自设密码，管理员不经手也不可知晓密码；邮箱仅作唯一登录标识（不发邮件、不做邮箱验证，`FLAREMO_EMAIL_PROVIDER=none` 语义）。
+- 可见性权限矩阵：`private` 仅作者、`protected` 团队可见（有效成员只读）、`public` 全网公开（匿名只读）；管理员可管理团队与公开内容，但不能读取成员私密内容。权限判断统一收敛在 domain 层，Web、Memos-compatible API、MCP、附件、全文/语义搜索与 SSE 共用同一矩阵；语义搜索 Vectorize 只出候选，最终结果回 D1 按当前成员过滤。
+- 成员移除闭环：移出立即禁止访问并撤销全部 session、PAT 与随机分享链接；其私密笔记与附件、个人项目/任务/Agent Memory、R2 对象与 Vectorize 派生向量被删除；团队与公开内容及历史作者名保留。操作落 `member_removal_jobs`（记录操作人/阶段/尝试次数/错误，可安全重试），经 `flaremo-member-removal` Queue 异步执行，未绑定 Queue 的部署回落 scheduled maintenance 兜底，且两条路径共用同一幂等执行器。
+- 灾备持久化清单：`scripts/persistence-manifest.mjs` 是所有 D1 `sqliteTable` 的唯一分类来源。恢复演练覆盖 memo/SSE/webhook/通知、数据任务、成员移除任务、Agent Memory、用量、项目/任务等事实源表，逐表比较恢复计数，并在恢复后把 Vectorize 的 `embedding_tasks` 重建为待处理 reindex 工作。
+- 前端 hashed 静态资源（`/assets/*-hash.*`）响应加 `cache-control: public, max-age=31536000, immutable`；HTML 与应用路由维持正常 revalidation。
+- `pnpm deploy:preflight`：发布前校验 `BETTER_AUTH_SECRET` 已配置、非占位值且字符多样性足够。
+
+### Memos 兼容面变化
+
+- 多用户部署的 `protected` 语义收紧：由「任何登录用户可见」改为「同实例有效成员可见」；`private`（仅作者）与 `public`（匿名只读）语义不变，单用户部署无感知。
+- 未由兼容接口显式开启注册时，公开注册继续拒绝（默认关闭不变）。注册开关（`GET/PATCH /api/app/admin/settings`）保留为兼容端点且仅 owner 可用；团队模式下加成员走管理员接口。
+
+### Cloudflare、数据库与认证影响
+
+- D1 migration 0014–0016：`users.status` 列 + role/status 复合索引；`memos` 查询索引；`member_removal_jobs` 表。0014 同时把存量 `protected` 笔记转为 `private`（见升级说明）。
+- 自托管 wrangler 配置新增两个 Queue（producer + consumer）：`flaremo-member-removal`（max_batch_size 10 / max_retries 5）与 `flaremo-data-export`（5 / 5）。Queue 需要 Workers Paid 计划；不绑定时成员移除与数据导出仍可经 cron 兜底执行，但清理有延迟。
+- 新增管理端点（团队管理员 cookie session，受 Origin allowlist 约束）：`POST /api/app/admin/users`、`PATCH /api/app/admin/users/:id/role`、`DELETE /api/app/admin/users/:id`、`POST /api/app/admin/users/:id/reset-password`、`GET /api/app/admin/member-removal-jobs(/:id)`、`POST /api/app/admin/member-removal-jobs/:id/retry`。
 
 ### 升级影响
 
-- 自托管 Worker 的 default export 行为不变。高级 host 若需要完整生产生命周期，应从 `createFlareMoApp` 迁移到 `createFlareMoWorker`；前者仍保留给测试和只需路由装配的场景。
-- 灾备流程在新 Vectorize index 上恢复时，必须使用新建或明确清空的 index，再让重建 outbox 执行；不能复用旧 D1 的 `indexed` 状态作为向量存在证明。
+- **升级会把存量 `protected` 笔记自动改为 `private`**（0014 迁移），避免升级后旧「登录可见」内容被新团队语义意外共享；升级完成后再按需改为团队可见。`public` 笔记保持公开。
+- 自托管升级顺序：先在目标账户创建两个 Queue（`wrangler queues create flaremo-member-removal`、`wrangler queues create flaremo-data-export`）并在 wrangler.jsonc 增加 bindings，然后 `pnpm deploy`（自动应用 migration）。迁移完成后在管理员页确认成员移除任务可正常领取。
+- 既有 `owner` 自动成为团队管理员，既有成员初始化为 `active`；不允许移出或降级最后一位有效管理员。
+- 自托管 Worker 的 default export 行为不变。高级 host 若需要完整生产生命周期（含 Queue 消费），应从 `createFlareMoApp` 迁移到 `createFlareMoWorker`；前者仍保留给测试和只需路由装配的场景。
+- 灾备流程在新 Vectorize index 上恢复时，必须使用新建或明确清空的 index，再让重建 outbox 执行；不能复用旧 D1 的 `indexed` 状态作为向量存在证明。Queue 消息是可重放的 job ID，恢复 D1 后先确认 Queue 资源与 migration 状态，再放行后台清理。
 
 ## v0.14.0
 
