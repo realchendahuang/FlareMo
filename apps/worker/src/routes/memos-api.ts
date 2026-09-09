@@ -29,7 +29,6 @@ import {
   getDataTask,
   getMemoById,
   getShareByIdOrToken,
-  hardDeleteMemo,
   importData,
   listAttachments,
   listDataTasks,
@@ -39,7 +38,6 @@ import {
   listMemoShares,
   listMemos,
   markAttachmentDeleting,
-  markMemoAttachmentsDeleting,
   moveMemoToTrash,
   normalizeAttachmentClientId,
   replaceMemoRelations,
@@ -73,6 +71,7 @@ import {
 import { getRequestContext, type HonoBindings } from "../context";
 import { jsonError } from "../http";
 import { buildMemoContext } from "../memo-context";
+import { hardDeleteMemoWithAttachments } from "../memo-hard-delete";
 
 export const memosApi = new Hono<HonoBindings>();
 
@@ -198,14 +197,7 @@ memosApi.delete("/memos/:id", async (c) => {
     const { db, user } = await getRequestContext(c);
     const name = parseMemosResourceName(c.req.param("id"));
     if (c.req.query("hard") === "true") {
-      const attachments = await markMemoAttachmentsDeleting(db, user, name);
-      const objectKeys = attachments
-        .filter((attachment) => attachment.state !== "missing")
-        .map((attachment) => attachment.r2Key);
-      if (objectKeys.length > 0) {
-        await c.env.ATTACHMENTS.delete(objectKeys);
-      }
-      await hardDeleteMemo(db, user, name);
+      await hardDeleteMemoWithAttachments(c.env, db, user, name);
       return c.json({ ok: true });
     }
     const memo = await moveMemoToTrash(db, user, name);

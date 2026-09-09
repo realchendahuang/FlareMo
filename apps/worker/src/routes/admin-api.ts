@@ -17,9 +17,11 @@ import {
   listFlaremoUsers,
   listMemberRemovalJobs,
   NotFoundError,
+  rebuildEmbeddingIndexes,
   setUserRegistrationAllowed,
   updateFlaremoUserRole,
   updateMemberRemovalJob,
+  ValidationError,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -27,6 +29,7 @@ import { z } from "zod";
 import { cleanupFlaremoArtifacts } from "../artifact-cleanup";
 import { createFlareMoAuth } from "../auth";
 import { getBrowserRequestContext, type HonoBindings } from "../context";
+import { createEmbeddingProvider, createVectorIndex } from "../embedding";
 import { jsonError } from "../http";
 
 export const adminApi = new Hono<HonoBindings>();
@@ -219,34 +222,33 @@ adminApi.delete("/users/:id", async (c) => {
       throw new NotFoundError("Member not found");
     }
 
-    let job: Awaited<ReturnType<typeof createMemberRemovalJob>> | undefined;
-    try {
-      job = await createMemberRemovalJob(context.db, id, context.user.id);
-      jobId = job.id;
-      await updateMemberRemovalJob(context.db, job.id, {
-        status: "removing",
-        phase: "revoking_access",
-        attempts: (job.attempts ?? 0) + 1,
-      });
-    } catch (error) {
-      throw error;
+    const job = await createMemberRemovalJob(context.db, id, context.user.id);
+    jobId = job.id;
+    // Artifact cleanup fans out to thousands of Vectorize/R2 deletes for a
+    // large member — far beyond the request subrequest budget. Hand the
+    // idempotent executor to the queue; only queue-less minimal deployments
+    // run it inline.
+    if (c.env.MEMBER_REMOVAL_QUEUE) {
+      await c.env.MEMBER_REMOVAL_QUEUE.send({ jobId: job.id });
+      return c.json({ ok: true, job }, 202);
     }
+    await updateMemberRemovalJob(context.db, job.id, {
+      status: "removing",
+      phase: "revoking_access",
+      attempts: (job.attempts ?? 0) + 1,
+    });
     const artifacts = await beginFlaremoMemberRemoval(context.db, id);
-    if (job)
-      await updateMemberRemovalJob(context.db, job.id, {
-        phase: "cleaning_artifacts",
-      });
+    await updateMemberRemovalJob(context.db, job.id, {
+      phase: "cleaning_artifacts",
+    });
     await cleanupFlaremoArtifacts(c.env, artifacts);
-    if (job)
-      await updateMemberRemovalJob(context.db, job.id, { phase: "finalizing" });
+    await updateMemberRemovalJob(context.db, job.id, { phase: "finalizing" });
     await finalizeFlaremoMemberRemoval(context.db, id, artifacts);
-    const completed = job
-      ? await updateMemberRemovalJob(context.db, job.id, {
-          status: "completed",
-          phase: "completed",
-          completedAt: new Date().toISOString(),
-        })
-      : undefined;
+    const completed = await updateMemberRemovalJob(context.db, job.id, {
+      status: "completed",
+      phase: "completed",
+      completedAt: new Date().toISOString(),
+    });
     return c.json({ ok: true, job: completed });
   } catch (error) {
     if (jobId) {
@@ -308,6 +310,31 @@ adminApi.post("/member-removal-jobs/:id/retry", async (c) => {
   }
 });
 
+// Owner-only recovery path: re-embed every memo and memory from D1 into the
+// vector indexes. Used after model/dimension changes or index corruption;
+// the ops runbook documents it as the outbox/repair trigger.
+adminApi.post("/embeddings/rebuild", async (c) => {
+  try {
+    const context = await ownerContext(c);
+    const provider = createEmbeddingProvider(c.env);
+    const memosIndex = createVectorIndex(c.env, "memo");
+    const memoriesIndex = createVectorIndex(c.env, "memory");
+    if (!provider || !memosIndex || !memoriesIndex) {
+      throw new ValidationError(
+        "Embedding provider or vector indexes are not configured.",
+      );
+    }
+    const result = await rebuildEmbeddingIndexes(context.db, {
+      provider,
+      memosIndex,
+      memoriesIndex,
+    });
+    return c.json(result);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
 adminApi.post("/users/:id/reset-password", async (c) => {
   try {
     const context = await teamAdminContext(c);
@@ -315,6 +342,19 @@ adminApi.post("/users/:id/reset-password", async (c) => {
     const member = await getFlaremoUserById(context.db, id);
     if (member?.status !== "active") {
       throw new NotFoundError("Active member not found");
+    }
+    // A reset token mints a credential — apply the same takeover guard as
+    // role changes and member removal: admins cannot touch the owner, and
+    // only the owner can reset another admin.
+    if (id === "users/owner") {
+      throw new ForbiddenError(
+        "The owner password cannot be reset through the admin API.",
+      );
+    }
+    if (member.role === "admin" && !isOwner(context.user)) {
+      throw new ForbiddenError(
+        "Only the owner can reset another administrator's password.",
+      );
     }
     const authUserId = await getAuthUserIdByFlaremoUserId(context.db, id);
     if (!authUserId) {

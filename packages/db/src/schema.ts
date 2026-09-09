@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -598,6 +599,13 @@ export const attachments = sqliteTable(
       table.state,
       table.createdAt,
     ),
+    // The cleanup cron scans globally on this predicate (state='deleting' or
+    // orphaned imports); keep the sweep off a full table scan.
+    index("attachments_cleanup_idx")
+      .on(table.createdAt)
+      .where(
+        sql`(deleted_at is null and (state = 'deleting' or memo_id is null))`,
+      ),
   ],
 );
 
@@ -778,8 +786,8 @@ export const memoryItems = sqliteTable(
     fingerprint: text("fingerprint").notNull(),
     accessCount: integer("access_count").notNull().default(0),
     lastAccessedAt: text("last_accessed_at"),
-    // Reserved for the optional P1 embedding layer. P0 keeps these at
-    // `not_indexed` and never touches a vector binding.
+    // Memory embeddings index into the memories vector index under the
+    // owner's namespace; `not_indexed` is the pre-embedding state.
     embeddingStatus: text("embedding_status", {
       enum: ["not_indexed", "pending", "indexed", "error"],
     })

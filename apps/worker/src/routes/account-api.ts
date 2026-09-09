@@ -1,5 +1,6 @@
 import {
   beginFlaremoMemberRemoval,
+  createMemberRemovalJob,
   ForbiddenError,
   finalizeFlaremoMemberRemoval,
   getMemosPersonalAccessToken,
@@ -8,6 +9,7 @@ import {
   listMemosPersonalAccessTokens,
   NotFoundError,
   updateFlaremoUserEmail,
+  updateMemberRemovalJob,
   ValidationError,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
@@ -204,6 +206,25 @@ accountApi.delete("/", zValidator("json", deleteAccountSchema), async (c) => {
       throw new ValidationError("The current password is incorrect.");
     }
 
+    // Artifact cleanup fans out to thousands of Vectorize/R2 deletes for a
+    // large member — run it through the queue's idempotent executor instead
+    // of the request budget; inline only when no queue binding exists.
+    const job = await createMemberRemovalJob(
+      context.db,
+      context.user.id,
+      context.user.id,
+    );
+    if (c.env.MEMBER_REMOVAL_QUEUE) {
+      await c.env.MEMBER_REMOVAL_QUEUE.send({ jobId: job.id });
+      const response = c.json({ ok: true, job });
+      response.headers.set("cache-control", "no-store");
+      return response;
+    }
+    await updateMemberRemovalJob(context.db, job.id, {
+      status: "removing",
+      phase: "revoking_access",
+      attempts: (job.attempts ?? 0) + 1,
+    });
     // Snapshot out-of-D1 artifacts first: the batch removes the rows that
     // name the R2 objects and the vector id sources.
     const artifacts = await beginFlaremoMemberRemoval(
@@ -212,8 +233,13 @@ accountApi.delete("/", zValidator("json", deleteAccountSchema), async (c) => {
     );
     await cleanupFlaremoArtifacts(c.env, artifacts);
     await finalizeFlaremoMemberRemoval(context.db, context.user.id, artifacts);
+    const completed = await updateMemberRemovalJob(context.db, job.id, {
+      status: "completed",
+      phase: "completed",
+      completedAt: new Date().toISOString(),
+    });
 
-    const response = c.json({ ok: true });
+    const response = c.json({ ok: true, job: completed });
     response.headers.set("cache-control", "no-store");
     return response;
   } catch (error) {

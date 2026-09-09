@@ -22,7 +22,6 @@ import {
   getMemosPersonalAccessToken,
   getPublicShareByToken,
   getUserRegistrationAllowed,
-  hardDeleteMemo,
   isOwner,
   listAttachments,
   listAttachmentsForMemosForViewer,
@@ -66,6 +65,7 @@ import {
   type HonoBindings,
 } from "../context";
 import { resolveEmailConfig } from "../email";
+import { hardDeleteMemoWithAttachments } from "../memo-hard-delete";
 import {
   authenticateMemosAccessToken,
   clearMemosRefreshCookie,
@@ -574,7 +574,12 @@ memosCurrentApi.delete("/memos/:memo", async (c, next) => {
     const context = await getRequestContext(c);
     const name = normalizeMemoName(c.req.param("memo"));
     if (c.req.query("force") === "true") {
-      await hardDeleteMemo(context.db, context.user, name);
+      await hardDeleteMemoWithAttachments(
+        c.env,
+        context.db,
+        context.user,
+        name,
+      );
     } else {
       await moveMemoToTrash(context.db, context.user, name);
     }

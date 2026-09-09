@@ -18,7 +18,6 @@ import {
   getAttachmentById,
   getMemoById,
   getShortcut,
-  hardDeleteMemo,
   listAttachments,
   listMemoAttachments,
   listMemoComments,
@@ -27,7 +26,6 @@ import {
   listMemos,
   listShortcuts,
   markAttachmentDeleting,
-  markMemoAttachmentsDeleting,
   moveMemoToTrash,
   replaceMemoRelations,
   updateMemo,
@@ -54,6 +52,7 @@ import {
 } from "../context";
 import type { FlareMoEnv } from "../env";
 import { jsonError } from "../http";
+import { hardDeleteMemoWithAttachments } from "../memo-hard-delete";
 
 export const mcpApi = new Hono<HonoBindings>();
 
@@ -1096,18 +1095,7 @@ async function streamableDeleteMemo(
     return { ok: true };
   }
 
-  const attachments = await markMemoAttachmentsDeleting(
-    context.db,
-    context.user,
-    id,
-  );
-  const objectKeys = attachments
-    .filter((attachment) => attachment.state !== "missing")
-    .map((attachment) => attachment.r2Key);
-  if (objectKeys.length > 0) {
-    await env.ATTACHMENTS.delete(objectKeys);
-  }
-  await hardDeleteMemo(context.db, context.user, id);
+  await hardDeleteMemoWithAttachments(env, context.db, context.user, id);
   return { ok: true };
 }
 

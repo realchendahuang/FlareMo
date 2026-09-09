@@ -1,5 +1,3 @@
-import { readdir, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import type {
   DeleteTagResponse,
   ListAppNotificationsResponse,
@@ -10,7 +8,7 @@ import type {
   TagHierarchyResponse,
 } from "@flaremo/contracts";
 import { FLAREMO_API_VERSION } from "@flaremo/contracts";
-import { createDb, memos } from "@flaremo/db";
+import { applyFlaremoMigrations, createDb, memos } from "@flaremo/db";
 import { createMemberRemovalJob, SELF_HOST_UNLIMITED } from "@flaremo/domain";
 import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
@@ -58,130 +56,7 @@ describe("FlareMo Worker API", () => {
       FLAREMO_BOOTSTRAP_SECRET: TEST_BOOTSTRAP_SECRET,
     } as Env;
 
-    const migration = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0000_illegal_inhumans.sql",
-      ),
-      "utf8",
-    );
-    const cleanup = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0001_familiar_morph.sql",
-      ),
-      "utf8",
-    );
-    const v020 = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0002_wooden_professor_monster.sql",
-      ),
-      "utf8",
-    );
-    const offlineCapture = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0003_equal_maximus.sql",
-      ),
-      "utf8",
-    );
-    const offlineAttachments = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0004_complex_the_enforcers.sql",
-      ),
-      "utf8",
-    );
-    const nativeAuth = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0005_confused_masque.sql",
-      ),
-      "utf8",
-    );
-    const reactionsSchema = await readFile(
-      resolve(import.meta.dirname, "../../../migrations/0006_silent_kylun.sql"),
-      "utf8",
-    );
-    const sseEvents = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0007_flat_phil_sheldon.sql",
-      ),
-      "utf8",
-    );
-    const userServiceParity = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0008_legal_scarecrow.sql",
-      ),
-      "utf8",
-    );
-    const webhookOutbox = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0009_neat_iron_fist.sql",
-      ),
-      "utf8",
-    );
-    const dataTasks = await readFile(
-      resolve(import.meta.dirname, "../../../migrations/0010_deep_gateway.sql"),
-      "utf8",
-    );
-    const memorySchema = await readFile(
-      resolve(import.meta.dirname, "../../../migrations/0011_daffy_ultron.sql"),
-      "utf8",
-    );
-    const embeddingSchema = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0012_slow_nick_fury.sql",
-      ),
-      "utf8",
-    );
-    const projectsSchema = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0013_nosy_luke_cage.sql",
-      ),
-      "utf8",
-    );
-    const teamModeSchema = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0014_steep_carnage.sql",
-      ),
-      "utf8",
-    );
-    const exportIndexes = await readFile(
-      resolve(import.meta.dirname, "../../../migrations/0015_next_klaw.sql"),
-      "utf8",
-    );
-    const removalJobs = await readFile(
-      resolve(
-        import.meta.dirname,
-        "../../../migrations/0016_silky_leopardon.sql",
-      ),
-      "utf8",
-    );
-    await applyMigration(db, migration);
-    await applyMigration(db, cleanup);
-    await applyMigration(db, v020);
-    await applyMigration(db, offlineCapture);
-    await applyMigration(db, offlineAttachments);
-    await applyMigration(db, nativeAuth);
-    await applyMigration(db, reactionsSchema);
-    await applyMigration(db, sseEvents);
-    await applyMigration(db, userServiceParity);
-    await applyMigration(db, exportIndexes);
-    await applyMigration(db, removalJobs);
-    await applyMigration(db, webhookOutbox);
-    await applyMigration(db, dataTasks);
-    await applyMigration(db, memorySchema);
-    await applyMigration(db, embeddingSchema);
-    await applyMigration(db, projectsSchema);
-    await applyMigration(db, teamModeSchema);
+    await applyFlaremoMigrations(db);
     sessionCookie = await bootstrapAndSignIn();
   });
 
@@ -2590,6 +2465,49 @@ describe("FlareMo Worker API", () => {
       error: { message: "The owner account cannot be removed." },
     });
 
+    // A reset token mints a credential, so the same takeover guard applies:
+    // an administrator cannot reset the owner's password, and only the owner
+    // can reset another administrator's.
+    const resetOwnerPassword = await app.fetch(
+      new Request(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent("users/owner")}/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            cookie: secondAdmin.cookie,
+            origin: "http://flaremo.test",
+          },
+        },
+      ),
+      env,
+    );
+    expect(resetOwnerPassword.status).toBe(403);
+    expect(await resetOwnerPassword.json()).toEqual({
+      error: {
+        message: "The owner password cannot be reset through the admin API.",
+      },
+    });
+
+    const resetAdminPassword = await app.fetch(
+      new Request(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent(secondAdmin.id)}/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            cookie: secondAdmin.cookie,
+            origin: "http://flaremo.test",
+          },
+        },
+      ),
+      env,
+    );
+    expect(resetAdminPassword.status).toBe(403);
+    expect(await resetAdminPassword.json()).toEqual({
+      error: {
+        message: "Only the owner can reset another administrator's password.",
+      },
+    });
+
     const removeSelf = await app.fetch(
       new Request(
         `http://flaremo.test/api/app/admin/users/${encodeURIComponent(secondAdmin.id)}`,
@@ -2812,25 +2730,8 @@ describe("FlareMo Worker API", () => {
       ATTACHMENTS: await mf.getR2Bucket("ATTACHMENTS"),
     } as Env;
 
-    const migrationNames = (
-      await readdir(resolve(import.meta.dirname, "../../../migrations"))
-    )
-      .filter((name) => name.endsWith(".sql"))
-      .sort();
-    const applyNamedMigrations = async (names: string[]) => {
-      for (const name of names) {
-        await applyMigration(
-          database,
-          await readFile(
-            resolve(import.meta.dirname, "../../../migrations", name),
-            "utf8",
-          ),
-        );
-      }
-    };
-
     // A pre-team-mode deployment: no users.status column, `protected` in use.
-    await applyNamedMigrations(migrationNames.filter((name) => name < "0014_"));
+    await applyFlaremoMigrations(database, { beforeTag: "0014_" });
     await database
       .prepare(
         "INSERT INTO users (id, email, name, role, created_at, updated_at) VALUES ('users/owner', 'owner@example.com', 'Owner', 'owner', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
@@ -2846,9 +2747,7 @@ describe("FlareMo Worker API", () => {
     await seedLegacyMemo("memos/legacy-team", "protected");
     await seedLegacyMemo("memos/legacy-public", "public");
 
-    await applyNamedMigrations(
-      migrationNames.filter((name) => name >= "0014_"),
-    );
+    await applyFlaremoMigrations(database, { fromTag: "0014_" });
     sessionCookie = await bootstrapAndSignIn();
 
     const upgraded = await database
@@ -3149,15 +3048,4 @@ async function createMemoAs(
 async function json<T = Record<string, unknown>>(response: Response) {
   expect(response.ok).toBe(true);
   return response.json() as Promise<T>;
-}
-
-async function applyMigration(db: D1Database, sql: string) {
-  const statements = sql
-    .split("--> statement-breakpoint")
-    .map((statement) => statement.trim())
-    .filter(Boolean);
-
-  for (const statement of statements) {
-    await db.prepare(statement).run();
-  }
 }

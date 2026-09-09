@@ -391,6 +391,16 @@ async function dispatchRequestEmbeddingOutbox(
   });
 }
 
+function logBackgroundTaskFailure(task: string, error: unknown) {
+  console.error(
+    JSON.stringify({
+      message: "Background task failed",
+      task,
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+}
+
 /**
  * Build the complete Worker lifecycle for an installation of FlareMo.
  *
@@ -413,18 +423,30 @@ export function createFlareMoWorker(
   return {
     async fetch(request, env, ctx) {
       const response = await app.fetch(request, env, ctx);
-      const db = createDb(env.DB);
-      // `ExecutionContext` is part of the Worker handler contract. Keeping
-      // this post-response work on `waitUntil` avoids changing the route-only
-      // test semantics for direct handler calls without a Worker runtime.
-      ctx?.waitUntil(dispatchMemosWebhookOutbox(db).catch(() => undefined));
-      ctx?.waitUntil(
-        dispatchRequestEmbeddingOutbox(
-          env,
-          resolvedOptions,
-          hasCustomUserPlanLimits,
-        ).catch(() => undefined),
-      );
+      // Outbox sweeps are maintenance: mutating requests trigger them (they
+      // are the ones that can enqueue work), so reads skip the fixed
+      // per-request query tax. The daily cron sweeps whatever reads missed.
+      const method = request.method.toUpperCase();
+      if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+        const { db } = getFlareMoRuntime(env);
+        // `ExecutionContext` is part of the Worker handler contract. Keeping
+        // this post-response work on `waitUntil` avoids changing the route-only
+        // test semantics for direct handler calls without a Worker runtime.
+        ctx?.waitUntil(
+          dispatchMemosWebhookOutbox(db).catch((error) =>
+            logBackgroundTaskFailure("memos_webhook_outbox", error),
+          ),
+        );
+        ctx?.waitUntil(
+          dispatchRequestEmbeddingOutbox(
+            env,
+            resolvedOptions,
+            hasCustomUserPlanLimits,
+          ).catch((error) =>
+            logBackgroundTaskFailure("embedding_outbox", error),
+          ),
+        );
+      }
       return response;
     },
     async scheduled(controller, env) {

@@ -17,6 +17,7 @@ import {
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
 import {
   assertMonthlyQuota,
+  canEditMemo,
   createMemo,
   createMemoryFromMemo,
   createMemoryFromMemoInputToWrite,
@@ -29,7 +30,6 @@ import {
   getRandomMemo,
   getSemanticSearchMemos,
   getWalkNextMemo,
-  hardDeleteMemo,
   incrementUsageCounter,
   listAttachmentsForMemos,
   listDailyReviewMemos,
@@ -37,7 +37,6 @@ import {
   listRelatedMemos,
   listTagHierarchy,
   listUserNotifications,
-  markMemoAttachmentsDeleting,
   moveMemoToTrash,
   NotFoundError,
   renameTag,
@@ -63,6 +62,7 @@ import {
 } from "../embedding";
 import { jsonError } from "../http";
 import { buildMemoContext } from "../memo-context";
+import { hardDeleteMemoWithAttachments } from "../memo-hard-delete";
 
 export const appApi = new Hono<HonoBindings>();
 
@@ -207,9 +207,12 @@ appApi.get(
         ordered.map((memo) => memo.userId),
       );
       return c.json({
-        memos: ordered.map((memo) =>
-          memoToDto(memo, user, creatorNames.get(memo.userId)),
-        ),
+        memos: ordered.map((memo) => ({
+          ...memoToDto(memo, user, creatorNames.get(memo.userId)),
+          // Same server-derived rule as list responses (canEditMemo), so
+          // semantic results keep their manage affordances.
+          can_manage: canEditMemo(user, memo),
+        })),
         degraded: false,
       });
     } catch (error) {
@@ -421,14 +424,7 @@ appApi.delete("/memos/:id", async (c) => {
     const { db, user } = await getRequestContext(c);
     const id = `memos/${c.req.param("id")}`;
     if (c.req.query("hard") === "true") {
-      const attachments = await markMemoAttachmentsDeleting(db, user, id);
-      const objectKeys = attachments
-        .filter((attachment) => attachment.state !== "missing")
-        .map((attachment) => attachment.r2Key);
-      if (objectKeys.length > 0) {
-        await c.env.ATTACHMENTS.delete(objectKeys);
-      }
-      await hardDeleteMemo(db, user, id);
+      await hardDeleteMemoWithAttachments(c.env, db, user, id);
       return c.json({ ok: true });
     }
     const memo = await moveMemoToTrash(db, user, id);

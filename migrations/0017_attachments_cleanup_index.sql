@@ -1,0 +1,1 @@
+CREATE INDEX `attachments_cleanup_idx` ON `attachments` (`created_at`) WHERE (deleted_at is null and (state = 'deleting' or memo_id is null));
