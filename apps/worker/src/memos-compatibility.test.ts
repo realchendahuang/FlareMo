@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { FLAREMO_API_VERSION } from "@flaremo/contracts";
+import { applyFlaremoMigrations } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "./index";
@@ -1344,17 +1343,6 @@ async function json<T = Record<string, unknown>>(
   return response.json() as Promise<T>;
 }
 
-async function applyMigration(db: D1Database, sql: string) {
-  const statements = sql
-    .split("--> statement-breakpoint")
-    .map((statement) => statement.trim())
-    .filter(Boolean);
-
-  for (const statement of statements) {
-    await db.prepare(statement).run();
-  }
-}
-
 async function createTestRuntime(suffix: string) {
   const runtime = new Miniflare({
     script: "export default { fetch() { return new Response('ok') } }",
@@ -1365,30 +1353,7 @@ async function createTestRuntime(suffix: string) {
     r2Buckets: { ATTACHMENTS: `flaremo-memos-compat-attachments-${suffix}` },
   });
   const db = await runtime.getD1Database("DB");
-  for (const filename of [
-    "0000_illegal_inhumans.sql",
-    "0001_familiar_morph.sql",
-    "0002_wooden_professor_monster.sql",
-    "0003_equal_maximus.sql",
-    "0004_complex_the_enforcers.sql",
-    "0005_confused_masque.sql",
-    "0006_silent_kylun.sql",
-    "0007_flat_phil_sheldon.sql",
-    "0008_legal_scarecrow.sql",
-    "0009_neat_iron_fist.sql",
-    "0010_deep_gateway.sql",
-    "0011_daffy_ultron.sql",
-    "0012_slow_nick_fury.sql",
-    "0014_steep_carnage.sql",
-  ]) {
-    await applyMigration(
-      db,
-      await readFile(
-        resolve(import.meta.dirname, `../../../migrations/${filename}`),
-        "utf8",
-      ),
-    );
-  }
+  await applyFlaremoMigrations(db);
   return {
     mf: runtime,
     env: {

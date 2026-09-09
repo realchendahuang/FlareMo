@@ -1,7 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import type { UserRow } from "@flaremo/db";
-import { attachments, createDb } from "@flaremo/db";
+import { applyFlaremoMigrations, attachments, createDb } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { QuotaExceededError } from "./errors";
@@ -26,19 +24,6 @@ import { createFlaremoMember, ensureSingleUser } from "./users";
 let mf: Miniflare;
 let db: ReturnType<typeof createDb>;
 let owner: UserRow;
-
-async function applyMigration(
-  database: Awaited<ReturnType<Miniflare["getD1Database"]>>,
-  sql: string,
-) {
-  const statements = sql
-    .split("--> statement-breakpoint")
-    .map((statement) => statement.trim())
-    .filter(Boolean);
-  for (const statement of statements) {
-    await database.prepare(statement).run();
-  }
-}
 
 async function insertAttachment(
   userId: string,
@@ -69,28 +54,7 @@ describe("plan quota checks", () => {
     });
     const database = await mf.getD1Database("DB");
     db = createDb(database);
-    const migrationNames = [
-      "0000_illegal_inhumans.sql",
-      "0001_familiar_morph.sql",
-      "0002_wooden_professor_monster.sql",
-      "0003_equal_maximus.sql",
-      "0004_complex_the_enforcers.sql",
-      "0005_confused_masque.sql",
-      "0007_flat_phil_sheldon.sql",
-      "0008_legal_scarecrow.sql",
-      "0009_neat_iron_fist.sql",
-      "0010_deep_gateway.sql",
-      "0011_daffy_ultron.sql",
-      "0012_slow_nick_fury.sql",
-      "0014_steep_carnage.sql",
-    ];
-    for (const name of migrationNames) {
-      const sql = await readFile(
-        resolve(import.meta.dirname, `../../../migrations/${name}`),
-        "utf8",
-      );
-      await applyMigration(database, sql);
-    }
+    await applyFlaremoMigrations(database);
     owner = await ensureSingleUser(db, {
       email: "owner@example.com",
       name: "Owner",

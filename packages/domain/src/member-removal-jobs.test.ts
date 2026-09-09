@@ -1,6 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { createDb } from "@flaremo/db";
+import { applyFlaremoMigrations, createDb } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -13,25 +11,6 @@ import {
 let mf: Miniflare;
 let db: ReturnType<typeof createDb>;
 let raw: Awaited<ReturnType<Miniflare["getD1Database"]>>;
-async function migrate(
-  database: Awaited<ReturnType<Miniflare["getD1Database"]>>,
-) {
-  for (const name of (
-    await readdir(resolve(import.meta.dirname, "../../../migrations"))
-  )
-    .filter((n) => n.endsWith(".sql"))
-    .sort()) {
-    const sql = await readFile(
-      resolve(import.meta.dirname, "../../../migrations", name),
-      "utf8",
-    );
-    for (const statement of sql
-      .split("--> statement-breakpoint")
-      .map((s) => s.trim())
-      .filter(Boolean))
-      await database.prepare(statement).run();
-  }
-}
 describe("member removal jobs", () => {
   beforeEach(async () => {
     mf = new Miniflare({
@@ -41,7 +20,7 @@ describe("member removal jobs", () => {
       d1Databases: { DB: "jobs" },
     });
     raw = await mf.getD1Database("DB");
-    await migrate(raw);
+    await applyFlaremoMigrations(raw);
     db = createDb(raw);
   });
   afterEach(() => mf.dispose());

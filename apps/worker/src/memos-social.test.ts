@@ -1,6 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import {
+  applyFlaremoMigrations,
   authUserLinks,
   authUsers,
   createDb,
@@ -523,19 +522,7 @@ async function createTestRuntime() {
     },
   });
   const db = await runtime.getD1Database("DB");
-  const migrationDirectory = resolve(
-    import.meta.dirname,
-    "../../../migrations",
-  );
-  const migrations = (await readdir(migrationDirectory))
-    .filter((filename) => filename.endsWith(".sql"))
-    .sort();
-  for (const filename of migrations) {
-    await applyMigration(
-      db,
-      await readFile(resolve(migrationDirectory, filename), "utf8"),
-    );
-  }
+  await applyFlaremoMigrations(db);
   return {
     mf: runtime,
     env: {
@@ -551,14 +538,4 @@ async function createTestRuntime() {
       FLAREMO_BOOTSTRAP_SECRET: TEST_BOOTSTRAP_SECRET,
     } as Env,
   };
-}
-
-async function applyMigration(db: D1Database, sql: string) {
-  const statements = sql
-    .split("--> statement-breakpoint")
-    .map((statement) => statement.trim())
-    .filter(Boolean);
-  for (const statement of statements) {
-    await db.prepare(statement).run();
-  }
 }

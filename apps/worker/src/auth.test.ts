@@ -1,6 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { createDb } from "@flaremo/db";
+import { applyFlaremoMigrations, createDb } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFlareMoAuth } from "./auth";
@@ -636,32 +634,7 @@ async function createTestRuntime() {
     r2Buckets: { ATTACHMENTS: "flaremo-auth-attachments-test" },
   });
   const database = await instance.getD1Database("DB");
-  for (const filename of [
-    "0000_illegal_inhumans.sql",
-    "0001_familiar_morph.sql",
-    "0002_wooden_professor_monster.sql",
-    "0003_equal_maximus.sql",
-    "0004_complex_the_enforcers.sql",
-    "0005_confused_masque.sql",
-    "0007_flat_phil_sheldon.sql",
-    "0008_legal_scarecrow.sql",
-    "0009_neat_iron_fist.sql",
-    "0010_deep_gateway.sql",
-    "0011_daffy_ultron.sql",
-    "0012_slow_nick_fury.sql",
-    "0014_steep_carnage.sql",
-  ]) {
-    const migration = await readFile(
-      resolve(import.meta.dirname, `../../../migrations/${filename}`),
-      "utf8",
-    );
-    for (const statement of migration
-      .split("--> statement-breakpoint")
-      .map((item) => item.trim())
-      .filter(Boolean)) {
-      await database.prepare(statement).run();
-    }
-  }
+  await applyFlaremoMigrations(database);
 
   return {
     runtime: instance,
