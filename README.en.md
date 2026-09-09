@@ -1,6 +1,6 @@
 # FlareMo
 
-**A Cloudflare-native personal knowledge system that can run all day on a free Cloudflare account. It ships with D1, R2, Better Auth native authentication, an optional Cloudflare Access outer layer, a quiet memo timeline, and a Memos-compatible API subset.**
+**A Cloudflare-native team knowledge base that runs all day on a free Cloudflare account. Use it alone and it is a quiet personal notebook; use it with a team and it becomes a shared knowledge base with roles and three visibility levels (private, team-visible, public). It ships with D1, R2, Better Auth native authentication, an optional Cloudflare Access outer layer, a quiet memo timeline, and a Memos-compatible API subset.**
 
 [![GitHub stars](https://img.shields.io/github/stars/realchendahuang/FlareMo?style=social)](https://github.com/realchendahuang/FlareMo)
 [![license](https://img.shields.io/github/license/realchendahuang/FlareMo)](./LICENSE)
@@ -26,6 +26,8 @@ The screenshots show the current backend-backed timeline, editor, filtering, and
 - Markdown/GFM with image and audio attachment previews.
 - Memo detail pages with relations, backlinks, and revision restore.
 - Revocable public share links.
+- Team mode: `owner` / `admin` / `member` roles with member management. Admins add members in the Team Management page (name + email; the server issues a one-time activation link and members set their own passwords — the admin never handles or sees a password), promote or demote admins, and remove members with a retryable data cleanup that deletes private data while keeping team and public content.
+- Three visibility levels: private (author only), team-visible (read-only for active members), and public (anonymous read-only). The web UI, Memos-compatible API, MCP, attachments, search, and SSE all share one permission matrix.
 - Memos-style import and export with conflict strategies.
 - A current Memos-style camelCase/protobuf-JSON `/api/v1` subset for memos, attachments, relations, shares, social resources, the auth facade, and PAT resources; the Connect JSON/protobuf/gRPC-Web surface also covers the single-user UserService webhook CRUD/signing-secret and notification list/update/delete subset, including comment/mention payloads. The legacy snake_case wire remains available through an explicit header.
 - Chinese and English interface.
@@ -75,7 +77,7 @@ Full deployment docs: [docs/deploy.md](./docs/deploy.md).
 
 ## Auth Boundary: Better Auth, with optional Access
 
-FlareMo's application authentication is provided by Better Auth. On the first production deployment, the operator manually enters the one-time bootstrap secret, username, display name, email, and password in the HTTPS `/setup` page to create the single owner. Public signup is disabled after bootstrap. `FLAREMO_SINGLE_USER_EMAIL` and `FLAREMO_SINGLE_USER_NAME` are legacy variables for existing `users/owner` domain metadata, not login credentials or bootstrap inputs; the setup form is authoritative. The data model leaves room for future mapped users without changing existing memo IDs.
+FlareMo's application authentication is provided by Better Auth. On the first production deployment, the operator manually enters the one-time bootstrap secret, username, display name, email, and password in the HTTPS `/setup` page to create the single owner. Public signup is disabled after bootstrap. The main team path is adding members in the Team Management page: the server issues a one-time activation link and members set their own passwords. The owner can still enable open registration as a compatibility path (off by default), letting anyone create a member account through `/register` or the Memos-compatible `signup`. `FLAREMO_SINGLE_USER_EMAIL` and `FLAREMO_SINGLE_USER_NAME` are legacy variables for existing `users/owner` domain metadata, not login credentials or bootstrap inputs; the setup form is authoritative. Team roles, visibility permissions, and member-removal semantics are documented in [docs/team-mode.md](./docs/team-mode.md). The data model leaves room for future mapped users without changing existing memo IDs.
 
 - Browser login uses an `HttpOnly`, `SameSite=Lax` cookie session.
 - Scripts, MCP, and Memos-compatible clients use a revocable `memos_pat_` Personal Access Token created by an authenticated account.

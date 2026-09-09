@@ -1,6 +1,6 @@
 # FlareMo
 
-**一个免费账号就能 24 小时跑在云端的个人笔记系统。Cloudflare 原生部署，自带数据库和对象存储，应用层使用 Better Auth 原生登录，对外保留 Memos 兼容 API；Cloudflare Access 可以作为可选外层防线。**
+**一个免费账号就能 24 小时跑在云端的团队知识库。一个人用，是安静的私人笔记；一个团队用，是带角色权限的共享知识库。Cloudflare 原生部署，自带数据库和对象存储，私密 / 团队 / 公开三档可见性，应用层使用 Better Auth 原生登录，对外保留 Memos 兼容 API；Cloudflare Access 可以作为可选外层防线。**
 
 [![GitHub stars](https://img.shields.io/github/stars/realchendahuang/FlareMo?style=social)](https://github.com/realchendahuang/FlareMo)
 [![license](https://img.shields.io/github/license/realchendahuang/FlareMo)](./LICENSE)
@@ -24,7 +24,7 @@
 
 Flomo 证明了「快速记录 + 安静时间线」这种轻量笔记体验是有价值的。但自部署这类系统通常意味着一台 VPS、一个 Postgres、一堆 Docker 容器、一份每周要维护的备份脚本，以及硬盘哪天坏了数据全没的风险。
 
-FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账号，不买服务器、不装数据库、不写备份脚本，就拥有一个 24 小时在线、数据不会丢、可以自定义域名、还能被各种工具调用的个人笔记系统？**
+FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账号，不买服务器、不装数据库、不写备份脚本，就拥有一个 24 小时在线、数据不会丢、可以自定义域名、还能被各种工具调用的知识库——一个人用是私人笔记，一个团队用是共享知识库？**
 
 答案是可以。Cloudflare 免费账号就能提供：
 
@@ -35,6 +35,8 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - **Workers Static Assets** —— 前端和 API 由同一个 Worker 提供，一次部署全搞定。
 
 整套系统跑在一个 Worker 上。你没有一个「服务器」要照看，只有一份代码和一个免费账号。
+
+团队协作也不需要为此升级到付费 SaaS 或多养一台服务器：同一份部署里，管理员在「团队管理」界面添加成员，笔记按「私密 / 团队可见 / 全网公开」三档可见性共享；成员被移出时，其私密数据被完整清理，团队与公开内容保留。所有数据——包括团队成员的数据——都只存在你自己的 Cloudflare 账号里。
 
 ---
 
@@ -85,6 +87,8 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - Markdown/GFM、图片与音频附件预览。
 - 记录详情、引用关系、反向链接和历史版本恢复。
 - 可撤销的公开分享链接。
+- 团队模式：`owner` / `admin` / `member` 角色与成员管理。管理员在「团队管理」界面添加成员（姓名 + 邮箱，服务端签发一次性激活链接，成员自设密码，管理员不经手也不可知晓密码）、设置或取消管理员、移出成员并触发可重试的数据清理（私密内容删除，团队与公开内容保留）。
+- 三档可见性：私密（仅作者）、团队可见（有效成员只读）、全网公开（匿名只读）；Web、Memos 兼容 API、MCP、附件、搜索与 SSE 共用同一权限矩阵。
 - 支持冲突策略的 Memos 数据导入导出。
 - Memos current camelCase / protobuf-JSON 风格的 `/api/v1` memo、attachment、relation、share、social、auth facade 和 PAT 资源子集；Connect JSON/protobuf/gRPC-Web 还覆盖多用户 UserService 的 webhook CRUD/signing-secret 与 notification list/update/delete（含 comment/mention payload）；旧 snake_case wire 通过显式 header 保留。
 - OpenAPI 输出。
@@ -146,7 +150,7 @@ pnpm deploy
 
 ## 登录：Better Auth 原生认证，Access 可选
 
-FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署者在生产 HTTPS 的 `/setup` 页面手动输入一次性 bootstrap secret、显示名、邮箱和密码，创建唯一初始 owner；成功后公共 signup 默认关闭，owner 可在后台开启开放注册。开启后，任何人都能通过 `/register` 页或 Memos 兼容客户端的 `signup` 创建普通成员账户。`FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 变量，不是登录凭据或 bootstrap 输入。
+FlareMo 的应用层认证由 Better Auth 提供。第一次部署时由部署者在生产 HTTPS 的 `/setup` 页面手动输入一次性 bootstrap secret、显示名、邮箱和密码，创建唯一初始 owner；成功后公共 signup 默认关闭。团队协作的主路径是管理员在「团队管理」界面添加成员：服务端签发一次性激活链接，成员自行设置密码；`owner` 也可以在后台开启开放注册（兼容路径，默认关闭），开启后任何人都能通过 `/register` 页或 Memos 兼容客户端的 `signup` 创建普通成员账户。`FLAREMO_SINGLE_USER_EMAIL` 和 `FLAREMO_SINGLE_USER_NAME` 只是既有 `users/owner` domain metadata 的 legacy 变量，不是登录凭据或 bootstrap 输入。团队角色、可见性权限和成员移除语义见 [docs/team-mode.md](./docs/team-mode.md)。
 
 - Web 端使用**邮箱 + 密码**登录（`/login`）；注册、管理员建号、初始化都以邮箱为登录凭证。Memos 兼容客户端仍使用**用户名 + 密码**登录——用户名由邮箱自动生成（可复制、可在账户页修改），协议上无法用邮箱登录。
 
@@ -307,6 +311,7 @@ FlareMo 当前已经具备：
 - Memos 兼容 API 子集、导入导出、OpenAPI 和 MCP。
 - Flomo 风格的快速记录和时间线 UI。
 - Better Auth 原生 cookie session、一次性 owner bootstrap 和可撤销 `memos_pat_` PAT。
+- 团队模式：owner/admin/member 角色、团队管理界面、三档可见性权限矩阵和可重试的成员移除清理。
 - Cloudflare Access 可选外层防线，以及公开分享 bypass 的边界说明。
 - Deploy to Cloudflare 按钮。
 - Agent 部署 runbook、发版规则、兼容矩阵和开源协作文件。
