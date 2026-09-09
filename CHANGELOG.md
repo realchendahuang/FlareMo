@@ -2,6 +2,12 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## Unreleased
+
+### 修复
+
+- 自动部署环境回归修复：`pnpm deploy:preflight` 在 CI 构建环境（`CI=true`，Workers Builds / Deploy to Cloudflare）中降级为警告不阻断。自动部署环境不携带操作者 secrets，正式 secret 由部署者通过 `wrangler secret put` 配置；本地手动发布仍强制校验 `BETTER_AUTH_SECRET`。v0.15.0 中该门禁曾让一键部署新用户的首次部署必失败。
+
 ## v0.15.0
 
 团队模式版本。为多用户部署补齐团队协作闭环：owner/admin/member 角色、管理员成员管理、三档可见性权限矩阵、可重试的成员移除清理；同时发布 Worker 生命周期工厂 `createFlareMoWorker`（HTTP routes、请求后 outbox、Queue 消费与 Cron maintenance 同一入口）和灾备持久化清单，自托管配置新增两个 Queue。

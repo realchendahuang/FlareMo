@@ -22,30 +22,32 @@ describe("stateless Streamable HTTP MCP", () => {
     mockedRequestContext.getRequestContext.mockResolvedValue({});
   });
 
-  it.each([
-    "2025-03-26",
-    "2024-11-05",
-  ])("negotiates protocol version %s with JSON responses", async (protocolVersion) => {
-    const response = await post(app, "/mcp", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: { protocolVersion },
-    });
+  it.each(["2025-03-26", "2024-11-05"])(
+    "negotiates protocol version %s with JSON responses",
+    async (protocolVersion) => {
+      const response = await post(app, "/mcp", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion },
+      });
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toContain("application/json");
-    expect(await response.json()).toMatchObject({
-      jsonrpc: "2.0",
-      id: 1,
-      result: {
-        protocolVersion,
-        capabilities: { tools: {} },
-        serverInfo: { name: "memos" },
-      },
-    });
-    expect(response.headers.has("mcp-session-id")).toBe(false);
-  });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain(
+        "application/json",
+      );
+      expect(await response.json()).toMatchObject({
+        jsonrpc: "2.0",
+        id: 1,
+        result: {
+          protocolVersion,
+          capabilities: { tools: {} },
+          serverInfo: { name: "memos" },
+        },
+      });
+      expect(response.headers.has("mcp-session-id")).toBe(false);
+    },
+  );
 
   it("acknowledges initialized notifications without creating a session", async () => {
     const response = await post(app, "/mcp", {

@@ -61,7 +61,11 @@ pnpm deploy:preflight
 ```
 
 `pnpm deploy:preflight` 会确认本地发布环境提供了至少 32 个字符的
-`BETTER_AUTH_SECRET`，并拒绝常见占位值。生产发布还必须确认
+`BETTER_AUTH_SECRET`，并拒绝常见占位值。在 CI 构建环境（`CI=true`，如
+Workers Builds / Deploy to Cloudflare）中 preflight 只降级为警告不阻断：
+自动部署环境不携带操作者 secrets，正式 secret 存放在 Worker 的 secret
+store，首次部署后由部署者用 `wrangler secret put` 配置。本地手动发布仍
+强制校验。生产发布还必须确认
 `flaremo-member-removal` Queue 已在目标 Cloudflare 账户创建；`pnpm deploy:dry-run`
 会显示该 Queue、D1、R2、Vectorize、AI 和 Assets binding，但不会创建远程资源。
 
