@@ -3,7 +3,6 @@ import type { Locale } from "@/lib/seo";
 export type HomeContent = {
   heroEyebrow: string;
   heroTitle: string;
-  heroSubtitle: string;
   primaryCta: string;
   featuresHeading: string;
   features: Array<{
@@ -11,7 +10,6 @@ export type HomeContent = {
     description: string;
   }>;
   comparisonHeading: string;
-  comparisonIntro: string;
   comparisonRows: Array<{
     label: string;
     cloudflare: string;
@@ -19,9 +17,7 @@ export type HomeContent = {
     vps: string;
   }>;
   screenshotsHeading: string;
-  screenshotsCaption: string;
   pricingHeading: string;
-  pricingSubtitle: string;
   faqHeading: string;
   faqItems: Array<{
     q: string;
@@ -32,7 +28,6 @@ export type HomeContent = {
 const ZH_HOME: HomeContent = {
   heroEyebrow: "永远在线的个人笔记",
   heroTitle: "搭一个你自己的私人笔记,永远在线、永远不丢",
-  heroSubtitle: "不用买服务器,不用装数据库。手机电脑随时写、随时搜、随时找回。",
   primaryCta: "一键部署",
   featuresHeading: "为什么用 FlareMo",
   features: [
@@ -65,7 +60,6 @@ const ZH_HOME: HomeContent = {
     },
   ],
   comparisonHeading: "为什么云端比家里的硬盘靠谱",
-  comparisonIntro: "",
   comparisonRows: [
     {
       label: "数据存在哪",
@@ -105,9 +99,7 @@ const ZH_HOME: HomeContent = {
     },
   ],
   screenshotsHeading: "长这样",
-  screenshotsCaption: "",
   pricingHeading: "价格",
-  pricingSubtitle: "免费,自己部署。一个 Cloudflare 免费账号就够。",
   faqHeading: "常见问题",
   faqItems: [
     {
@@ -132,8 +124,6 @@ const ZH_HOME: HomeContent = {
 const EN_HOME: HomeContent = {
   heroEyebrow: "Personal notes that stay online",
   heroTitle: "Your private notes. Always online. Always yours.",
-  heroSubtitle:
-    "No server to buy. No database to set up. Write, search, and find anything from any device.",
   primaryCta: "Deploy now",
   featuresHeading: "Why FlareMo",
   features: [
@@ -169,7 +159,6 @@ const EN_HOME: HomeContent = {
     },
   ],
   comparisonHeading: "Why cloud beats the hard drive at home",
-  comparisonIntro: "",
   comparisonRows: [
     {
       label: "Where your data lives",
@@ -209,10 +198,7 @@ const EN_HOME: HomeContent = {
     },
   ],
   screenshotsHeading: "What it looks like",
-  screenshotsCaption: "",
   pricingHeading: "Pricing",
-  pricingSubtitle:
-    "Free, self-hosted. A free Cloudflare account is all you need.",
   faqHeading: "Common questions",
   faqItems: [
     {

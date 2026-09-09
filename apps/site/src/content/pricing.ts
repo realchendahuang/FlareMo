@@ -5,7 +5,6 @@ export type PricingTier = {
   name: string;
   price: string;
   period?: string;
-  tagline: string;
   features: string[];
   cta: string;
   ctaHref: string;
@@ -14,8 +13,6 @@ export type PricingTier = {
 
 export type PricingPage = {
   title: string;
-  subtitle: string;
-  intro: string;
   deploymentHeading: string;
   deploymentRows: Array<{ label: string; value: string }>;
   faqHeading: string;
@@ -30,7 +27,6 @@ const TIERS_ZH: PricingTier[] = [
     name: "Free",
     price: "$0",
     period: "/ 永久",
-    tagline: "完全免费,自己部署",
     features: [
       "一键部署到自己的账号",
       "约 250 万条文字 + 1 万张图片",
@@ -52,7 +48,6 @@ const TIERS_EN: PricingTier[] = [
     name: "Free",
     price: "$0",
     period: "/ forever",
-    tagline: "Free forever, self-host it",
     features: [
       "One-click deploy to your own account",
       "~2.5M text notes + 10k photos",
@@ -70,9 +65,6 @@ const TIERS_EN: PricingTier[] = [
 
 const ZH_PRICING_PAGE: PricingPage = {
   title: "定价",
-  subtitle: "免费,自己部署。一个 Cloudflare 免费账号就够。",
-  intro:
-    "FlareMo 是开源软件,部署到你自己的 Cloudflare 账号,免费额度对个人笔记完全够用。",
   deploymentHeading: "Cloudflare 免费层对照",
   deploymentRows: [
     { label: "D1 数据库存储", value: "5 GB（约 250 万条笔记）" },
@@ -110,9 +102,6 @@ const ZH_PRICING_PAGE: PricingPage = {
 
 const EN_PRICING_PAGE: PricingPage = {
   title: "Pricing",
-  subtitle: "Free, self-hosted. A free Cloudflare account is all you need.",
-  intro:
-    "FlareMo is open source. Deploy it to your own Cloudflare account — the free tier is more than enough for personal notes.",
   deploymentHeading: "Cloudflare free tier reference",
   deploymentRows: [
     { label: "D1 storage", value: "5 GB (~2.5M notes)" },

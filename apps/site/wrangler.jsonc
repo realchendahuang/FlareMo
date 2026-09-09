@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "flaremo-site",
+  "account_id": "4637564ffe56fa1147f68c2c3a7d4772",
   "compatibility_date": "2026-07-10",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {

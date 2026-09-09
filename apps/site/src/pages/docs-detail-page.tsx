@@ -91,9 +91,6 @@ export function DocsDetailPage() {
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
             {doc.title}
           </h1>
-          {doc.description ? (
-            <p className="text-sm text-muted-foreground">{doc.description}</p>
-          ) : null}
         </header>
         <div className="prose-doc">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.body}</ReactMarkdown>

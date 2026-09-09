@@ -13,15 +13,10 @@ export function DocsIndexPage() {
 
   return (
     <main className="container-x py-12">
-      <header className="mb-10 space-y-3">
+      <header className="mb-10">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
           {locale === "zh-CN" ? "文档总览" : "Documentation"}
         </h1>
-        <p className="max-w-2xl text-base text-muted-foreground">
-          {locale === "zh-CN"
-            ? "所有文档镜像自仓库 docs/，包含部署、架构、兼容矩阵、Agent 集成与参考。"
-            : "All docs mirror the repository docs/ directory — deployment, architecture, compatibility, agent integrations, and reference."}
-        </p>
       </header>
       <div className="space-y-10">
         {groups.map((group) => {
@@ -43,11 +38,6 @@ export function DocsIndexPage() {
                         <div className="text-sm font-semibold tracking-tight text-foreground">
                           {doc.title}
                         </div>
-                        {doc.description ? (
-                          <div className="text-xs text-muted-foreground">
-                            {doc.description}
-                          </div>
-                        ) : null}
                       </div>
                       <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                     </Link>

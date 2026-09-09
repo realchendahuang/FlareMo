@@ -13,24 +13,18 @@ export function PricingPage() {
   return (
     <main>
       <header className="border-b border-border/60 bg-gradient-to-b from-background to-flame-50/40 py-16">
-        <div className="container-x space-y-4 text-center">
+        <div className="container-x text-center">
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
             {page.title}
           </h1>
-          <p className="mx-auto max-w-2xl text-base text-muted-foreground">
-            {page.subtitle}
-          </p>
-          <p className="mx-auto max-w-3xl text-sm leading-6 text-muted-foreground">
-            {page.intro}
-          </p>
         </div>
       </header>
 
       <section className="container-x py-16">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="flex flex-wrap justify-center gap-6">
           {tiers.map((tier) => (
             <article
-              className="flex flex-col rounded-2xl border border-border/60 bg-background p-6 shadow-xs transition-shadow"
+              className="flex w-full max-w-sm flex-col rounded-2xl border border-border/60 bg-background p-6 shadow-xs transition-shadow"
               key={tier.id}
             >
               <h2 className="text-lg font-semibold tracking-tight">
@@ -46,9 +40,6 @@ export function PricingPage() {
                   </span>
                 ) : null}
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {tier.tagline}
-              </p>
               <ul className="mt-5 space-y-2 text-sm">
                 {tier.features.map((f) => (
                   <li className="flex gap-2" key={f}>
