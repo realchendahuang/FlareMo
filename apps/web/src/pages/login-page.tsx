@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { Link, Navigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { getBootstrapStatus, getRegistrationStatus } from "@/api";
 import { authClient } from "@/auth-client";
@@ -11,7 +11,10 @@ import { errorMessage } from "@/lib/error";
 
 export function LoginPage() {
   const { t } = useI18n();
-  const navigate = useNavigate({ from: "/login" });
+  // Preserved by the auth guard when it bounces an unauthenticated visitor;
+  // validated same-origin at the route, so this is safe to navigate to after
+  // sign-in.
+  const { redirect } = useSearch({ from: "/login" });
   const session = authClient.useSession();
   const bootstrapQuery = useQuery({
     queryKey: ["auth-bootstrap-status"],
@@ -29,6 +32,12 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (session.data?.user) {
+    // Single navigation owner: the session render branch decides where to go,
+    // so post-sign-in routing never races itself. Ignore redirect values that
+    // point back at the login flow (they would recurse).
+    if (redirect && !redirect.startsWith("/login")) {
+      return <Navigate replace to={redirect} />;
+    }
     return (
       <Navigate
         replace
@@ -63,16 +72,6 @@ export function LoginPage() {
         throw result.error;
       }
       setPassword("");
-      await navigate({
-        replace: true,
-        search: {
-          q: undefined,
-          tag: undefined,
-          view: undefined,
-          untagged: undefined,
-        },
-        to: "/",
-      });
     } catch (error) {
       setFormError(errorMessage(error, t("auth.loginFailed")));
     } finally {

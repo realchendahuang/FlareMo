@@ -29,7 +29,7 @@ export default defineConfig({
     {
       name: "auth-ui",
       dependencies: ["auth-contract"],
-      testMatch: /auth-ui-flow\.spec\.ts/,
+      testMatch: /(auth-ui-flow|auth-redirect)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: E2E_AUTH_STATE,

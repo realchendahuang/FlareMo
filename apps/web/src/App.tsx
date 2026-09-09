@@ -1,13 +1,4 @@
-import type { ListMemosResponse } from "@flaremo/contracts";
-import {
-  type InfiniteData,
-  type QueryClient,
-  type QueryKey,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   DownloadIcon,
@@ -28,27 +19,12 @@ import {
 } from "react";
 import { toast } from "sonner";
 import {
-  ApiError,
-  createExportTask,
-  createImportTask,
-  createShare,
-  deleteTag,
-  downloadExportJson,
-  exportDataInline,
-  getDataTask,
   getMemoStats,
   getTagHierarchy,
   getVectorUsage,
-  hardDeleteMemo,
   listMemos,
-  type Memo,
-  type MemoState,
   type MemoStatsResponse,
-  renameTag,
-  type Share,
   semanticSearchMemos,
-  trashMemo,
-  updateMemo,
 } from "@/api";
 import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
@@ -64,11 +40,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { UpdateStatus } from "@/components/update-status";
+import { useDataTransfer } from "@/hooks/use-data-transfer";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useMemoMutations, viewToMemoState } from "@/hooks/use-memo-mutations";
 import { useNewMemoCapture } from "@/hooks/use-new-memo-capture";
 import { type TranslationKey, useI18n } from "@/i18n";
-import { downloadBlobFile, downloadJsonFile } from "@/lib/download";
-import { errorMessage } from "@/lib/error";
 import {
   enqueueMemoSubmission,
   flushQueuedMemoSubmissions,
@@ -77,13 +53,13 @@ import {
   type MemoCaptureInput,
 } from "@/lib/local-memo-capture";
 import {
-  createMemoWithAttachments,
   shouldContinueQueuedSubmissionAfterFailure,
   shouldQueueAfterFailure,
   validateMemoCaptureSubmission,
 } from "@/lib/memo-submission";
 import { cn } from "@/lib/utils";
-import { AppRoutes, indexRoute } from "@/router-tree";
+import { AppRoutes } from "@/router-tree";
+import { indexRoute, registerWorkspaceComponent } from "@/routes/index-route";
 
 const PAGE_SIZE = 30;
 const EMPTY_STATS: MemoStatsResponse = {
@@ -93,9 +69,13 @@ const EMPTY_STATS: MemoStatsResponse = {
   activity: [],
 };
 
+// Breaks the App ↔ router-tree import cycle: the route tree renders the
+// workspace through this registry instead of importing `@/App`. Module-eval
+// order guarantees registration before the router's first render.
+registerWorkspaceComponent(FlareMoApp);
+
 export function FlareMoApp() {
   const { t, toggleLocale } = useI18n();
-  const queryClient = useQueryClient();
   const navigate = useNavigate({ from: "/" });
   const search = indexRoute.useSearch();
   const view = search.view ?? "all";
@@ -132,9 +112,6 @@ export function FlareMoApp() {
         view: q.trim() ? "all" : view,
       }),
     });
-  const [sharesByMemo, setSharesByMemo] = useState<Map<string, Share>>(
-    new Map(),
-  );
   const [timeZone] = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
@@ -260,129 +237,24 @@ export function FlareMoApp() {
   );
   const stats = statsQuery.data ?? EMPTY_STATS;
 
-  // Memo detail pages subscribe to ["memo-context", id] and
-  // ["memo-related", id]; prefix invalidation keeps edits and visibility
-  // changes from serving stale detail data.
-  const invalidateWorkspace = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["memos"] }),
-      queryClient.invalidateQueries({ queryKey: ["memo-stats"] }),
-      queryClient.invalidateQueries({ queryKey: ["tag-hierarchy"] }),
-      queryClient.invalidateQueries({ queryKey: ["memo-context"] }),
-      queryClient.invalidateQueries({ queryKey: ["memo-related"] }),
-    ]);
-  const handleMutationError = (error: unknown) => {
-    if (
-      error instanceof ApiError &&
-      (error.status === 401 || error.status === 403)
-    ) {
-      toast.error(t("toast.accessRequired"));
-      return;
-    }
-    toast.error(errorMessage(error, t("toast.requestFailed")));
-  };
+  const {
+    createMemoAsync,
+    isCreatingMemo,
+    deleteTagMutation,
+    handleMutationError,
+    hardDeleteMutation,
+    invalidateWorkspace,
+    renameTagMutation,
+    restoreMutation,
+    sharesByMemo,
+    shareMutation,
+    trashMutation,
+    updateMutation,
+  } = useMemoMutations();
 
-  const { mutateAsync: createMemoAsync, isPending: isCreatingMemo } =
-    useMutation({
-      mutationFn: createMemoWithAttachments,
-      onSuccess: () => {
-        void invalidateWorkspace();
-      },
-      // A memo can be created before one of its attachment uploads loses the
-      // network response. Refresh the list even on failure so the durable
-      // memo is not hidden while its queued attachment retry is pending.
-      onError: () => {
-        void invalidateWorkspace();
-      },
-    });
-
-  const trashMutation = useMutation({
-    mutationFn: trashMemo,
-    onMutate: (id) =>
-      optimisticallyPatchMemo(queryClient, id, { state: "trashed" }),
-    onSuccess: () => {
-      toast.success(t("toast.movedToTrash"));
-    },
-    onError: (error, _id, snapshot) => {
-      restoreMemoSnapshot(queryClient, snapshot);
-      handleMutationError(error);
-    },
-    onSettled: () => void invalidateWorkspace(),
-  });
-
-  const renameTagMutation = useMutation({
-    mutationFn: renameTag,
-    onError: (error) => {
-      handleMutationError(error);
-      toast.error(t("explorer.tagRenameFailed"));
-    },
-    onSettled: () => void invalidateWorkspace(),
-  });
-
-  const deleteTagMutation = useMutation({
-    mutationFn: deleteTag,
-    onError: (error) => {
-      handleMutationError(error);
-      toast.error(t("explorer.tagDeleteFailed"));
-    },
-    onSuccess: () => toast.success(t("explorer.tagDeleted")),
-    onSettled: () => void invalidateWorkspace(),
-  });
-
-  const restoreMutation = useMutation({
-    mutationFn: (id: string) => updateMemo(id, { status: "normal" }),
-    onMutate: (id) =>
-      optimisticallyPatchMemo(queryClient, id, { state: "normal" }),
-    onSuccess: () => {
-      toast.success(t("toast.restored"));
-    },
-    onError: (error, _id, snapshot) => {
-      restoreMemoSnapshot(queryClient, snapshot);
-      handleMutationError(error);
-    },
-    onSettled: () => void invalidateWorkspace(),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: Parameters<typeof updateMemo>[1];
-    }) => updateMemo(id, input),
-    onMutate: ({ id, input }) =>
-      optimisticallyPatchMemo(queryClient, id, memoPatchFromUpdate(input)),
-    onSuccess: () => {
-      toast.success(t("toast.updated"));
-    },
-    onError: (error, _variables, snapshot) => {
-      restoreMemoSnapshot(queryClient, snapshot);
-      handleMutationError(error);
-    },
-    onSettled: () => void invalidateWorkspace(),
-  });
-
-  const hardDeleteMutation = useMutation({
-    mutationFn: hardDeleteMemo,
-    onMutate: (id) => optimisticallyPatchMemo(queryClient, id, null),
-    onSuccess: () => {
-      toast.success(t("toast.deleted"));
-    },
-    onError: (error, _id, snapshot) => {
-      restoreMemoSnapshot(queryClient, snapshot);
-      handleMutationError(error);
-    },
-    onSettled: () => void invalidateWorkspace(),
-  });
-
-  const shareMutation = useMutation({
-    mutationFn: createShare,
-    onSuccess: (share) => {
-      setSharesByMemo((current) => new Map(current).set(share.memo, share));
-      toast.success(t("toast.shareCreated"));
-    },
-    onError: handleMutationError,
+  const { handleExport, handleImportFile } = useDataTransfer({
+    handleMutationError,
+    invalidateWorkspace,
   });
 
   const flushQueuedCaptures = useCallback(async () => {
@@ -484,83 +356,6 @@ export function FlareMoApp() {
       isCaptureSubmitting.current = false;
       setIsCaptureSubmissionPending(false);
     }
-  };
-
-  const handleExport = async () => {
-    // Prefer the inline endpoint for small workspaces so the downloaded file
-    // is a complete, immediately restorable Memos bundle. The worker returns
-    // 413 when the payload would exceed its safe response budget.
-    try {
-      const bundle = await exportDataInline(true);
-      downloadJsonFile(
-        bundle,
-        `flaremo-export-${new Date().toISOString()}.json`,
-      );
-      toast.success(t("toast.exportInlineDone"));
-      return;
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 413) {
-        handleMutationError(error);
-        return;
-      }
-    }
-
-    try {
-      const { task } = await createExportTask();
-      toast.success(t("toast.exportStarted"));
-      const finished = await pollDataTask(task.id);
-      if (finished.status !== "succeeded") {
-        toast.error(
-          t("toast.exportFailed", {
-            message: finished.error_message ?? finished.status,
-          }),
-        );
-        return;
-      }
-      const blob = await downloadExportJson(finished.id);
-      downloadBlobFile(blob, `flaremo-export-${new Date().toISOString()}.json`);
-      toast.success(t("toast.exportManifestDone"));
-    } catch (error) {
-      handleMutationError(error);
-    }
-  };
-
-  const handleImportFile = async (bundle: unknown) => {
-    try {
-      const { task, result } = await createImportTask({ bundle });
-      toast.success(t("toast.importStarted"));
-      if (task.status !== "succeeded") {
-        toast.error(
-          t("toast.importFailed", {
-            message: task.error_message ?? task.status,
-          }),
-        );
-        return;
-      }
-      toast.success(t("toast.importDone", { count: result.imported_memos }));
-      void invalidateWorkspace();
-    } catch (error) {
-      handleMutationError(error);
-    }
-  };
-
-  const pollDataTask = async (id: string) => {
-    // A task can be left queued when a request is interrupted. Bound the
-    // browser wait so the UI never spins forever; the task remains inspectable
-    // through the API and can be retried by a later export.
-    for (let attempt = 0; attempt < 120; attempt += 1) {
-      const { task } = await getDataTask(id);
-      if (
-        task.status === "succeeded" ||
-        task.status === "failed" ||
-        task.status === "expired"
-      ) {
-        return task;
-      }
-      toast(t("toast.taskPending"), { id: "data-task-pending" });
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-    throw new Error(t("toast.taskTimeout"));
   };
 
   const renderExplorer = (importInputId: string, onNavigate?: () => void) => (
@@ -898,73 +693,6 @@ function SearchBox({
       </div>
     </div>
   );
-}
-
-type MemoSnapshot = Array<
-  [QueryKey, InfiniteData<ListMemosResponse> | undefined]
->;
-
-async function optimisticallyPatchMemo(
-  queryClient: QueryClient,
-  id: string,
-  patch: Partial<Memo> | null,
-): Promise<MemoSnapshot> {
-  await queryClient.cancelQueries({ queryKey: ["memos"] });
-  const snapshots = queryClient.getQueriesData<InfiniteData<ListMemosResponse>>(
-    {
-      queryKey: ["memos"],
-    },
-  );
-
-  for (const [queryKey, data] of snapshots) {
-    if (!data) continue;
-    const view = queryKey[1] as ViewMode | undefined;
-    queryClient.setQueryData<InfiniteData<ListMemosResponse>>(queryKey, {
-      ...data,
-      pages: data.pages.map((page) => ({
-        ...page,
-        memos: page.memos.flatMap((memo) => {
-          if (memo.id !== id && memo.name !== id) return [memo];
-          if (!patch) return [];
-          const next = {
-            ...memo,
-            ...patch,
-            update_time: new Date().toISOString(),
-          };
-          return view && next.state !== viewToMemoState(view) ? [] : [next];
-        }),
-      })),
-    });
-  }
-
-  return snapshots;
-}
-
-function restoreMemoSnapshot(
-  queryClient: QueryClient,
-  snapshot: MemoSnapshot | undefined,
-) {
-  for (const [queryKey, data] of snapshot ?? []) {
-    queryClient.setQueryData(queryKey, data);
-  }
-}
-
-function memoPatchFromUpdate(
-  input: Parameters<typeof updateMemo>[1],
-): Partial<Memo> {
-  return {
-    ...(input.content !== undefined ? { content: input.content } : {}),
-    ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
-    ...(input.status !== undefined ? { state: input.status } : {}),
-    ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
-    ...(input.payload !== undefined ? { payload: input.payload } : {}),
-  };
-}
-
-function viewToMemoState(view: ViewMode): MemoState {
-  if (view === "archived") return "archived";
-  if (view === "trashed") return "trashed";
-  return "normal";
 }
 
 function viewTitle(view: ViewMode, t: (key: TranslationKey) => string) {

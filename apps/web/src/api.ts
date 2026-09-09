@@ -300,12 +300,6 @@ export async function createMemory(input: CreateMemoryRequest) {
   });
 }
 
-export async function getMemory(id: string) {
-  return apiRequest<{ memory: Memory }>(
-    `/api/app/memory/${encodeURIComponent(id)}`,
-  );
-}
-
 export async function updateMemory(id: string, input: UpdateMemoryRequest) {
   return apiRequest<{ memory: Memory }>(
     `/api/app/memory/${encodeURIComponent(id)}`,
@@ -350,12 +344,6 @@ export async function archiveMemory(id: string) {
 export async function listMemoryRevisions(id: string) {
   return apiRequest<{ revisions: MemoryRevision[] }>(
     `/api/app/memory/${encodeURIComponent(id)}/revisions`,
-  );
-}
-
-export async function listMemoryRelations(id: string) {
-  return apiRequest<{ relations: MemoryRelation[] }>(
-    `/api/app/memory/${encodeURIComponent(id)}/relations`,
   );
 }
 

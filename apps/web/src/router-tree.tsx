@@ -1,22 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query";
 import {
-  createRootRoute,
   createRoute,
   createRouter,
-  Navigate,
-  Outlet,
   RouterProvider,
-  useRouter,
 } from "@tanstack/react-router";
-import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
-import { FlareMoApp } from "@/App";
-import { AUTHENTICATION_REQUIRED_EVENT } from "@/api";
-import { authClient } from "@/auth-client";
-import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
-import { Button } from "@/components/ui/button";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useI18n } from "@/i18n";
+import { AuthenticatedRoute } from "@/routes/authenticated-route";
+import { indexRoute } from "@/routes/index-route";
+import { rootRoute } from "@/routes/root-route";
+import { RouteLoading } from "@/routes/route-loading";
 
 const MemoDetailPage = lazy(() =>
   import("@/pages/memo-detail-page").then((module) => ({
@@ -94,24 +87,6 @@ const ProjectsPage = lazy(() =>
   })),
 );
 
-const rootRoute = createRootRoute({
-  component: () => <Outlet />,
-  errorComponent: RouteErrorPage,
-});
-
-export const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
-  component: ProtectedWorkspaceRoutePage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    view: isViewMode(search.view) ? search.view : undefined,
-    q: typeof search.q === "string" && search.q ? search.q : undefined,
-    tag: typeof search.tag === "string" && search.tag ? search.tag : undefined,
-    untagged:
-      search.untagged === true || search.untagged === "true" ? true : undefined,
-  }),
-});
-
 function PublicShareRoutePage() {
   const { token } = shareRoute.useParams();
   return (
@@ -144,14 +119,6 @@ const memoRoute = createRoute({
   component: MemoDetailRoutePage,
 });
 
-function ProtectedWorkspaceRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <FlareMoApp />
-    </AuthenticatedRoute>
-  );
-}
-
 function LoginRoutePage() {
   return (
     <Suspense fallback={<RouteLoading />}>
@@ -164,6 +131,18 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginRoutePage,
+  // The auth guard preserves the intended destination under `redirect`;
+  // only same-origin relative paths are accepted (open-redirect guard).
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+    if (
+      typeof search.redirect === "string" &&
+      search.redirect.startsWith("/") &&
+      !search.redirect.startsWith("//")
+    ) {
+      return { redirect: search.redirect };
+    }
+    return {};
+  },
 });
 
 function RegisterRoutePage() {
@@ -362,68 +341,6 @@ const projectsRoute = createRoute({
   path: "/projects",
   component: ProjectsRoutePage,
 });
-
-function AuthenticatedRoute({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
-  const session = authClient.useSession();
-  const [authenticationRequired, setAuthenticationRequired] = useState(false);
-
-  useEffect(() => {
-    const handleAuthenticationRequired = () => {
-      queryClient.clear();
-      setAuthenticationRequired(true);
-    };
-    window.addEventListener(
-      AUTHENTICATION_REQUIRED_EVENT,
-      handleAuthenticationRequired,
-    );
-    return () =>
-      window.removeEventListener(
-        AUTHENTICATION_REQUIRED_EVENT,
-        handleAuthenticationRequired,
-      );
-  }, [queryClient]);
-
-  if (session.isPending) {
-    return <RouteLoading />;
-  }
-  if (authenticationRequired || !session.data?.user) {
-    return <Navigate replace to="/login" />;
-  }
-  return children;
-}
-
-// TanStack Router's ErrorComponentProps carries `error: unknown`; narrow it
-// defensively instead of assuming an Error instance.
-function RouteErrorPage({ error }: { error: unknown }) {
-  const { t } = useI18n();
-  const router = useRouter();
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col items-center justify-center gap-4 px-5 text-center">
-      <div>
-        <h1 className="text-lg font-semibold">{t("list.errorTitle")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{message}</p>
-      </div>
-      <Button onClick={() => void router.invalidate()}>
-        {t("common.retry")}
-      </Button>
-    </main>
-  );
-}
-
-function RouteLoading() {
-  const { t } = useI18n();
-  return (
-    <main className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">
-      {t("common.loading")}
-    </main>
-  );
-}
-
-function isViewMode(value: unknown): value is ViewMode {
-  return value === "all" || value === "archived" || value === "trashed";
-}
 
 const router = createRouter({
   defaultPreload: "intent",
