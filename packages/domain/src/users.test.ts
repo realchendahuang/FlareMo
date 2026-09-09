@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { UserRow } from "@flaremo/db";
-import { createDb, memos } from "@flaremo/db";
+import { createDb, memos, users } from "@flaremo/db";
 import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ConflictError, ValidationError } from "./errors";
+import { ConflictError, ForbiddenError, ValidationError } from "./errors";
 import { createMemo } from "./memos";
 import {
   beginFlaremoMemberRemoval,
@@ -152,5 +152,90 @@ describe("updateFlaremoUserEmail", () => {
     expect((await updateFlaremoUserRole(db, member.id, "member")).role).toBe(
       "member",
     );
+  });
+
+  it("removes a second administrator while the owner stays active", async () => {
+    const secondAdmin = await createFlaremoMember(db, {
+      email: "second-admin@example.com",
+      name: "Second Admin",
+    });
+    await updateFlaremoUserRole(db, secondAdmin.id, "admin");
+
+    const artifacts = await beginFlaremoMemberRemoval(db, secondAdmin.id);
+    await finalizeFlaremoMemberRemoval(db, secondAdmin.id, artifacts);
+    expect((await getFlaremoUserById(db, secondAdmin.id))?.status).toBe(
+      "removed",
+    );
+    expect((await getFlaremoUserById(db, user.id))?.status).toBe("active");
+  });
+
+  it("rejects demoting the last active administrator", async () => {
+    const lastAdmin = await createFlaremoMember(db, {
+      email: "last-admin@example.com",
+      name: "Last Admin",
+    });
+    await updateFlaremoUserRole(db, lastAdmin.id, "admin");
+    // Simulate a degraded deployment whose owner row is no longer an active
+    // administrator; the guard must then keep `lastAdmin` in place.
+    await db
+      .update(users)
+      .set({ status: "removed" })
+      .where(eq(users.id, user.id));
+
+    const error = await updateFlaremoUserRole(db, lastAdmin.id, "member").then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect((error as Error).message).toBe(
+      "The last active administrator cannot be changed.",
+    );
+    expect((await getFlaremoUserById(db, lastAdmin.id))?.role).toBe("admin");
+    expect((await getFlaremoUserById(db, lastAdmin.id))?.status).toBe("active");
+  });
+
+  it("rejects removing the last active administrator", async () => {
+    const lastAdmin = await createFlaremoMember(db, {
+      email: "last-admin@example.com",
+      name: "Last Admin",
+    });
+    await updateFlaremoUserRole(db, lastAdmin.id, "admin");
+    await db
+      .update(users)
+      .set({ status: "removed" })
+      .where(eq(users.id, user.id));
+
+    const error = await beginFlaremoMemberRemoval(db, lastAdmin.id).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect((error as Error).message).toBe(
+      "The last active administrator cannot be changed.",
+    );
+    expect((await getFlaremoUserById(db, lastAdmin.id))?.status).toBe("active");
+  });
+
+  it("rejects demoting or removing the owner account", async () => {
+    const roleError = await updateFlaremoUserRole(db, user.id, "member").then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+    expect(roleError).toBeInstanceOf(ForbiddenError);
+    expect((roleError as Error).message).toBe(
+      "The owner role cannot be changed.",
+    );
+
+    const removalError = await beginFlaremoMemberRemoval(db, user.id).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+    expect(removalError).toBeInstanceOf(ForbiddenError);
+    expect((removalError as Error).message).toBe(
+      "The owner account cannot be removed.",
+    );
+
+    const owner = await getFlaremoUserById(db, user.id);
+    expect(owner).toMatchObject({ role: "owner", status: "active" });
   });
 });

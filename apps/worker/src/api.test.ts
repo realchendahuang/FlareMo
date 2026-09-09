@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type {
   DeleteTagResponse,
@@ -11,7 +11,7 @@ import type {
 } from "@flaremo/contracts";
 import { FLAREMO_API_VERSION } from "@flaremo/contracts";
 import { createDb, memos } from "@flaremo/db";
-import { SELF_HOST_UNLIMITED } from "@flaremo/domain";
+import { createMemberRemovalJob, SELF_HOST_UNLIMITED } from "@flaremo/domain";
 import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -2521,6 +2521,466 @@ describe("FlareMo Worker API", () => {
         .creator_name,
     ).toBe("Team Member");
   });
+
+  it("protects the last active administrator through the admin API", async () => {
+    const secondAdmin = await createActivatedMember(
+      "second-admin@example.com",
+      "Second Admin",
+    );
+    const setRole = (
+      memberId: string,
+      role: "admin" | "member",
+      cookie: string,
+    ) =>
+      app.fetch(
+        new Request(
+          `http://flaremo.test/api/app/admin/users/${encodeURIComponent(memberId)}/role`,
+          {
+            method: "PATCH",
+            headers: {
+              "content-type": "application/json",
+              cookie,
+              origin: "http://flaremo.test",
+            },
+            body: JSON.stringify({ role }),
+          },
+        ),
+        env,
+      );
+
+    expect((await setRole(secondAdmin.id, "admin", sessionCookie)).status).toBe(
+      200,
+    );
+    // Demoting the second administrator succeeds while the owner remains the
+    // other active administrator.
+    const demoted = await setRole(secondAdmin.id, "member", sessionCookie);
+    expect(demoted.status).toBe(200);
+    expect((await demoted.json<{ role: string }>()).role).toBe("member");
+    expect((await setRole(secondAdmin.id, "admin", sessionCookie)).status).toBe(
+      200,
+    );
+
+    // With the owner as the last active administrator, demoting or removing it
+    // must fail closed even when another administrator issues the request.
+    const demoteOwner = await setRole(
+      "users/owner",
+      "member",
+      secondAdmin.cookie,
+    );
+    expect(demoteOwner.status).toBe(403);
+    expect(await demoteOwner.json()).toEqual({
+      error: { message: "The owner role cannot be changed." },
+    });
+
+    const removeOwner = await app.fetch(
+      new Request(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent("users/owner")}`,
+        {
+          method: "DELETE",
+          headers: {
+            cookie: secondAdmin.cookie,
+            origin: "http://flaremo.test",
+          },
+        },
+      ),
+      env,
+    );
+    expect(removeOwner.status).toBe(403);
+    expect(await removeOwner.json()).toEqual({
+      error: { message: "The owner account cannot be removed." },
+    });
+
+    const removeSelf = await app.fetch(
+      new Request(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent(secondAdmin.id)}`,
+        {
+          method: "DELETE",
+          headers: {
+            cookie: secondAdmin.cookie,
+            origin: "http://flaremo.test",
+          },
+        },
+      ),
+      env,
+    );
+    expect(removeSelf.status).toBe(403);
+    expect(await removeSelf.json()).toEqual({
+      error: { message: "You cannot remove yourself from the team." },
+    });
+
+    const members = await json<{
+      users: Array<{ id: string; role: string; status: string }>;
+    }>(await fetchApp("http://flaremo.test/api/app/admin/users"));
+    expect(members.users.find((user) => user.id === "users/owner")).toEqual(
+      expect.objectContaining({ role: "owner", status: "active" }),
+    );
+  });
+
+  it("invalidates a removed member's personal access token", async () => {
+    const member = await createActivatedMember(
+      "pat-member@example.com",
+      "Pat Member",
+    );
+    const createdToken = await json<{
+      token: string;
+      personal_access_token: { id: string; enabled: boolean };
+    }>(
+      await app.fetch(
+        new Request(
+          "http://flaremo.test/api/app/account/personal-access-tokens",
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              cookie: member.cookie,
+              origin: "http://flaremo.test",
+            },
+            body: JSON.stringify({ name: "CLI token", expires_in_days: 30 }),
+          },
+        ),
+        env,
+      ),
+    );
+    expect(createdToken.token).toMatch(/^memos_pat_/);
+    expect(createdToken.personal_access_token.enabled).toBe(true);
+
+    const patMemosBefore = await app.fetch(
+      new Request("http://flaremo.test/api/v1/memos", {
+        headers: {
+          authorization: `Bearer ${createdToken.token}`,
+          "x-flaremo-wire": "legacy",
+        },
+      }),
+      env,
+    );
+    expect(patMemosBefore.status).toBe(200);
+
+    await json(
+      await fetchApp(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent(member.id)}`,
+        { method: "DELETE" },
+      ),
+    );
+
+    const patMemosAfter = await app.fetch(
+      new Request("http://flaremo.test/api/v1/memos", {
+        headers: {
+          authorization: `Bearer ${createdToken.token}`,
+          "x-flaremo-wire": "legacy",
+        },
+      }),
+      env,
+    );
+    expect(patMemosAfter.status).toBe(401);
+    // A PAT must not reach the browser-facing surface either.
+    const patAppHealth = await app.fetch(
+      new Request("http://flaremo.test/api/app/health", {
+        headers: { authorization: `Bearer ${createdToken.token}` },
+      }),
+      env,
+    );
+    expect(patAppHealth.status).toBe(401);
+  });
+
+  it("replays member removal without deleting retained team or public content", async () => {
+    const removed = await createActivatedMember(
+      "replay-removed@example.com",
+      "Replay Removed",
+    );
+    const spectator = await createActivatedMember(
+      "replay-spectator@example.com",
+      "Replay Spectator",
+    );
+
+    const removedPrivateId = await createMemoAs(
+      removed.cookie,
+      "replay private",
+      "private",
+    );
+    const removedTeamId = await createMemoAs(
+      removed.cookie,
+      "replay team",
+      "protected",
+    );
+    const removedPublicId = await createMemoAs(
+      removed.cookie,
+      "replay public",
+      "public",
+    );
+    const spectatorTeamId = await createMemoAs(
+      spectator.cookie,
+      "spectator team",
+      "protected",
+    );
+    const ownerAnchor = await createMemo<{ id: string }>("owner replay anchor");
+
+    await json(
+      await fetchApp(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent(removed.id)}`,
+        { method: "DELETE" },
+      ),
+    );
+
+    // Replay the same removal through the shared queued-job executor; a
+    // retried or doubly-queued job must be a safe no-op.
+    const replayJob = await createMemberRemovalJob(
+      createDb(env.DB),
+      removed.id,
+      "users/owner",
+    );
+    await app.scheduled(
+      { scheduledTime: Date.now() } as ScheduledController,
+      env,
+    );
+
+    const job = await json<{ job: { status: string; phase: string } }>(
+      await fetchApp(
+        `http://flaremo.test/api/app/admin/member-removal-jobs/${replayJob.id}`,
+      ),
+    );
+    expect(job.job).toMatchObject({ status: "completed", phase: "completed" });
+
+    const readMemo = (memoId: string) =>
+      fetchApp(`http://flaremo.test/api/app/memos/${memoId}`);
+    expect((await readMemo(removedPrivateId)).status).toBe(404);
+
+    const retainedRows = await env.DB.prepare(
+      "SELECT id, visibility, user_id FROM memos WHERE id IN (?, ?, ?, ?, ?)",
+    )
+      .bind(
+        `memos/${removedPrivateId}`,
+        `memos/${removedTeamId}`,
+        `memos/${removedPublicId}`,
+        `memos/${spectatorTeamId}`,
+        `memos/${ownerAnchor.id}`,
+      )
+      .all<{ id: string; visibility: string; user_id: string }>();
+    const retained = new Map(retainedRows.results.map((row) => [row.id, row]));
+    expect(retained.has(`memos/${removedPrivateId}`)).toBe(false);
+    expect(retained.get(`memos/${removedTeamId}`)).toMatchObject({
+      visibility: "protected",
+      user_id: removed.id,
+    });
+    expect(retained.get(`memos/${removedPublicId}`)).toMatchObject({
+      visibility: "public",
+      user_id: removed.id,
+    });
+    expect(retained.get(`memos/${spectatorTeamId}`)).toMatchObject({
+      visibility: "protected",
+      user_id: spectator.id,
+    });
+    expect(retained.get(`memos/${ownerAnchor.id}`)).toMatchObject({
+      user_id: "users/owner",
+    });
+
+    // The retained team memo still renders with its historical author name.
+    const teamRead = await json<{
+      memo: { creator_name?: string; visibility: string };
+    }>(await readMemo(removedTeamId));
+    expect(teamRead.memo).toMatchObject({
+      creator_name: "Replay Removed",
+      visibility: "protected",
+    });
+    expect((await readMemo(removedPublicId)).status).toBe(200);
+    expect((await readMemo(spectatorTeamId)).status).toBe(200);
+    expect((await readMemo(ownerAnchor.id)).status).toBe(200);
+
+    const spectatorRow = await env.DB.prepare(
+      "SELECT status FROM users WHERE id = ?",
+    )
+      .bind(spectator.id)
+      .first<{ status: string }>();
+    expect(spectatorRow?.status).toBe("active");
+  });
+
+  it("converts legacy protected memos to private during the team-mode upgrade", async () => {
+    // Rebuild the shared harness so migration 0014 runs on top of legacy data
+    // instead of over an empty database.
+    await mf.dispose();
+    mf = new Miniflare({
+      script: "export default { fetch() { return new Response('ok') } }",
+      modules: true,
+      compatibilityDate: "2026-07-10",
+      compatibilityFlags: ["nodejs_compat"],
+      d1Databases: { DB: "flaremo-upgrade-test" },
+      r2Buckets: { ATTACHMENTS: "flaremo-attachments-upgrade-test" },
+    });
+    const database = await mf.getD1Database("DB");
+    env = {
+      ...env,
+      DB: database,
+      ATTACHMENTS: await mf.getR2Bucket("ATTACHMENTS"),
+    } as Env;
+
+    const migrationNames = (
+      await readdir(resolve(import.meta.dirname, "../../../migrations"))
+    )
+      .filter((name) => name.endsWith(".sql"))
+      .sort();
+    const applyNamedMigrations = async (names: string[]) => {
+      for (const name of names) {
+        await applyMigration(
+          database,
+          await readFile(
+            resolve(import.meta.dirname, "../../../migrations", name),
+            "utf8",
+          ),
+        );
+      }
+    };
+
+    // A pre-team-mode deployment: no users.status column, `protected` in use.
+    await applyNamedMigrations(migrationNames.filter((name) => name < "0014_"));
+    await database
+      .prepare(
+        "INSERT INTO users (id, email, name, role, created_at, updated_at) VALUES ('users/owner', 'owner@example.com', 'Owner', 'owner', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+      )
+      .run();
+    const seedLegacyMemo = (id: string, visibility: string) =>
+      database
+        .prepare(
+          "INSERT INTO memos (id, user_id, content, visibility, created_at, updated_at) VALUES (?, 'users/owner', ?, ?, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+        )
+        .bind(id, `legacy ${visibility} memo`, visibility)
+        .run();
+    await seedLegacyMemo("memos/legacy-team", "protected");
+    await seedLegacyMemo("memos/legacy-public", "public");
+
+    await applyNamedMigrations(
+      migrationNames.filter((name) => name >= "0014_"),
+    );
+    sessionCookie = await bootstrapAndSignIn();
+
+    const upgraded = await database
+      .prepare(
+        "SELECT id, visibility FROM memos WHERE id LIKE 'memos/legacy-%'",
+      )
+      .all<{ id: string; visibility: string }>();
+    expect(
+      Object.fromEntries(
+        upgraded.results.map((row) => [row.id, row.visibility]),
+      ),
+    ).toEqual({
+      "memos/legacy-team": "private",
+      "memos/legacy-public": "public",
+    });
+
+    // The converted memo keeps working as the owner's private note. The app
+    // route takes the bare id and resolves the `memos/`-prefixed row itself.
+    const context = await json<{
+      memo: { visibility: string; content: string };
+    }>(await fetchApp("http://flaremo.test/api/app/memos/legacy-team"));
+    expect(context.memo).toMatchObject({
+      visibility: "private",
+      content: "legacy protected memo",
+    });
+  });
+
+  it("rejects public registration while the deployment default keeps it closed", async () => {
+    const status = await json<{ registration_open: boolean }>(
+      await fetchApp("http://flaremo.test/api/auth/flaremo/register/status"),
+    );
+    expect(status.registration_open).toBe(false);
+
+    const settings = await json<{ registration_open: boolean }>(
+      await fetchApp("http://flaremo.test/api/app/admin/settings"),
+    );
+    expect(settings.registration_open).toBe(false);
+
+    const closed = await fetchApp(
+      "http://flaremo.test/api/auth/flaremo/register",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          // fetchApp only auto-supplies the origin on /api/app and /api/v1
+          // paths; the anonymous register endpoint needs it explicitly.
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          name: "Member",
+          email: "closed-default@example.com",
+          password: TEST_PASSWORD,
+        }),
+      },
+    );
+    expect(closed.status).toBe(403);
+    expect(await closed.json()).toEqual({
+      error: { message: "Registration is currently closed." },
+    });
+
+    // The rejected registration must not leave a member behind.
+    const users = await env.DB.prepare("SELECT id FROM users").all<{
+      id: string;
+    }>();
+    expect(users.results.map((row) => row.id)).toEqual(["users/owner"]);
+  });
+
+  it("keeps a member's private memos out of other members' full-text search", async () => {
+    const author = await createActivatedMember(
+      "search-author@example.com",
+      "Search Author",
+    );
+    const reader = await createActivatedMember(
+      "search-reader@example.com",
+      "Search Reader",
+    );
+
+    const authorPrivateId = await createMemoAs(
+      author.cookie,
+      "veilstone-crystal private plan",
+      "private",
+    );
+    const authorTeamId = await createMemoAs(
+      author.cookie,
+      "veilstone-crystal team plan",
+      "protected",
+    );
+
+    // Member B's full-text search must not surface member A's private memo.
+    const readerSearch = await json<{ memos: Array<{ id: string }> }>(
+      await app.fetch(
+        new Request("http://flaremo.test/api/app/memos?q=veilstone-crystal", {
+          headers: { cookie: reader.cookie },
+        }),
+        env,
+      ),
+    );
+    expect(readerSearch.memos.map((memo) => memo.id)).toEqual([authorTeamId]);
+
+    // The administrator's search is bound by the same visibility matrix.
+    const adminSearch = await json<{ memos: Array<{ id: string }> }>(
+      await fetchApp("http://flaremo.test/api/app/memos?q=veilstone-crystal"),
+    );
+    expect(adminSearch.memos.map((memo) => memo.id)).toEqual([authorTeamId]);
+
+    // The legacy Memos-compatible wire applies the same boundary; its DTO
+    // exposes the row id as `name` and the bare uuid as `id`.
+    const legacySearch = await json<{ memos: Array<{ name: string }> }>(
+      await app.fetch(
+        new Request("http://flaremo.test/api/v1/memos?q=veilstone-crystal", {
+          headers: { cookie: reader.cookie, "x-flaremo-wire": "legacy" },
+        }),
+        env,
+      ),
+    );
+    expect(legacySearch.memos.map((memo) => memo.name)).toEqual([
+      `memos/${authorTeamId}`,
+    ]);
+
+    // Positive control: the author still finds both of her own notes.
+    const authorSearch = await json<{ memos: Array<{ id: string }> }>(
+      await app.fetch(
+        new Request("http://flaremo.test/api/app/memos?q=veilstone-crystal", {
+          headers: { cookie: author.cookie },
+        }),
+        env,
+      ),
+    );
+    expect(authorSearch.memos.map((memo) => memo.id).sort()).toEqual(
+      [authorPrivateId, authorTeamId].sort(),
+    );
+  });
 });
 
 function fetchApp(
@@ -2610,6 +3070,80 @@ async function createMemo<T = Record<string, unknown>>(content: string) {
       body: JSON.stringify({ content }),
     }),
   );
+}
+
+/**
+ * Create a member through the admin API, activate the one-time reset link,
+ * and sign in. Returns the domain user id and the member's session cookie.
+ */
+async function createActivatedMember(email: string, name: string) {
+  const created = await json<{ id: string; activation_path: string }>(
+    await fetchApp("http://flaremo.test/api/app/admin/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name, email }),
+    }),
+  );
+  expect(created.id).toMatch(/^users\//);
+  const activationToken = new URL(
+    `http://flaremo.test${created.activation_path}`,
+  ).searchParams.get("token");
+  expect(activationToken).toBeTruthy();
+
+  const reset = await app.fetch(
+    new Request("http://flaremo.test/api/auth/reset-password", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+      },
+      body: JSON.stringify({
+        token: activationToken,
+        newPassword: TEST_PASSWORD,
+      }),
+    }),
+    env,
+  );
+  expect(reset.status).toBe(200);
+
+  const signIn = await app.fetch(
+    new Request("http://flaremo.test/api/auth/sign-in/email", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://flaremo.test",
+      },
+      body: JSON.stringify({ email, password: TEST_PASSWORD }),
+    }),
+    env,
+  );
+  expect(signIn.status).toBe(200);
+  return { id: created.id, cookie: extractCookieHeader(signIn) };
+}
+
+async function createMemoAs(
+  cookie: string,
+  content: string,
+  visibility: "private" | "protected" | "public",
+) {
+  // The app DTO exposes the bare uuid as `id` and the row id as `name`.
+  const created = await json<{ id: string; name: string }>(
+    await app.fetch(
+      new Request("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({ content, visibility }),
+      }),
+      env,
+    ),
+  );
+  expect(created.name).toMatch(/^memos\//);
+  expect(created.id).toBe(created.name.replace(/^memos\//, ""));
+  return created.id;
 }
 
 async function json<T = Record<string, unknown>>(response: Response) {
