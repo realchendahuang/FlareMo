@@ -4,7 +4,35 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## Unreleased
 
-- **语义搜索索引布局变更（升级影响）**：memo 向量从「按作者 namespace」迁到单一共享 namespace（metadata 仍携带 `user_id`；查询侧由 N 次 Vectorize 查询变为 1 次，成本不随成员数增长；授权边界不变，仍然回 D1 按 `memoReadScope` 过滤）。**升级后存量向量位于旧 namespace，对新查询不可见**：等已有笔记被再次编辑时自动重建，或用重建工具（`rebuildEmbeddingIndexes`，恢复演练同一路径）全量重排。Agent Memory 向量不受影响（保持按用户 namespace，recall 本就限定本人）。
+- **语义搜索索引布局变更（升级影响）**：memo 向量从「按作者 namespace」迁到单一共享 namespace（metadata 仍携带 `user_id`；查询侧由 N 次 Vectorize 查询变为 1 次，成本不随成员数增长；授权边界不变，仍然回 D1 按 `memoReadScope` 过滤）。**升级后存量向量位于旧 namespace，对新查询不可见**：等已有笔记被再次编辑时自动重建，或用重建工具（`rebuildEmbeddingIndexes`，现亦可经 owner 专用 `POST /api/app/admin/embeddings/rebuild` 触发；恢复演练同一路径）全量重排。Agent Memory 向量不受影响（保持按用户 namespace，recall 本就限定本人）。
+
+### 修复
+
+- **记忆语义召回修复（重要）**：`CloudflareVectorIndex.query` 此前把 namespace 误写成 metadata filter——Vectorize 的 `namespace` 是查询顶层选项，`filter` 匹配的是向量 metadata 字段，而没有任何向量存过名为 namespace 的字段，因此凡带 namespace 的查询必然 0 命中；同时恢复 MCP `memory_recall` 召回依赖里丢失的按用户 namespace 传参。两者叠加曾导致配置了向量索引的部署上 `memory_recall` 恒返回空列表且不回退 FTS。domain 层新增按 namespace 分区的 fake index 回归测试。
+- 记忆语义召回的降级路径现在记录服务端错误日志（原先静默吞掉一切 provider/index 失败）。
+- 团队管理员无法再通过密码重置接口触碰 owner，且非 owner 会话不能重置其他管理员的密码（与角色变更/成员移除一致的接管防护）。
+- Memos 兼容 API 的 force 删除改走统一的硬删除助手：先处理附件再删行，R2 对象不再永久泄漏（Web/Memos/MCP 三条硬删除路径收敛为同一实现）。
+- 语义搜索结果携带服务端计算的 `can_manage`，前端语义结果恢复编辑/删除操作。
+- 成员移除与自助注销的产物清理改走队列执行器（大成员体量可达百万级 vector id，不再占用请求子请求预算；未绑定队列的极简部署保持内联执行）。
+- outbox 维护巡检只在变更类请求上触发，读请求不再支付每请求 6-10 条查询的固定税；后台任务失败改为记录服务端日志（原先静默 `.catch(() => undefined)`）。
+- 新增 owner 专用 `POST /api/app/admin/embeddings/rebuild`：从 D1 全量重建 memo/memory 向量索引（运维恢复入口）。
+- 附件清理 cron 的候选查询补部分索引（原为全表扫描）。
+- domain 层 `sql IN ${array}` 写法统一改为 `inArray`。
+
+### 前端
+
+- App.tsx 进一步拆分（983 → 709 行）：memo mutations 与乐观更新收敛为 `use-memo-mutations`，导出/导入流程收敛为 `use-data-transfer`（纯搬移，行为不变）。
+- 打破 App.tsx ↔ router-tree.tsx 的循环 import：路由定义移入叶子模块，App 经 lazy 引用，消除潜在 TDZ 崩溃面。
+- 登录后回跳登录前目标页（`redirect` search 参数；仅接受同源相对路径，防开放重定向）。
+- 死代码清理（未使用的 getMemory/listMemoryRelations）与休眠的 eslint/prettier 第二套 lint 栈移除（web 工作区统一 biome）。
+- 测试基建：28 份测试文件各自手写的迁移清单统一为共享 `applyFlaremoMigrations`（按 drizzle journal 顺序应用全部 migration），消除清单漂移。
+
+### 站点与配置
+
+- 公开仓去除作者生产环境标识：`wrangler.jsonc` 不再入库（`.gitignore`），新增 `wrangler.jsonc.example`（占位 `database_id` 与公网 URL），README/部署文档改为 `cp` 示例起步；Deploy Button 一键流程随之移除（配置不再随仓 provision），官网 hero CTA 改指部署指南。
+- 默认 `wrangler.jsonc` 补绑 `RATE_LIMITER`：开源部署的登录限流默认生效（此前未绑该限流器的部署登录不限流）。
+- 移除官网 Pricing 页（$0 档营销页）及全部定价/层级入口——公开仓零商业痕迹。
+- README/ROADMAP/docs 过时的「未实现」声明修正（语义搜索、每日回顾、随机漫步、相关笔记均已上线）；agent-memory 文档的向量索引描述与实现对齐；maintenance.md 移除已拆除的 Workers Builds 自动部署声明。
 
 ## v0.15.2
 

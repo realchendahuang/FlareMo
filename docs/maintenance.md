@@ -27,16 +27,15 @@ pnpm format
 
 `pnpm deploy:dry-run` 会构建前端并让 Wrangler 验证 Worker、Assets、D1、R2 和变量绑定。
 
-## 自动生产部署
+## 生产部署
 
-官方生产 Worker `flaremo` 已连接 GitHub 仓库 `realchendahuang/FlareMo`：
+生产部署是**手动操作**，项目刻意不配置 CI 或自动部署：发布由维护者在本地执行。
 
-- Production branch：`main`
-- Build command：`pnpm run build`
-- Production deploy command：`pnpm run deploy`
-- Non-production deploy command：`npx wrangler versions upload`
+```bash
+pnpm run deploy
+```
 
-PR 分支只生成 preview version，不执行远端 D1 migration。PR 合并到 `main` 后，Cloudflare Workers Builds 会自动执行构建、远端 migration 和生产发布。不要把 non-production deploy command 改成 `pnpm run deploy`。
+`pnpm run deploy` 会先跑部署 preflight，再构建前端、应用尚未执行的远端 D1 migrations，最后通过 `wrangler deploy` 发布 Worker。发布前的门禁仍是 `pnpm verify` 和 `pnpm deploy:dry-run`（见「质量门禁」）。PR 分支不触发任何自动构建或部署。
 
 ## 数据库迁移
 

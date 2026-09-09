@@ -27,7 +27,6 @@ function getAllPaths() {
     "agent-ingestion",
     "agent-memory",
     "architecture-notes",
-    "deploy-button-test",
     "deploy",
     "design-system",
     "maintenance",
@@ -44,8 +43,6 @@ function getAllPaths() {
   return [
     "/",
     "/en",
-    "/pricing",
-    "/en/pricing",
     "/docs",
     "/en/docs",
     ...zhDocs.map((slug) => `/docs/${slug}`),

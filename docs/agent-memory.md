@@ -87,7 +87,7 @@ locked > confirmed > observed > inferred
 
 这些是刻意后置、不是缺陷，设计上已预留扩展位：
 
-- **召回是关键词（FTS5 trigram）不是语义**：schema 已预留 `embedding_status` 等向量字段，但 P0 恒为 `not_indexed`，不接 Vectorize / Workers AI。语义召回见 [语义搜索](./semantic-search.md) 的同一套基础设施规划。
+- **语义召回依赖 embedding 基础设施**：memory 向量通过 embedding outbox 索引到 `VECTORIZE_MEMORIES` 的 per-user namespace（`namespace = 记忆所属用户`，见 `packages/domain/src/embedding-outbox.ts`）；`memory_recall` 在 provider 和 index 可用时优先语义召回，provider / index 缺失或报错时自动降级回 FTS5 关键词召回。与 memo 语义搜索共用同一套基础设施，见 [语义搜索](./semantic-search.md)。
 - **不自动固化**：Agent 需要主动调用 `remember` / `checkpoint`；P0 不会在会话结束后自动调 LLM 提炼。
 - **`source_agent` 是字符串**：用于来源标注和按 agent scope 隔离，不是注册的身份系统。
 - **单用户**：所有查询都带 `user_id`，多用户协作不在当前范围。

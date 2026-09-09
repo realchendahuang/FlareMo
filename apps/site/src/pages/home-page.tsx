@@ -1,6 +1,7 @@
 import { useLocation } from "@tanstack/react-router";
 import {
   ArrowLeftRight,
+  ArrowRight,
   Bot,
   Database,
   Gift,
@@ -10,9 +11,7 @@ import {
   ShieldCheck,
   WifiOff,
 } from "lucide-react";
-import { DEPLOY_BUTTON_URL, DeployButton } from "@/components/deploy-button";
 import { getHomeContent } from "@/content/copy";
-import { getPricingTiers } from "@/content/pricing";
 import type { Locale } from "@/lib/seo";
 
 const HERO_STAT_ICONS = [Database, ImageIcon, ServerOff];
@@ -29,7 +28,6 @@ export function HomePage() {
   const { pathname } = useLocation();
   const locale: Locale = pathname.startsWith("/en") ? "en-US" : "zh-CN";
   const home = getHomeContent(locale);
-  const tiers = getPricingTiers(locale);
 
   return (
     <main>
@@ -51,7 +49,6 @@ export function HomePage() {
         locale={locale}
       />
       <Screenshots heading={home.screenshotsHeading} />
-      <PricingSummary heading={home.pricingHeading} tiers={tiers} />
       <Faq heading={home.faqHeading} items={home.faqItems} />
     </main>
   );
@@ -83,7 +80,13 @@ function Hero({
             {title}
           </h1>
           <div className="flex flex-wrap gap-3">
-            <DeployButton href={DEPLOY_BUTTON_URL}>{primary}</DeployButton>
+            <a
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:brightness-105 motion-safe:duration-200"
+              href={locale === "zh-CN" ? "/docs/deploy" : "/en/docs/deploy"}
+            >
+              {primary}
+              <ArrowRight className="size-4" />
+            </a>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -249,63 +252,6 @@ function Screenshots({ heading }: { heading: string }) {
             src="/docs-assets/flaremo-mobile.png"
             width="390"
           />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PricingSummary({
-  heading,
-  tiers,
-}: {
-  heading: string;
-  tiers: ReturnType<typeof getPricingTiers>;
-}) {
-  return (
-    <section className="border-b border-border/60 bg-secondary/30 py-20">
-      <div className="container-x space-y-10">
-        <h2 className="text-center text-3xl font-semibold tracking-tight md:text-4xl">
-          {heading}
-        </h2>
-        <div className="flex flex-wrap justify-center gap-6">
-          {tiers.map((tier) => (
-            <article
-              className="flex w-full max-w-sm flex-col rounded-2xl border border-border/60 bg-background p-6 shadow-xs transition-shadow"
-              key={tier.id}
-            >
-              <h3 className="text-lg font-semibold tracking-tight">
-                {tier.name}
-              </h3>
-              <div className="mt-1 flex items-baseline gap-1">
-                <span className="text-3xl font-semibold tracking-tight">
-                  {tier.price}
-                </span>
-                {tier.period ? (
-                  <span className="text-xs text-muted-foreground">
-                    {tier.period}
-                  </span>
-                ) : null}
-              </div>
-              <ul className="mt-5 space-y-2 text-sm">
-                {tier.features.map((f) => (
-                  <li className="flex gap-2" key={f}>
-                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-flame-500" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-6 pt-2">
-                <DeployButton
-                  className="w-full"
-                  href={tier.ctaHref}
-                  variant={tier.ctaVariant ?? "secondary"}
-                >
-                  {tier.cta}
-                </DeployButton>
-              </div>
-            </article>
-          ))}
         </div>
       </div>
     </section>

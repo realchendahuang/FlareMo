@@ -10,19 +10,17 @@ type NavItem = {
 
 type SiteNavProps = {
   locale: Locale;
-  /** Path of the current route, e.g. "/", "/pricing". */
+  /** Path of the current route, e.g. "/", "/docs". */
   currentPath: string;
 };
 
 const ZH_ITEMS: NavItem[] = [
   { to: "/", label: "首页" },
-  { to: "/pricing", label: "定价" },
   { to: "/docs", label: "文档" },
 ];
 
 const EN_ITEMS: NavItem[] = [
   { to: "/en", label: "Home" },
-  { to: "/en/pricing", label: "Pricing" },
   { to: "/en/docs", label: "Docs" },
 ];
 

@@ -4,7 +4,7 @@ FlareMo updates flow through the deployment repository and Cloudflare Workers Bu
 
 ## Enable updates once
 
-When using the Deploy to Cloudflare button, set `FLAREMO_DEPLOY_REPOSITORY` to the GitHub repository Cloudflare creates, using this format:
+Set `FLAREMO_DEPLOY_REPOSITORY` to your own deployment repository (your fork or copy of FlareMo — the repository you deploy from), using this format:
 
 ```text
 your-github-owner/repository
@@ -61,7 +61,7 @@ After resolving conflicts, push `main` and Cloudflare Workers Builds will comple
 
 ## Existing instances
 
-Instances running v0.2.1 or earlier need one final manual update to v0.3.0. New repositories created from v0.3.0 include the update workflow and in-app version entry.
+Instances running v0.2.1 or earlier need one final manual update to v0.3.0. From v0.3.0 on, the FlareMo repository ships the update workflow (`.github/workflows/flaremo-update.yml`) and the in-app version entry; pushing it to your own deployment repository gives you the same update flow.
 
 GitHub may disable scheduled workflows after 60 days without public-repository activity. The in-app version check continues to work; re-enable the workflow on the repository's Actions page and run it manually.
 

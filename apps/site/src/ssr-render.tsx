@@ -35,17 +35,6 @@ const STATIC_META: Record<
       "A personal note system that runs 24/7 on a free Cloudflare account. D1 + R2 + Better Auth + Memos-compatible API.",
     jsonLd: SOFTWARE_APPLICATION_JSON_LD,
   },
-  "/pricing": {
-    locale: "zh-CN",
-    title: "定价",
-    description: "FlareMo 定价：免费自部署，一个 Cloudflare 免费账号即可运行。",
-  },
-  "/en/pricing": {
-    locale: "en-US",
-    title: "Pricing",
-    description:
-      "FlareMo pricing: free self-hosting on a free Cloudflare account.",
-  },
   "/docs": {
     locale: "zh-CN",
     title: "文档总览",

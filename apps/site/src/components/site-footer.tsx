@@ -7,10 +7,7 @@ type SiteFooterProps = {
 };
 
 const ZH_LINKS = {
-  product: [
-    { to: "/", label: "首页" },
-    { to: "/pricing", label: "定价" },
-  ],
+  product: [{ to: "/", label: "首页" }],
   docs: [
     { to: "/docs", label: "文档总览" },
     { to: "/docs/deploy", label: "部署指南" },
@@ -23,10 +20,7 @@ const ZH_LINKS = {
 };
 
 const EN_LINKS = {
-  product: [
-    { to: "/en", label: "Home" },
-    { to: "/en/pricing", label: "Pricing" },
-  ],
+  product: [{ to: "/en", label: "Home" }],
   docs: [
     { to: "/en/docs", label: "Docs overview" },
     { to: "/en/docs/deploy", label: "Deployment" },

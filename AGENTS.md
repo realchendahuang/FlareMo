@@ -61,7 +61,7 @@ pnpm deploy:dry-run
 - 凭据相关的 Origin 契约必须保持不变：cookie session 的状态变更请求（包括 `POST`、`PATCH`、`DELETE` 等非安全方法）必须携带并精确匹配 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；PAT 请求可以省略 Origin，但一旦携带也必须精确匹配同一 allowlist，否则返回 `403`。不要用 wildcard、`Referer` 或 Cloudflare Access headers 替代 Origin 校验。
 - 不得把 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET`、初始密码、cookie 或 `memos_pat_` 明文写进代码、文档、migration、issue、PR、日志或聊天；生产 secret 只能通过 Wrangler secret 或 Cloudflare 控制台安全配置。
 - `Temp/` 是参考仓库目录，不能提交。
-- 不使用 GitHub Actions 作为项目 CI 或生产部署器；提交前在本地跑 `pnpm verify`。唯一例外是 `.github/workflows/flaremo-update.yml`，它只在 Deploy Button 创建的用户仓库中同步上游 Release 并创建升级 PR，不持有 Cloudflare 凭据。
+- 不使用 GitHub Actions 作为项目 CI 或生产部署器；提交前在本地跑 `pnpm verify`。唯一例外是 `.github/workflows/flaremo-update.yml`，它只服务自部署用户自己的部署仓库（从 FlareMo fork/copy 而来），同步上游 Release 并创建升级 PR，不持有 Cloudflare 凭据。
 
 ## Issue 和 PR 流程
 

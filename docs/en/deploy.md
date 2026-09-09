@@ -2,31 +2,28 @@
 
 FlareMo deploys to Cloudflare Workers. The same Worker serves the web UI and API. D1 stores canonical data, and R2 stores attachments and export bundles.
 
-## Deploy to Cloudflare
-
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo)
-
-Cloudflare reads `wrangler.jsonc`, creates the Worker, and provisions the D1 and R2 bindings.
-
-If the Cloudflare Dashboard shows `Connect a Git account to continue.`, connect GitHub or GitLab in Cloudflare first. That is a Cloudflare Workers Builds requirement.
-
-Set `FLAREMO_DEPLOY_REPOSITORY` to the GitHub repository Cloudflare creates, using `owner/repository` form. The deploy command applies pending D1 migrations automatically.
+Deployment is **manual**: the repository does not track `wrangler.jsonc`, and there is no one-click deploy button, CI, or automatic deployer. Create the resources, copy the config template, fill in your own values, then run the deploy commands.
 
 ## Manual Deployment
 
 ```bash
 pnpm install
+cp wrangler.jsonc.example wrangler.jsonc
 pnpm exec wrangler d1 create flaremo
 pnpm exec wrangler r2 bucket create flaremo-attachments
 ```
 
-Write the D1 `database_id` into `wrangler.jsonc`, then run:
+Replace the account-specific values in `wrangler.jsonc.example`: write the generated D1 `database_id` into `wrangler.jsonc` and set `FLAREMO_PUBLIC_URL` to your public origin. The bucket, queue, and Vectorize index names can stay as the suggested defaults.
+
+Then run:
 
 ```bash
 pnpm verify
 pnpm deploy:dry-run
 pnpm deploy
 ```
+
+`pnpm deploy` builds the web app, applies pending remote D1 migrations, and publishes the Worker.
 
 ## Better Auth and optional Cloudflare Access
 

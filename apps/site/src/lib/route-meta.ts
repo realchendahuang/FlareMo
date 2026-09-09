@@ -36,38 +36,6 @@ export function getStaticRoutes(): RouteMeta[] {
       jsonLd: SOFTWARE_APPLICATION_JSON_LD,
     },
     {
-      path: "/pricing",
-      locale: "zh-CN",
-      title: "定价",
-      description:
-        "FlareMo 定价：免费自部署，一个 Cloudflare 免费账号即可运行。",
-      jsonLd: {
-        "@type": "Product",
-        name: "FlareMo",
-        description:
-          "FlareMo pricing: free self-hosting on a free Cloudflare account.",
-        offers: [
-          { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
-        ],
-      },
-    },
-    {
-      path: "/en/pricing",
-      locale: "en-US",
-      title: "Pricing",
-      description:
-        "FlareMo pricing: free self-hosting on a free Cloudflare account.",
-      jsonLd: {
-        "@type": "Product",
-        name: "FlareMo",
-        description:
-          "FlareMo pricing: free self-hosting on a free Cloudflare account.",
-        offers: [
-          { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
-        ],
-      },
-    },
-    {
       path: "/docs",
       locale: "zh-CN",
       title: "文档总览",
@@ -91,7 +59,6 @@ export function getDocRoutes(): RouteMeta[] {
     "agent-ingestion",
     "agent-memory",
     "architecture-notes",
-    "deploy-button-test",
     "deploy",
     "design-system",
     "maintenance",

@@ -24,16 +24,16 @@ flomo 的核心闭环是「持续记录 → 意义浮现」，产品能力可以
 | 无压快速记录 | 已实现：composer、草稿恢复、离线队列 | 无语音转写、无微信/App 等外部输入渠道 |
 | 卡片式时间线 | 已实现：memo-card + explorer（all/archived/trashed） | 基本对齐 |
 | 标签 | 已实现：多级标签树（层级折叠）、标签管理（重命名/移动/删除）、无标签筛选、层级前缀筛选、`#父/子` 层级提取 | 无 Emoji 标签 |
-| 搜索 | 已实现：关键词 + 时间/状态语法 | 无语义搜索（"找一找"） |
+| 搜索 | 已实现：关键词 + 时间/状态语法；语义搜索「找一找」（Workers AI + Vectorize） | hybrid 关键词 + 语义融合可后续 |
 | 活动热力图 | 已实现 | 基本对齐 |
 | 公开分享 | 已实现：share token + `/share/{token}` | 基本对齐 |
 | 引用/反向链接 | 部分：memo relations 已存在，前端可添加关系 | 无反向链接回顾面板、无关系图 |
 | 多渠道输入 | 部分：Memos 兼容 API、MCP、Telegram bot 示例 | Telegram bot 未升级为完整输入通道 |
-| AI 读写笔记 / 记忆 | 已实现：Agent Memory（`/memory/mcp` 六工具 + `/memory` 管理 UI），与 `/mcp` memo 工具子集并行 | 无 flomo Agent 式对话、无 AI 洞察；记忆召回仍为关键词（无语义 embedding） |
+| AI 读写笔记 / 记忆 | 已实现：Agent Memory（`/memory/mcp` 六工具 + `/memory` 管理 UI），与 `/mcp` memo 工具子集并行；记忆召回支持语义（per-user namespace），缺失时自动降级 FTS5 | 无 flomo Agent 式对话、无 AI 洞察 |
 | 数据导出 | 已实现：内联导出（≤32 MiB）+ 大型导出任务（分页 NDJSON + R2 清单 + 附件下载端点） | 无浏览器端「导出集打包为单个归档」体验 |
 | 每日回顾/随机漫步 | 已实现：`/review/daily`（那年今日分组）+ `/review/walk`（标签/引用游走 + 明信片总结） | 无定时推送触达渠道 |
-| 相关笔记/认知地图 | 未实现 | 认知地图依赖语义检索 |
-| AI 洞察/找一找 | 未实现（`docs/semantic-search.md` 只有设计） | 完全缺失 |
+| 相关笔记/认知地图 | 相关笔记已实现：memo 详情页「相关笔记」（共享标签 + 引用关系的轻量排序）；认知地图未实现 | 认知地图 |
+| AI 洞察/找一找 | 找一找已实现（语义搜索，见 `docs/semantic-search.md`）；AI 洞察未实现 | 多视角分析笔记的 AI 洞察 |
 
 ## 需求池
 
@@ -55,7 +55,7 @@ flomo 的核心闭环是「持续记录 → 意义浮现」，产品能力可以
 - **价值**：高。flomo「找一找」的对标核心，也是 R3 相关笔记的向量基础。
 - **成本**：中高。Vectorize 索引、embedding 模型绑定、memo 变更增量更新（可挂现有 outbox/SSE 事件流）、前端入口。
 - **依赖**：Cloudflare Vectorize + Workers AI（或外部 embedding 模型）。
-- **ROADMAP 关系**：公开任务池「增加语义搜索」。
+- **状态**：✅ 已实现。Workers AI embedding + Vectorize 派生索引（memo 向量共享 namespace）、`/api/app/search/semantic` 与前端「语义搜索」入口；命中回 D1 `memoReadScope` 复查，provider/索引缺失时自动降级 FTS5。详见 `docs/semantic-search.md`。
 
 #### R3. AI 回顾三件套
 
@@ -65,9 +65,9 @@ flomo 的核心闭环是「持续记录 → 意义浮现」，产品能力可以
   3. **相关笔记**：当前 memo 的语义相近历史笔记。先做基于标签/关系的轻量版，R2 落地后升级为向量版。
 - **价值**：高。flomo 的灵魂功能，把「记录」变成「回顾」。
 - **成本**：中。每日回顾/随机漫步是纯 D1 + 前端；相关笔记轻量版零新依赖，向量版依赖 R2。
-- **状态（2026-08）**：每日回顾前端页（`/review/daily`，那年今日）与随机漫步（`/review/walk`，含明信片总结）已上线；剩余为定时推送触达和相关笔记面板。
-- **依赖**：R1（关系数据）、R2（向量版相关笔记）。
-- **ROADMAP 关系**：公开任务池「增加 AI 回顾」。
+- **状态（2026-08）**：每日回顾前端页（`/review/daily`，那年今日）与随机漫步（`/review/walk`，含明信片总结）已上线；相关笔记已在 memo 详情页上线（共享标签 + 引用关系轻量排序，`/api/app/memos/:id/related`）。剩余为定时推送触达渠道。
+- **依赖**：R1（关系数据）。
+- **ROADMAP 关系**：公开任务池「回顾触达渠道」。
 
 ### 第二批：输入与体验（flomo 的"低摩擦"护城河）
 
@@ -141,23 +141,22 @@ flomo 的「AI 记忆档案」对应 FlareMo 的 Agent Memory：让 AI 通过统
 
 ### 后续（按投入产出比）
 
-- **语义召回**：P0 是 FTS5 关键词召回；接 Vectorize embedding 后升级为自然语言召回，schema 已预留 `embedding_*` 字段，与 memo 的「找一找」共用同一套基础设施。
+- **语义召回**：已实现——memory 向量经 embedding outbox 索引到 `VECTORIZE_MEMORIES` 的 per-user namespace，召回优先语义、provider/索引缺失时自动降级 FTS5，与 memo 的「找一找」共用同一套基础设施。
 - **自动固化**：P0 依赖 Agent 主动调用 `remember` / `checkpoint`；后续在会话/工作完成后自动调 LLM 提炼关键决策与教训。
 - **agent 身份与可观测**：`source_agent` 目前是来源字符串；后续可做 agent 注册与召回命中率/质量度量。
 
 ## 建议的开发顺序
 
-按「投入产出比 + 不阻塞」推荐：
+按「投入产出比 + 不阻塞」推荐。已实现：R2（语义搜索）、R3 的每日回顾/随机漫步/相关笔记、R5（标签补齐）、R6（大型导入导出）。剩余推荐顺序：
 
-> **R1（反向链接回顾）→ R2（语义搜索）→ R3（AI 回顾）→ R4（多渠道输入）→ R5（标签补齐）→ R6-R9（工程与生态）**
+> **R1（反向链接回顾）→ R4（多渠道输入）→ R7（附件观测）→ R8-R9（E2E 与生态）**
 
 理由：
 
 - R1 纯前端复用现有 relations，成本最低、立刻有 flomo 味。
-- R2 有完整设计文档，是「找一找」的对标核心，且解锁 R3 的相关笔记向量版。
-- R3 的 AI 洞察依赖语义搜索/embedding，放 R2 之后最顺。
-- R4/R5 是体验增强，不阻塞核心闭环。
-- R6-R9 是工程与生态，可穿插进行。
+- R2 与 R3 的页面已上线；基于同一套 embedding 基础设施，AI 洞察等派生能力可随后推进。
+- R4 是体验增强，降低记录摩擦，不阻塞工程项。
+- R7-R9 是工程与生态，可穿插进行。
 
 ## 边界与不做
 
@@ -172,4 +171,4 @@ flomo 的「AI 记忆档案」对应 FlareMo 的 Agent Memory：让 AI 通过统
 1. **AI 回顾/洞察的模型放哪**：Cloudflare Workers AI（国内可达性一般）还是外部模型（如 DeepSeek/OpenAI，走应用层令牌）？影响是否新增 API key 配置。
 2. **每日回顾的触达渠道**：站内通知（已有 notification 表，成本最低）/ Web Push（需新基础设施）/ 其他。
 3. **语音输入**是否进近期规划（Workers AI speech-to-text 质量与国内体验待评估）。
-4. **相关笔记**先做轻量版（标签+关系，零新依赖）还是直接等语义搜索做向量版。
+4. **相关笔记**已按轻量版（标签+关系）上线；是否升级为语义排序（向量基础已就绪）。

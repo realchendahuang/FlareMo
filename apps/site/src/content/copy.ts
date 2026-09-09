@@ -17,7 +17,6 @@ export type HomeContent = {
     vps: string;
   }>;
   screenshotsHeading: string;
-  pricingHeading: string;
   faqHeading: string;
   faqItems: Array<{
     q: string;
@@ -28,13 +27,13 @@ export type HomeContent = {
 const ZH_HOME: HomeContent = {
   heroEyebrow: "永远在线的个人笔记",
   heroTitle: "搭一个你自己的私人笔记,永远在线、永远不丢",
-  primaryCta: "一键部署",
+  primaryCta: "查看部署指南",
   featuresHeading: "为什么用 FlareMo",
   features: [
     {
       title: "永远不会丢",
       description:
-        "笔记存在云端企业级存储。硬盘坏了、停电、被偷、搬家,都跟你没关系。",
+        "笔记存在你自己的 Cloudflare R2 存储桶。硬盘坏了、停电、被偷、搬家,都跟你没关系。",
     },
     {
       title: "免费就够用",
@@ -99,7 +98,6 @@ const ZH_HOME: HomeContent = {
     },
   ],
   screenshotsHeading: "长这样",
-  pricingHeading: "价格",
   faqHeading: "常见问题",
   faqItems: [
     {
@@ -124,13 +122,13 @@ const ZH_HOME: HomeContent = {
 const EN_HOME: HomeContent = {
   heroEyebrow: "Personal notes that stay online",
   heroTitle: "Your private notes. Always online. Always yours.",
-  primaryCta: "Deploy now",
+  primaryCta: "Read the deploy guide",
   featuresHeading: "Why FlareMo",
   features: [
     {
       title: "Never lose a note",
       description:
-        "Stored on enterprise cloud storage. Drive failures, power cuts, theft, moves — none of it touches your data.",
+        "Stored on your own Cloudflare R2 bucket. Drive failures, power cuts, theft, moves — none of it touches your data.",
     },
     {
       title: "Free is enough",
@@ -198,7 +196,6 @@ const EN_HOME: HomeContent = {
     },
   ],
   screenshotsHeading: "What it looks like",
-  pricingHeading: "Pricing",
   faqHeading: "Common questions",
   faqItems: [
     {

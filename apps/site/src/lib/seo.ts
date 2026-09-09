@@ -7,7 +7,7 @@
 export type Locale = "zh-CN" | "en-US";
 
 export type SeoInput = {
-  /** Path without locale prefix, e.g. "/", "/pricing", "/docs/deploy". */
+  /** Path without locale prefix, e.g. "/", "/docs/deploy". */
   path: string;
   locale: Locale;
   title: string;

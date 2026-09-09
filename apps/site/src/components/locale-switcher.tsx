@@ -4,7 +4,7 @@ import type { Locale } from "@/lib/seo";
 
 type LocaleSwitcherProps = {
   locale: Locale;
-  /** Path under the locale (e.g. "/", "/pricing", "/docs/deploy"). */
+  /** Path under the locale (e.g. "/", "/docs/deploy"). */
   path: string;
 };
 

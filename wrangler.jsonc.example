@@ -1,5 +1,13 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  // Template for self-hosting. Copy this file to `wrangler.jsonc` (which is
+  // not tracked by Git) and fill in your own values before deploying:
+  //   cp wrangler.jsonc.example wrangler.jsonc
+  // Account-specific identifiers to replace:
+  //   - d1_databases[].database_id: output of `wrangler d1 create flaremo`.
+  //   - vars.FLAREMO_PUBLIC_URL: your public origin, no path/query/hash.
+  // Bucket / queue / Vectorize index names below are suggested defaults;
+  // rename them if you prefer, but keep the binding keys unchanged.
   "name": "flaremo",
   "main": "./apps/worker/src/index.ts",
   "compatibility_date": "2026-07-10",
@@ -25,7 +33,7 @@
     {
       "binding": "DB",
       "database_name": "flaremo",
-      "database_id": "5a5094d8-efcc-4aef-909b-c8455358247d",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
       "migrations_dir": "./migrations"
     }
   ],
@@ -72,6 +80,15 @@
   "ai": {
     "binding": "AI"
   },
+  // Per-IP throttling for credential endpoints (register / auth / email
+  // buckets). 30 requests per minute per IP. Fails open if the binding errors.
+  "ratelimits": [
+    {
+      "name": "RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 30, "period": 60 }
+    }
+  ],
   "triggers": {
     "crons": ["17 3 * * *"]
   },
@@ -80,8 +97,8 @@
     "FLAREMO_SINGLE_USER_EMAIL": "owner@flaremo.local",
     "FLAREMO_SINGLE_USER_NAME": "FlareMo Owner",
     // Canonical origin used by Better Auth for callback and cookie checks.
-    // Set this to the deployed origin; keep secrets out of this file.
-    "FLAREMO_PUBLIC_URL": "https://flaremo.chendahuang.com",
+    // Set this to your public origin; keep secrets out of this file.
+    "FLAREMO_PUBLIC_URL": "",
     // Optional comma-separated additional browser origins for trusted clients.
     "FLAREMO_TRUSTED_ORIGINS": "",
     // Semantic-search embedding. `workers-ai` uses Cloudflare's own model with

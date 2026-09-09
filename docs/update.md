@@ -4,7 +4,7 @@ FlareMo 的更新由部署仓库和 Cloudflare Workers Builds 完成。应用不
 
 ## 首次启用
 
-使用 Deploy to Cloudflare 按钮创建实例时，把 `FLAREMO_DEPLOY_REPOSITORY` 填成 Cloudflare 创建的 GitHub 仓库，格式为：
+把 `FLAREMO_DEPLOY_REPOSITORY` 填成你自己的部署仓库（FlareMo 的 fork 或副本，即你运行部署的仓库），格式为：
 
 ```text
 你的 GitHub 用户名/仓库名
@@ -61,7 +61,7 @@ git apply --3way --index flaremo-update.patch
 
 ## 现有实例
 
-从 v0.2.1 或更早版本升级到 v0.3.0 时，需要先按旧的手工流程更新一次。v0.3.0 起，Deploy Button 创建的新仓库会自带更新 workflow 和应用内版本入口。
+从 v0.2.1 或更早版本升级到 v0.3.0 时，需要先按旧的手工流程更新一次。v0.3.0 起，FlareMo 仓库自带更新 workflow（`.github/workflows/flaremo-update.yml`）和应用内版本入口；把它推到你自己的部署仓库即可获得同样的更新流程。
 
 GitHub 可能会在公开仓库连续 60 天没有活动后暂停定时 workflow；应用内版本检查不受影响。此时到仓库 Actions 页面重新启用 workflow，再手工运行一次即可。
 

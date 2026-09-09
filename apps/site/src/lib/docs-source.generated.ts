@@ -11,7 +11,6 @@ import agentIngestion from "../../../../docs/agent-ingestion.md?raw";
 import agentMemory from "../../../../docs/agent-memory.md?raw";
 import architectureNotes from "../../../../docs/architecture-notes.md?raw";
 import deploy from "../../../../docs/deploy.md?raw";
-import deployButtonTest from "../../../../docs/deploy-button-test.md?raw";
 import designSystem from "../../../../docs/design-system.md?raw";
 import enAgentDeploy from "../../../../docs/en/agent-deploy.md?raw";
 import enDeploy from "../../../../docs/en/deploy.md?raw";
@@ -74,11 +73,6 @@ const ZH_DOCS: Record<
     title: "FlareMo 架构设计",
     group: "concept",
     body: architectureNotes,
-  },
-  "deploy-button-test": {
-    title: "Deploy Button 实测记录",
-    group: "reference",
-    body: deployButtonTest,
   },
   deploy: {
     title: "部署 FlareMo",
@@ -177,12 +171,6 @@ const EN_DOCS: Record<
     body: architectureNotes,
     fallbackFromZh: true,
   },
-  "deploy-button-test": {
-    title: "Deploy Button Smoke Test",
-    group: "reference",
-    body: deployButtonTest,
-    fallbackFromZh: true,
-  },
   "design-system": {
     title: "FlareMo Design System (Ember)",
     group: "concept",
@@ -236,8 +224,7 @@ const DESCRIPTIONS_ZH: Record<string, string> = {
     "AI 跨 session 长期记忆：六工具、权限层级、与 memo 的双向连接。",
   "architecture-notes":
     "事实源、兼容层、认证边界、Worker 与 D1 / R2 / Vectorize 的职责划分。",
-  "deploy-button-test": "Deploy Button 真实部署的步骤记录与已知边界。",
-  deploy: "一键部署按钮、Agent 部署、手动部署三种路径，以及预部署清单。",
+  deploy: "Agent 部署、手动部署两种路径，以及预部署清单。",
   "design-system":
     "Ember 设计语言：暖调中性 + 火焰品牌色，圆角、阴影与文案规则。",
   maintenance: "运维手册：备份、灾备演练、迁移、回滚。",
@@ -253,7 +240,7 @@ const DESCRIPTIONS_ZH: Record<string, string> = {
 
 const DESCRIPTIONS_EN: Record<string, string> = {
   deploy:
-    "Three deployment paths: Deploy Button, Agent deployment, and manual.",
+    "Agent deployment and manual deployment, plus a pre-deploy checklist.",
   "agent-deploy":
     "Runbook for command-capable agents (Codex, Claude Code, Cursor, ...).",
   "memos-compatibility":
@@ -265,8 +252,6 @@ const DESCRIPTIONS_EN: Record<string, string> = {
     "Long-term AI memory across sessions: six tools, permission tiers, memo links. (Chinese source; English translation pending.)",
   "architecture-notes":
     "Source of truth, compatibility layer, auth boundary. (Chinese source; English translation pending.)",
-  "deploy-button-test":
-    "Real-world Deploy Button deployment records and known edges. (Chinese source; English translation pending.)",
   "design-system":
     "Ember design language: warm neutrals plus the flame brand color, radii, shadows, copy rules. (Chinese source; English translation pending.)",
   maintenance:

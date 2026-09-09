@@ -9,14 +9,12 @@
 
 [English](./README.en.md)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo)
-
 <p>
   <img src="./docs/assets/flaremo-desktop.png" alt="FlareMo desktop timeline" width="720">
   <img src="./docs/assets/flaremo-mobile.png" alt="FlareMo mobile timeline" width="220">
 </p>
 
-截图展示的是当前已接上后端的时间线、编辑、筛选和移动端导航体验；未实现的 AI 回顾、语义搜索、微信输入等能力不会出现在界面里。
+截图展示的是当前已接上后端的时间线、编辑、筛选和移动端导航体验；未实现的能力（如微信输入）不会以占位入口的形式出现在界面里。
 
 ---
 
@@ -83,6 +81,8 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - 快速记录笔记，支持标签和附件。
 - 时间线、归档、回收站。
 - D1 FTS5 全文搜索、标签筛选、活动热力图；默认搜索时间线与归档，搜索支持 `has:attachment`、`is:pinned`、`before:YYYY-MM-DD`、`after:YYYY-MM-DD` 和 `in:timeline|archive|trash`。
+- 语义搜索（「找一找」）：Workers AI embedding + Vectorize 派生索引，命中后回 D1 复查权限；provider 或索引缺失时自动降级回 FTS5 关键词搜索，边界见 [docs/semantic-search.md](./docs/semantic-search.md)。
+- 每日回顾（`/review/daily` 那年今日）、随机漫步（`/review/walk` 标签/引用游走 + 明信片总结）和 memo 详情页的相关笔记。
 - 可安装的 PWA；新建笔记草稿自动保存在本机，离线提交（包括附件）进入本机待同步队列，重新联网后按顺序提交。
 - Markdown/GFM、图片与音频附件预览。
 - 记录详情、引用关系、反向链接和历史版本恢复。
@@ -96,36 +96,30 @@ FlareMo 想回答另一个问题：**能不能只用一个免费 Cloudflare 账�
 - Agent Memory：AI 长期记忆中枢，Agent 通过 `/memory/mcp` 读写跨 session 的长期记忆（偏好、决策、约束、教训），`/memory` 界面可查看、确认、锁定、纠正。
 - 中英文界面。
 
-前端只保留当前已经接上能力的入口。AI 回顾、语义搜索、随机漫步、微信输入这类功能还没实现，就不会挂在界面里占位置。
+前端只保留当前已经接上能力的入口。像微信输入这类还没实现的能力，不会挂在界面里占位置。
 
 ---
 
-## 部署：一键或让 Agent 替你做
+## 部署：手动或让 Agent 替你做
 
-FlareMo 的部署被刻意做得很轻。两种方式，挑一种就行。
+FlareMo 的部署被刻意做得很轻。仓库不再跟踪 `wrangler.jsonc`，部署是手动操作，没有一键按钮或自动部署。两种方式，挑一种就行。
 
-**方式一：一键部署按钮**
+**方式一：让 AI Agent 替你部署**
 
-点击上方「Deploy to Cloudflare」按钮，Cloudflare 会读取 `wrangler.jsonc`，自动创建 Worker、生成 D1 / R2 绑定并通过部署命令应用 D1 migrations。把 `FLAREMO_DEPLOY_REPOSITORY` 填成 Cloudflare 创建的 GitHub 仓库（例如 `octocat/flaremo`），应用内就能直接打开该仓库的更新 workflow。
-
-如果你的 Cloudflare Dashboard 还没有连接 GitHub 或 GitLab，Cloudflare 会先要求连接 Git provider。这个 OAuth 授权由你在 Cloudflare 页面里确认，和 FlareMo 的 Better Auth 登录是两件事；FlareMo 不会要求把任何真实凭据写进仓库。
-
-**方式二：让 AI Agent 替你部署**
-
-仓库里带了一份 [docs/agent-deploy.md](./docs/agent-deploy.md)，是写给 Codex / Claude Code / Cursor 这类 Agent 用的部署 runbook。把仓库交给一个能跑命令的 Agent，它就能按 runbook 创建 D1 / R2 资源、填写 `database_id`、跑迁移、部署。你不用记命令，Agent 自己按步骤来。
+仓库里带了一份 [docs/agent-deploy.md](./docs/agent-deploy.md)，是写给 Codex / Claude Code / Cursor 这类 Agent 用的部署 runbook。把仓库交给一个能跑命令的 Agent，它就能复制 `wrangler.jsonc.example`、创建 D1 / R2 资源、填写 `database_id`、跑迁移、部署。你不用记命令，Agent 自己按步骤来。
 
 需要让 Agent、Telegram 或其他 IM 渠道直接写入笔记时，参考 [Agent 与 IM 渠道写入](./docs/agent-ingestion.md)。仓库提供一个经过测试的独立 Telegram Worker 示例，不会把渠道密钥或平台逻辑塞进 FlareMo 主 Worker。
 
 需要让 Agent 读写跨 session 的长期记忆（用户偏好、项目决策、约束、教训）时，参考 [Agent Memory](./docs/agent-memory.md)：统一 `/memory/mcp` 端点 + 六个工具，记忆归用户所有、可随时查看和纠正。
 
-**手动部署**（想自己一步步来的话）先创建资源：
+**方式二：手动部署**（想自己一步步来的话）先创建资源：
 
 ```bash
 pnpm exec wrangler d1 create flaremo
 pnpm exec wrangler r2 bucket create flaremo-attachments
 ```
 
-把 D1 输出的 `database_id` 写入 `wrangler.jsonc`，再执行：
+把 `wrangler.jsonc.example` 复制为 `wrangler.jsonc`（仓库不跟踪 `wrangler.jsonc` 本身），填入 D1 输出的 `database_id`，并把 `FLAREMO_PUBLIC_URL` 设为你的公开访问域名，再执行：
 
 ```bash
 pnpm verify
@@ -133,7 +127,7 @@ pnpm deploy:dry-run
 pnpm deploy
 ```
 
-完整部署说明见 [docs/deploy.md](./docs/deploy.md)，版本更新见 [docs/update.md](./docs/update.md)。Deploy Button 的实测记录见 [docs/deploy-button-test.md](./docs/deploy-button-test.md)。
+完整部署说明见 [docs/deploy.md](./docs/deploy.md)，版本更新见 [docs/update.md](./docs/update.md)。
 
 **部署前检查清单**
 
@@ -313,7 +307,6 @@ FlareMo 当前已经具备：
 - Better Auth 原生 cookie session、一次性 owner bootstrap 和可撤销 `memos_pat_` PAT。
 - 团队模式：owner/admin/member 角色、团队管理界面、三档可见性权限矩阵和可重试的成员移除清理。
 - Cloudflare Access 可选外层防线，以及公开分享 bypass 的边界说明。
-- Deploy to Cloudflare 按钮。
 - Agent 部署 runbook、发版规则、兼容矩阵和开源协作文件。
 
 后续方向见 [ROADMAP.md](./ROADMAP.md)。语义搜索的实现边界见 [docs/semantic-search.md](./docs/semantic-search.md)。
@@ -327,7 +320,7 @@ pnpm verify
 pnpm deploy:dry-run
 ```
 
-Deploy Button 创建的用户仓库包含一个最小权限的更新 workflow。它只同步正式 Release 并创建升级 PR；合并后仍由 Cloudflare Workers Builds 负责部署，不需要 Cloudflare API Token。
+自部署仓库自带一个最小权限的更新 workflow（`flaremo-update.yml`）。它只同步正式 Release 并创建升级 PR；合并后由该仓库连接的 Cloudflare Workers Builds 负责部署，不需要 Cloudflare API Token。配置方式见 [docs/update.md](./docs/update.md)。
 
 常用维护命令：
 

@@ -7,6 +7,7 @@
 - 当前目录是 FlareMo 仓库根目录。
 - `pnpm install` 已完成，或 Agent 可以执行它。
 - Wrangler 已登录目标 Cloudflare 账号。
+- 仓库不跟踪 `wrangler.jsonc`。先复制模板：`cp wrangler.jsonc.example wrangler.jsonc`，再把 `database_id`（`wrangler d1 create` 的输出）和 `FLAREMO_PUBLIC_URL` 填成目标值；bucket、queue、Vectorize index 名称可保留建议默认值。
 - `wrangler.jsonc` 里的 D1、R2 binding 指向目标资源。
 - `wrangler.jsonc` 的 Static Assets `run_worker_first` 必须覆盖 `/api/*`、`/file/*`、`/mcp`、`/openapi.json` 和 `/memos.api.v1.*`；否则 API、Memos Web 附件文件 URL 或 Connect/gRPC-Web 路径会被静态资源 fallback 接管，返回 SPA HTML 而不是进入 Worker。
 - `wrangler.jsonc` 的 `FLAREMO_PUBLIC_URL` 已设置为生产 canonical origin；需要时设置 `FLAREMO_TRUSTED_ORIGINS`。

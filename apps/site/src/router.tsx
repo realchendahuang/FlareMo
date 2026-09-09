@@ -8,7 +8,6 @@ import { DocsDetailPage } from "@/pages/docs-detail-page";
 import { DocsIndexPage } from "@/pages/docs-index-page";
 import { HomePage } from "@/pages/home-page";
 import { NotFoundPage } from "@/pages/not-found-page";
-import { PricingPage } from "@/pages/pricing-page";
 
 export type History = ReturnType<typeof createRouter>["history"];
 
@@ -27,12 +26,6 @@ export function buildRouteTree() {
     component: HomePage,
   });
 
-  const pricingRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/pricing",
-    component: PricingPage,
-  });
-
   const docsIndexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/docs",
@@ -49,12 +42,6 @@ export function buildRouteTree() {
     getParentRoute: () => rootRoute,
     path: "/en",
     component: HomePage,
-  });
-
-  const enPricingRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/en/pricing",
-    component: PricingPage,
   });
 
   const enDocsIndexRoute = createRoute({
@@ -77,11 +64,9 @@ export function buildRouteTree() {
 
   const routeTree = rootRoute.addChildren([
     indexRoute,
-    pricingRoute,
     docsIndexRoute,
     docsSlugRoute,
     enIndexRoute,
-    enPricingRoute,
     enDocsIndexRoute,
     enDocsSlugRoute,
     notFoundRoute,

@@ -9,19 +9,19 @@
 
 [中文 README](./README.md)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo)
-
 <p>
   <img src="./docs/assets/flaremo-desktop.png" alt="FlareMo desktop timeline" width="720">
   <img src="./docs/assets/flaremo-mobile.png" alt="FlareMo mobile timeline" width="220">
 </p>
 
-The screenshots show the current backend-backed timeline, editor, filtering, and mobile navigation. Features that are not implemented yet, such as AI review, semantic search, and messaging-app capture, are not exposed as placeholder UI.
+The screenshots show the current backend-backed timeline, editor, filtering, and mobile navigation. Features that are not implemented yet, such as messaging-app capture, are not exposed as placeholder UI.
 
 ## What It Does
 
 - Quick memo capture with tags and attachments.
 - Timeline, archive, trash, D1 FTS5 search, tag filtering, and activity heatmap. Search spans timeline and archived notes by default and supports `has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, and `in:timeline|archive|trash`.
+- Semantic search ("Find"): Workers AI embeddings plus a Vectorize derived index, with every hit re-checked against D1 permissions; it degrades to FTS5 keyword search when the embedding provider or index is absent. See [docs/semantic-search.md](./docs/semantic-search.md) for the boundary.
+- Daily review (`/review/daily`, this-day-in-history), random walk (`/review/walk`, tag/relation strolls with a postcard summary), and related notes on the memo detail page.
 - An installable PWA; new memo drafts are saved locally, while offline submissions (including attachments) wait in a local queue and are submitted in order when connectivity returns.
 - Markdown/GFM with image and audio attachment previews.
 - Memo detail pages with relations, backlinks, and revision restore.
@@ -36,15 +36,11 @@ FlareMo keeps the UI honest: if a feature is not wired to the backend, it does n
 
 ## Deployment
 
-### Deploy Button
-
-Click the Deploy to Cloudflare button above. Cloudflare reads `wrangler.jsonc`, creates a Worker, provisions the required D1 and R2 bindings, and applies D1 migrations through the deploy command. Set `FLAREMO_DEPLOY_REPOSITORY` to the GitHub repository Cloudflare creates, for example `octocat/flaremo`, so the in-app update entry can open that repository's update workflow.
-
-If your Cloudflare Dashboard has not connected GitHub or GitLab yet, Cloudflare will ask you to connect a Git provider first. That OAuth step happens in Cloudflare and is separate from FlareMo's Better Auth setup; no application credential belongs in the repository.
+Deployment is manual by design: the repository does not track `wrangler.jsonc`, and there is no one-click button or automatic deployer. Two ways to get there — pick one.
 
 ### Agent Deployment
 
-Use the repository [agent deployment runbook](./docs/agent-deploy.md) with Codex, Claude Code, Cursor Agent, or another command-capable agent.
+Use the repository [agent deployment runbook](./docs/agent-deploy.md) with Codex, Claude Code, Cursor Agent, or another command-capable agent. The agent copies `wrangler.jsonc.example`, creates the D1 / R2 resources, fills in the `database_id`, applies migrations, and deploys.
 
 ### Manual Deployment
 
@@ -54,7 +50,7 @@ pnpm exec wrangler d1 create flaremo
 pnpm exec wrangler r2 bucket create flaremo-attachments
 ```
 
-Write the generated D1 `database_id` into `wrangler.jsonc`, then run:
+Copy `wrangler.jsonc.example` to `wrangler.jsonc` (the repository does not track `wrangler.jsonc` itself), fill in the generated D1 `database_id`, and set `FLAREMO_PUBLIC_URL` to your public origin, then run:
 
 ```bash
 pnpm verify
@@ -173,7 +169,7 @@ pnpm backup:drill
 pnpm release vX.Y.Z
 ```
 
-The project does not use GitHub Actions as CI or as the production deployer. Maintainers run the local release gate before publishing. Repositories created by the Deploy Button include a least-privilege workflow that only prepares upstream Release updates as pull requests; Cloudflare Workers Builds remains the deployer. See [the update guide](./docs/en/update.md).
+The project does not use GitHub Actions as CI or as the production deployer. Maintainers run the local release gate before publishing. A self-hosted deployment repository includes the least-privilege `Prepare FlareMo update` workflow that only prepares upstream Release updates as pull requests; Cloudflare Workers Builds remains the deployer for repositories connected to it. See [the update guide](./docs/en/update.md).
 
 ## Contributing
 
