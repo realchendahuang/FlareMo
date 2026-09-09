@@ -11,7 +11,7 @@ import {
   memoTags,
   shares,
 } from "@flaremo/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { createResourceId, createToken, parseResourceName } from "./ids";
 import {
   normalizeMemoClientId,
@@ -27,7 +27,6 @@ export async function exportData(
   const [
     memoRows,
     attachmentRows,
-    relationRows,
     shareRows,
     memoryRows,
     memoryRevisionRows,
@@ -36,7 +35,6 @@ export async function exportData(
   ] = await Promise.all([
     db.select().from(memos).where(eq(memos.userId, user.id)),
     db.select().from(attachments).where(eq(attachments.userId, user.id)),
-    db.select().from(memoRelations),
     db.select().from(shares).where(eq(shares.userId, user.id)),
     db.select().from(memoryItems).where(eq(memoryItems.userId, user.id)),
     db
@@ -54,6 +52,19 @@ export async function exportData(
   ]);
 
   const memoIds = new Set(memoRows.map((memo) => memo.id));
+  const relationRows: Array<typeof memoRelations.$inferSelect> = [];
+  const memoIdList = Array.from(memoIds);
+  for (let offset = 0; offset < memoIdList.length; offset += 500) {
+    const memoIdChunk = memoIdList.slice(offset, offset + 500);
+    if (memoIdChunk.length === 0) continue;
+    relationRows.push(
+      ...(await db
+        .select()
+        .from(memoRelations)
+        .where(inArray(memoRelations.memoId, memoIdChunk))
+        .all()),
+    );
+  }
   return {
     version: 3,
     exported_at: new Date().toISOString(),

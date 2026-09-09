@@ -2,18 +2,23 @@ import {
   assertMemberQuota,
   beginFlaremoMemberRemoval,
   createFlaremoMemberWithLink,
+  createMemberRemovalJob,
   deriveUniqueUsername,
   ForbiddenError,
+  failMemberRemovalJob,
   finalizeFlaremoMemberRemoval,
   getAuthUserById,
   getAuthUserIdByFlaremoUserId,
   getFlaremoUserById,
+  getMemberRemovalJob,
   getUserRegistrationAllowed,
   isTeamAdmin,
   listFlaremoUsers,
+  listMemberRemovalJobs,
   NotFoundError,
   setUserRegistrationAllowed,
   updateFlaremoUserRole,
+  updateMemberRemovalJob,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -32,7 +37,6 @@ const updateSettingsSchema = z.object({
 const createUserSchema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().trim().email().max(320),
-  password: z.string().min(12).max(128),
 });
 
 const updateUserRoleSchema = z.object({
@@ -133,7 +137,9 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
       body: {
         email,
         name: input.name,
-        password: input.password,
+        // Administrators never choose or receive a member password. The
+        // one-time reset token below is the activation credential.
+        password: `${crypto.randomUUID()}-${crypto.randomUUID()}Aa1!`,
         username,
         displayUsername: input.name,
       },
@@ -147,6 +153,7 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
       },
       context.limits,
     );
+    const activationToken = await auth.createPasswordResetToken(result.user.id);
     return c.json(
       {
         id: member.id,
@@ -156,6 +163,8 @@ adminApi.post("/users", zValidator("json", createUserSchema), async (c) => {
         role: member.role,
         status: member.status,
         created_at: member.createdAt,
+        activation_path: `/reset?token=${encodeURIComponent(activationToken)}`,
+        activation_expires_in_seconds: 60 * 60,
       },
       201,
     );
@@ -198,6 +207,7 @@ adminApi.patch(
 );
 
 adminApi.delete("/users/:id", async (c) => {
+  let jobId: string | undefined;
   try {
     const context = await teamAdminContext(c);
     const id = c.req.param("id");
@@ -208,12 +218,93 @@ adminApi.delete("/users/:id", async (c) => {
       throw new NotFoundError("Member not found");
     }
 
-    // Access is revoked before external cleanup starts. If R2 or Vectorize is
-    // temporarily unavailable, retrying this endpoint safely resumes cleanup.
+    let job: Awaited<ReturnType<typeof createMemberRemovalJob>> | undefined;
+    try {
+      job = await createMemberRemovalJob(context.db, id, context.user.id);
+      jobId = job.id;
+      await updateMemberRemovalJob(context.db, job.id, {
+        status: "removing",
+        phase: "revoking_access",
+        attempts: (job.attempts ?? 0) + 1,
+      });
+    } catch (error) {
+      throw error;
+    }
     const artifacts = await beginFlaremoMemberRemoval(context.db, id);
+    if (job)
+      await updateMemberRemovalJob(context.db, job.id, {
+        phase: "cleaning_artifacts",
+      });
     await cleanupFlaremoArtifacts(c.env, artifacts);
+    if (job)
+      await updateMemberRemovalJob(context.db, job.id, { phase: "finalizing" });
     await finalizeFlaremoMemberRemoval(context.db, id, artifacts);
-    return c.json({ ok: true });
+    const completed = job
+      ? await updateMemberRemovalJob(context.db, job.id, {
+          status: "completed",
+          phase: "completed",
+          completedAt: new Date().toISOString(),
+        })
+      : undefined;
+    return c.json({ ok: true, job: completed });
+  } catch (error) {
+    if (jobId) {
+      const context = await getBrowserRequestContext(c).catch(() => undefined);
+      if (context) {
+        await failMemberRemovalJob(
+          context.db,
+          jobId,
+          "member_removal_failed",
+          error instanceof Error ? error.message : "Member removal failed",
+        ).catch(() => undefined);
+      }
+    }
+    return jsonError(c, error);
+  }
+});
+
+adminApi.get("/member-removal-jobs", async (c) => {
+  try {
+    const context = await teamAdminContext(c);
+    return c.json({ jobs: await listMemberRemovalJobs(context.db) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+adminApi.get("/member-removal-jobs/:id", async (c) => {
+  try {
+    await teamAdminContext(c);
+    const job = await getMemberRemovalJob(
+      (await getBrowserRequestContext(c)).db,
+      c.req.param("id"),
+    );
+    if (!job) throw new NotFoundError("Removal job not found");
+    return c.json({ job });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+adminApi.post("/member-removal-jobs/:id/retry", async (c) => {
+  try {
+    const context = await teamAdminContext(c);
+    const id = c.req.param("id");
+    const job = await getMemberRemovalJob(context.db, id);
+    if (!job) throw new NotFoundError("Removal job not found");
+    if (job.status !== "failed") {
+      throw new ForbiddenError("Only failed removal jobs can be retried.");
+    }
+    const retried = await updateMemberRemovalJob(context.db, id, {
+      status: "queued",
+      phase: "retry_queued",
+      attempts: (job.attempts ?? 0) + 1,
+      errorCode: null,
+      errorMessage: null,
+      completedAt: null,
+    });
+    await c.env.MEMBER_REMOVAL_QUEUE?.send({ jobId: id });
+    return c.json({ job: retried }, 202);
   } catch (error) {
     return jsonError(c, error);
   }

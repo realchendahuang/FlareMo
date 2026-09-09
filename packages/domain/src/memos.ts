@@ -178,6 +178,7 @@ export async function listMemosForViewer(
     ? memos.updatedAt
     : memos.createdAt;
   const filters = [memoReadScope(user)];
+  if (celFilter?.sqlPredicate) filters.push(celFilter.sqlPredicate);
 
   // The established `state` query parameter wins over a search scope so that
   // Memos-compatible clients retain their existing filtering semantics.
@@ -287,9 +288,26 @@ export async function listMemosForViewer(
       direction === "asc" ? asc(orderColumn) : desc(orderColumn),
       direction === "asc" ? asc(memos.id) : desc(memos.id),
     );
+  // Never hydrate an unbounded candidate set for a user-supplied expression.
+  // If the bounded window contains a complete page plus a lookahead match,
+  // the existing cursor safely resumes after that page. Otherwise require a
+  // narrower query rather than silently claiming that a partial scan is final.
+  const scanLimit = 5_000;
+  const candidates = await orderedQuery.limit(
+    celFilter ? scanLimit + 1 : query.page_size + 1,
+  );
   const rows = celFilter
-    ? (await orderedQuery).filter((memo) => celFilter(memo, user))
-    : await orderedQuery.limit(query.page_size + 1);
+    ? candidates.slice(0, scanLimit).filter((memo) => celFilter(memo, user))
+    : candidates;
+  if (
+    celFilter &&
+    candidates.length > scanLimit &&
+    rows.length <= query.page_size
+  ) {
+    throw new ValidationError(
+      "Filter scan limit reached (5000 memos). Narrow the query using a tag, date range, state, or visibility.",
+    );
+  }
 
   const page = rows.slice(0, query.page_size);
   const next = rows.length > query.page_size ? page.at(-1) : undefined;

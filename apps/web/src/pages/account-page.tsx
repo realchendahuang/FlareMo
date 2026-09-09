@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   CheckIcon,
   ClipboardIcon,
+  DownloadIcon,
   EyeOffIcon,
   KeyRoundIcon,
   Loader2Icon,
@@ -12,10 +13,13 @@ import {
 import { useEffect, useState } from "react";
 import {
   changeEmail,
+  createExportTask,
   createPersonalAccessToken,
   deleteAccount,
+  downloadExportJson,
   getCurrentFlareMoUser,
   getVectorUsage,
+  listDataTasks,
   listPersonalAccessTokens,
   type PersonalAccessToken,
   revokePersonalAccessToken,
@@ -35,7 +39,13 @@ import { AdminPanel } from "./admin-page";
 
 const MIN_PASSWORD_LENGTH = 12;
 
-type AccountTab = "profile" | "security" | "tokens" | "usage" | "admin";
+type AccountTab =
+  | "profile"
+  | "security"
+  | "tokens"
+  | "transfer"
+  | "usage"
+  | "admin";
 
 export function AccountPage() {
   const { locale, t } = useI18n();
@@ -91,6 +101,25 @@ export function AccountPage() {
     queryKey: ["vector-usage"],
     queryFn: getVectorUsage,
     retry: false,
+  });
+  const dataTasksQuery = useQuery({
+    queryKey: ["data-tasks"],
+    queryFn: listDataTasks,
+    retry: false,
+    refetchInterval: (query) => {
+      const tasks = query.state.data?.tasks ?? [];
+      return tasks.some(
+        (task) => task.status === "queued" || task.status === "running",
+      )
+        ? 5_000
+        : false;
+    },
+  });
+  const retryExportMutation = useMutation({
+    mutationFn: createExportTask,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["data-tasks"] });
+    },
   });
   const updateUsernameMutation = useMutation({
     mutationFn: async (nextUsername: string) => {
@@ -262,6 +291,7 @@ export function AccountPage() {
             <TabsTrigger value="profile">{t("auth.tab.profile")}</TabsTrigger>
             <TabsTrigger value="security">{t("auth.tab.security")}</TabsTrigger>
             <TabsTrigger value="tokens">{t("auth.tab.tokens")}</TabsTrigger>
+            <TabsTrigger value="transfer">{t("auth.tab.transfer")}</TabsTrigger>
             <TabsTrigger value="usage">{t("auth.tab.usage")}</TabsTrigger>
             {isTeamAdmin && (
               <TabsTrigger value="admin">{t("auth.tab.admin")}</TabsTrigger>
@@ -686,6 +716,113 @@ export function AccountPage() {
                   </p>
                 ) : (
                   <VectorUsagePanel report={vectorUsageQuery.data} t={t} />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="transfer" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("transfer.title")}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {t("transfer.description")}
+                </p>
+                {dataTasksQuery.isLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : dataTasksQuery.isError ? (
+                  <p className="text-sm text-destructive">
+                    {t("transfer.loadFailed")}
+                  </p>
+                ) : dataTasksQuery.data?.tasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("transfer.empty")}
+                  </p>
+                ) : (
+                  dataTasksQuery.data?.tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {task.kind === "export"
+                            ? t("transfer.export")
+                            : t("transfer.import")}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {task.phase}
+                        </p>
+                        {task.status === "failed" && task.error_message && (
+                          <p className="mt-1 line-clamp-2 text-xs text-destructive">
+                            {task.error_message}
+                          </p>
+                        )}
+                        {task.progress_total > 0 && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full rounded-full bg-primary transition-[width]"
+                                style={{
+                                  width: `${Math.min(100, Math.round((task.progress_done / task.progress_total) * 100))}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-[11px] tabular-nums text-muted-foreground">
+                              {task.progress_done}/{task.progress_total}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <Badge
+                        variant={
+                          task.status === "succeeded"
+                            ? "secondary"
+                            : task.status === "failed"
+                              ? "destructive"
+                              : "outline"
+                        }
+                      >
+                        {task.status}
+                      </Badge>
+                      {task.status === "succeeded" &&
+                        task.kind === "export" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void downloadExportJson(task.id).then((blob) => {
+                                const url = URL.createObjectURL(blob);
+                                const anchor = document.createElement("a");
+                                anchor.href = url;
+                                anchor.download = `flaremo-export-${task.id}.json`;
+                                anchor.click();
+                                setTimeout(
+                                  () => URL.revokeObjectURL(url),
+                                  1000,
+                                );
+                              })
+                            }
+                          >
+                            <DownloadIcon data-icon="inline-start" />
+                            {t("transfer.download")}
+                          </Button>
+                        )}
+                      {task.status === "failed" && task.kind === "export" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={retryExportMutation.isPending}
+                          onClick={() => void retryExportMutation.mutateAsync()}
+                        >
+                          <RefreshCcwIcon data-icon="inline-start" />
+                          {t("transfer.retry")}
+                        </Button>
+                      )}
+                    </div>
+                  ))
                 )}
               </CardContent>
             </Card>

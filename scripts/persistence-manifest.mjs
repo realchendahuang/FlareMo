@@ -31,6 +31,7 @@ export const RESTORE_TABLES = [
   "shares",
   "settings",
   "data_tasks",
+  "member_removal_jobs",
   "memory_items",
   "memory_revisions",
   "memory_relations",

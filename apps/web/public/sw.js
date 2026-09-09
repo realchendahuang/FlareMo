@@ -63,9 +63,27 @@ function isImmutableStaticAsset(url, request) {
 
 function isPrivateAppNavigation(url) {
   const scopePath = scopeUrl.pathname;
+  const privateRoutes = [
+    `${scopePath}account`,
+    `${scopePath}forgot-password`,
+    `${scopePath}login`,
+    `${scopePath}memory`,
+    `${scopePath}memo`,
+    `${scopePath}projects`,
+    `${scopePath}recover`,
+    `${scopePath}register`,
+    `${scopePath}reset`,
+    `${scopePath}review`,
+    `${scopePath}setup`,
+    `${scopePath}verify-email`,
+    `${scopePath}verify-email-change`,
+  ];
+
   return (
     url.pathname === scopePath ||
-    url.pathname.startsWith(`${scopePath}memo/`)
+    privateRoutes.some(
+      (route) => url.pathname === route || url.pathname.startsWith(`${route}/`),
+    )
   );
 }
 

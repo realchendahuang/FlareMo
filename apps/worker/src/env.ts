@@ -1,6 +1,8 @@
 import type { RateLimiterBinding } from "./rate-limit";
 
 export type FlareMoEnv = Env & {
+  MEMBER_REMOVAL_QUEUE?: Queue<{ jobId: string }>;
+  DATA_EXPORT_QUEUE?: Queue<{ taskId: string }>;
   BETTER_AUTH_SECRET?: string;
   FLAREMO_BOOTSTRAP_SECRET?: string;
   FLAREMO_RECOVERY_SECRET?: string;

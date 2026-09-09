@@ -1,0 +1,1 @@
+CREATE INDEX `memos_user_created_id_idx` ON `memos` (`user_id`,`created_at`,`id`);

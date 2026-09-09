@@ -12,7 +12,7 @@ import {
   memos,
   shares,
 } from "@flaremo/db";
-import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { NotFoundError } from "./errors";
 import { importData } from "./import-export";
 
@@ -225,17 +225,29 @@ export async function streamExportData(
   const pageSize = 500;
 
   // Memos are the largest collection and the anchor for relations.
-  let memoCursor = 0;
+  let memoCursor: { createdAt: string; id: string } | undefined;
   let memoCount = 0;
   const allMemoIds = new Set<string>();
   while (true) {
+    const cursorWhere = memoCursor
+      ? or(
+          gt(memos.createdAt, memoCursor.createdAt),
+          and(
+            eq(memos.createdAt, memoCursor.createdAt),
+            gt(memos.id, memoCursor.id),
+          ),
+        )
+      : undefined;
     const page = await db
       .select()
       .from(memos)
-      .where(eq(memos.userId, user.id))
+      .where(
+        cursorWhere
+          ? and(eq(memos.userId, user.id), cursorWhere)
+          : eq(memos.userId, user.id),
+      )
       .orderBy(asc(memos.createdAt), asc(memos.id))
       .limit(pageSize)
-      .offset(memoCursor)
       .all();
     if (page.length === 0) break;
     const records = page.map((memo) =>
@@ -255,7 +267,9 @@ export async function streamExportData(
     for (const memo of page) allMemoIds.add(memo.id);
     memoCount += page.length;
     await onChunk({ kind: "memos", records: records.join("\n") });
-    memoCursor += page.length;
+    const lastMemo = page.at(-1);
+    if (!lastMemo) break;
+    memoCursor = { createdAt: lastMemo.createdAt, id: lastMemo.id };
   }
 
   // Attachments metadata (no binaries in the manifest; the worker exposes a
@@ -288,21 +302,26 @@ export async function streamExportData(
   });
 
   // Relations restricted to memos owned by the user.
-  const relationRows = await db.select().from(memoRelations).all();
   const relationRecords: string[] = [];
-  for (const relation of relationRows) {
-    if (
-      allMemoIds.has(relation.memoId) &&
-      allMemoIds.has(relation.relatedMemoId)
-    ) {
-      relationRecords.push(
-        JSON.stringify({
-          memo: relation.memoId,
-          related_memo: relation.relatedMemoId,
-          type: relation.type,
-          create_time: relation.createdAt,
-        }),
-      );
+  const memoIdList = Array.from(allMemoIds);
+  for (let offset = 0; offset < memoIdList.length; offset += pageSize) {
+    const memoIdChunk = memoIdList.slice(offset, offset + pageSize);
+    const relationRows = await db
+      .select()
+      .from(memoRelations)
+      .where(inArray(memoRelations.memoId, memoIdChunk))
+      .all();
+    for (const relation of relationRows) {
+      if (allMemoIds.has(relation.relatedMemoId)) {
+        relationRecords.push(
+          JSON.stringify({
+            memo: relation.memoId,
+            related_memo: relation.relatedMemoId,
+            type: relation.type,
+            create_time: relation.createdAt,
+          }),
+        );
+      }
     }
   }
   await onChunk({

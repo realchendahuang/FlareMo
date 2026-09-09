@@ -154,6 +154,8 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
+    const exportIndexes = await readFile(resolve(import.meta.dirname, "../../../migrations/0015_next_klaw.sql"), "utf8");
+    const removalJobs = await readFile(resolve(import.meta.dirname, "../../../migrations/0016_silky_leopardon.sql"), "utf8");
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);
@@ -163,6 +165,8 @@ describe("FlareMo Worker API", () => {
     await applyMigration(db, reactionsSchema);
     await applyMigration(db, sseEvents);
     await applyMigration(db, userServiceParity);
+    await applyMigration(db, exportIndexes);
+    await applyMigration(db, removalJobs);
     await applyMigration(db, webhookOutbox);
     await applyMigration(db, dataTasks);
     await applyMigration(db, memorySchema);
@@ -2378,7 +2382,10 @@ describe("FlareMo Worker API", () => {
       env,
     );
     expect(createMemberResponse.status).toBe(201);
-    const member = await createMemberResponse.json<{ id: string }>();
+    const member = await createMemberResponse.json<{
+      id: string;
+      activation_path: string;
+    }>();
 
     const updateRole = async (role: "admin" | "member") =>
       app.fetch(
@@ -2399,6 +2406,24 @@ describe("FlareMo Worker API", () => {
     expect((await updateRole("admin")).status).toBe(200);
     expect((await updateRole("member")).status).toBe(200);
 
+    const activationToken = new URL(
+      `http://flaremo.test${member.activation_path}`,
+    ).searchParams.get("token");
+    const reset = await app.fetch(
+      new Request("http://flaremo.test/api/auth/reset-password", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          token: activationToken,
+          newPassword: TEST_PASSWORD,
+        }),
+      }),
+      env,
+    );
+    expect(reset.status).toBe(200);
     const signIn = await app.fetch(
       new Request("http://flaremo.test/api/auth/sign-in/email", {
         method: "POST",

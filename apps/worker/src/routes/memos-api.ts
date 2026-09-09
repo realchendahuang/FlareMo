@@ -47,6 +47,7 @@ import {
   runImportTask,
   streamExportData,
   updateDataTask,
+  ValidationError,
   updateMemo,
 } from "@flaremo/domain";
 import {
@@ -721,7 +722,7 @@ memosApi.post("/export/tasks", async (c) => {
         500,
       );
     }
-    return c.json({ task: dataTaskToDto(done) }, 202);
+    return c.json({ task: dataTaskToDto(done!) }, 202);
   } catch (error) {
     if (taskId) {
       const context = await getRequestContext(c).catch(() => undefined);

@@ -106,6 +106,20 @@
       "when": 1788319390912,
       "tag": "0014_steep_carnage",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1788692997735,
+      "tag": "0015_next_klaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1788695455212,
+      "tag": "0016_silky_leopardon",
+      "breakpoints": true
     }
   ]
 }

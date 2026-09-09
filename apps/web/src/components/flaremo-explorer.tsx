@@ -43,6 +43,7 @@ type FlareMoExplorerProps = {
   onTagChange: (tag?: string) => void;
   onUntaggedChange: (untagged: boolean) => void;
   onViewChange: (view: ExplorerView) => void;
+  onNavigate?: () => void;
 };
 
 export function FlareMoExplorer({
@@ -58,6 +59,7 @@ export function FlareMoExplorer({
   onTagChange,
   onUntaggedChange,
   onViewChange,
+  onNavigate,
 }: FlareMoExplorerProps) {
   const { locale, t } = useI18n();
   const navItems = [
@@ -149,7 +151,10 @@ export function FlareMoExplorer({
             )}
             key={item.view}
             type="button"
-            onClick={() => onViewChange(item.view)}
+            onClick={() => {
+              onViewChange(item.view);
+              onNavigate?.();
+            }}
           >
             {activeView === item.view && (
               <span
@@ -169,6 +174,7 @@ export function FlareMoExplorer({
       <section className="mt-5 flex flex-col gap-1 border-t border-border/60 pt-4">
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          onClick={onNavigate}
           to="/review/daily"
         >
           <CalendarDaysIcon />
@@ -178,6 +184,7 @@ export function FlareMoExplorer({
         </Link>
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          onClick={onNavigate}
           to="/review/walk"
         >
           <FootprintsIcon />
@@ -185,6 +192,7 @@ export function FlareMoExplorer({
         </Link>
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          onClick={onNavigate}
           to="/memory"
         >
           <BrainIcon />
@@ -192,6 +200,7 @@ export function FlareMoExplorer({
         </Link>
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          onClick={onNavigate}
           to="/projects"
         >
           <FolderKanbanIcon />
@@ -209,7 +218,10 @@ export function FlareMoExplorer({
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
           type="button"
-          onClick={() => onUntaggedChange(!untagged)}
+          onClick={() => {
+            onUntaggedChange(!untagged);
+            onNavigate?.();
+          }}
         >
           <HashIcon className="opacity-50" />
           <span className="truncate">{t("explorer.untagged")}</span>
@@ -221,6 +233,7 @@ export function FlareMoExplorer({
             onDeleteTag={onDeleteTag}
             onRenameTag={onRenameTag}
             onTagChange={onTagChange}
+            onNavigate={onNavigate}
           />
         ) : (
           <div className="text-xs text-muted-foreground">
@@ -239,6 +252,7 @@ type TagTreeProps = {
   onDeleteTag: (tag: string) => void;
   onRenameTag: (from: string, to: string) => void;
   onTagChange: (tag?: string) => void;
+  onNavigate?: () => void;
 };
 
 function TagTree({
@@ -247,6 +261,7 @@ function TagTree({
   onDeleteTag,
   onRenameTag,
   onTagChange,
+  onNavigate,
 }: TagTreeProps) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -305,7 +320,10 @@ function TagTree({
             aria-pressed={isActive}
             className="flex min-w-0 flex-1 items-center gap-1 text-left"
             type="button"
-            onClick={() => onTagChange(isActive ? undefined : name)}
+            onClick={() => {
+              onTagChange(isActive ? undefined : name);
+              onNavigate?.();
+            }}
           >
             <HashIcon className="shrink-0 opacity-50" />
             <span className="truncate">{label}</span>

@@ -28,25 +28,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
-
-const MIN_PASSWORD_LENGTH = 12;
 
 export function AdminPanel() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [resetLink, setResetLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -63,7 +55,6 @@ export function AdminPanel() {
     onSuccess: () => {
       setName("");
       setEmail("");
-      setPassword("");
       void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
   });
@@ -85,17 +76,14 @@ export function AdminPanel() {
   });
 
   const handleCreateUser = async () => {
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setCreateError(t("auth.passwordLength"));
-      return;
-    }
     setCreateError(null);
     try {
-      await createUserMutation.mutateAsync({
+      const result = await createUserMutation.mutateAsync({
         name: name.trim(),
         email: email.trim(),
-        password,
       });
+      setResetLink(`${window.location.origin}${result.activation_path}`);
+      setCopied(false);
     } catch (error) {
       setCreateError(errorMessage(error, t("admin.userCreateFailed")));
     }
@@ -186,22 +174,9 @@ export function AdminPanel() {
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
-            <label
-              className="flex flex-col gap-1.5 text-sm font-medium"
-              htmlFor="admin-password"
-            >
-              {t("auth.password")}
-              <Input
-                autoComplete="new-password"
-                disabled={createUserMutation.isPending}
-                id="admin-password"
-                minLength={MIN_PASSWORD_LENGTH}
-                required
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-            </label>
+            <p className="self-end text-xs leading-5 text-muted-foreground sm:col-span-2">
+              {t("admin.activationDescription")}
+            </p>
             <div className="sm:col-span-2">
               <Button disabled={createUserMutation.isPending} type="submit">
                 {createUserMutation.isPending && (

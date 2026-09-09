@@ -49,6 +49,7 @@ import {
   createShare,
   deleteTag,
   downloadExportJson,
+  exportDataInline,
   getCurrentFlareMoUser,
   getDataTask,
   getMemoStats,
@@ -229,6 +230,7 @@ function FlareMoApp() {
   const desktopSearchRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
   const [isTimelineScrolled, setIsTimelineScrolled] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const isQueueFlushing = useRef(false);
   const isQueueFlushPending = useRef(false);
   const isCaptureSubmitting = useRef(false);
@@ -573,6 +575,24 @@ function FlareMoApp() {
   };
 
   const handleExport = async () => {
+    // Prefer the inline endpoint for small workspaces so the downloaded file
+    // is a complete, immediately restorable Memos bundle. The worker returns
+    // 413 when the payload would exceed its safe response budget.
+    try {
+      const bundle = await exportDataInline(true);
+      downloadJsonFile(
+        bundle,
+        `flaremo-export-${new Date().toISOString()}.json`,
+      );
+      toast.success(t("toast.exportInlineDone"));
+      return;
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 413) {
+        handleMutationError(error);
+        return;
+      }
+    }
+
     try {
       const { task } = await createExportTask();
       toast.success(t("toast.exportStarted"));
@@ -586,13 +606,8 @@ function FlareMoApp() {
         return;
       }
       const blob = await downloadExportJson(finished.id);
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `flaremo-export-${new Date().toISOString()}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      toast.success(t("toast.exportDone"));
+      downloadBlobFile(blob, `flaremo-export-${new Date().toISOString()}.json`);
+      toast.success(t("toast.exportManifestDone"));
     } catch (error) {
       handleMutationError(error);
     }
@@ -618,7 +633,10 @@ function FlareMoApp() {
   };
 
   const pollDataTask = async (id: string) => {
-    for (;;) {
+    // A task can be left queued when a request is interrupted. Bound the
+    // browser wait so the UI never spins forever; the task remains inspectable
+    // through the API and can be retried by a later export.
+    for (let attempt = 0; attempt < 120; attempt += 1) {
       const { task } = await getDataTask(id);
       if (
         task.status === "succeeded" ||
@@ -630,9 +648,10 @@ function FlareMoApp() {
       toast(t("toast.taskPending"), { id: "data-task-pending" });
       await new Promise((resolve) => setTimeout(resolve, 1500));
     }
+    throw new Error(t("toast.taskTimeout"));
   };
 
-  const renderExplorer = (importInputId: string) => (
+  const renderExplorer = (importInputId: string, onNavigate?: () => void) => (
     <FlareMoExplorer
       activeTag={activeTag}
       activeView={view}
@@ -646,7 +665,11 @@ function FlareMoApp() {
             size="icon-sm"
             variant="ghost"
           >
-            <Link title={t("auth.accountTitle")} to="/account">
+            <Link
+              onClick={onNavigate}
+              title={t("auth.accountTitle")}
+              to="/account"
+            >
               <SettingsIcon />
             </Link>
           </Button>
@@ -710,6 +733,7 @@ function FlareMoApp() {
       onTagChange={setActiveTag}
       onUntaggedChange={setUntagged}
       onViewChange={setView}
+      onNavigate={onNavigate}
     />
   );
 
@@ -729,7 +753,7 @@ function FlareMoApp() {
             )}
           >
             <div className="flex h-14 items-center gap-2 px-5 lg:px-3">
-              <Sheet>
+              <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
                 <SheetTrigger asChild>
                   <Button
                     aria-label={t("sidebar.toggle")}
@@ -751,7 +775,9 @@ function FlareMoApp() {
                     className="no-scrollbar h-full overflow-y-auto overscroll-contain"
                     data-testid="mobile-sidebar-scroll"
                   >
-                    {renderExplorer("flaremo-import-file-mobile")}
+                    {renderExplorer("flaremo-import-file-mobile", () =>
+                      setMobileSheetOpen(false),
+                    )}
                   </div>
                 </SheetContent>
               </Sheet>
@@ -995,6 +1021,26 @@ function getAttachmentCaptureClientId(
 
 function toError(error: unknown) {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+function downloadJsonFile(value: unknown, filename: string) {
+  downloadBlobFile(
+    new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
+    filename,
+  );
+}
+
+function downloadBlobFile(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // Safari can start reading the object URL after click() returns.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 function shouldQueueAfterFailure(error: unknown) {

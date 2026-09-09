@@ -4,20 +4,29 @@ import {
 } from "@flaremo/contracts";
 import { createDb } from "@flaremo/db";
 import {
+  beginFlaremoMemberRemoval,
   createDailyReviewNotifications,
   deleteExpiredDataTasks,
   dispatchEmbeddingOutbox,
   dispatchMemosWebhookOutbox,
   expireStaleDataTasks,
+  failMemberRemovalJob,
   finalizeAttachmentCleanup,
+  finalizeFlaremoMemberRemoval,
   listAttachmentCleanupCandidates,
+  listQueuedMemberRemovalJobs,
+  getQueuedMemberRemovalJobsByIds,
   type PlanLimits,
   parseUserPlanLimits,
   SELF_HOST_UNLIMITED,
   type UserPlanLimits,
+  updateMemberRemovalJob,
+  claimMemberRemovalJob,
+  requeueStaleMemberRemovalJobs,
 } from "@flaremo/domain";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { cleanupFlaremoArtifacts } from "./artifact-cleanup";
 import { createFlareMoAuth, getTrustedOrigins } from "./auth";
 import {
   assertTrustedCookieMutation,
@@ -237,7 +246,20 @@ export function createFlareMoApp(
     if (c.req.path.startsWith("/api/")) {
       return c.json({ error: { message: "Not found" } }, 404);
     }
-    return c.env.ASSETS.fetch(c.req.raw);
+    return c.env.ASSETS.fetch(c.req.raw).then((response) => {
+      // Vite asset filenames contain a content hash. They are safe to cache
+      // for a year; HTML and application routes remain revalidated normally.
+      if (/^\/assets\/[A-Za-z0-9._-]+-[A-Za-z0-9]{8,}\./.test(c.req.path)) {
+        const headers = new Headers(response.headers);
+        headers.set("cache-control", "public, max-age=31536000, immutable");
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers,
+        });
+      }
+      return response;
+    });
   });
 
   return app;
@@ -258,9 +280,41 @@ export async function runScheduledMaintenance(
     resolveUserLimits?: (
       userId: string,
     ) => Promise<UserPlanLimits | null> | UserPlanLimits | null;
+    removalJobIds?: string[];
   } = {},
 ): Promise<void> {
   const db = createDb(env.DB);
+  await requeueStaleMemberRemovalJobs(db, scheduledTime);
+  const removalJobs = options.removalJobIds
+    ? await getQueuedMemberRemovalJobsByIds(db, options.removalJobIds)
+    : await listQueuedMemberRemovalJobs(db);
+  for (const job of removalJobs) {
+    try {
+      if (!(await claimMemberRemovalJob(db, job.id))) continue;
+      await updateMemberRemovalJob(db, job.id, {
+        attempts: (job.attempts ?? 0) + 1,
+      });
+      const artifacts = await beginFlaremoMemberRemoval(db, job.memberId);
+      await updateMemberRemovalJob(db, job.id, { phase: "cleaning_artifacts" });
+      await cleanupFlaremoArtifacts(env, artifacts);
+      await finalizeFlaremoMemberRemoval(db, job.memberId, artifacts);
+      await updateMemberRemovalJob(db, job.id, {
+        status: "completed",
+        phase: "completed",
+        completedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      await failMemberRemovalJob(
+        db,
+        job.id,
+        "scheduled_member_removal_failed",
+        error instanceof Error ? error.message : "Member removal failed",
+      ).catch(() => undefined);
+      // Propagate the failure so Queue does not acknowledge the batch. The
+      // platform can then apply its configured retry policy.
+      if (options.removalJobIds) throw error;
+    }
+  }
   await dispatchMemosWebhookOutbox(db);
   await dispatchEmbeddingOutbox(db, {
     provider: createEmbeddingProvider(env),
@@ -380,6 +434,23 @@ export function createFlareMoWorker(
           ? (userId) => resolvedOptions.resolveUserPlanLimits(env, userId)
           : undefined,
       });
+    },
+    async queue(batch, env) {
+      // The queue shares the same idempotent executor as scheduled maintenance
+      // so retries cannot diverge from the daily recovery path.
+      await runScheduledMaintenance(env, Date.now(), {
+        limits: await resolvedOptions.resolvePlanLimits(env),
+        userLimits: hasCustomUserPlanLimits
+          ? null
+          : parseUserPlanLimits(env.FLAREMO_USER_LIMITS_JSON),
+        resolveUserLimits: hasCustomUserPlanLimits
+          ? (userId) => resolvedOptions.resolveUserPlanLimits(env, userId)
+          : undefined,
+        removalJobIds: batch.messages.map(
+          (message) => (message.body as { jobId: string }).jobId,
+        ),
+      });
+      for (const message of batch.messages) message.ack();
     },
   };
 }

@@ -35,6 +35,30 @@
       "bucket_name": "flaremo-attachments"
     }
   ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "MEMBER_REMOVAL_QUEUE",
+        "queue": "flaremo-member-removal"
+      },
+      {
+        "binding": "DATA_EXPORT_QUEUE",
+        "queue": "flaremo-data-export"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "flaremo-member-removal",
+        "max_batch_size": 10,
+        "max_retries": 5
+      },
+      {
+        "queue": "flaremo-data-export",
+        "max_batch_size": 5,
+        "max_retries": 5
+      }
+    ]
+  },
   "vectorize": [
     {
       "binding": "VECTORIZE_MEMOS",

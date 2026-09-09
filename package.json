@@ -24,13 +24,14 @@
     "persistence:check": "node ./scripts/check-persistence-manifest.mjs",
     "backup:drill": "node ./scripts/backup-drill.mjs",
     "backup:drill:remote": "node ./scripts/remote-restore-drill.mjs",
+    "deploy:preflight": "node ./scripts/deploy-preflight.mjs",
     "screenshots": "node ./scripts/capture-screenshots.mjs",
     "db:generate": "drizzle-kit generate",
     "migrate:local": "wrangler d1 migrations apply DB --local",
     "migrate:remote": "wrangler d1 migrations apply DB --remote",
     "deploy:dry-run": "pnpm --filter @flaremo/web build && wrangler deploy --config ./wrangler.jsonc --dry-run",
     "deploy:dry-run:site": "pnpm build:site && wrangler deploy --config ./apps/site/wrangler.jsonc --dry-run",
-    "deploy": "pnpm --filter @flaremo/web build && pnpm migrate:remote && pnpm --filter @flaremo/worker deploy",
+    "deploy": "pnpm deploy:preflight && pnpm --filter @flaremo/web build && pnpm migrate:remote && pnpm --filter @flaremo/worker deploy",
     "deploy:site": "pnpm build:site && wrangler deploy --config ./apps/site/wrangler.jsonc"
   },
   "cloudflare": {

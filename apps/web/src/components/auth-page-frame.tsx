@@ -45,6 +45,28 @@ export function AuthPageFrame({
             FlareMo
           </span>
         </div>
+        <div className="relative max-w-md py-16">
+          <p className="mb-4 text-xs font-semibold tracking-[0.2em] text-flame-50/70 uppercase">
+            {t("auth.brandEyebrow")}
+          </p>
+          <h1 className="max-w-sm font-heading text-4xl font-semibold leading-tight tracking-tight text-flame-50 xl:text-5xl">
+            {t("auth.brandTitle")}
+          </h1>
+          <p className="mt-5 max-w-sm text-base leading-7 text-flame-50/75">
+            {t("auth.brandDescription")}
+          </p>
+          <ul className="mt-8 grid max-w-sm grid-cols-3 gap-2">
+            <li className="rounded-xl border border-flame-50/15 bg-flame-50/10 px-3 py-3 text-xs font-medium text-flame-50/85 backdrop-blur-sm">
+              {t("auth.brandPointCapture")}
+            </li>
+            <li className="rounded-xl border border-flame-50/15 bg-flame-50/10 px-3 py-3 text-xs font-medium text-flame-50/85 backdrop-blur-sm">
+              {t("auth.brandPointMemory")}
+            </li>
+            <li className="rounded-xl border border-flame-50/15 bg-flame-50/10 px-3 py-3 text-xs font-medium text-flame-50/85 backdrop-blur-sm">
+              {t("auth.brandPointOwnership")}
+            </li>
+          </ul>
+        </div>
       </aside>
       <div className="relative flex items-center justify-center bg-[radial-gradient(circle_at_top,_var(--color-flame-100),_transparent_42%)] px-4 py-8 dark:bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--color-flame-400)_15%,transparent),_transparent_42%)]">
         <header className="absolute inset-x-0 top-0 flex items-center justify-between p-4 lg:justify-end">

@@ -539,4 +539,7 @@ test("keeps the mobile navigation usable", async ({ page }) => {
   await expect(
     page.getByRole("dialog").getByRole("button", { name: /export|导出/i }),
   ).toBeVisible();
+
+  await navigation.getByRole("button", { name: /archive|归档/i }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
 });

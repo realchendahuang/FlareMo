@@ -241,6 +241,11 @@ export const memos = sqliteTable(
       table.createdAt,
       table.id,
     ),
+    index("memos_user_created_id_idx").on(
+      table.userId,
+      table.createdAt,
+      table.id,
+    ),
     index("memos_user_updated_id_idx").on(
       table.userId,
       table.updatedAt,
@@ -675,6 +680,32 @@ export const dataTasks = sqliteTable(
   ],
 );
 
+/** Durable administrator-owned member removal workflow records. */
+export const memberRemovalJobs = sqliteTable(
+  "member_removal_jobs",
+  {
+    id: text("id").primaryKey(),
+    memberId: text("member_id").notNull(),
+    requestedBy: text("requested_by").notNull(),
+    status: text("status", {
+      enum: ["queued", "removing", "failed", "completed"],
+    })
+      .notNull()
+      .default("queued"),
+    phase: text("phase").notNull().default("created"),
+    attempts: integer("attempts").notNull().default(0),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    index("member_removal_jobs_member_idx").on(table.memberId, table.createdAt),
+    index("member_removal_jobs_status_idx").on(table.status, table.updatedAt),
+  ],
+);
+
 // Agent Memory keeps AI-contributed long-term knowledge separate from the
 // user's memo timeline. Each memory is an atomic conclusion (see
 // docs/product-requirements.md and the Agent Memory design); long-form content
@@ -1083,6 +1114,8 @@ export type AttachmentRow = typeof attachments.$inferSelect;
 export type ShareRow = typeof shares.$inferSelect;
 export type DataTaskRow = typeof dataTasks.$inferSelect;
 export type NewDataTaskRow = typeof dataTasks.$inferInsert;
+export type MemberRemovalJobRow = typeof memberRemovalJobs.$inferSelect;
+export type NewMemberRemovalJobRow = typeof memberRemovalJobs.$inferInsert;
 export type MemoryItemRow = typeof memoryItems.$inferSelect;
 export type NewMemoryItemRow = typeof memoryItems.$inferInsert;
 export type MemoryRevisionRow = typeof memoryRevisions.$inferSelect;

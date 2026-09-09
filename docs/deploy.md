@@ -57,7 +57,13 @@ pnpm deploy
 ```bash
 pnpm verify
 pnpm deploy:dry-run
+pnpm deploy:preflight
 ```
+
+`pnpm deploy:preflight` 会确认本地发布环境提供了至少 32 个字符的
+`BETTER_AUTH_SECRET`，并拒绝常见占位值。生产发布还必须确认
+`flaremo-member-removal` Queue 已在目标 Cloudflare 账户创建；`pnpm deploy:dry-run`
+会显示该 Queue、D1、R2、Vectorize、AI 和 Assets binding，但不会创建远程资源。
 
 ## Better Auth 原生认证
 
@@ -113,6 +119,10 @@ Wrangler secret 是写入式配置，部署者应把值保存在自己的密码�
 pnpm migrate:remote
 curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
 ```
+
+0016 migration 会创建 `member_removal_jobs`。应用后再检查管理员页的成员移除任务，
+并确认 Queue 消费者可以领取 queued job；迁移前的旧数据库只保留兼容 fallback，不能
+作为正式环境的最终状态。
 
 首次安装应看到 `state: "ready"` 和 `setup_available: true`。如果返回 `recovery_required`，不要重复提交 bootstrap 或手工创建第二个账户；这表示身份创建和 domain owner 映射之间发生了部分失败，需要先按维护流程处理 bootstrap recovery。
 
