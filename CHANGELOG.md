@@ -2,11 +2,19 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
-## Unreleased
+## v0.15.1
+
+CI 部署回归修复版本。让 `pnpm deploy:preflight` 不再阻断 CI 构建环境的自动化首次部署，并合入两个依赖更新。
 
 ### 修复
 
 - 自动部署环境回归修复：`pnpm deploy:preflight` 在 CI 构建环境（`CI=true`，Workers Builds / Deploy to Cloudflare）中降级为警告不阻断。自动部署环境不携带操作者 secrets，正式 secret 由部署者通过 `wrangler secret put` 配置；本地手动发布仍强制校验 `BETTER_AUTH_SECRET`。v0.15.0 中该门禁曾让一键部署新用户的首次部署必失败。
+
+### 升级影响
+
+- 自托管行为不变：本地手动 `pnpm deploy` 仍强制校验 `BETTER_AUTH_SECRET`（≥32 字符）。
+- 依赖更新：hono 4.13.5、vitest 4.1.11；`pnpm-lock.yaml` 经 `minimumReleaseAge` 供应链策略重新解析（electron-to-chromium、node-releases、obug、seroval 回落到合规版本；dev 依赖 wrangler 等随 SemVer 范围小幅前移）。
+- 无数据库 migration、无 Cloudflare 资源变化、Memos 兼容面不变。
 
 ## v0.15.0
 
