@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@flaremo/contracts": "workspace:*",
-    "@flaremo/db": "workspace:*"
+    "@flaremo/db": "workspace:*",
+    "@flaremo/domain": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

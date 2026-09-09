@@ -71,6 +71,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { stripResourceName } from "@/lib/utils";
 
 const ALL_TASKS = "all";
 
@@ -334,7 +335,10 @@ function ProjectRow({
 
   const archiveMutation = useMutation({
     mutationFn: () =>
-      archiveProject(bareProjectId(project.id), project.status !== "archived"),
+      archiveProject(
+        stripResourceName(project.id, "projects"),
+        project.status !== "archived",
+      ),
     onSuccess: () => {
       toast.success(
         t(
@@ -350,7 +354,7 @@ function ProjectRow({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteProject(bareProjectId(project.id)),
+    mutationFn: () => deleteProject(stripResourceName(project.id, "projects")),
     onSuccess: () => {
       toast.success(t("toast.projectDeleted"));
       onMutated();
@@ -473,7 +477,7 @@ function ProjectFormDialog({
   const saveMutation = useMutation({
     mutationFn: () =>
       project
-        ? updateProject(bareProjectId(project.id), {
+        ? updateProject(stripResourceName(project.id, "projects"), {
             name,
             description: description || null,
           })
@@ -552,7 +556,7 @@ function TaskCard({
 
   const updateMutation = useMutation({
     mutationFn: (input: Parameters<typeof updateTask>[1]) =>
-      updateTask(bareId(task.id), input),
+      updateTask(stripResourceName(task.id, "tasks"), input),
     onSuccess: () => {
       toast.success(t("toast.taskUpdated"));
       onMutated();
@@ -562,7 +566,7 @@ function TaskCard({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteTask(bareId(task.id)),
+    mutationFn: () => deleteTask(stripResourceName(task.id, "tasks")),
     onSuccess: () => {
       toast.success(t("toast.taskDeleted"));
       onMutated();
@@ -736,7 +740,7 @@ function TaskFormDialog({
   const saveMutation = useMutation({
     mutationFn: () =>
       task
-        ? updateTask(bareId(task.id), {
+        ? updateTask(stripResourceName(task.id, "tasks"), {
             title,
             notes,
             priority,
@@ -868,12 +872,4 @@ function TaskFormDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function bareId(id: string) {
-  return id.replace(/^tasks\//, "");
-}
-
-function bareProjectId(id: string) {
-  return id.replace(/^projects\//, "");
 }

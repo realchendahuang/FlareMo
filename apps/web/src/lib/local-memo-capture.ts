@@ -1,4 +1,4 @@
-import type { CreateMemoInput, MemoVisibility } from "@flaremo/contracts";
+import type { MemoVisibility } from "@flaremo/contracts";
 
 /**
  * The single composer uses this id. Consumers that expose multiple compose
@@ -161,26 +161,6 @@ export function isMemoCaptureEmpty(input: MemoCaptureInput) {
   return input.content.trim().length === 0 && input.files.length === 0;
 }
 
-/**
- * Builds the memo portion of a replay request. Attachments deliberately remain
- * separate because they are uploaded directly against the idempotent memo.
- */
-export function toCreateMemoInput(
-  input: MemoCaptureInput,
-  source = "web",
-): CreateMemoInput {
-  const capture = createMemoCaptureInput(input);
-  return {
-    content: capture.content,
-    visibility: capture.visibility,
-    payload: {
-      tags: capture.tags,
-      client_id: capture.clientId,
-    },
-    source,
-  };
-}
-
 /** Returns false instead of throwing when IndexedDB is disabled or unavailable. */
 export async function isLocalMemoCaptureAvailable() {
   return Boolean(await openDatabase());
@@ -210,13 +190,6 @@ export async function restoreMemoDraft(
 ): Promise<MemoDraft | null> {
   const record = await getRecord<DraftRecord>(DRAFT_STORE, draftId);
   return record ? fromDraftRecord(record) : null;
-}
-
-export async function listMemoDrafts(): Promise<MemoDraft[]> {
-  const records = await getAllRecords<DraftRecord>(DRAFT_STORE);
-  return records
-    .map(fromDraftRecord)
-    .sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
 /**

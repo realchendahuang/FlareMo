@@ -66,6 +66,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
+import { stripResourceName } from "@/lib/utils";
 
 type MemoryTab = "core" | "projects" | "recent" | "review" | "archive";
 
@@ -182,12 +184,31 @@ export function MemoryPage() {
             />
           </TabsContent>
           <TabsContent value="review" className="mt-3">
-            <MemoryList
-              memories={reviewQuery.data?.memories ?? []}
-              loading={reviewQuery.isLoading}
-              onMutated={invalidate}
-              review
-            />
+            {reviewQuery.isError ? (
+              <Empty className="min-h-56 border">
+                <EmptyHeader>
+                  <EmptyTitle>{t("list.errorTitle")}</EmptyTitle>
+                  <EmptyDescription>
+                    {t("list.errorDescription")}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <Button
+                  className="mt-2"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void reviewQuery.refetch()}
+                >
+                  {t("common.retry")}
+                </Button>
+              </Empty>
+            ) : (
+              <MemoryList
+                memories={reviewQuery.data?.memories ?? []}
+                loading={reviewQuery.isLoading}
+                onMutated={invalidate}
+                review
+              />
+            )}
           </TabsContent>
           <TabsContent value="archive" className="mt-3">
             <MemoryList
@@ -283,54 +304,67 @@ function MemoryCard({
   const [showRevisions, setShowRevisions] = useState(false);
 
   const confirmMutation = useMutation({
-    mutationFn: () => confirmMemory(bareId(memory.id)),
+    mutationFn: () => confirmMemory(stripResourceName(memory.id, "memories")),
     onSuccess: () => {
       toast.success(t("toast.memoryConfirmed"));
       onMutated();
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.memoryConfirmFailed"))),
   });
 
   const lockMutation = useMutation({
-    mutationFn: () => lockMemory(bareId(memory.id)),
+    mutationFn: () => lockMemory(stripResourceName(memory.id, "memories")),
     onSuccess: () => {
       toast.success(t("toast.memoryLocked"));
       onMutated();
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.memoryLockFailed"))),
   });
 
   const unlockMutation = useMutation({
-    mutationFn: () => unlockMemory(bareId(memory.id)),
+    mutationFn: () => unlockMemory(stripResourceName(memory.id, "memories")),
     onSuccess: () => {
       toast.success(t("toast.memoryUnlocked"));
       onMutated();
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.memoryUnlockFailed"))),
   });
 
   const archiveMutation = useMutation({
-    mutationFn: () => archiveMemory(bareId(memory.id)),
+    mutationFn: () => archiveMemory(stripResourceName(memory.id, "memories")),
     onSuccess: () => {
       toast.success(t("toast.memoryArchived"));
       onMutated();
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.memoryArchiveFailed"))),
   });
 
   const promoteMutation = useMutation({
-    mutationFn: () => promoteMemoryToMemo(bareId(memory.id)),
+    mutationFn: () =>
+      promoteMemoryToMemo(stripResourceName(memory.id, "memories")),
     onSuccess: () => {
       toast.success(t("toast.saved"));
       onMutated();
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.memoryPromoteFailed"))),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteMemory(bareId(memory.id)),
+    mutationFn: () => deleteMemory(stripResourceName(memory.id, "memories")),
     onSuccess: () => {
       toast.success(t("toast.memoryDeleted"));
       onMutated();
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.memoryDeleteFailed"))),
   });
 
-  const id = bareId(memory.id);
+  const id = stripResourceName(memory.id, "memories");
 
   return (
     <Card>
@@ -491,6 +525,24 @@ function MemoryRevisions({ memoryId }: { memoryId: string }) {
   if (revisionsQuery.isLoading) {
     return <Skeleton className="h-16 w-full" />;
   }
+  if (revisionsQuery.isError) {
+    return (
+      <Empty className="min-h-40 border">
+        <EmptyHeader>
+          <EmptyTitle>{t("list.errorTitle")}</EmptyTitle>
+          <EmptyDescription>{t("list.errorDescription")}</EmptyDescription>
+        </EmptyHeader>
+        <Button
+          className="mt-2"
+          size="sm"
+          variant="outline"
+          onClick={() => void revisionsQuery.refetch()}
+        >
+          {t("common.retry")}
+        </Button>
+      </Empty>
+    );
+  }
   const revisions = revisionsQuery.data?.revisions ?? [];
   if (revisions.length === 0) {
     return (
@@ -588,7 +640,7 @@ function MemoryFormDialog({
   const saveMutation = useMutation({
     mutationFn: () =>
       memory
-        ? updateMemory(bareId(memory.id), {
+        ? updateMemory(stripResourceName(memory.id, "memories"), {
             content,
             type,
             kind,
@@ -743,10 +795,6 @@ const KINDS: Memory["kind"][] = [
   "lesson",
   "procedure",
 ];
-
-function bareId(id: string) {
-  return id.replace(/^memories\//, "");
-}
 
 function formatTimestamp(value: string) {
   return new Date(value).toLocaleString();

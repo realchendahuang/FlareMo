@@ -3,7 +3,6 @@ import {
   createMemoCaptureClientId,
   createMemoCaptureInput,
   isMemoCaptureEmpty,
-  toCreateMemoInput,
 } from "./local-memo-capture";
 
 describe("local memo capture", () => {
@@ -43,22 +42,5 @@ describe("local memo capture", () => {
         files: [{} as File],
       }),
     ).toBe(false);
-  });
-
-  it("maps its stable client id to the memo API payload", () => {
-    const request = toCreateMemoInput({
-      content: "Queue me",
-      visibility: "protected",
-      tags: ["offline"],
-      files: [],
-      clientId: "stable-offline-id",
-    });
-
-    expect(request).toMatchObject({
-      content: "Queue me",
-      visibility: "protected",
-      payload: { tags: ["offline"], client_id: "stable-offline-id" },
-      source: "web",
-    });
   });
 });

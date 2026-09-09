@@ -4,22 +4,13 @@ import {
   createMemoCaptureClientId,
   createMemoCaptureInput,
   DEFAULT_NEW_MEMO_DRAFT_ID,
-  enqueueMemoSubmission,
   isLocalMemoCaptureAvailable,
   isMemoCaptureEmpty,
   type MemoCaptureInput,
-  type MemoDraft,
-  type QueuedMemoSubmission,
   removeMemoDraft,
   restoreMemoDraft,
   saveMemoDraft,
 } from "@/lib/local-memo-capture";
-
-export type LocalCaptureStatus =
-  | "restoring"
-  | "ready"
-  | "saving"
-  | "unavailable";
 
 export type UseNewMemoCaptureOptions = {
   draftId?: string;
@@ -29,22 +20,14 @@ export type UseNewMemoCaptureOptions = {
 
 export type UseNewMemoCaptureResult = {
   draft: MemoCaptureInput;
-  status: LocalCaptureStatus;
-  isRestored: boolean;
   /** True only when a non-empty persisted draft replaced the initial state. */
   didRestoreStoredDraft: boolean;
-  setContent: (content: string) => void;
-  setVisibility: (visibility: MemoVisibility) => void;
-  setTags: (tags: string[]) => void;
-  setFiles: (files: File[]) => void;
   updateDraft: (
     updater:
       | MemoCaptureInput
       | ((current: MemoCaptureInput) => MemoCaptureInput),
   ) => void;
   discardDraft: () => Promise<void>;
-  queueCurrentSubmission: () => Promise<QueuedMemoSubmission | null>;
-  restoreDraft: () => Promise<MemoDraft | null>;
 };
 
 /**
@@ -61,7 +44,6 @@ export function useNewMemoCapture(
   const [draft, setDraftState] = useState<MemoCaptureInput>(() =>
     emptyCapture(initialVisibility),
   );
-  const [status, setStatus] = useState<LocalCaptureStatus>("restoring");
   const [restoredDraftId, setRestoredDraftId] = useState<string | null>(null);
   const [restoredStoredDraftId, setRestoredStoredDraftId] = useState<
     string | null
@@ -119,7 +101,6 @@ export function useNewMemoCapture(
       latestDraft.current = next;
       setDraftState(next);
     }
-    setStatus(available ? "ready" : "unavailable");
     setRestoredDraftId(draftId);
     setRestoredStoredDraftId(shouldApplyStoredDraft ? draftId : null);
     return restored;
@@ -136,15 +117,11 @@ export function useNewMemoCapture(
     const snapshot = draft;
     const timeout = window.setTimeout(() => {
       void enqueuePersistence(async () => {
-        setStatus("saving");
         if (isMemoCaptureEmpty(snapshot)) {
-          const deleted = await removeMemoDraft(draftId);
-          setStatus(deleted ? "ready" : "unavailable");
+          await removeMemoDraft(draftId);
           return;
         }
-
-        const saved = await saveMemoDraft(snapshot, draftId);
-        setStatus(saved ? "ready" : "unavailable");
+        await saveMemoDraft(snapshot, draftId);
       });
     }, debounceMs);
 
@@ -158,32 +135,15 @@ export function useNewMemoCapture(
     setDraftState(next);
     setRestoredStoredDraftId(null);
     await enqueuePersistence(async () => {
-      const deleted = await removeMemoDraft(draftId);
-      setStatus(deleted ? "ready" : "unavailable");
+      await removeMemoDraft(draftId);
     });
   }, [draftId, enqueuePersistence, initialVisibility]);
 
-  const queueCurrentSubmission = useCallback(async () => {
-    const queued = await enqueueMemoSubmission(latestDraft.current);
-    if (!queued) setStatus("unavailable");
-    return queued;
-  }, []);
-
   return {
     draft,
-    status,
-    isRestored,
     didRestoreStoredDraft,
-    setContent: (content) =>
-      updateDraft((current) => ({ ...current, content })),
-    setVisibility: (visibility) =>
-      updateDraft((current) => ({ ...current, visibility })),
-    setTags: (tags) => updateDraft((current) => ({ ...current, tags })),
-    setFiles: (files) => updateDraft((current) => ({ ...current, files })),
     updateDraft,
     discardDraft,
-    queueCurrentSubmission,
-    restoreDraft,
   };
 }
 

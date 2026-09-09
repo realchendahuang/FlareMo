@@ -1,11 +1,5 @@
 import { CircleAlertIcon, InboxIcon, Loader2Icon } from "lucide-react";
-import type {
-  Attachment,
-  CurrentFlareMoUser,
-  Memo,
-  MemoVisibility,
-  Share,
-} from "@/api";
+import type { Attachment, Memo, MemoVisibility, Share } from "@/api";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -43,7 +37,6 @@ type MemoListProps = {
   onLoadMore: () => void;
   onRetry: () => void;
   onTagClick?: (tag: string) => void;
-  currentUser?: CurrentFlareMoUser;
 };
 
 export function MemoList({
@@ -66,7 +59,6 @@ export function MemoList({
   onLoadMore,
   onRetry,
   onTagClick,
-  currentUser,
 }: MemoListProps) {
   const { t } = useI18n();
 
@@ -127,12 +119,7 @@ export function MemoList({
         {memos.map((memo, index) => (
           <MemoCard
             attachments={attachmentsByMemo.get(memo.name) ?? []}
-            canManage={
-              memo.creator === currentUser?.id ||
-              ((currentUser?.role === "owner" ||
-                currentUser?.role === "admin") &&
-                memo.visibility !== "private")
-            }
+            canManage={memo.can_manage === true}
             index={index}
             key={memo.name}
             memo={memo}

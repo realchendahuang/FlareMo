@@ -11,6 +11,7 @@ import {
   RefreshCcwIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   changeEmail,
   createExportTask,
@@ -35,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type TranslationKey, useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { formatBytes } from "@/lib/utils";
 import { AdminPanel } from "./admin-page";
 
 const MIN_PASSWORD_LENGTH = 12;
@@ -120,6 +122,8 @@ export function AccountPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["data-tasks"] });
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("transfer.retryFailed"))),
   });
   const updateUsernameMutation = useMutation({
     mutationFn: async (nextUsername: string) => {
@@ -815,7 +819,7 @@ export function AccountPage() {
                           size="sm"
                           variant="outline"
                           disabled={retryExportMutation.isPending}
-                          onClick={() => void retryExportMutation.mutateAsync()}
+                          onClick={() => retryExportMutation.mutate()}
                         >
                           <RefreshCcwIcon data-icon="inline-start" />
                           {t("transfer.retry")}
@@ -999,19 +1003,6 @@ function PlanQuotaBars({
       )}
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 ** 3) {
-    return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-  }
-  if (bytes >= 1024 ** 2) {
-    return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  }
-  if (bytes >= 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${bytes} B`;
 }
 
 function UsageBar({

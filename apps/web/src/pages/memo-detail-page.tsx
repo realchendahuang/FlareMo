@@ -48,6 +48,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 import { formatMemoTime } from "@/lib/memo";
 
 export function MemoDetailPage({ memoId }: { memoId: string }) {
@@ -84,7 +85,8 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
       toast.success(t("toast.shareCreated"));
       await invalidateMemo();
     },
-    onError: (error) => toast.error(toError(error).message),
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
   });
   const revokeMutation = useMutation({
     mutationFn: revokeShare,
@@ -92,7 +94,8 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
       toast.success(t("toast.shareRevoked"));
       await invalidateMemo();
     },
-    onError: (error) => toast.error(toError(error).message),
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
   });
   const restoreMutation = useMutation({
     mutationFn: (revision: string) =>
@@ -105,7 +108,8 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
       toast.success(t("toast.revisionRestored"));
       await invalidateMemo();
     },
-    onError: (error) => toast.error(toError(error).message),
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
   });
   const relationMutation = useMutation({
     mutationFn: ({
@@ -129,7 +133,8 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
       );
       await invalidateMemo();
     },
-    onError: (error) => toast.error(toError(error).message),
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
   });
 
   const rememberMutation = useMutation({
@@ -147,7 +152,8 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
       );
       await queryClient.invalidateQueries({ queryKey });
     },
-    onError: (error) => toast.error(toError(error).message),
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
   });
 
   return (
@@ -603,8 +609,4 @@ function RelationGroup({
       ))}
     </section>
   );
-}
-
-function toError(error: unknown) {
-  return error instanceof Error ? error : new Error(String(error));
 }

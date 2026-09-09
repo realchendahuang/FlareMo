@@ -147,6 +147,9 @@ export const memoDtoSchema = z.object({
   display_time: z.string(),
   creator: z.string(),
   creator_name: z.string().optional(),
+  // Server-computed edit/manage permission for the requesting user, so
+  // clients never re-derive the team permission rules locally.
+  can_manage: z.boolean().optional(),
   attachments: z.array(attachmentDtoSchema).optional(),
 });
 

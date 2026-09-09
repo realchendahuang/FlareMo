@@ -339,6 +339,9 @@ importers:
       '@flaremo/db':
         specifier: workspace:*
         version: link:../db
+      '@flaremo/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       typescript:
         specifier: ^5.9.3

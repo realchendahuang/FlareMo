@@ -1,7 +1,8 @@
 import type { Memo } from "@/api";
+import { stripResourceName } from "@/lib/utils";
 
 export function getMemoResourceId(memo: Memo) {
-  return memo.name.replace(/^memos\//, "");
+  return stripResourceName(memo.name, "memos");
 }
 
 export function extractTags(content: string) {
@@ -40,14 +41,4 @@ export function formatMemoRelativeTime(value: string, locale?: string) {
   if (absSeconds < 86_400)
     return rtf.format(Math.round(diffSeconds / 3_600), "hour");
   return rtf.format(Math.round(diffSeconds / 86_400), "day");
-}
-
-export function getAllTags(memos: Memo[]) {
-  const tags = new Set<string>();
-  for (const memo of memos) {
-    for (const tag of memo.payload.tags ?? extractTags(memo.content)) {
-      tags.add(tag);
-    }
-  }
-  return [...tags].sort((a, b) => a.localeCompare(b));
 }

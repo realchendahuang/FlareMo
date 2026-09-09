@@ -28,7 +28,6 @@ import type {
   ReviewWalkVia,
   ShareDto,
   TagHierarchyResponse,
-  TaskActivityDto,
   TaskDto,
   TaskPriority,
   TaskStatus,
@@ -67,7 +66,6 @@ export type UpdateMemoryRequest = UpdateMemoryInput;
 
 export type Project = ProjectDto;
 export type Task = TaskDto;
-export type TaskActivity = TaskActivityDto;
 export type CreateProjectRequest = CreateProjectInput;
 export type UpdateProjectRequest = UpdateProjectInput;
 export type CreateTaskRequest = CreateTaskInput;
@@ -82,10 +80,6 @@ export type ListMemoParams = {
   include_deleted?: boolean;
   page_size?: number;
   page_token?: string;
-};
-
-export type ListAttachmentsResponse = {
-  attachments: Attachment[];
 };
 
 export type AppInfo = {
@@ -383,12 +377,6 @@ export async function createProject(input: CreateProjectRequest) {
   });
 }
 
-export async function getProject(id: string) {
-  return apiRequest<{ project: Project }>(
-    `/api/app/projects/${encodeURIComponent(id)}`,
-  );
-}
-
 export async function updateProject(id: string, input: UpdateProjectRequest) {
   return apiRequest<{ project: Project }>(
     `/api/app/projects/${encodeURIComponent(id)}`,
@@ -431,10 +419,6 @@ export async function createTask(input: CreateTaskRequest) {
   });
 }
 
-export async function getTask(id: string) {
-  return apiRequest<{ task: Task }>(`/api/app/tasks/${encodeURIComponent(id)}`);
-}
-
 export async function updateTask(id: string, input: UpdateTaskRequest) {
   return apiRequest<{ task: Task }>(
     `/api/app/tasks/${encodeURIComponent(id)}`,
@@ -449,19 +433,6 @@ export async function deleteTask(id: string) {
   return apiRequest<{ ok: true }>(`/api/app/tasks/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
-}
-
-export async function reorderTasks(projectId: string, taskIds: string[]) {
-  return apiRequest<{ tasks: Task[] }>("/api/app/tasks/reorder", {
-    method: "POST",
-    body: JSON.stringify({ project_id: projectId, task_ids: taskIds }),
-  });
-}
-
-export async function listTaskActivity(id: string) {
-  return apiRequest<{ activity: TaskActivity[] }>(
-    `/api/app/tasks/${encodeURIComponent(id)}/activity`,
-  );
 }
 
 export async function createMemoryFromMemo(
@@ -806,22 +777,6 @@ export async function uploadAttachment(input: {
     method: "POST",
     body: formData,
   });
-}
-
-export async function listMemoAttachments(memo: string) {
-  return apiRequest<ListAttachmentsResponse>(
-    `/api/v1/memos/${encodeURIComponent(memo)}/attachments`,
-  );
-}
-
-export async function bindMemoAttachments(memo: string, attachments: string[]) {
-  return apiRequest<ListAttachmentsResponse>(
-    `/api/v1/memos/${encodeURIComponent(memo)}/attachments`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ attachments }),
-    },
-  );
 }
 
 export async function createShare(memo: string) {

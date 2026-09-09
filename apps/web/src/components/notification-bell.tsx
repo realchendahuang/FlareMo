@@ -6,6 +6,7 @@ import {
   CalendarClockIcon,
   MessageCircleIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   type AppNotification,
   archiveNotification,
@@ -19,8 +20,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 import { formatMemoRelativeTime } from "@/lib/memo";
-import { cn } from "@/lib/utils";
+import { cn, stripResourceName } from "@/lib/utils";
 
 const TYPE_ICONS = {
   daily_review: CalendarClockIcon,
@@ -48,6 +50,8 @@ export function NotificationBell() {
     mutationFn: archiveNotification,
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onError: (error) =>
+      toast.error(errorMessage(error, t("notifications.archiveFailed"))),
   });
 
   const notifications = notificationsQuery.data?.notifications ?? [];
@@ -65,7 +69,7 @@ export function NotificationBell() {
     }
     void navigate({
       to: "/memo/$memoId",
-      params: { memoId: notification.memo.replace(/^memos\//, "") },
+      params: { memoId: stripResourceName(notification.memo, "memos") },
     });
   };
 

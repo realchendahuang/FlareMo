@@ -50,7 +50,6 @@ import {
   deleteTag,
   downloadExportJson,
   exportDataInline,
-  getCurrentFlareMoUser,
   getDataTask,
   getMemoStats,
   getTagHierarchy,
@@ -87,6 +86,7 @@ import { UpdateStatus } from "@/components/update-status";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useNewMemoCapture } from "@/hooks/use-new-memo-capture";
 import { type TranslationKey, useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 import {
   enqueueMemoSubmission,
   flushQueuedMemoSubmissions,
@@ -247,11 +247,6 @@ function FlareMoApp() {
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  const currentUserQuery = useQuery({
-    queryKey: ["current-flaremo-user"],
-    queryFn: getCurrentFlareMoUser,
-    retry: false,
-  });
   // Semantic search is hidden when the plan has no budget for it (quota 0)
   // or the capability itself is disabled server-side.
   const semanticEnabled = useMemo(() => {
@@ -352,22 +347,26 @@ function FlareMoApp() {
   );
   const stats = statsQuery.data ?? EMPTY_STATS;
 
+  // Memo detail pages subscribe to ["memo-context", id] and
+  // ["memo-related", id]; prefix invalidation keeps edits and visibility
+  // changes from serving stale detail data.
   const invalidateWorkspace = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["memos"] }),
       queryClient.invalidateQueries({ queryKey: ["memo-stats"] }),
       queryClient.invalidateQueries({ queryKey: ["tag-hierarchy"] }),
+      queryClient.invalidateQueries({ queryKey: ["memo-context"] }),
+      queryClient.invalidateQueries({ queryKey: ["memo-related"] }),
     ]);
   const handleMutationError = (error: unknown) => {
-    const normalizedError = toError(error);
     if (
-      normalizedError instanceof ApiError &&
-      (normalizedError.status === 401 || normalizedError.status === 403)
+      error instanceof ApiError &&
+      (error.status === 401 || error.status === 403)
     ) {
       toast.error(t("toast.accessRequired"));
       return;
     }
-    toast.error(normalizedError.message);
+    toast.error(errorMessage(error, t("toast.requestFailed")));
   };
 
   const { mutateAsync: createMemoAsync, isPending: isCreatingMemo } =
@@ -867,7 +866,6 @@ function FlareMoApp() {
               )}
               <MemoList
                 attachmentsByMemo={attachmentsByMemo}
-                currentUser={currentUserQuery.data}
                 emptyDescription={
                   semanticMode && debouncedQuery
                     ? t("search.semanticEmpty")
@@ -1017,10 +1015,6 @@ function getAttachmentCaptureClientId(
   if (!memoClientId) return undefined;
   const clientId = `${memoClientId}:attachment:${index}`;
   return clientId.length <= 128 ? clientId : undefined;
-}
-
-function toError(error: unknown) {
-  return error instanceof Error ? error : new Error(String(error));
 }
 
 function downloadJsonFile(value: unknown, filename: string) {

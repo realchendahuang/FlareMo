@@ -14,6 +14,7 @@ import type {
   ShareRow,
   UserRow,
 } from "@flaremo/db";
+import { canEditMemo } from "@flaremo/domain";
 
 type MemoRelationRow = {
   memoId: string;
@@ -105,6 +106,9 @@ export function memosToListResponse(input: {
   return {
     memos: input.memos.map((memo) => ({
       ...memoToDto(memo, input.user, input.creatorNames?.get(memo.userId)),
+      // Single source of truth for the edit/manage rule (see canEditMemo);
+      // clients must not re-derive team permissions locally.
+      can_manage: canEditMemo(input.user, memo),
       ...(input.attachmentsByMemo
         ? {
             attachments: (input.attachmentsByMemo.get(memo.id) ?? []).map(

@@ -1,12 +1,11 @@
 import { DownloadIcon, FileIcon } from "lucide-react";
 import type { Attachment } from "@/api";
+import { formatBytes } from "@/lib/utils";
 
 export function AttachmentGallery({
   attachments,
-  compact = false,
 }: {
   attachments: Attachment[];
-  compact?: boolean;
 }) {
   if (attachments.length === 0) return null;
 
@@ -20,7 +19,7 @@ export function AttachmentGallery({
             className="overflow-hidden rounded-xl border bg-card transition-shadow duration-200 hover:shadow-sm"
             key={attachment.name}
           >
-            {!compact && isImage && (
+            {isImage && (
               <a href={attachment.download_url}>
                 <img
                   alt={attachment.filename}
@@ -30,7 +29,7 @@ export function AttachmentGallery({
                 />
               </a>
             )}
-            {!compact && isAudio && (
+            {isAudio && (
               // biome-ignore lint/a11y/useMediaCaption: User-uploaded audio does not include a caption track.
               <audio className="w-full px-3 pt-3" controls preload="metadata">
                 <source
@@ -56,10 +55,4 @@ export function AttachmentGallery({
       })}
     </div>
   );
-}
-
-function formatBytes(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }

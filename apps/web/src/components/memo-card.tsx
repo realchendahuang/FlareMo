@@ -369,10 +369,6 @@ export function MemoCard({
   );
 }
 
-export function nextArchiveState(memo: Memo): MemoState {
-  return memo.state === "archived" ? "normal" : "archived";
-}
-
 function VisibilityBadge({ visibility }: { visibility: MemoVisibility }) {
   const { t } = useI18n();
   const icon =
