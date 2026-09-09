@@ -32,6 +32,7 @@ import { insertMemosSseEvent } from "./memos-sse";
 import { findMentionedUsers, insertMemoNotification } from "./memos-user";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
 import { extractTags, normalizeMemoTags } from "./tags";
+import { memoReadScope } from "./team-permissions";
 
 export type CreateMemoCommentInput = {
   parentMemoName?: string;
@@ -579,6 +580,29 @@ export async function listMemoReactions(
         })
       : undefined,
   };
+}
+
+/**
+ * Batch variant of listMemoReactions for list rendering: one query over the
+ * whole memo set, scoped through memoReadScope so a viewer only ever sees
+ * reactions on memos they can read. Rows are unpaginated; callers group them
+ * by contentId.
+ */
+export async function listReactionsForMemosForViewer(
+  db: FlareMoDb,
+  user: UserRow | null,
+  memoIds: string[],
+) {
+  if (memoIds.length === 0) return [];
+  const allowedMemoIds = db
+    .select({ id: memos.id })
+    .from(memos)
+    .where(and(memoReadScope(user), inArray(memos.id, memoIds)));
+  return db
+    .select()
+    .from(reactions)
+    .where(inArray(reactions.contentId, allowedMemoIds))
+    .orderBy(asc(reactions.createdAt), asc(reactions.id));
 }
 
 export function deleteMemoReaction(
