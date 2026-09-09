@@ -2,9 +2,15 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
-## Unreleased
+## v0.15.3
 
-- **语义搜索索引布局变更（升级影响）**：memo 向量从「按作者 namespace」迁到单一共享 namespace（metadata 仍携带 `user_id`；查询侧由 N 次 Vectorize 查询变为 1 次，成本不随成员数增长；授权边界不变，仍然回 D1 按 `memoReadScope` 过滤）。**升级后存量向量位于旧 namespace，对新查询不可见**：等已有笔记被再次编辑时自动重建，或用重建工具（`rebuildEmbeddingIndexes`，现亦可经 owner 专用 `POST /api/app/admin/embeddings/rebuild` 触发；恢复演练同一路径）全量重排。Agent Memory 向量不受影响（保持按用户 namespace，recall 本就限定本人）。
+安全与正确性修复版本：修复语义搜索/记忆召回的 namespace 透传（此前带 namespace 的向量查询必然 0 命中）、封堵管理员经密码重置接管 owner 的路径、修复 Memos 兼容 force 删除的 R2 对象泄漏，并补齐部署护栏、限流默认值与一批文档/站点修正。含一处数据库 migration（附件清理部分索引，向前兼容）。
+
+### 升级影响
+
+- **语义搜索索引布局变更**：memo 向量从「按作者 namespace」迁到单一共享 namespace（metadata 仍携带 `user_id`；查询侧由 N 次 Vectorize 查询变为 1 次，成本不随成员数增长；授权边界不变，仍然回 D1 按 `memoReadScope` 过滤）。**升级后存量向量位于旧 namespace，对新查询不可见**：等已有笔记被再次编辑时自动重建，或用重建工具（`rebuildEmbeddingIndexes`，现亦可经 owner 专用 `POST /api/app/admin/embeddings/rebuild` 触发；恢复演练同一路径）全量重排。Agent Memory 向量不受影响（保持按用户 namespace，recall 本就限定本人）。
+- 开源默认 `wrangler.jsonc` 现在绑定 `RATE_LIMITER`（登录等凭证端点的每 IP 限流默认生效）；未部署该绑定的自建配置实例不受影响（限流自动降级为不启用）。`wrangler.jsonc` 不再随仓分发，改由 `wrangler.jsonc.example` 起步。
+- 新增数据库 migration `0017_attachments_cleanup_index`，`wrangler d1 migrations apply` 即可，向前兼容。
 
 ### 修复
 
