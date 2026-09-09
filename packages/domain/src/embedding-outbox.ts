@@ -272,8 +272,9 @@ async function processMemoEmbeddingTask(
     ids.map((id, index_) => ({
       id,
       values: vectors[index_] ?? [],
+      // Memo vectors share one namespace: the D1 scope at query time is the
+      // authorization boundary, and metadata keeps the owner for tooling.
       metadata: { memo_id: memo.id, user_id: memo.userId },
-      namespace: task.userId,
     })),
   );
 
@@ -568,8 +569,8 @@ export async function rebuildEmbeddingIndexes(
           ids.map((id, index_) => ({
             id,
             values: vectors[index_] ?? [],
+            // Shared namespace, matching the memo write path above.
             metadata: { memo_id: memo.id, user_id: memo.userId },
-            namespace: memo.userId,
           })),
         );
       }

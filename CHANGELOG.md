@@ -2,6 +2,10 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## Unreleased
+
+- **语义搜索索引布局变更（升级影响）**：memo 向量从「按作者 namespace」迁到单一共享 namespace（metadata 仍携带 `user_id`；查询侧由 N 次 Vectorize 查询变为 1 次，成本不随成员数增长；授权边界不变，仍然回 D1 按 `memoReadScope` 过滤）。**升级后存量向量位于旧 namespace，对新查询不可见**：等已有笔记被再次编辑时自动重建，或用重建工具（`rebuildEmbeddingIndexes`，恢复演练同一路径）全量重排。Agent Memory 向量不受影响（保持按用户 namespace，recall 本就限定本人）。
+
 ## v0.15.2
 
 稳定性与安全加固版本。全库系统性审计后的集中清偿：Memos 兼容面的错误信息收敛与隐私收紧、登录限流补齐、列表查询批量化、请求级实例复用、团队模式验收测试补齐，以及前端大文件的结构拆分。无数据库 migration、无 Cloudflare 资源变化。

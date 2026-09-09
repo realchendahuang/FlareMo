@@ -1,31 +1,8 @@
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
-import { memos, users } from "@flaremo/db";
+import { memos } from "@flaremo/db";
 import { and, inArray } from "drizzle-orm";
 import type { EmbeddingProvider, VectorIndex } from "./embedding";
 import { memoReadScope } from "./team-permissions";
-
-// Team search has to enumerate every author's namespace. The users table is
-// small and rarely changes, so cache the id list per D1 instance for a short
-// TTL instead of reading it on every semantic query.
-const authorNamespaceCache = new WeakMap<
-  FlareMoDb,
-  { ids: string[]; expiresAt: number }
->();
-const AUTHOR_NAMESPACE_CACHE_TTL_MS = 60_000;
-
-async function listAuthorNamespaces(db: FlareMoDb): Promise<string[]> {
-  const now = Date.now();
-  const cached = authorNamespaceCache.get(db);
-  if (cached && cached.expiresAt > now) return cached.ids;
-  const ids = (await db.select({ id: users.id }).from(users)).map(
-    (row) => row.id,
-  );
-  authorNamespaceCache.set(db, {
-    ids,
-    expiresAt: now + AUTHOR_NAMESPACE_CACHE_TTL_MS,
-  });
-  return ids;
-}
 
 export type SemanticSearchDeps = {
   provider: EmbeddingProvider;
@@ -64,20 +41,19 @@ export async function semanticSearchMemos(
   const [queryVector] = await deps.provider.embed([trimmed]);
   if (!queryVector || queryVector.length === 0) return [];
 
-  // Embeddings remain stored under the author's namespace. Team search queries
-  // every author's bucket, including removed authors whose team/public memos
-  // are intentionally retained. Vectorize only supplies candidates; the D1
-  // scope below remains the authorization boundary and drops private hits.
-  const namespaces = deps.namespace
-    ? [deps.namespace]
-    : await listAuthorNamespaces(db);
-  const matches = (
-    await Promise.all(
-      namespaces.map((namespace) =>
-        deps.index.query(queryVector, Math.min(limit * 3, 50), namespace),
-      ),
-    )
-  ).flat();
+  // Memo embeddings live in one shared namespace, so a single vector query
+  // serves the whole team — including removed authors whose team/public memos
+  // are intentionally retained — and query cost stays constant as authors are
+  // added. Vectorize only supplies candidates; the D1 scope below remains the
+  // authorization boundary and drops private hits. (Memory embeddings keep
+  // per-user namespaces because memory recall is scoped to the caller's own
+  // items.) The widened top-K absorbs candidates from other authors that the
+  // D1 re-check may drop.
+  const matches = await deps.index.query(
+    queryVector,
+    Math.min(limit * 5, 100),
+    deps.namespace,
+  );
   if (matches.length === 0) return [];
 
   const candidateIds = [

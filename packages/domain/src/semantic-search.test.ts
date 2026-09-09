@@ -209,8 +209,9 @@ describe("semanticSearchMemos", () => {
     );
 
     expect(hits).toEqual([{ id: teamMemo.id, score: 0.9 }]);
-    expect(index.namespaces).toEqual(
-      expect.arrayContaining([user.id, member.id]),
-    );
+    // Memo vectors share one namespace: a single default-namespace query
+    // covers every author.
+    expect(index.namespaces).toEqual([]);
+    expect(index.lastNamespace).toBeUndefined();
   });
 });

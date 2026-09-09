@@ -143,7 +143,7 @@ describe("embedding outbox", () => {
     expect(updated?.embeddingVersion).toBe("test-model@4");
   });
 
-  it("stores vectors under the owning user's namespace", async () => {
+  it("stores memo vectors in the shared namespace", async () => {
     const _memo = await createMemo(db, user, {
       content: "租户隔离的向量",
       visibility: "private",
@@ -159,7 +159,8 @@ describe("embedding outbox", () => {
     expect(index.store.size).toBe(1);
     const [stored] = [...index.store.values()];
     expect(stored).toBeDefined();
-    expect(stored?.namespace).toBe(user.id);
+    expect(stored?.namespace).toBeUndefined();
+    expect(stored?.metadata).toMatchObject({ user_id: user.id });
   });
 
   it("deletes vectors on hard delete", async () => {
