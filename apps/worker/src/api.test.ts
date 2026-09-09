@@ -154,8 +154,17 @@ describe("FlareMo Worker API", () => {
       ),
       "utf8",
     );
-    const exportIndexes = await readFile(resolve(import.meta.dirname, "../../../migrations/0015_next_klaw.sql"), "utf8");
-    const removalJobs = await readFile(resolve(import.meta.dirname, "../../../migrations/0016_silky_leopardon.sql"), "utf8");
+    const exportIndexes = await readFile(
+      resolve(import.meta.dirname, "../../../migrations/0015_next_klaw.sql"),
+      "utf8",
+    );
+    const removalJobs = await readFile(
+      resolve(
+        import.meta.dirname,
+        "../../../migrations/0016_silky_leopardon.sql",
+      ),
+      "utf8",
+    );
     await applyMigration(db, migration);
     await applyMigration(db, cleanup);
     await applyMigration(db, v020);

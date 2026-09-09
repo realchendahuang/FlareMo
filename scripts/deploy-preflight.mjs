@@ -16,7 +16,9 @@ if (/^(change[-_ ]?me|secret|password|test|dev)$/i.test(secret)) {
 
 const unique = new Set(secret).size;
 if (unique < 12) {
-  console.error("BETTER_AUTH_SECRET has too little character diversity; generate a random secret.");
+  console.error(
+    "BETTER_AUTH_SECRET has too little character diversity; generate a random secret.",
+  );
   process.exit(1);
 }
 

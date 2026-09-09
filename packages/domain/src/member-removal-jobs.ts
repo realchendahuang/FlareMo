@@ -61,20 +61,38 @@ export async function listQueuedMemberRemovalJobs(db: FlareMoDb) {
 }
 
 /** Requeue interrupted executions after a bounded lease window. */
-export async function requeueStaleMemberRemovalJobs(db: FlareMoDb, now = Date.now(), leaseMs = 15 * 60_000) {
-  const rows = await db.select().from(memberRemovalJobs).where(eq(memberRemovalJobs.status, "removing")).all();
+export async function requeueStaleMemberRemovalJobs(
+  db: FlareMoDb,
+  now = Date.now(),
+  leaseMs = 15 * 60_000,
+) {
+  const rows = await db
+    .select()
+    .from(memberRemovalJobs)
+    .where(eq(memberRemovalJobs.status, "removing"))
+    .all();
   const stale = rows.filter((row) => now - Date.parse(row.updatedAt) > leaseMs);
   for (const row of stale) {
-    await updateMemberRemovalJob(db, row.id, { status: "queued", phase: "recovered", errorCode: "worker_interrupted", errorMessage: "Recovered after execution lease expired" });
+    await updateMemberRemovalJob(db, row.id, {
+      status: "queued",
+      phase: "recovered",
+      errorCode: "worker_interrupted",
+      errorMessage: "Recovered after execution lease expired",
+    });
   }
   return stale.length;
 }
 
 /** Fetch exactly the queued jobs requested by a Queue batch. */
-export async function getQueuedMemberRemovalJobsByIds(db: FlareMoDb, ids: string[]) {
+export async function getQueuedMemberRemovalJobsByIds(
+  db: FlareMoDb,
+  ids: string[],
+) {
   if (ids.length === 0) return [];
   const rows = await Promise.all(ids.map((id) => getMemberRemovalJob(db, id)));
-  return rows.filter((job): job is MemberRemovalJobRow => Boolean(job && job.status === "queued"));
+  return rows.filter((job): job is MemberRemovalJobRow =>
+    Boolean(job && job.status === "queued"),
+  );
 }
 
 export async function updateMemberRemovalJob(
@@ -101,9 +119,12 @@ export async function updateMemberRemovalJob(
 
 export async function claimMemberRemovalJob(db: FlareMoDb, id: string) {
   const now = new Date().toISOString();
-  const result = await db.update(memberRemovalJobs)
+  const result = await db
+    .update(memberRemovalJobs)
     .set({ status: "removing", phase: "scheduled_cleanup", updatedAt: now })
-    .where(and(eq(memberRemovalJobs.id, id), eq(memberRemovalJobs.status, "queued")));
+    .where(
+      and(eq(memberRemovalJobs.id, id), eq(memberRemovalJobs.status, "queued")),
+    );
   return result.meta?.changes === 1;
 }
 
