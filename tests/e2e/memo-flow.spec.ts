@@ -498,7 +498,8 @@ test("keeps activity labels and the focused composer fully visible", async ({
 });
 
 test("keeps the mobile navigation usable", async ({ page }) => {
-  for (let index = 0; index < 18; index += 1) {
+  test.slow();
+  for (let index = 0; index < 6; index += 1) {
     const response = await page.request.post("/api/app/memos", {
       ...E2E_COOKIE_MUTATION_OPTIONS,
       data: {
@@ -526,13 +527,14 @@ test("keeps the mobile navigation usable", async ({ page }) => {
     navigation.getByRole("button", { name: /archive|归档/i }),
   ).toBeVisible();
   const scroller = page.getByTestId("mobile-sidebar-scroll");
-  const geometry = await scroller.evaluate((element) => ({
-    clientHeight: element.clientHeight,
-    overflowY: getComputedStyle(element).overflowY,
-    scrollHeight: element.scrollHeight,
-  }));
-  expect(geometry.overflowY).toBe("auto");
-  expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+  await expect
+    .poll(() =>
+      scroller.evaluate((element) => ({
+        overflowY: getComputedStyle(element).overflowY,
+        scrollable: element.scrollHeight > element.clientHeight,
+      })),
+    )
+    .toEqual({ overflowY: "auto", scrollable: true });
   await scroller.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });

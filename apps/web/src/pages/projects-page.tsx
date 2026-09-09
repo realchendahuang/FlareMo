@@ -424,6 +424,7 @@ function ProjectRow({
       </div>
 
       <ProjectFormDialog
+        key={[project.id, project.name, project.description ?? ""].join("|")}
         open={editing}
         project={project}
         onOpenChange={setEditing}
@@ -663,7 +664,19 @@ function TaskCard({
         </CardContent>
       </Card>
 
+      {/* Remount when the row changes so dialog state reseeds from the latest
+          task; otherwise a status advanced via the card dropdown would be
+          written back stale by the editor. */}
       <TaskFormDialog
+        key={[
+          task.id,
+          task.status,
+          task.title,
+          task.notes,
+          task.priority,
+          task.due_at,
+          task.project_id,
+        ].join("|")}
         open={editing}
         projects={[]}
         task={task}

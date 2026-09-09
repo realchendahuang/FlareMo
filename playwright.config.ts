@@ -8,6 +8,11 @@ export default defineConfig({
     timeout: 10_000,
   },
   fullyParallel: false,
+  // Every project shares one wrangler dev server and one auth state, so
+  // parallel workers contend for the same D1 write lock — that contention is
+  // what made the heaviest memo-flow case flake under load. Keep the run
+  // serial; 24 cases stay comfortably fast this way.
+  workers: 1,
   reporter: [["list"]],
   globalSetup: "./tests/e2e/global-setup.ts",
   globalTeardown: "./tests/e2e/global-teardown.ts",

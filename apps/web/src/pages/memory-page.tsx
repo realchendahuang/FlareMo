@@ -462,6 +462,15 @@ function MemoryCard({
         </AlertDialog>
 
         <MemoryFormDialog
+          key={[
+            memory.id,
+            memory.content,
+            memory.type,
+            memory.kind,
+            memory.scope_type,
+            memory.scope_key ?? "",
+            memory.importance,
+          ].join("|")}
           memory={memory}
           open={editing}
           onOpenChange={setEditing}
