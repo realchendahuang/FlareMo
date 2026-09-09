@@ -43,6 +43,22 @@ type MemoCursor = {
   sortValue: string;
 };
 
+// The contracts schemas cap memo content at 100_000 characters for web/MCP
+// writes, but Memos-compatible writes (connect/social/REST) reach these
+// domain functions directly, so the same ceilings are enforced here. The
+// payload check lives in normalizeMemoPayload, the single point shared by
+// createMemo, updateMemo, and the import path.
+const MAX_MEMO_CONTENT_LENGTH = 100_000;
+const MAX_MEMO_PAYLOAD_JSON_LENGTH = 100_000;
+
+function assertMemoContentSize(content: string) {
+  if (content.length > MAX_MEMO_CONTENT_LENGTH) {
+    throw new ValidationError(
+      `Memo content exceeds the ${MAX_MEMO_CONTENT_LENGTH} character limit`,
+    );
+  }
+}
+
 export async function createMemo(
   db: FlareMoDb,
   user: UserRow,
@@ -52,6 +68,7 @@ export async function createMemo(
   if (!isActiveTeamMember(user)) {
     throw new ForbiddenError("Removed members cannot create memos.");
   }
+  assertMemoContentSize(input.content);
   await assertMemoCountQuota(db, scope?.userLimits, user.id);
   const now = new Date().toISOString();
   const payload = normalizeMemoPayload(input.payload);
@@ -327,6 +344,50 @@ export async function listMemosForViewer(
   };
 }
 
+/**
+ * Team-wide per-user memo totals for the Memos ListAllUserStats RPC — the
+ * only fields its DTO consumes. Two grouped queries replace the per-user
+ * stat fan-out; users without memos are absent from the map and default to
+ * zero upstream. Counting semantics mirror getMemoStats (total excludes
+ * trashed).
+ */
+export async function listMemoTotalsByUser(db: FlareMoDb) {
+  const [countRows, tagRows] = await Promise.all([
+    db
+      .select({
+        userId: memos.userId,
+        total:
+          sql<number>`SUM(CASE WHEN ${memos.status} IN ('normal', 'archived') THEN 1 ELSE 0 END)`.mapWith(
+            Number,
+          ),
+      })
+      .from(memos)
+      .groupBy(memos.userId),
+    db
+      .select({
+        userId: memos.userId,
+        name: memoTags.tag,
+        count: sql<number>`COUNT(*)`.mapWith(Number),
+      })
+      .from(memoTags)
+      .innerJoin(memos, eq(memoTags.memoId, memos.id))
+      .where(inArray(memos.status, ["normal", "archived"]))
+      .groupBy(memos.userId, memoTags.tag),
+  ]);
+  const totals = new Map<
+    string,
+    { total: number; tags: Map<string, number> }
+  >();
+  for (const row of countRows) {
+    totals.set(row.userId, { total: row.total ?? 0, tags: new Map() });
+  }
+  for (const row of tagRows) {
+    const entry = totals.get(row.userId);
+    if (entry) entry.tags.set(row.name, row.count);
+  }
+  return totals;
+}
+
 export async function getMemoStats(
   db: FlareMoDb,
   user: UserRow,
@@ -475,6 +536,11 @@ export async function updateMemo(
 ): Promise<MemoRow> {
   const existing = await getMemoById(db, user, id, { includeDeleted: true });
   assertCanEditMemo(user, existing);
+  // Only the incoming content is re-validated; content inherited from the
+  // persisted row is left untouched so legacy oversized rows stay updatable.
+  if (input.content !== undefined) {
+    assertMemoContentSize(input.content);
+  }
   const now = new Date().toISOString();
   const status = input.status;
   const metadataChanged =
@@ -747,7 +813,13 @@ export function normalizeMemoPayload(payload: unknown): MemoPayload {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return {};
   }
-  return { ...(payload as MemoPayload) };
+  const normalized = { ...(payload as MemoPayload) };
+  if (JSON.stringify(normalized).length > MAX_MEMO_PAYLOAD_JSON_LENGTH) {
+    throw new ValidationError(
+      `Memo payload exceeds the ${MAX_MEMO_PAYLOAD_JSON_LENGTH} character limit`,
+    );
+  }
+  return normalized;
 }
 
 export function normalizeMemoClientId(value: unknown) {

@@ -1,15 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  CheckIcon,
-  ClipboardIcon,
-  DownloadIcon,
-  EyeOffIcon,
-  KeyRoundIcon,
-  Loader2Icon,
-  LogOutIcon,
-  RefreshCcwIcon,
-} from "lucide-react";
+import { LogOutIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -17,29 +8,24 @@ import {
   createExportTask,
   createPersonalAccessToken,
   deleteAccount,
-  downloadExportJson,
   getCurrentFlareMoUser,
   getVectorUsage,
   listDataTasks,
   listPersonalAccessTokens,
-  type PersonalAccessToken,
   revokePersonalAccessToken,
-  type VectorUsageReport,
 } from "@/api";
 import { authClient } from "@/auth-client";
 import { SubpageHeader } from "@/components/subpage-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type TranslationKey, useI18n } from "@/i18n";
+import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
-import { formatBytes } from "@/lib/utils";
+import { ProfilePanel } from "./account/profile-panel";
+import { MIN_PASSWORD_LENGTH, SecurityPanel } from "./account/security-panel";
+import { TokensPanel } from "./account/tokens-panel";
+import { TransferPanel } from "./account/transfer-panel";
+import { UsagePanel } from "./account/usage-panel";
 import { AdminPanel } from "./admin-page";
-
-const MIN_PASSWORD_LENGTH = 12;
 
 type AccountTab =
   | "profile"
@@ -258,6 +244,25 @@ export function AccountPage() {
     }
   };
 
+  const handleRevokeToken = async (id: string) => {
+    setTokenError(null);
+    try {
+      await revokeTokenMutation.mutateAsync(id);
+    } catch (error) {
+      setTokenError(errorMessage(error, t("auth.tokenRevokeFailed")));
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    setDeleteError(null);
+    return deleteAccountMutation
+      .mutateAsync(deletePassword)
+      .then(() => setDeletePassword(""))
+      .catch((error: unknown) => {
+        setDeleteError(errorMessage(error, t("auth.deleteAccountFailed")));
+      });
+  };
+
   const handleSignOut = async () => {
     await authClient.signOut();
     queryClient.clear();
@@ -303,533 +308,81 @@ export function AccountPage() {
           </TabsList>
 
           <TabsContent value="profile" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("auth.profileTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="flex flex-col gap-3 sm:flex-row sm:items-end"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleUsernameSubmit();
-                  }}
-                >
-                  <label
-                    className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium"
-                    htmlFor="account-username"
-                  >
-                    {t("auth.usernameHandle")}
-                    <Input
-                      autoCapitalize="none"
-                      autoComplete="username"
-                      disabled={updateUsernameMutation.isPending}
-                      id="account-username"
-                      maxLength={30}
-                      minLength={3}
-                      pattern="[A-Za-z0-9_]+"
-                      required
-                      value={username}
-                      onChange={(event) => setUsername(event.target.value)}
-                    />
-                  </label>
-                  <Button
-                    disabled={updateUsernameMutation.isPending}
-                    type="submit"
-                  >
-                    {updateUsernameMutation.isPending
-                      ? t("auth.saving")
-                      : t("auth.saveUsername")}
-                  </Button>
-                </form>
-                {accountError && (
-                  <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                    {accountError}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            <ProfilePanel
+              error={accountError}
+              isPending={updateUsernameMutation.isPending}
+              setUsername={setUsername}
+              t={t}
+              username={username}
+              onSubmit={handleUsernameSubmit}
+            />
           </TabsContent>
 
           <TabsContent value="security" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("auth.passwordTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="grid gap-3 sm:grid-cols-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handlePasswordSubmit();
-                  }}
-                >
-                  <label
-                    className="flex flex-col gap-1.5 text-sm font-medium sm:col-span-2"
-                    htmlFor="account-current-password"
-                  >
-                    {t("auth.currentPassword")}
-                    <Input
-                      autoComplete="current-password"
-                      disabled={changePasswordMutation.isPending}
-                      id="account-current-password"
-                      required
-                      type="password"
-                      value={currentPassword}
-                      onChange={(event) =>
-                        setCurrentPassword(event.target.value)
-                      }
-                    />
-                  </label>
-                  <label
-                    className="flex flex-col gap-1.5 text-sm font-medium"
-                    htmlFor="account-new-password"
-                  >
-                    {t("auth.newPassword")}
-                    <Input
-                      autoComplete="new-password"
-                      disabled={changePasswordMutation.isPending}
-                      id="account-new-password"
-                      minLength={MIN_PASSWORD_LENGTH}
-                      required
-                      type="password"
-                      value={newPassword}
-                      onChange={(event) => setNewPassword(event.target.value)}
-                    />
-                  </label>
-                  <label
-                    className="flex flex-col gap-1.5 text-sm font-medium"
-                    htmlFor="account-password-confirmation"
-                  >
-                    {t("auth.confirmPassword")}
-                    <Input
-                      autoComplete="new-password"
-                      disabled={changePasswordMutation.isPending}
-                      id="account-password-confirmation"
-                      minLength={MIN_PASSWORD_LENGTH}
-                      required
-                      type="password"
-                      value={newPasswordConfirmation}
-                      onChange={(event) =>
-                        setNewPasswordConfirmation(event.target.value)
-                      }
-                    />
-                  </label>
-                  {passwordError && (
-                    <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive sm:col-span-2">
-                      {passwordError}
-                    </p>
-                  )}
-                  <div className="sm:col-span-2">
-                    <Button
-                      disabled={changePasswordMutation.isPending}
-                      type="submit"
-                    >
-                      <RefreshCcwIcon data-icon="inline-start" />
-                      {changePasswordMutation.isPending
-                        ? t("auth.saving")
-                        : t("auth.changePassword")}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("auth.emailTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {emailVerificationPending && (
-                  <p className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
-                    {t("auth.emailChangeVerificationSent")}
-                  </p>
-                )}
-                <form
-                  className="grid gap-3 sm:grid-cols-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleEmailSubmit();
-                  }}
-                >
-                  <label
-                    className="flex flex-col gap-1.5 text-sm font-medium sm:col-span-2"
-                    htmlFor="account-new-email"
-                  >
-                    {t("auth.newEmail")}
-                    <Input
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      disabled={changeEmailMutation.isPending}
-                      id="account-new-email"
-                      required
-                      type="email"
-                      value={newEmail}
-                      onChange={(event) => setNewEmail(event.target.value)}
-                    />
-                  </label>
-                  <label
-                    className="flex flex-col gap-1.5 text-sm font-medium sm:col-span-2"
-                    htmlFor="account-email-current-password"
-                  >
-                    {t("auth.currentPassword")}
-                    <Input
-                      autoComplete="current-password"
-                      disabled={changeEmailMutation.isPending}
-                      id="account-email-current-password"
-                      required
-                      type="password"
-                      value={emailCurrentPassword}
-                      onChange={(event) =>
-                        setEmailCurrentPassword(event.target.value)
-                      }
-                    />
-                  </label>
-                  {emailError && (
-                    <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive sm:col-span-2">
-                      {emailError}
-                    </p>
-                  )}
-                  <div className="sm:col-span-2">
-                    <Button
-                      disabled={changeEmailMutation.isPending}
-                      type="submit"
-                    >
-                      <RefreshCcwIcon data-icon="inline-start" />
-                      {changeEmailMutation.isPending
-                        ? t("auth.saving")
-                        : t("auth.changeEmail")}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-            {meQuery.data?.role !== "owner" && (
-              <Card className="border-destructive/30">
-                <CardHeader>
-                  <CardTitle>{t("auth.deleteAccountTitle")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form
-                    className="flex flex-col gap-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      setDeleteError(null);
-                      void deleteAccountMutation
-                        .mutateAsync(deletePassword)
-                        .then(() => setDeletePassword(""))
-                        .catch((error: unknown) => {
-                          setDeleteError(
-                            errorMessage(error, t("auth.deleteAccountFailed")),
-                          );
-                        });
-                    }}
-                  >
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {t("auth.deleteAccountDescription")}
-                    </p>
-                    <label
-                      className="flex flex-col gap-1.5 text-sm font-medium"
-                      htmlFor="account-delete-password"
-                    >
-                      {t("auth.deleteAccountPassword")}
-                      <Input
-                        autoComplete="current-password"
-                        disabled={deleteAccountMutation.isPending}
-                        id="account-delete-password"
-                        required
-                        type="password"
-                        value={deletePassword}
-                        onChange={(event) =>
-                          setDeletePassword(event.target.value)
-                        }
-                      />
-                    </label>
-                    {deleteError && (
-                      <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                        {deleteError}
-                      </p>
-                    )}
-                    <Button
-                      className="w-fit"
-                      disabled={
-                        deleteAccountMutation.isPending ||
-                        deletePassword.length === 0
-                      }
-                      type="submit"
-                      variant="destructive"
-                    >
-                      {deleteAccountMutation.isPending
-                        ? t("auth.deleteAccountSubmitting")
-                        : t("auth.deleteAccountSubmit")}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
+            <SecurityPanel
+              changeEmailIsPending={changeEmailMutation.isPending}
+              changePasswordIsPending={changePasswordMutation.isPending}
+              currentPassword={currentPassword}
+              deleteAccountIsPending={deleteAccountMutation.isPending}
+              deleteError={deleteError}
+              deletePassword={deletePassword}
+              emailCurrentPassword={emailCurrentPassword}
+              emailError={emailError}
+              emailVerificationPending={emailVerificationPending}
+              isOwner={meQuery.data?.role === "owner"}
+              newPassword={newPassword}
+              newPasswordConfirmation={newPasswordConfirmation}
+              passwordError={passwordError}
+              setCurrentPassword={setCurrentPassword}
+              setDeletePassword={setDeletePassword}
+              setEmailCurrentPassword={setEmailCurrentPassword}
+              setNewEmail={setNewEmail}
+              setNewPassword={setNewPassword}
+              setNewPasswordConfirmation={setNewPasswordConfirmation}
+              t={t}
+              newEmail={newEmail}
+              onEmailSubmit={handleEmailSubmit}
+              onPasswordSubmit={handlePasswordSubmit}
+              onDeleteAccount={handleDeleteAccount}
+            />
           </TabsContent>
 
           <TabsContent value="tokens" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("auth.tokensTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-5">
-                {createdToken && (
-                  <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-3">
-                    <div className="flex items-start gap-2">
-                      <KeyRoundIcon className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-amber-900 dark:text-amber-100">
-                          {t("auth.tokenShownOnce")}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
-                          {t("auth.tokenShownOnceDescription")}
-                        </p>
-                      </div>
-                    </div>
-                    <code className="mt-3 block overflow-x-auto rounded-lg bg-background/80 px-3 py-2 text-xs text-foreground">
-                      {createdToken}
-                    </code>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => void handleCopyToken()}>
-                        {copied ? (
-                          <CheckIcon data-icon="inline-start" />
-                        ) : (
-                          <ClipboardIcon data-icon="inline-start" />
-                        )}
-                        {copied ? t("auth.copied") : t("auth.copyToken")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setCreatedToken(null)}
-                      >
-                        <EyeOffIcon data-icon="inline-start" />
-                        {t("auth.hideToken")}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <form
-                  className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_132px_auto] sm:items-end"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleCreateToken();
-                  }}
-                >
-                  <label
-                    className="flex flex-col gap-1.5 text-sm font-medium"
-                    htmlFor="account-token-name"
-                  >
-                    {t("auth.tokenName")}
-                    <Input
-                      disabled={createTokenMutation.isPending}
-                      id="account-token-name"
-                      maxLength={32}
-                      placeholder={t("auth.tokenNamePlaceholder")}
-                      required
-                      value={tokenName}
-                      onChange={(event) => setTokenName(event.target.value)}
-                    />
-                  </label>
-                  <label
-                    className="flex flex-col gap-1.5 text-sm font-medium"
-                    htmlFor="account-token-expiry"
-                  >
-                    {t("auth.tokenExpiry")}
-                    <Input
-                      disabled={createTokenMutation.isPending}
-                      id="account-token-expiry"
-                      inputMode="numeric"
-                      max={365}
-                      min={1}
-                      placeholder={t("auth.never")}
-                      type="number"
-                      value={tokenExpiryDays}
-                      onChange={(event) =>
-                        setTokenExpiryDays(event.target.value)
-                      }
-                    />
-                  </label>
-                  <Button
-                    disabled={createTokenMutation.isPending}
-                    type="submit"
-                  >
-                    {createTokenMutation.isPending
-                      ? t("auth.creatingToken")
-                      : t("auth.createToken")}
-                  </Button>
-                </form>
-                {tokenError && (
-                  <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                    {tokenError}
-                  </p>
-                )}
-
-                <div className="flex flex-col gap-2 border-t pt-4">
-                  {tokensQuery.isLoading && <TokenListSkeleton />}
-                  {tokensQuery.isError && (
-                    <p className="text-sm text-destructive">
-                      {t("auth.tokensLoadFailed")}
-                    </p>
-                  )}
-                  {tokensQuery.data?.personal_access_tokens.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {t("auth.noTokens")}
-                    </p>
-                  )}
-                  {tokensQuery.data?.personal_access_tokens.map((token) => (
-                    <PersonalAccessTokenRow
-                      key={token.id}
-                      locale={locale}
-                      pending={
-                        revokeTokenMutation.isPending &&
-                        revokeTokenMutation.variables === token.id
-                      }
-                      token={token}
-                      onRevoke={async () => {
-                        setTokenError(null);
-                        try {
-                          await revokeTokenMutation.mutateAsync(token.id);
-                        } catch (error) {
-                          setTokenError(
-                            errorMessage(error, t("auth.tokenRevokeFailed")),
-                          );
-                        }
-                      }}
-                      t={t}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <TokensPanel
+              copied={copied}
+              createTokenIsPending={createTokenMutation.isPending}
+              createdToken={createdToken}
+              locale={locale}
+              revokingTokenId={
+                revokeTokenMutation.isPending
+                  ? revokeTokenMutation.variables
+                  : undefined
+              }
+              setTokenExpiryDays={setTokenExpiryDays}
+              setTokenName={setTokenName}
+              t={t}
+              tokenError={tokenError}
+              tokenExpiryDays={tokenExpiryDays}
+              tokenName={tokenName}
+              tokensQuery={tokensQuery}
+              onCopyToken={handleCopyToken}
+              onCreateToken={handleCreateToken}
+              onRevokeToken={handleRevokeToken}
+              onHideCreatedToken={() => setCreatedToken(null)}
+            />
           </TabsContent>
 
           <TabsContent value="usage" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("usage.vectorTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-5">
-                {vectorUsageQuery.isLoading ? (
-                  <Skeleton className="h-24 w-full" />
-                ) : vectorUsageQuery.isError || !vectorUsageQuery.data ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("usage.vectorUnavailable")}
-                  </p>
-                ) : (
-                  <VectorUsagePanel report={vectorUsageQuery.data} t={t} />
-                )}
-              </CardContent>
-            </Card>
+            <UsagePanel t={t} vectorUsageQuery={vectorUsageQuery} />
           </TabsContent>
 
           <TabsContent value="transfer" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("transfer.title")}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                <p className="text-sm text-muted-foreground">
-                  {t("transfer.description")}
-                </p>
-                {dataTasksQuery.isLoading ? (
-                  <Skeleton className="h-16 w-full" />
-                ) : dataTasksQuery.isError ? (
-                  <p className="text-sm text-destructive">
-                    {t("transfer.loadFailed")}
-                  </p>
-                ) : dataTasksQuery.data?.tasks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("transfer.empty")}
-                  </p>
-                ) : (
-                  dataTasksQuery.data?.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium">
-                          {task.kind === "export"
-                            ? t("transfer.export")
-                            : t("transfer.import")}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {task.phase}
-                        </p>
-                        {task.status === "failed" && task.error_message && (
-                          <p className="mt-1 line-clamp-2 text-xs text-destructive">
-                            {task.error_message}
-                          </p>
-                        )}
-                        {task.progress_total > 0 && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full bg-primary transition-[width]"
-                                style={{
-                                  width: `${Math.min(100, Math.round((task.progress_done / task.progress_total) * 100))}%`,
-                                }}
-                              />
-                            </div>
-                            <span className="text-[11px] tabular-nums text-muted-foreground">
-                              {task.progress_done}/{task.progress_total}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <Badge
-                        variant={
-                          task.status === "succeeded"
-                            ? "secondary"
-                            : task.status === "failed"
-                              ? "destructive"
-                              : "outline"
-                        }
-                      >
-                        {task.status}
-                      </Badge>
-                      {task.status === "succeeded" &&
-                        task.kind === "export" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              void downloadExportJson(task.id).then((blob) => {
-                                const url = URL.createObjectURL(blob);
-                                const anchor = document.createElement("a");
-                                anchor.href = url;
-                                anchor.download = `flaremo-export-${task.id}.json`;
-                                anchor.click();
-                                setTimeout(
-                                  () => URL.revokeObjectURL(url),
-                                  1000,
-                                );
-                              })
-                            }
-                          >
-                            <DownloadIcon data-icon="inline-start" />
-                            {t("transfer.download")}
-                          </Button>
-                        )}
-                      {task.status === "failed" && task.kind === "export" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={retryExportMutation.isPending}
-                          onClick={() => retryExportMutation.mutate()}
-                        >
-                          <RefreshCcwIcon data-icon="inline-start" />
-                          {t("transfer.retry")}
-                        </Button>
-                      )}
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+            <TransferPanel
+              dataTasksQuery={dataTasksQuery}
+              retryExportIsPending={retryExportMutation.isPending}
+              t={t}
+              onRetryExport={() => retryExportMutation.mutate()}
+            />
           </TabsContent>
 
           {isTeamAdmin && (
@@ -839,269 +392,6 @@ export function AccountPage() {
           )}
         </Tabs>
       </main>
-    </div>
-  );
-}
-
-function VectorUsagePanel({
-  report,
-  t,
-}: {
-  report: VectorUsageReport;
-  t: (key: TranslationKey) => string;
-}) {
-  const totalStored = report.indexes.reduce(
-    (sum, index) => sum + index.stored_dimensions,
-    0,
-  );
-  const totalVectors = report.indexes.reduce(
-    (sum, index) => sum + index.vectors_count,
-    0,
-  );
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-6 text-sm">
-        <span className="text-muted-foreground">
-          {t("usage.model")}: {report.model}
-        </span>
-        <span className="text-muted-foreground">
-          {t("usage.dimensions")}: {report.dimensions}
-        </span>
-        <span className="text-muted-foreground">
-          {t("usage.vectors")}: {totalVectors}
-        </span>
-      </div>
-      <UsageBar
-        label={t("usage.stored")}
-        used={totalStored}
-        limit={report.stored_limit}
-      />
-      <UsageBar
-        label={t("usage.queried")}
-        used={report.queried_dimensions_this_month}
-        limit={report.queried_limit}
-      />
-      {report.plan && <PlanQuotaBars plan={report.plan} t={t} />}
-      <p className="text-xs text-muted-foreground">{t("usage.disclaimer")}</p>
-    </div>
-  );
-}
-
-// Used-vs-limit rows for the injectable plan quotas. Rows with a null limit
-// (self-hosted default) stay hidden so the panel stays noise-free; when every
-// limit is null there is nothing to render.
-type QuotaRow = {
-  key: TranslationKey;
-  used: number;
-  limit: number | null;
-  format: (value: number) => string;
-};
-
-const localeFormat = (value: number) => value.toLocaleString();
-
-function PlanQuotaBars({
-  plan,
-  t,
-}: {
-  plan: NonNullable<VectorUsageReport["plan"]>;
-  t: (key: TranslationKey) => string;
-}) {
-  const userRows: QuotaRow[] | null = plan.user
-    ? [
-        {
-          key: "usage.planStorage",
-          used: plan.user.usage.attachmentStorageBytes,
-          limit: plan.user.limits.attachmentStorageBytes,
-          format: formatBytes,
-        },
-        {
-          key: "usage.planEmbeddingTokens",
-          used: plan.user.usage.aiEmbeddingTokensPerMonth,
-          limit: plan.user.limits.aiEmbeddingTokensPerMonth,
-          format: localeFormat,
-        },
-        {
-          key: "usage.planSearchQueries",
-          used: plan.user.usage.semanticSearchQueriesPerMonth,
-          limit: plan.user.limits.semanticSearchQueriesPerMonth,
-          format: localeFormat,
-        },
-        {
-          key: "usage.planMemos",
-          used: plan.user.usage.maxMemosPerUser,
-          limit: plan.user.limits.maxMemosPerUser,
-          format: localeFormat,
-        },
-        {
-          key: "usage.planMemories",
-          used: plan.user.usage.maxMemoryItemsPerUser,
-          limit: plan.user.limits.maxMemoryItemsPerUser,
-          format: localeFormat,
-        },
-      ]
-    : null;
-  const userLimited = userRows?.filter((row) => row.limit !== null) ?? [];
-
-  const deploymentRows: QuotaRow[] = [
-    {
-      key: "usage.planStorage",
-      used: plan.usage.attachmentStorageBytes,
-      limit: plan.limits.attachmentStorageBytes,
-      format: formatBytes,
-    },
-    {
-      key: "usage.planEmbeddingTokens",
-      used: plan.usage.aiEmbeddingTokensPerMonth,
-      limit: plan.limits.aiEmbeddingTokensPerMonth,
-      format: localeFormat,
-    },
-    {
-      key: "usage.planSearchQueries",
-      used: plan.usage.semanticSearchQueriesPerMonth,
-      limit: plan.limits.semanticSearchQueriesPerMonth,
-      format: localeFormat,
-    },
-    {
-      key: "usage.planMembers",
-      used: plan.usage.maxMembersPerDeployment,
-      limit: plan.limits.maxMembersPerDeployment,
-      format: localeFormat,
-    },
-  ];
-  const deploymentLimited = deploymentRows.filter((row) => row.limit !== null);
-
-  if (userLimited.length === 0 && deploymentLimited.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-3 border-t pt-4">
-      {userLimited.length > 0 && (
-        <>
-          <p className="text-sm font-medium">{t("usage.planUserTitle")}</p>
-          {userLimited.map((row) => (
-            <UsageBar
-              key={`user-${row.key}`}
-              label={t(row.key)}
-              used={row.used}
-              limit={row.limit as number}
-              formatValue={row.format}
-            />
-          ))}
-        </>
-      )}
-      {deploymentLimited.length > 0 && (
-        <>
-          <p className="text-sm font-medium">{t("usage.planTitle")}</p>
-          {deploymentLimited.map((row) => (
-            <UsageBar
-              key={`deployment-${row.key}`}
-              label={t(row.key)}
-              used={row.used}
-              limit={row.limit as number}
-              formatValue={row.format}
-            />
-          ))}
-        </>
-      )}
-    </div>
-  );
-}
-
-function UsageBar({
-  label,
-  used,
-  limit,
-  formatValue,
-}: {
-  label: string;
-  used: number;
-  limit: number;
-  formatValue?: (value: number) => string;
-}) {
-  const format = formatValue ?? ((value: number) => value.toLocaleString());
-  const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between text-sm">
-        <span>{label}</span>
-        <span className="text-muted-foreground tabular-nums">
-          {format(used)} / {format(limit)}
-        </span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-flame-500 transition-[width]"
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PersonalAccessTokenRow({
-  locale,
-  pending,
-  t,
-  token,
-  onRevoke,
-}: {
-  locale: string;
-  pending: boolean;
-  t: (key: TranslationKey) => string;
-  token: PersonalAccessToken;
-  onRevoke: () => Promise<void>;
-}) {
-  const dateFormatter = new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  const expiry = token.expires_at
-    ? dateFormatter.format(new Date(token.expires_at))
-    : t("auth.never");
-  const lastUsed = token.last_request
-    ? dateFormatter.format(new Date(token.last_request))
-    : t("auth.neverUsed");
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-medium">
-            {token.name ?? t("auth.unnamedToken")}
-          </p>
-          <Badge variant={token.enabled ? "secondary" : "outline"}>
-            {token.enabled ? t("auth.active") : t("auth.revoked")}
-          </Badge>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {token.prefix ?? "memos_pat_"}
-          {token.start ? `${token.start}…` : ""} · {t("auth.expires")}: {expiry}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {t("auth.lastUsed")}: {lastUsed} · {t("auth.requestCount")}:{" "}
-          {token.request_count}
-        </p>
-      </div>
-      {token.enabled && (
-        <Button
-          disabled={pending}
-          size="sm"
-          variant="outline"
-          onClick={() => void onRevoke()}
-        >
-          {pending && (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
-          )}
-          {t("auth.revokeToken")}
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function TokenListSkeleton() {
-  return (
-    <div className="flex flex-col gap-2">
-      <Skeleton className="h-20 w-full" />
-      <Skeleton className="h-20 w-full" />
     </div>
   );
 }

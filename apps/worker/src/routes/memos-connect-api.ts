@@ -37,6 +37,8 @@ import {
   getUserRegistrationAllowed,
   getUserWebhookSigningSecret,
   hardDeleteMemo,
+  isOwner,
+  isTeamAdmin,
   listAttachmentsForMemosForViewer,
   listAttachmentsPage,
   listFlaremoUsers,
@@ -49,6 +51,7 @@ import {
   listMemos,
   listMemosForViewer,
   listMemosPersonalAccessTokens,
+  listMemoTotalsByUser,
   listReactionsForMemosForViewer,
   listShortcuts,
   listUserNotifications,
@@ -93,6 +96,7 @@ import { verifyCaptchaRequest } from "../captcha";
 import {
   assertRequestCredentialBoundary,
   assertTrustedCookieMutation,
+  getFlareMoRuntime,
   getOptionalRequestContext,
   getRequestContext,
   type HonoBindings,
@@ -688,7 +692,7 @@ async function connectUserMethod(
       return connectValue(c, dto, transport);
     }
     case "CreateUser": {
-      if (context.credential === "pat" || context.user.role !== "owner") {
+      if (context.credential === "pat" || !isOwner(context.user)) {
         return connectErrorForTransport(
           c,
           transport,
@@ -724,7 +728,7 @@ async function connectUserMethod(
       return connectValue(c, created.dto, transport);
     }
     case "DeleteUser": {
-      if (context.credential === "pat" || context.user.role !== "owner") {
+      if (context.credential === "pat" || !isOwner(context.user)) {
         return connectErrorForTransport(
           c,
           transport,
@@ -794,15 +798,38 @@ async function connectUserMethod(
       );
     }
     case "ListAllUserStats": {
-      const users = await listFlaremoUsers(context.db);
-      const stats = await Promise.all(
-        users.map(async (user) =>
-          userStatsFromMemoStats(
-            user.id,
-            await getMemoStats(context.db, user, { time_zone: "UTC" }),
-          ),
-        ),
-      );
+      // Team-wide stats are an administrative view; a member must not be able
+      // to profile the whole instance.
+      if (!isTeamAdmin(context.user)) {
+        return connectErrorForTransport(
+          c,
+          transport,
+          "permission_denied",
+          "A team administrator is required to list all user stats",
+          403,
+        );
+      }
+      const [users, totals] = await Promise.all([
+        listFlaremoUsers(context.db),
+        listMemoTotalsByUser(context.db),
+      ]);
+      const stats = users.map((user) => {
+        const entry = totals.get(user.id);
+        return {
+          name: user.id,
+          memoTypeStats: {
+            linkCount: 0,
+            codeCount: 0,
+            todoCount: 0,
+            undoCount: 0,
+          },
+          tagCount: Object.fromEntries(entry?.tags ?? []),
+          totalMemoCount: entry?.total ?? 0,
+          pinnedMemos: [],
+          memoCreatedTimestamps: [],
+          memoUpdatedTimestamps: [],
+        };
+      });
       return connectValue(c, { stats }, transport);
     }
     case "GetUserSetting": {
@@ -932,7 +959,7 @@ async function connectUserMethod(
       ).find((item) => item.id === tokenId);
       if (!token)
         throw new ConnectInputError("Personal access token not found");
-      await createFlareMoAuth(c.env, context.db).api.updateApiKey({
+      await getFlareMoRuntime(c.env).auth.api.updateApiKey({
         body: {
           configId: "memos",
           keyId: token.id,
@@ -1197,7 +1224,7 @@ async function connectInstanceMethod(
       return connectValue(c, { settings }, transport);
     }
     case "UpdateInstanceSetting": {
-      if (context.credential === "pat" || context.user.role !== "owner") {
+      if (context.credential === "pat" || !isOwner(context.user)) {
         return connectErrorForTransport(
           c,
           transport,
@@ -2514,7 +2541,7 @@ async function updateBetterAuthUsername(
     headers,
     body: JSON.stringify({ username }),
   });
-  const response = await createFlareMoAuth(c.env, context.db).handler(request);
+  const response = await getFlareMoRuntime(c.env).auth.handler(request);
   if (response.ok) return;
   let message = "Better Auth rejected the username update";
   try {
@@ -2667,8 +2694,7 @@ async function connectAuthSignIn(
     const credentials = record(record(value).passwordCredentials);
     const username = requiredString(credentials.username, "username");
     const password = requiredString(credentials.password, "password");
-    const db = createDb(c.env.DB);
-    const auth = createFlareMoAuth(c.env, db);
+    const { db, auth } = getFlareMoRuntime(c.env);
     const result = await auth.api.signInUsername({
       body: { username, password, rememberMe: true },
       headers: c.req.raw.headers,
@@ -2786,7 +2812,7 @@ async function connectAuthSignOut(
     if (c.req.raw.headers.get("cookie")) {
       const headers = new Headers(c.req.raw.headers);
       headers.delete("authorization");
-      const authResponse = await createFlareMoAuth(c.env, context.db).handler(
+      const authResponse = await getFlareMoRuntime(c.env).auth.handler(
         new Request(new URL("/api/auth/sign-out", c.req.url), {
           method: "POST",
           headers,

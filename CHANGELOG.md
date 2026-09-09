@@ -2,6 +2,58 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.15.2
+
+稳定性与安全加固版本。全库系统性审计后的集中清偿：Memos 兼容面的错误信息收敛与隐私收紧、登录限流补齐、列表查询批量化、请求级实例复用、团队模式验收测试补齐，以及前端大文件的结构拆分。无数据库 migration、无 Cloudflare 资源变化。
+
+### 安全与隐私
+
+- 错误信息不再泄露内部细节：Memos 兼容层（current/social/Connect）与 MCP 工具错误只透出领域级错误文案；D1 报错、TypeError 等未预期错误一律返回固定的 "Internal server error" / "Tool call failed."（服务端日志保留完整信息）。
+- 用户列表不再泄露成员邮箱：Memos 兼容面 `ListUsers`/`BatchGetUsers`/`GetUser` 与 REST `/api/v1/users(:user)` 对非本人请求改用不含 email 的公开 DTO（用户名与展示字段保留）；本人请求与管理面不受影响。
+- 匿名网络探测封堵：`GetLinkMetadata`/`BatchGetLinkMetadata`（服务端代抓任意 URL）从匿名可达改为要求登录，未认证请求返回 401。
+- 登录爆破面补齐限流：Connect `AuthService/SignIn` 与 REST `/api/v1/auth/signin` 纳入与 `/api/auth/*` 相同的每 IP 边缘限流桶（`RATE_LIMITER`）。
+- 全站统计收敛为管理能力：Memos `UserService/ListAllUserStats` 原先任何成员可触发全站逐用户统计，现要求团队管理员，且由逐用户多次查询的扇出改为两条 GROUP BY 聚合查询。
+
+### 性能与稳健性
+
+- 请求路径实例复用：Hono 应用（全部中间件与路由表）按 Worker 生命周期构建一次；Better Auth 实例与 D1 wrapper 按 isolate 缓存（`getFlareMoRuntime`），不再每请求重建；需要非默认选项的路径（bootstrap 注册等）仍按需构建。
+- Memos 原生 access token 的 subject 解析不再每请求全表扫描 `auth_user_links`（按 D1 实例短 TTL 缓存；成员移出仍然立即失效）。
+- 列表页水合批量化：兼容面 memo 列表、评论列表与公开列表的附件、表情回应改为每页两条批量查询（原先每条 memo 至少 2 次往返，pageSize 上限 1000 时单请求可达数千条 D1 查询）。
+- 语义搜索：作者 namespace 清单按实例缓存；向量候选回读下沉为 domain 函数（`getSemanticSearchMemos`），路由层不再直查 memos 表。
+- 数据导出的 base64 转换分块处理（原先逐字节字符串拼接，32MiB 级附件内存放大明显），并复用 bundle 已有附件信息去掉逐附件重复查询。
+- Cron 附件清理改单条 IN 批量更新；成员移除队列的畸形消息直接丢弃，不再毒化整批重试。
+- 内容尺寸上限下沉 domain：`createMemo`/`updateMemo` 统一强制 content ≤ 100,000 字符、payload 序列化 ≤ 100,000 字符（与 Web/MCP 路径既有 contracts 上限对齐），Memos 兼容写路径不再无上限。
+- 内联 owner 判断收敛为 domain `isOwner`。
+
+### 前端
+
+- 列表 DTO 下发服务端计算的 `can_manage`（`canEditMemo` 为唯一规则来源），前端删除手写的角色×可见性规则副本。
+- Agent Memory、通知、导出重试等 mutation 补齐失败 toast；导出重试按钮不再产生 unhandled rejection。
+- 时间线编辑与可见性切换同步失效 memo-context、memo-related 查询，详情页不再闪旧数据。
+- 修订历史与回顾 tab 补错误分支（失败不再被当成空态）。
+- 结构拆分（纯搬移、行为不变）：App.tsx 1519 → 983 行（路由树移至 `router-tree.tsx`，纯工具函数移入 lib），账户页 1107 → 397 行（五个面板组件拆至 `pages/account/`）。
+- 更新检查优先使用 `/api/app/health` 返回的 `update_repository`，fork/自部署不再指向写死的上游仓库。
+- 死代码与重复工具函数清理（formatBytes、资源名剥离、错误文案助手收敛进 lib）。
+
+### 团队模式测试
+
+- 补齐 docs/team-mode.md 验收矩阵中此前无覆盖的断言：最后一位有效管理员守卫（domain + admin API 双层）、成员移出后 PAT 失效、移除操作重放幂等且不误删团队/公开内容、旧 `protected` 数据升级转 `private`、默认关闭注册被拒、跨成员全文搜索隔离。
+
+### Memos 兼容面变化
+
+- 未认证的 `GetLinkMetadata`/`BatchGetLinkMetadata` 由 400（参数校验）变为 401（要求认证）。
+- 非本人的用户 DTO 不再包含 `email` 字段。
+- `ListAllUserStats` 需要团队管理员，成员调用返回 403。
+- 写路径新增内容尺寸上限，超限返回 400。
+- memo 列表 DTO 新增可选 `can_manage` 布尔字段，存量客户端可忽略。
+
+### 升级影响
+
+- 无数据库 migration、无 Cloudflare 资源变化；自托管直接 `pnpm deploy` 即可。
+- 若依赖未认证链接预览或成员可见全站统计的第三方 Memos 客户端，需要改为登录会话 / 管理员凭据。
+- 错误响应文案有变化但协议结构不变；依赖具体报错字符串的自动化请改按状态码判断。
+- update 检查：配置了 `FLAREMO_DEPLOY_REPOSITORY` 的部署会在健康检查返回后查询自己的仓库 release。
+
 ## v0.15.1
 
 CI 部署回归修复版本。让 `pnpm deploy:preflight` 不再阻断 CI 构建环境的自动化首次部署，并合入两个依赖更新。

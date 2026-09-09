@@ -461,9 +461,16 @@ export async function promoteMemoryToMemo(id: string) {
   );
 }
 
-export async function getLatestRelease(): Promise<LatestRelease> {
+// Repository used when the server does not advertise one via
+// /api/app/health (`update_repository`).
+const DEFAULT_RELEASE_REPOSITORY = "realchendahuang/FlareMo";
+
+export async function getLatestRelease(
+  repository: string | null | undefined = DEFAULT_RELEASE_REPOSITORY,
+): Promise<LatestRelease> {
+  const repo = repository || DEFAULT_RELEASE_REPOSITORY;
   const response = await fetch(
-    "https://api.github.com/repos/realchendahuang/FlareMo/releases/latest",
+    `https://api.github.com/repos/${repo}/releases/latest`,
     {
       credentials: "omit",
       headers: {
@@ -494,7 +501,7 @@ export async function getLatestRelease(): Promise<LatestRelease> {
         : `v${version}`,
     published_at:
       typeof release.published_at === "string" ? release.published_at : null,
-    url: `https://github.com/realchendahuang/FlareMo/releases/tag/v${encodeURIComponent(version)}`,
+    url: `https://github.com/${repo}/releases/tag/v${encodeURIComponent(version)}`,
   };
 }
 

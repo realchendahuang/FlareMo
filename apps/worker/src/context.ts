@@ -54,10 +54,32 @@ async function resolveUserLimits(
   return resolve(c.env, userId);
 }
 
+// Better Auth assembles a complete instance per call (config resolution,
+// table maps, drizzle adapter). Its inputs — the env bindings and the D1
+// wrapper built from them — are stable for the life of an isolate, so keep
+// one pair per env object. Callers needing non-default options (bootstrap
+// sign-up) still build their own instance.
+const runtimeCache = new WeakMap<
+  FlareMoEnv,
+  {
+    db: ReturnType<typeof createDb>;
+    auth: ReturnType<typeof createFlareMoAuth>;
+  }
+>();
+
+export function getFlareMoRuntime(env: FlareMoEnv) {
+  let runtime = runtimeCache.get(env);
+  if (!runtime) {
+    const db = createDb(env.DB);
+    runtime = { db, auth: createFlareMoAuth(env, db) };
+    runtimeCache.set(env, runtime);
+  }
+  return runtime;
+}
+
 export async function getRequestContext(c: Context<HonoBindings>) {
-  const db = createDb(c.env.DB);
+  const { db, auth } = getFlareMoRuntime(c.env);
   const token = getBearerToken(c.req.raw.headers);
-  const auth = createFlareMoAuth(c.env, db);
 
   if (token) {
     assertTrustedBearerOrigin(c);
@@ -128,7 +150,7 @@ export async function getRequestContext(c: Context<HonoBindings>) {
     };
   }
 
-  return getBrowserRequestContext(c, { auth, db });
+  return getBrowserRequestContext(c);
 }
 
 /**
@@ -147,7 +169,7 @@ export async function getOptionalRequestContext(c: Context<HonoBindings>) {
       !c.req.raw.headers.has("cookie")
     ) {
       return {
-        db: createDb(c.env.DB),
+        db: getFlareMoRuntime(c.env).db,
         user: null,
         authUserId: null,
         credential: "anonymous" as const,
@@ -162,19 +184,12 @@ export async function getOptionalRequestContext(c: Context<HonoBindings>) {
   }
 }
 
-export async function getBrowserRequestContext(
-  c: Context<HonoBindings>,
-  supplied?: {
-    auth: ReturnType<typeof createFlareMoAuth>;
-    db: ReturnType<typeof createDb>;
-  },
-) {
+export async function getBrowserRequestContext(c: Context<HonoBindings>) {
   if (c.req.raw.headers.has("authorization")) {
     throw new UnauthorizedError();
   }
 
-  const db = supplied?.db ?? createDb(c.env.DB);
-  const auth = supplied?.auth ?? createFlareMoAuth(c.env, db);
+  const { db, auth } = getFlareMoRuntime(c.env);
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });

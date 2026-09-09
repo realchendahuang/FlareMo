@@ -7,6 +7,11 @@ export function isActiveTeamMember(user: UserRow | null): user is UserRow {
   return Boolean(user && user.status === "active");
 }
 
+/** Owner-only gate for account lifecycle and recovery operations. */
+export function isOwner(user: UserRow | null): boolean {
+  return Boolean(user && isActiveTeamMember(user) && user.role === "owner");
+}
+
 export function isTeamAdmin(user: UserRow | null): boolean {
   return Boolean(
     isActiveTeamMember(user) &&

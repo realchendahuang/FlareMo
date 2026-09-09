@@ -4,6 +4,7 @@ import {
   finalizeFlaremoMemberRemoval,
   getMemosPersonalAccessToken,
   isFlaremoUserEmailTaken,
+  isOwner,
   listMemosPersonalAccessTokens,
   NotFoundError,
   updateFlaremoUserEmail,
@@ -184,7 +185,7 @@ accountApi.post("/email", zValidator("json", changeEmailSchema), async (c) => {
 accountApi.delete("/", zValidator("json", deleteAccountSchema), async (c) => {
   try {
     const context = await getBrowserRequestContext(c);
-    if (context.user.role === "owner") {
+    if (isOwner(context.user)) {
       throw new ForbiddenError(
         "The owner account cannot be deleted through the app.",
       );

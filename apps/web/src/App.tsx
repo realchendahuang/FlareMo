@@ -8,17 +8,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  Link,
-  Navigate,
-  Outlet,
-  RouterProvider,
-  useNavigate,
-  useRouter,
-} from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   DownloadIcon,
   LanguagesIcon,
@@ -29,10 +19,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 import {
-  lazy,
-  type ReactNode,
   type RefObject,
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -42,10 +29,8 @@ import {
 import { toast } from "sonner";
 import {
   ApiError,
-  AUTHENTICATION_REQUIRED_EVENT,
   createExportTask,
   createImportTask,
-  createMemo,
   createShare,
   deleteTag,
   downloadExportJson,
@@ -64,9 +49,7 @@ import {
   semanticSearchMemos,
   trashMemo,
   updateMemo,
-  uploadAttachment,
 } from "@/api";
-import { authClient } from "@/auth-client";
 import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
 import { MemoComposer } from "@/components/memo-composer";
@@ -80,12 +63,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { UpdateStatus } from "@/components/update-status";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useNewMemoCapture } from "@/hooks/use-new-memo-capture";
 import { type TranslationKey, useI18n } from "@/i18n";
+import { downloadBlobFile, downloadJsonFile } from "@/lib/download";
 import { errorMessage } from "@/lib/error";
 import {
   enqueueMemoSubmission,
@@ -94,83 +76,14 @@ import {
   isBrowserOnline,
   type MemoCaptureInput,
 } from "@/lib/local-memo-capture";
+import {
+  createMemoWithAttachments,
+  shouldContinueQueuedSubmissionAfterFailure,
+  shouldQueueAfterFailure,
+  validateMemoCaptureSubmission,
+} from "@/lib/memo-submission";
 import { cn } from "@/lib/utils";
-
-const MemoDetailPage = lazy(() =>
-  import("@/pages/memo-detail-page").then((module) => ({
-    default: module.MemoDetailPage,
-  })),
-);
-const PublicSharePage = lazy(() =>
-  import("@/pages/public-share-page").then((module) => ({
-    default: module.PublicSharePage,
-  })),
-);
-const LoginPage = lazy(() =>
-  import("@/pages/login-page").then((module) => ({
-    default: module.LoginPage,
-  })),
-);
-const RegisterPage = lazy(() =>
-  import("@/pages/register-page").then((module) => ({
-    default: module.RegisterPage,
-  })),
-);
-const ResetPage = lazy(() =>
-  import("@/pages/reset-page").then((module) => ({
-    default: module.ResetPage,
-  })),
-);
-const VerifyEmailPage = lazy(() =>
-  import("@/pages/verify-email-page").then((module) => ({
-    default: module.VerifyEmailPage,
-  })),
-);
-const ForgotPasswordPage = lazy(() =>
-  import("@/pages/forgot-password-page").then((module) => ({
-    default: module.ForgotPasswordPage,
-  })),
-);
-const VerifyEmailChangePage = lazy(() =>
-  import("@/pages/verify-email-change-page").then((module) => ({
-    default: module.VerifyEmailChangePage,
-  })),
-);
-const RecoverPage = lazy(() =>
-  import("@/pages/recover-page").then((module) => ({
-    default: module.RecoverPage,
-  })),
-);
-const SetupPage = lazy(() =>
-  import("@/pages/setup-page").then((module) => ({
-    default: module.SetupPage,
-  })),
-);
-const AccountPage = lazy(() =>
-  import("@/pages/account-page").then((module) => ({
-    default: module.AccountPage,
-  })),
-);
-const DailyReviewPage = lazy(() =>
-  import("@/pages/daily-review-page").then((module) => ({
-    default: module.DailyReviewPage,
-  })),
-);
-const RandomWalkPage = lazy(() =>
-  import("@/pages/random-walk-page").then((module) => ({
-    default: module.RandomWalkPage,
-  })),
-);
-const MemoryPage = lazy(() =>
-  import("@/pages/memory-page").then((module) => ({
-    default: module.MemoryPage,
-  })),
-);
-const ProjectsPage = lazy(() =>
-  import("@/pages/projects-page").then((module) => ({
-    default: module.ProjectsPage,
-  })),
-);
+import { AppRoutes, indexRoute } from "@/router-tree";
 
 const PAGE_SIZE = 30;
 const EMPTY_STATS: MemoStatsResponse = {
@@ -180,7 +93,7 @@ const EMPTY_STATS: MemoStatsResponse = {
   activity: [],
 };
 
-function FlareMoApp() {
+export function FlareMoApp() {
   const { t, toggleLocale } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: "/" });
@@ -987,90 +900,6 @@ function SearchBox({
   );
 }
 
-async function createMemoWithAttachments(input: MemoCaptureInput) {
-  const memo = await createMemo({
-    content: input.content,
-    visibility: input.visibility,
-    payload: { tags: input.tags, client_id: input.clientId },
-    source: "web",
-  });
-
-  // A mobile queue can hold many large files. Upload them in order so a
-  // transient failure stops early, and each retry only replays stable ids.
-  for (const [index, file] of input.files.entries()) {
-    await uploadAttachment({
-      file,
-      memo: memo.name,
-      clientId: getAttachmentCaptureClientId(input.clientId, index),
-    });
-  }
-
-  return memo;
-}
-
-function getAttachmentCaptureClientId(
-  memoClientId: string | undefined,
-  index: number,
-) {
-  if (!memoClientId) return undefined;
-  const clientId = `${memoClientId}:attachment:${index}`;
-  return clientId.length <= 128 ? clientId : undefined;
-}
-
-function downloadJsonFile(value: unknown, filename: string) {
-  downloadBlobFile(
-    new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
-    filename,
-  );
-}
-
-function downloadBlobFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  // Safari can start reading the object URL after click() returns.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-}
-
-function shouldQueueAfterFailure(error: unknown) {
-  // Queue only when the request never received a meaningful answer (network
-  // failure, timeout, rate limit). A server error response is surfaced to
-  // the user instead, with the draft kept intact for an explicit retry.
-  if (!(error instanceof ApiError)) return true;
-  return error.status === 408 || error.status === 429;
-}
-
-function shouldContinueQueuedSubmissionAfterFailure(error: unknown) {
-  return (
-    error instanceof ApiError &&
-    error.status >= 400 &&
-    error.status < 500 &&
-    error.status !== 408 &&
-    error.status !== 429
-  );
-}
-
-function validateMemoCaptureSubmission(
-  input: MemoCaptureInput,
-  t: (key: TranslationKey) => string,
-) {
-  if (input.content.length > 100_000) {
-    return new Error(t("toast.memoTooLong"));
-  }
-  if (input.files.length > 100) {
-    return new Error(t("toast.tooManyAttachments"));
-  }
-  if (input.files.some((file) => file.size > 25 * 1024 * 1024)) {
-    return new Error(t("toast.attachmentTooLarge"));
-  }
-  return undefined;
-}
-
 type MemoSnapshot = Array<
   [QueryKey, InfiniteData<ListMemosResponse> | undefined]
 >;
@@ -1149,371 +978,6 @@ function viewTitle(view: ViewMode, t: (key: TranslationKey) => string) {
   }
 }
 
-const rootRoute = createRootRoute({
-  component: () => <Outlet />,
-  errorComponent: RouteErrorPage,
-});
-
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
-  component: ProtectedWorkspaceRoutePage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    view: isViewMode(search.view) ? search.view : undefined,
-    q: typeof search.q === "string" && search.q ? search.q : undefined,
-    tag: typeof search.tag === "string" && search.tag ? search.tag : undefined,
-    untagged:
-      search.untagged === true || search.untagged === "true" ? true : undefined,
-  }),
-});
-
-function PublicShareRoutePage() {
-  const { token } = shareRoute.useParams();
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <PublicSharePage token={token} />
-    </Suspense>
-  );
-}
-
-const shareRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/share/$token",
-  component: PublicShareRoutePage,
-});
-
-function MemoDetailRoutePage() {
-  const { memoId } = memoRoute.useParams();
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <MemoDetailPage memoId={memoId} />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const memoRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/memo/$memoId",
-  component: MemoDetailRoutePage,
-});
-
-function ProtectedWorkspaceRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <FlareMoApp />
-    </AuthenticatedRoute>
-  );
-}
-
-function LoginRoutePage() {
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <LoginPage />
-    </Suspense>
-  );
-}
-
-const loginRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/login",
-  component: LoginRoutePage,
-});
-
-function RegisterRoutePage() {
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <RegisterPage />
-    </Suspense>
-  );
-}
-
-const registerRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/register",
-  component: RegisterRoutePage,
-});
-
-function VerifyEmailRoutePage() {
-  const { token } = verifyEmailRoute.useSearch();
-  if (!token) {
-    return (
-      <Suspense fallback={<RouteLoading />}>
-        <VerifyEmailPage token="" />
-      </Suspense>
-    );
-  }
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <VerifyEmailPage token={token} />
-    </Suspense>
-  );
-}
-
-const verifyEmailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/verify-email",
-  component: VerifyEmailRoutePage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    token: typeof search.token === "string" ? search.token : undefined,
-  }),
-});
-
-function ForgotPasswordRoutePage() {
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <ForgotPasswordPage />
-    </Suspense>
-  );
-}
-
-const forgotPasswordRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/forgot-password",
-  component: ForgotPasswordRoutePage,
-});
-
-function VerifyEmailChangeRoutePage() {
-  const { token } = verifyEmailChangeRoute.useSearch();
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <VerifyEmailChangePage token={token ?? ""} />
-    </Suspense>
-  );
-}
-
-const verifyEmailChangeRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/verify-email-change",
-  component: VerifyEmailChangeRoutePage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    token: typeof search.token === "string" ? search.token : undefined,
-  }),
-});
-
-function ResetRoutePage() {
-  const { token } = resetRoute.useSearch();
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <ResetPage token={token} />
-    </Suspense>
-  );
-}
-
-const resetRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/reset",
-  component: ResetRoutePage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    token: typeof search.token === "string" ? search.token : undefined,
-  }),
-});
-
-function RecoverRoutePage() {
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <RecoverPage />
-    </Suspense>
-  );
-}
-
-const recoverRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/recover",
-  component: RecoverRoutePage,
-});
-
-function SetupRoutePage() {
-  return (
-    <Suspense fallback={<RouteLoading />}>
-      <SetupPage />
-    </Suspense>
-  );
-}
-
-const setupRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/setup",
-  component: SetupRoutePage,
-});
-
-function AccountRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <AccountPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const accountRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/account",
-  component: AccountRoutePage,
-});
-
-function DailyReviewRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <DailyReviewPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const dailyReviewRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/review/daily",
-  component: DailyReviewRoutePage,
-});
-
-function RandomWalkRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <RandomWalkPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const randomWalkRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/review/walk",
-  component: RandomWalkRoutePage,
-});
-
-function MemoryRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <MemoryPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const memoryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/memory",
-  component: MemoryRoutePage,
-});
-
-function ProjectsRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <ProjectsPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const projectsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/projects",
-  component: ProjectsRoutePage,
-});
-
-function AuthenticatedRoute({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
-  const session = authClient.useSession();
-  const [authenticationRequired, setAuthenticationRequired] = useState(false);
-
-  useEffect(() => {
-    const handleAuthenticationRequired = () => {
-      queryClient.clear();
-      setAuthenticationRequired(true);
-    };
-    window.addEventListener(
-      AUTHENTICATION_REQUIRED_EVENT,
-      handleAuthenticationRequired,
-    );
-    return () =>
-      window.removeEventListener(
-        AUTHENTICATION_REQUIRED_EVENT,
-        handleAuthenticationRequired,
-      );
-  }, [queryClient]);
-
-  if (session.isPending) {
-    return <RouteLoading />;
-  }
-  if (authenticationRequired || !session.data?.user) {
-    return <Navigate replace to="/login" />;
-  }
-  return children;
-}
-
-// TanStack Router's ErrorComponentProps carries `error: unknown`; narrow it
-// defensively instead of assuming an Error instance.
-function RouteErrorPage({ error }: { error: unknown }) {
-  const { t } = useI18n();
-  const router = useRouter();
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col items-center justify-center gap-4 px-5 text-center">
-      <div>
-        <h1 className="text-lg font-semibold">{t("list.errorTitle")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{message}</p>
-      </div>
-      <Button onClick={() => void router.invalidate()}>
-        {t("common.retry")}
-      </Button>
-    </main>
-  );
-}
-
-function RouteLoading() {
-  const { t } = useI18n();
-  return (
-    <main className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">
-      {t("common.loading")}
-    </main>
-  );
-}
-
-function isViewMode(value: unknown): value is ViewMode {
-  return value === "all" || value === "archived" || value === "trashed";
-}
-
-const router = createRouter({
-  defaultPreload: "intent",
-  routeTree: rootRoute.addChildren([
-    indexRoute,
-    memoRoute,
-    shareRoute,
-    loginRoute,
-    registerRoute,
-    verifyEmailRoute,
-    forgotPasswordRoute,
-    verifyEmailChangeRoute,
-    resetRoute,
-    recoverRoute,
-    setupRoute,
-    accountRoute,
-    dailyReviewRoute,
-    randomWalkRoute,
-    memoryRoute,
-    projectsRoute,
-  ]),
-  scrollRestoration: true,
-});
-
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
-}
-
 export default function App() {
-  return (
-    <TooltipProvider>
-      <RouterProvider router={router} />
-      <Toaster />
-    </TooltipProvider>
-  );
+  return <AppRoutes />;
 }

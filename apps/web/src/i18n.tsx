@@ -327,7 +327,6 @@ const messages = {
     "recover.submitting": "正在恢复…",
     "recover.failed": "恢复失败，请确认恢复密钥后重试。",
     "recover.success": "owner 密码已恢复。现在可以登录。",
-    "admin.title": "团队管理",
     "admin.usersTitle": "团队成员",
     "admin.userCount": "共 {count} 位成员",
     "admin.role.owner": "团队管理员",
@@ -865,7 +864,6 @@ const messages = {
     "recover.failed":
       "Recovery failed. Check the recovery secret and try again.",
     "recover.success": "Owner password recovered. You can now sign in.",
-    "admin.title": "Team management",
     "admin.usersTitle": "Team members",
     "admin.userCount": "{count} members",
     "admin.role.owner": "Team administrator",

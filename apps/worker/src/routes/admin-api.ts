@@ -12,6 +12,7 @@ import {
   getFlaremoUserById,
   getMemberRemovalJob,
   getUserRegistrationAllowed,
+  isOwner,
   isTeamAdmin,
   listFlaremoUsers,
   listMemberRemovalJobs,
@@ -55,7 +56,7 @@ async function teamAdminContext(
 
 async function ownerContext(c: Parameters<typeof getBrowserRequestContext>[0]) {
   const context = await getBrowserRequestContext(c);
-  if (context.user.role !== "owner") {
+  if (!isOwner(context.user)) {
     throw new ForbiddenError("Owner access is required.");
   }
   return context;

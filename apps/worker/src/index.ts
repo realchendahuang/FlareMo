@@ -27,9 +27,10 @@ import {
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { cleanupFlaremoArtifacts } from "./artifact-cleanup";
-import { createFlareMoAuth, getTrustedOrigins } from "./auth";
+import { getTrustedOrigins } from "./auth";
 import {
   assertTrustedCookieMutation,
+  getFlareMoRuntime,
   getRequestContext,
   type HonoBindings,
 } from "./context";
@@ -203,7 +204,7 @@ export function createFlareMoApp(
       const throttled = await rateLimitGuard(c, bucket);
       if (throttled) return throttled;
     }
-    return createFlareMoAuth(c.env).handler(c.req.raw);
+    return getFlareMoRuntime(c.env).auth.handler(c.req.raw);
   });
   app.route("/api/app/account", accountApi);
   app.route("/api/app/admin", adminApi);
@@ -403,14 +404,15 @@ export function createFlareMoWorker(
 ): ExportedHandler<FlareMoEnv> {
   const resolvedOptions = resolveFlareMoOptions(options);
   const hasCustomUserPlanLimits = options.resolveUserPlanLimits !== undefined;
+  // The Hono app closes only over the resolved options — route modules are
+  // constants and everything else reads c.env per request — so one instance
+  // serves every request of this isolate instead of rebuilding the full
+  // middleware and route table per request.
+  const app = createFlareMoApp(resolvedOptions);
 
   return {
     async fetch(request, env, ctx) {
-      const response = await createFlareMoApp(resolvedOptions).fetch(
-        request,
-        env,
-        ctx,
-      );
+      const response = await app.fetch(request, env, ctx);
       const db = createDb(env.DB);
       // `ExecutionContext` is part of the Worker handler contract. Keeping
       // this post-response work on `waitUntil` avoids changing the route-only

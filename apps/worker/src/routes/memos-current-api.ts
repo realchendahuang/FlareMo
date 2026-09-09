@@ -23,6 +23,7 @@ import {
   getPublicShareByToken,
   getUserRegistrationAllowed,
   hardDeleteMemo,
+  isOwner,
   listAttachments,
   listAttachmentsForMemosForViewer,
   listFlaremoUsers,
@@ -59,6 +60,7 @@ import { createFlareMoAuth } from "../auth";
 import { verifyCaptchaRequest } from "../captcha";
 import {
   assertTrustedCookieMutation,
+  getFlareMoRuntime,
   getOptionalRequestContext,
   getRequestContext,
   type HonoBindings,
@@ -1150,8 +1152,7 @@ async function currentUserForContext(context: {
 }
 
 async function createAuthContext(c: Parameters<typeof getRequestContext>[0]) {
-  const db = createDb(c.env.DB);
-  return { db, auth: createFlareMoAuth(c.env, db) };
+  return getFlareMoRuntime(c.env);
 }
 
 function assertSessionCredential(
@@ -1166,7 +1167,7 @@ function assertSessionCredential(
 function assertOwnerUser(
   context: Awaited<ReturnType<typeof getRequestContext>>,
 ) {
-  if (context.credential === "pat" || context.user.role !== "owner") {
+  if (context.credential === "pat" || !isOwner(context.user)) {
     throw new ForbiddenCurrentError(
       "An owner session is required for user management",
     );
