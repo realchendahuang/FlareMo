@@ -1,8 +1,31 @@
-import type { FlareMoDb, UserRow } from "@flaremo/db";
+import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
 import { memos, users } from "@flaremo/db";
 import { and, inArray } from "drizzle-orm";
 import type { EmbeddingProvider, VectorIndex } from "./embedding";
 import { memoReadScope } from "./team-permissions";
+
+// Team search has to enumerate every author's namespace. The users table is
+// small and rarely changes, so cache the id list per D1 instance for a short
+// TTL instead of reading it on every semantic query.
+const authorNamespaceCache = new WeakMap<
+  FlareMoDb,
+  { ids: string[]; expiresAt: number }
+>();
+const AUTHOR_NAMESPACE_CACHE_TTL_MS = 60_000;
+
+async function listAuthorNamespaces(db: FlareMoDb): Promise<string[]> {
+  const now = Date.now();
+  const cached = authorNamespaceCache.get(db);
+  if (cached && cached.expiresAt > now) return cached.ids;
+  const ids = (await db.select({ id: users.id }).from(users)).map(
+    (row) => row.id,
+  );
+  authorNamespaceCache.set(db, {
+    ids,
+    expiresAt: now + AUTHOR_NAMESPACE_CACHE_TTL_MS,
+  });
+  return ids;
+}
 
 export type SemanticSearchDeps = {
   provider: EmbeddingProvider;
@@ -47,7 +70,7 @@ export async function semanticSearchMemos(
   // scope below remains the authorization boundary and drops private hits.
   const namespaces = deps.namespace
     ? [deps.namespace]
-    : (await db.select({ id: users.id }).from(users)).map((row) => row.id);
+    : await listAuthorNamespaces(db);
   const matches = (
     await Promise.all(
       namespaces.map((namespace) =>
@@ -87,4 +110,32 @@ export async function semanticSearchMemos(
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([id, score]) => ({ id, score }));
+}
+
+/**
+ * Read back the candidate memos for a semantic search result set, preserving
+ * the caller's hit order. The scope is identical to the vector pre-filter, so
+ * this is the single D1 authorization boundary for rehydrating hits — routes
+ * must not query the memos table directly for search results.
+ */
+export async function getSemanticSearchMemos(
+  db: FlareMoDb,
+  user: UserRow,
+  candidateIds: string[],
+): Promise<MemoRow[]> {
+  if (candidateIds.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(memos)
+    .where(
+      and(
+        memoReadScope(user),
+        inArray(memos.id, candidateIds),
+        inArray(memos.status, ["normal", "archived"]),
+      ),
+    );
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return candidateIds
+    .map((id) => byId.get(id))
+    .filter((row): row is MemoRow => row !== undefined);
 }

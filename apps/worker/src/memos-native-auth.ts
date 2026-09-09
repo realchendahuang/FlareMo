@@ -399,16 +399,43 @@ async function resolveMemosIdentityByAuthUserId(
   };
 }
 
-async function resolveMemosIdentityBySubject(
-  db: FlareMoDb,
-  subject: number,
-): Promise<MemosNativeIdentity | null> {
+// Subject resolution reads the whole (tiny) auth_user_links table and
+// recomputes each row's subject in JS, so the table is cached per D1 instance
+// for a short TTL: one table read per window instead of one per authenticated
+// request. Resolution itself still re-reads the live link row for the matched
+// user, so a removed member's token stops resolving immediately; the cache
+// only skips the recomputation.
+const identityLinksCache = new WeakMap<
+  FlareMoDb,
+  {
+    links: { authUserId: string; flaremoUserId: string }[];
+    expiresAt: number;
+  }
+>();
+const IDENTITY_LINKS_CACHE_TTL_MS = 30_000;
+
+async function listMemosIdentityLinks(db: FlareMoDb) {
+  const now = Date.now();
+  const cached = identityLinksCache.get(db);
+  if (cached && cached.expiresAt > now) return cached.links;
   const links = await db
     .select({
       authUserId: authUserLinks.authUserId,
       flaremoUserId: authUserLinks.flaremoUserId,
     })
     .from(authUserLinks);
+  identityLinksCache.set(db, {
+    links,
+    expiresAt: now + IDENTITY_LINKS_CACHE_TTL_MS,
+  });
+  return links;
+}
+
+async function resolveMemosIdentityBySubject(
+  db: FlareMoDb,
+  subject: number,
+): Promise<MemosNativeIdentity | null> {
+  const links = await listMemosIdentityLinks(db);
   const matches = links.filter(
     (link) => memosSubjectForFlaremoUserId(link.flaremoUserId) === subject,
   );

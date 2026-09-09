@@ -15,7 +15,6 @@ import {
   walkNextQuerySchema,
 } from "@flaremo/contracts";
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
-import { memos as memosTable } from "@flaremo/db";
 import {
   assertMonthlyQuota,
   createMemo,
@@ -28,6 +27,7 @@ import {
   getMemoById,
   getMemoStats,
   getRandomMemo,
+  getSemanticSearchMemos,
   getWalkNextMemo,
   hardDeleteMemo,
   incrementUsageCounter,
@@ -54,7 +54,6 @@ import {
   parseMemosResourceName,
 } from "@flaremo/memos";
 import { zValidator } from "@hono/zod-validator";
-import { inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../context";
 import {
@@ -198,19 +197,11 @@ appApi.get(
           ).catch(() => undefined),
         ]),
       );
-      const rows = await db
-        .select()
-        .from(memosTable)
-        .where(
-          inArray(
-            memosTable.id,
-            hits.map((hit) => hit.id),
-          ),
-        );
-      const byId = new Map(rows.map((row) => [row.id, row]));
-      const ordered = hits
-        .map((hit) => byId.get(hit.id))
-        .filter((row): row is MemoRow => row !== undefined);
+      const ordered = await getSemanticSearchMemos(
+        db,
+        user,
+        hits.map((hit) => hit.id),
+      );
       const creatorNames = await getFlaremoUserNames(
         db,
         ordered.map((memo) => memo.userId),

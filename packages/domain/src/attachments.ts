@@ -742,6 +742,19 @@ export async function finalizeAttachmentCleanup(db: FlareMoDb, id: string) {
     .where(eq(attachments.id, parseResourceName(id, "attachments")));
 }
 
+/** Batch form of finalizeAttachmentCleanup for the daily cron sweep. */
+export async function finalizeAttachmentCleanupForIds(
+  db: FlareMoDb,
+  ids: string[],
+) {
+  if (ids.length === 0) return;
+  const now = new Date().toISOString();
+  await db
+    .update(attachments)
+    .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
+    .where(inArray(attachments.id, ids));
+}
+
 function normalizeAttachmentPageSize(value: number | undefined) {
   if (value === undefined) return 50;
   if (!Number.isInteger(value) || value < 1) {

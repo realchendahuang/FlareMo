@@ -12,7 +12,7 @@ import {
   dispatchMemosWebhookOutbox,
   expireStaleDataTasks,
   failMemberRemovalJob,
-  finalizeAttachmentCleanup,
+  finalizeAttachmentCleanupForIds,
   finalizeFlaremoMemberRemoval,
   getQueuedMemberRemovalJobsByIds,
   listAttachmentCleanupCandidates,
@@ -333,9 +333,10 @@ export async function runScheduledMaintenance(
   if (objectKeys.length > 0) {
     await env.ATTACHMENTS.delete(objectKeys);
   }
-  for (const attachment of candidates) {
-    await finalizeAttachmentCleanup(db, attachment.id);
-  }
+  await finalizeAttachmentCleanupForIds(
+    db,
+    candidates.map((attachment) => attachment.id),
+  );
   // Reconcile data-transfer tasks: expire stale queued/running tasks whose
   // lease lapsed (interrupted request), then garbage-collect completed task
   // rows older than the TTL along with their R2 export artifacts.
@@ -446,9 +447,20 @@ export function createFlareMoWorker(
         resolveUserLimits: hasCustomUserPlanLimits
           ? (userId) => resolvedOptions.resolveUserPlanLimits(env, userId)
           : undefined,
-        removalJobIds: batch.messages.map(
-          (message) => (message.body as { jobId: string }).jobId,
-        ),
+        // A malformed body can never become valid on retry — drop it here so
+        // the batch ack removes the poison message instead of looping.
+        removalJobIds: batch.messages.flatMap((message) => {
+          const jobId = (message.body as { jobId?: unknown }).jobId;
+          if (typeof jobId !== "string" || !jobId) {
+            console.warn(
+              JSON.stringify({
+                message: "Discarded malformed member-removal queue message",
+              }),
+            );
+            return [];
+          }
+          return [jobId];
+        }),
       });
       for (const message of batch.messages) message.ack();
     },

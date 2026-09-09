@@ -41,8 +41,6 @@ export type HonoBindings = {
   };
 };
 
-export type RequestCredential = "session" | "pat";
-
 /**
  * Per-user quota limits for the authenticated user. `null` = not configured;
  * only deployment-level limits (or none) apply.

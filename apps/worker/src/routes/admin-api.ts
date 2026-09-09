@@ -274,11 +274,8 @@ adminApi.get("/member-removal-jobs", async (c) => {
 
 adminApi.get("/member-removal-jobs/:id", async (c) => {
   try {
-    await teamAdminContext(c);
-    const job = await getMemberRemovalJob(
-      (await getBrowserRequestContext(c)).db,
-      c.req.param("id"),
-    );
+    const context = await teamAdminContext(c);
+    const job = await getMemberRemovalJob(context.db, c.req.param("id"));
     if (!job) throw new NotFoundError("Removal job not found");
     return c.json({ job });
   } catch (error) {
