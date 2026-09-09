@@ -466,7 +466,9 @@ async function callMemoryTool(
           kinds: input.kinds,
           limit: input.limit,
         },
-        provider && index ? { provider, index } : undefined,
+        // Memory vectors are indexed under per-user namespaces; recall must
+        // query the caller's own namespace or it sees nothing.
+        provider && index ? { provider, index, namespace: user.id } : undefined,
       );
     }
     case "memory_remember": {
