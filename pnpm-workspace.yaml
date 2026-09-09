@@ -10,6 +10,7 @@ overrides:
   js-yaml: "^4.3.1"
   postcss: "^8.5.23"
   undici: "^7.29.0"
+  sharp: "^0.35.4"
 allowBuilds:
   esbuild: true
   sharp: true
