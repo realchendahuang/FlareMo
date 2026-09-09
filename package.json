@@ -60,7 +60,7 @@
     "drizzle-kit": "^0.31.8",
     "miniflare": "^4.20260722.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.0",
+    "vitest": "^4.1.11",
     "wrangler": "^4.114.0"
   }
 }
