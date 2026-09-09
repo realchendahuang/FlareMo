@@ -12,6 +12,7 @@ import {
   bootstrapMemory,
   checkpointMemory,
   createMemory,
+  DomainError,
   estimateTokenCount,
   forgetMemory,
   incrementUsageCounter,
@@ -19,6 +20,7 @@ import {
   type MemoryActor,
   recallMemories,
   rememberInputToWrite,
+  ValidationError,
 } from "@flaremo/domain";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
@@ -511,7 +513,7 @@ async function callMemoryTool(
       );
     }
     default:
-      throw new Error(`Unknown tool: ${name}`);
+      throw new ValidationError(`Unknown tool: ${name}`);
   }
 }
 
@@ -591,7 +593,8 @@ function optionalString(args: JsonObject, ...names: string[]) {
   for (const name of names) {
     const value = args[name];
     if (value === undefined || value === null) continue;
-    if (typeof value !== "string") throw new Error(`${name} must be a string.`);
+    if (typeof value !== "string")
+      throw new ValidationError(`${name} must be a string.`);
     return value;
   }
   return undefined;
@@ -603,7 +606,16 @@ function isJsonObject(value: unknown): value is JsonObject {
 
 function readableError(error: unknown) {
   if (error instanceof z.ZodError) return formatZodError(error);
-  if (error instanceof Error && error.message) return error.message;
+  // Only domain-level errors carry a caller-facing message. Anything else
+  // (D1 failures, TypeErrors, …) is logged server-side and stays generic.
+  if (error instanceof DomainError) return error.message;
+  console.error(
+    JSON.stringify({
+      level: "error",
+      message: "Unhandled memory MCP tool error",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
   return "Tool call failed.";
 }
 

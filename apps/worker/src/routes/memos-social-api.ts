@@ -1,4 +1,4 @@
-import type { MemoRow, ReactionRow, ShortcutRow } from "@flaremo/db";
+import type { MemoRow, ReactionRow, ShortcutRow, UserRow } from "@flaremo/db";
 import {
   createMemoComment,
   createShortcut,
@@ -8,10 +8,12 @@ import {
   getFlaremoUserById,
   getMemoByIdForViewer,
   getShortcut,
+  listAttachmentsForMemosForViewer,
   listMemoAttachmentsForViewer,
   listMemoComments,
   listMemoReactions,
   listMemoRelationsForViewer,
+  listReactionsForMemosForViewer,
   listShortcuts,
   updateShortcut,
   upsertMemoReaction,
@@ -91,9 +93,7 @@ memosSocialApi.get("/memos/:memo/comments", async (c) => {
       },
     );
 
-    const memos = await Promise.all(
-      result.memos.map((memo) => memoToCurrentDto(context, memo, memoName)),
-    );
+    const memos = await hydrateSocialMemos(context, result.memos, memoName);
 
     return c.json({
       memos,
@@ -403,6 +403,107 @@ function reactionToDto(value: ReactionRow) {
   return currentReactionToDto(value);
 }
 
+function groupByContentMemo<T>(
+  rows: T[],
+  memoKey: (row: T) => string | null | undefined,
+): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const memoId = memoKey(row);
+    if (!memoId) continue;
+    const bucket = grouped.get(memoId) ?? [];
+    bucket.push(row);
+    grouped.set(memoId, bucket);
+  }
+  return grouped;
+}
+
+/**
+ * Hydrate a page of comment rows without the per-comment round trips:
+ * attachments and reactions are resolved with one batched query each;
+ * relations stay per-memo because most comments carry none, and creators are
+ * cached across the page. Mirrors memoToCurrentDto's DTO shape exactly.
+ */
+async function hydrateSocialMemos(
+  context: Awaited<ReturnType<typeof getOptionalRequestContext>>,
+  memoRows: MemoRow[],
+  parentName?: string,
+) {
+  const ids = memoRows.map((memo) => memo.id);
+  const [attachmentsByMemo, reactionRows] = await Promise.all([
+    listAttachmentsForMemosForViewer(context.db, context.user, ids),
+    listReactionsForMemosForViewer(context.db, context.user, ids),
+  ]);
+  const attachments = groupByContentMemo(
+    attachmentsByMemo,
+    (attachment) => attachment.memoId,
+  );
+  const reactions = groupByContentMemo(
+    reactionRows,
+    (reaction) => reaction.contentId,
+  );
+  const creators = new Map<string, UserRow | null>();
+  return Promise.all(
+    memoRows.map(async (memo) => {
+      const relationRows = await listMemoRelationsForViewer(
+        context.db,
+        context.user,
+        memo.id,
+      );
+      const relations = (
+        await Promise.all(
+          relationRows.map(async (relation) => {
+            try {
+              const [relationMemo, relatedMemo] = await Promise.all([
+                getMemoByIdForViewer(
+                  context.db,
+                  context.user,
+                  relation.memoId,
+                  {
+                    includeDeleted: true,
+                  },
+                ),
+                getMemoByIdForViewer(
+                  context.db,
+                  context.user,
+                  relation.relatedMemoId,
+                  { includeDeleted: true },
+                ),
+              ]);
+              return currentRelationToDto(relation, relationMemo, relatedMemo);
+            } catch {
+              return null;
+            }
+          }),
+        )
+      ).filter(
+        (relation): relation is NonNullable<typeof relation> =>
+          relation !== null,
+      );
+      let creator = creators.get(memo.userId);
+      if (!creator) {
+        const resolved =
+          context.user?.id === memo.userId && context.user
+            ? context.user
+            : await getFlaremoUserById(context.db, memo.userId);
+        if (!resolved) throw new Error("Memo creator not found");
+        creator = resolved;
+        creators.set(memo.userId, resolved);
+      }
+      return {
+        ...currentMemoToDto(memo, creator, {
+          attachments: attachments.get(memo.id) ?? [],
+          relations,
+        }),
+        reactions: (reactions.get(memo.id) ?? []).map((reaction) =>
+          reactionToDto(reaction),
+        ),
+        ...(parentName ? { parent: parentName } : {}),
+      };
+    }),
+  );
+}
+
 function shortcutToDto(value: ShortcutRow) {
   // The domain row retains a `shortcuts/<id>` storage id. The current adapter
   // strips that storage prefix before constructing the public resource name.
@@ -668,10 +769,25 @@ function currentErrorStatus(error: unknown) {
 function currentErrorMessage(error: unknown) {
   if (error instanceof CurrentHttpError) return error.message;
   if (isDomainError(error)) return error.message;
-  if (isRecord(error) && typeof error.message === "string") {
-    return error.message;
+  // Framework errors (transport codecs) carry controlled, caller-facing
+  // messages alongside their status. Everything else without a domain type —
+  // D1 failures, TypeErrors — stays generic so internal details never reach
+  // the response body.
+  if (isRecord(error) && controlledErrorStatus(error) !== null) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
   }
   return "Internal server error";
+}
+
+function controlledErrorStatus(error: Record<string, unknown>): number | null {
+  const status =
+    typeof error.statusCode === "number"
+      ? error.statusCode
+      : typeof error.status === "number"
+        ? error.status
+        : null;
+  return status !== null && status < 500 ? status : null;
 }
 
 function currentErrorCode(status: number) {

@@ -666,6 +666,10 @@ describe("Memos native auth and transport boundaries", () => {
       ]),
     );
 
+    // Link metadata drives a server-side fetch, so it now sits behind auth:
+    // unauthenticated callers get 401 before any URL validation. The fetch
+    // rules themselves (internal-IP blocks, content types) stay covered by
+    // the memos-link-metadata unit tests.
     const invalidLink = await request(
       "/memos.api.v1.MemoService/GetLinkMetadata",
       {
@@ -674,7 +678,7 @@ describe("Memos native auth and transport boundaries", () => {
         body: JSON.stringify({ url: "http://127.0.0.1/" }),
       },
     );
-    expect(invalidLink.status).toBe(400);
+    expect(invalidLink.status).toBe(401);
     const emptyBinaryLink = await request(
       "/memos.api.v1.MemoService/GetLinkMetadata",
       {
@@ -683,8 +687,10 @@ describe("Memos native auth and transport boundaries", () => {
         body: new Uint8Array(),
       },
     );
-    expect(emptyBinaryLink.status).toBe(400);
-    expect(emptyBinaryLink.headers.get("grpc-status")).toBe("3");
+    // An empty proto frame decodes to an empty message; the request then hits
+    // the auth boundary, which reports 401 / UNAUTHENTICATED (grpc code 16).
+    expect(emptyBinaryLink.status).toBe(401);
+    expect(emptyBinaryLink.headers.get("grpc-status")).toBe("16");
     const emptyBatch = await request(
       "/memos.api.v1.MemoService/BatchGetLinkMetadata",
       {
@@ -693,7 +699,7 @@ describe("Memos native auth and transport boundaries", () => {
         body: JSON.stringify({ urls: [] }),
       },
     );
-    expect(emptyBatch.status).toBe(400);
+    expect(emptyBatch.status).toBe(401);
 
     const grpcWebCreate = await request(
       "/memos.api.v1.MemoService/CreateMemo",

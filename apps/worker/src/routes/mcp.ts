@@ -11,6 +11,7 @@ import {
   createMemo,
   createMemoComment,
   createShortcut,
+  DomainError,
   deleteMemoReaction,
   deleteShortcut,
   finalizeAttachmentDelete,
@@ -32,6 +33,7 @@ import {
   updateMemo,
   updateShortcut,
   upsertMemoReaction,
+  ValidationError,
 } from "@flaremo/domain";
 import {
   currentAttachmentToDto,
@@ -975,7 +977,7 @@ async function callStreamableTool(
     case "auth_get_current_user":
       return { user: currentUserToMemosDto(context) };
     default:
-      throw new Error(`Unknown tool: ${name}`);
+      throw new ValidationError(`Unknown tool: ${name}`);
   }
 }
 
@@ -1017,7 +1019,7 @@ async function streamableCreateMemo(
   assertUnsupportedMemoCollections(input);
   const suppliedMemoId = firstDefined(input.memoId, input.memo_id);
   if (suppliedMemoId !== undefined) {
-    throw new Error(
+    throw new ValidationError(
       "memoId is not supported by FlareMo's domain service; omit it so the server can generate the resource name.",
     );
   }
@@ -1115,7 +1117,9 @@ async function streamableListMemoAttachments(
 ) {
   const pageToken = optionalString(args, "pageToken");
   if (pageToken)
-    throw new Error("pageToken is not supported for memo attachments.");
+    throw new ValidationError(
+      "pageToken is not supported for memo attachments.",
+    );
   const rows = await listMemoAttachments(
     context.db,
     context.user,
@@ -1133,14 +1137,18 @@ async function streamableSetMemoAttachments(
 ) {
   const rawAttachments = args.attachments;
   if (!Array.isArray(rawAttachments) || rawAttachments.length > 100) {
-    throw new Error("attachments must be an array with at most 100 entries.");
+    throw new ValidationError(
+      "attachments must be an array with at most 100 entries.",
+    );
   }
   const names = rawAttachments.map((attachment, index) => {
     if (typeof attachment === "string") return attachment;
     if (isJsonObject(attachment)) {
       return requiredString(attachment.name, `attachments[${index}].name`);
     }
-    throw new Error(`attachments[${index}] must be a resource name or object.`);
+    throw new ValidationError(
+      `attachments[${index}] must be a resource name or object.`,
+    );
   });
   await bindMemoAttachments(
     context.db,
@@ -1157,7 +1165,7 @@ async function streamableListMemoRelations(
 ) {
   const pageToken = optionalString(args, "pageToken");
   if (pageToken)
-    throw new Error("pageToken is not supported for memo relations.");
+    throw new ValidationError("pageToken is not supported for memo relations.");
   const rows = await listMemoRelations(
     context.db,
     context.user,
@@ -1172,12 +1180,14 @@ async function streamableSetMemoRelations(
 ) {
   const rawRelations = args.relations;
   if (!Array.isArray(rawRelations) || rawRelations.length > 100) {
-    throw new Error("relations must be an array with at most 100 entries.");
+    throw new ValidationError(
+      "relations must be an array with at most 100 entries.",
+    );
   }
   const targetName = parseMemosResourceName(resourceName(args, "memo", "name"));
   const relations = rawRelations.map((rawRelation, index) => {
     if (!isJsonObject(rawRelation)) {
-      throw new Error(`relations[${index}] must be an object.`);
+      throw new ValidationError(`relations[${index}] must be an object.`);
     }
     const relatedMemo = rawRelation.relatedMemo;
     const relatedName = isJsonObject(relatedMemo)
@@ -1193,7 +1203,9 @@ async function streamableSetMemoRelations(
         `relations[${index}].memo.name`,
       );
       if (parseMemosResourceName(sourceName) !== targetName) {
-        throw new Error(`relations[${index}].memo must match the target memo.`);
+        throw new ValidationError(
+          `relations[${index}].memo must match the target memo.`,
+        );
       }
     }
     return {
@@ -1377,12 +1389,16 @@ async function streamableListAttachments(
   args: JsonObject,
 ) {
   const pageToken = optionalString(args, "pageToken");
-  if (pageToken) throw new Error("pageToken is not supported for attachments.");
+  if (pageToken)
+    throw new ValidationError("pageToken is not supported for attachments.");
   const filter = optionalString(args, "filter");
-  if (filter) throw new Error("Attachment filter is not supported by FlareMo.");
+  if (filter)
+    throw new ValidationError("Attachment filter is not supported by FlareMo.");
   const orderBy = optionalString(args, "orderBy");
   if (orderBy)
-    throw new Error("Attachment orderBy is not supported by FlareMo.");
+    throw new ValidationError(
+      "Attachment orderBy is not supported by FlareMo.",
+    );
   const memo = optionalString(args, "memo");
   const rows = await listAttachments(context.db, context.user, {
     memoId: memo,
@@ -1421,7 +1437,7 @@ function mergedMemoInput(args: JsonObject): JsonObject {
   const memoArgument = args.memo;
   const memoObject = isJsonObject(memoArgument) ? memoArgument : {};
   if (body !== undefined && !isJsonObject(body)) {
-    throw new Error("body must be an object.");
+    throw new ValidationError("body must be an object.");
   }
   return {
     ...args,
@@ -1436,7 +1452,7 @@ function mergedResourceInput(args: JsonObject, ...keys: string[]): JsonObject {
     const value = args[key];
     if (value === undefined) continue;
     if (!isJsonObject(value)) {
-      throw new Error(`${key} must be an object.`);
+      throw new ValidationError(`${key} must be an object.`);
     }
     Object.assign(result, value);
   }
@@ -1445,12 +1461,12 @@ function mergedResourceInput(args: JsonObject, ...keys: string[]): JsonObject {
 
 function assertUnsupportedMemoCollections(input: JsonObject) {
   if (input.attachments !== undefined) {
-    throw new Error(
+    throw new ValidationError(
       "Memo attachments must be changed with memo_set_memo_attachments.",
     );
   }
   if (input.relations !== undefined) {
-    throw new Error(
+    throw new ValidationError(
       "Memo relations must be changed with memo_set_memo_relations.",
     );
   }
@@ -1459,7 +1475,7 @@ function assertUnsupportedMemoCollections(input: JsonObject) {
 function memoPayloadFromInput(input: JsonObject) {
   const payloadValue = input.payload;
   if (payloadValue !== undefined && !isJsonObject(payloadValue)) {
-    throw new Error("payload must be an object.");
+    throw new ValidationError("payload must be an object.");
   }
   const payload: JsonObject = isJsonObject(payloadValue)
     ? { ...payloadValue }
@@ -1469,13 +1485,13 @@ function memoPayloadFromInput(input: JsonObject) {
       !Array.isArray(input.tags) ||
       input.tags.some((tag) => typeof tag !== "string")
     ) {
-      throw new Error("tags must be an array of strings.");
+      throw new ValidationError("tags must be an array of strings.");
     }
     payload.tags = input.tags;
   }
   if (input.property !== undefined) {
     if (!isJsonObject(input.property))
-      throw new Error("property must be an object.");
+      throw new ValidationError("property must be an object.");
     payload.property = input.property;
   }
   if (input.location !== undefined) payload.location = input.location;
@@ -1547,12 +1563,14 @@ function memoMutationFromInput(
           "location",
         ].includes(field)
       ) {
-        throw new Error(`Update field "${field}" is not supported by FlareMo.`);
+        throw new ValidationError(
+          `Update field "${field}" is not supported by FlareMo.`,
+        );
       }
     }
     if (updateMask.has("state")) {
       if (mutation.status === undefined) {
-        throw new Error(
+        throw new ValidationError(
           "updateMask includes state but no state value was provided.",
         );
       }
@@ -1563,7 +1581,7 @@ function memoMutationFromInput(
       updateMask.has("location")
     ) {
       if (!hasPayloadInput) {
-        throw new Error(
+        throw new ValidationError(
           "updateMask includes payload fields but no value was provided.",
         );
       }
@@ -1571,7 +1589,9 @@ function memoMutationFromInput(
   }
 
   if (!options.allowEmpty && Object.keys(mutation).length === 0) {
-    throw new Error("At least one supported memo field must be updated.");
+    throw new ValidationError(
+      "At least one supported memo field must be updated.",
+    );
   }
   return mutation as Parameters<typeof updateMemo>[3];
 }
@@ -1583,7 +1603,7 @@ function normalizeUpdateMask(value: string) {
     if (field) fields.add(field);
   }
   if (fields.size === 0)
-    throw new Error("updateMask must name at least one field.");
+    throw new ValidationError("updateMask must name at least one field.");
   return fields;
 }
 
@@ -1593,7 +1613,7 @@ function normalizeOrderBy(value: string) {
       value.trim(),
     );
   if (!match) {
-    throw new Error(
+    throw new ValidationError(
       "orderBy must be one supported single-field order such as create_time desc.",
     );
   }
@@ -1606,10 +1626,10 @@ function pageSize(args: JsonObject) {
   const raw = firstDefined(args.pageSize, args.page_size);
   if (raw === undefined) return 50;
   if (typeof raw !== "number" || !Number.isInteger(raw)) {
-    throw new Error("pageSize must be an integer.");
+    throw new ValidationError("pageSize must be an integer.");
   }
   if (raw < 1 || raw > 100) {
-    throw new Error("pageSize must be between 1 and 100.");
+    throw new ValidationError("pageSize must be between 1 and 100.");
   }
   return raw;
 }
@@ -1633,7 +1653,8 @@ function optionalString(args: JsonObject, ...names: string[]) {
   for (const name of names) {
     const value = args[name];
     if (value === undefined || value === null) continue;
-    if (typeof value !== "string") throw new Error(`${name} must be a string.`);
+    if (typeof value !== "string")
+      throw new ValidationError(`${name} must be a string.`);
     return value;
   }
   return undefined;
@@ -1642,13 +1663,14 @@ function optionalString(args: JsonObject, ...names: string[]) {
 function optionalBoolean(args: JsonObject, name: string) {
   const value = args[name];
   if (value === undefined || value === null) return undefined;
-  if (typeof value !== "boolean") throw new Error(`${name} must be a boolean.`);
+  if (typeof value !== "boolean")
+    throw new ValidationError(`${name} must be a boolean.`);
   return value;
 }
 
 function requiredString(value: unknown, name: string) {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${name} must be a non-empty string.`);
+    throw new ValidationError(`${name} must be a non-empty string.`);
   }
   return value.trim();
 }
@@ -1670,7 +1692,7 @@ function normalizeVisibility(
     return "private";
   }
   if (typeof value !== "string")
-    throw new Error("visibility must be a string.");
+    throw new ValidationError("visibility must be a string.");
   const normalized = value.toLowerCase();
   if (normalized === "visibility_unspecified")
     return optional ? undefined : "private";
@@ -1680,7 +1702,7 @@ function normalizeVisibility(
     normalized === "public"
   )
     return normalized;
-  throw new Error(`Unsupported visibility "${value}".`);
+  throw new ValidationError(`Unsupported visibility "${value}".`);
 }
 
 function normalizeMemoState(value: string | undefined) {
@@ -1689,7 +1711,7 @@ function normalizeMemoState(value: string | undefined) {
   if (["normal", "archived", "trashed", "deleted"].includes(normalized)) {
     return normalized as "normal" | "archived" | "trashed" | "deleted";
   }
-  throw new Error(`Unsupported memo state "${value}".`);
+  throw new ValidationError(`Unsupported memo state "${value}".`);
 }
 
 function normalizeRelationType(value: unknown): "reference" | "comment" {
@@ -1697,12 +1719,12 @@ function normalizeRelationType(value: unknown): "reference" | "comment" {
     return "reference" as const;
   }
   if (typeof value !== "string")
-    throw new Error("relation type must be a string.");
+    throw new ValidationError("relation type must be a string.");
   const normalized = value.toLowerCase();
   if (normalized === "reference" || normalized === "comment") {
     return normalized as "reference" | "comment";
   }
-  throw new Error(`Unsupported relation type "${value}".`);
+  throw new ValidationError(`Unsupported relation type "${value}".`);
 }
 
 function memoToCurrentMemosDto(memo: MemoRow, user: UserRow) {
@@ -1734,7 +1756,16 @@ function isJsonObject(value: unknown): value is JsonObject {
 
 function readableError(error: unknown) {
   if (error instanceof z.ZodError) return formatZodError(error);
-  if (error instanceof Error && error.message) return error.message;
+  // Only domain-level errors carry a caller-facing message. Anything else
+  // (D1 failures, TypeErrors, …) is logged server-side and stays generic.
+  if (error instanceof DomainError) return error.message;
+  console.error(
+    JSON.stringify({
+      level: "error",
+      message: "Unhandled MCP tool error",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
   return "Tool call failed.";
 }
 
