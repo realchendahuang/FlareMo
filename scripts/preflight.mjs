@@ -9,8 +9,16 @@ const commands = [
   ["pnpm", ["test:e2e"]],
 ];
 
-for (const [command, args] of commands) {
-  await run(command, args);
+for (const [index, [command, args]] of commands.entries()) {
+  try {
+    await run(command, args);
+  } catch (error) {
+    console.error(
+      `Failed at step ${index + 1}/${commands.length}: ${command} ${args.join(" ")}`,
+    );
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
 }
 
 function run(command, args) {

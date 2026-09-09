@@ -1,10 +1,16 @@
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { type APIRequestContext, request } from "@playwright/test";
+// The port's single source of truth lives in scripts/lib/dev-server.mjs
+// because scripts/e2e-server.mjs runs under plain Node and cannot import
+// this TypeScript fixture module.
+import { E2E_PORT } from "../../scripts/lib/dev-server.mjs";
+
+export { E2E_PORT };
 
 // These values are deliberately local-only fixtures. They must never be
 // replaced with or read from production secrets.
-export const E2E_BASE_URL = "http://127.0.0.1:18787";
+export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;
 export const E2E_BETTER_AUTH_SECRET =
   "flaremo-e2e-better-auth-secret-never-use-in-production-2026";
 export const E2E_BOOTSTRAP_SECRET =

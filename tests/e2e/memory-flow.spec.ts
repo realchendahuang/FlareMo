@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { E2E_BASE_URL } from "./auth-fixture";
 
 test("creates a memory and locks it", async ({ page }) => {
   const content = `FlareMo 使用 D1 作为事实源 #mem${Date.now()}`;
@@ -30,7 +31,7 @@ test("creates a memory and locks it", async ({ page }) => {
 test("lists a memory created through the API", async ({ page, request }) => {
   const content = `API-created memory #api${Date.now()}`;
   await request.post("/api/app/memory", {
-    headers: { origin: "http://127.0.0.1:18787" },
+    headers: { origin: E2E_BASE_URL },
     data: {
       content,
       type: "semantic",

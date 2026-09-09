@@ -1,10 +1,8 @@
-import { spawn, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
+import { E2E_PORT, startDevServer, stopDevServer } from "./lib/dev-server.mjs";
 
 const persistDir = ".wrangler-e2e";
-const port = "18787";
-const isWindows = process.platform === "win32";
-const testPublicUrl = "http://127.0.0.1:18787";
+const testPublicUrl = `http://127.0.0.1:${E2E_PORT}`;
 const testBetterAuthSecret =
   "flaremo-e2e-better-auth-secret-never-use-in-production-2026";
 const testBootstrapSecret =
@@ -21,63 +19,24 @@ const testBindings = [
 const testProcessEnv = createTestProcessEnv();
 
 rmSync(persistDir, { recursive: true, force: true });
-run("pnpm", ["--filter", "@flaremo/web", "build"], testProcessEnv);
-run(
-  "pnpm",
-  [
-    "exec",
-    "wrangler",
-    "d1",
-    "migrations",
-    "apply",
-    "DB",
-    "--local",
-    "--persist-to",
-    persistDir,
-  ],
-  testProcessEnv,
-);
 
-const server = spawn(
-  "pnpm",
-  [
-    "exec",
-    "wrangler",
-    "dev",
-    "--config",
-    "./wrangler.jsonc",
-    "--local",
-    "--host",
-    "127.0.0.1",
-    "--port",
-    port,
-    "--persist-to",
-    persistDir,
-    "--log-level",
-    "error",
-    ...testBindings.flatMap((binding) => ["--var", binding]),
-  ],
-  {
-    shell: isWindows,
-    stdio: "inherit",
-    env: testProcessEnv,
-  },
-);
+const server = startDevServer({
+  persistDir,
+  port: E2E_PORT,
+  bindings: testBindings,
+  env: testProcessEnv,
+});
 
 let shuttingDown = false;
-let forceStopTimer;
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    stopServer("SIGTERM");
-    forceStopTimer = setTimeout(() => stopServer("SIGKILL"), 5_000);
-    forceStopTimer.unref();
+    stopDevServer(server);
   });
 }
 
 server.on("exit", (code) => {
-  if (forceStopTimer) clearTimeout(forceStopTimer);
   rmSync(persistDir, { recursive: true, force: true });
   process.exit(shuttingDown ? 0 : (code ?? 1));
 });
@@ -87,31 +46,6 @@ server.on("error", (error) => {
   rmSync(persistDir, { recursive: true, force: true });
   process.exit(1);
 });
-
-function stopServer(signal) {
-  if (server.exitCode !== null || server.signalCode !== null) return;
-  if (isWindows) {
-    server.kill(signal);
-    return;
-  }
-  try {
-    process.kill(-server.pid, signal);
-  } catch {
-    server.kill(signal);
-  }
-}
-
-function run(command, args, env) {
-  const result = spawnSync(command, args, {
-    encoding: "utf8",
-    env,
-    shell: isWindows,
-    stdio: "inherit",
-  });
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
-}
 
 function createTestProcessEnv() {
   // Keep the local E2E process independent from production credentials. Only
