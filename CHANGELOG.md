@@ -2,6 +2,14 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.17.1
+
+文案清理版本：删除界面中的装饰性小字——登录页侧栏的 eyebrow、描述段落与特性胶囊，Transfer 面板与品牌外观卡的说明性副标题。功能性文案（确认提示、警告、筛选帮助、空态引导）全部保留。无功能变化。
+
+### 升级影响
+
+- 无 migration、无资源变化、无 API 变化，直接部署即可。
+
 ## v0.17.0
 
 设计系统版本：与 KOSX（impact.kosx.ai）设计语言完全对齐——纯 token 级变更，无功能变化。flame 主色相旋转至 KOSX signal 橙（#ff6a00）色系、中性色降饱和至纸墨色系（dark 主题锚定 KOSX paper #0a0a0a / surface #1c1c1e）、全局圆角 0.75rem→0.875rem、字体栈对齐 KOSX（Helvetica Neue / PingFang SC）、动效采用 KOSX 标志性缓动 cubic-bezier(0.22, 1, 0.36, 1)。
