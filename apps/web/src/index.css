@@ -15,14 +15,14 @@
  */
 
 @theme inline {
-    /* Geist covers Latin; CJK falls through to the system Han fonts so
-       mixed-language notes keep one visual voice. */
+    /* Aligned with the KOSX type stack (impact.kosx.ai): Helvetica covers
+       Latin on macOS; CJK falls through to the system Han fonts. */
     --font-heading:
-        "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
-        "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+        "Helvetica Neue", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC",
+        "Microsoft YaHei", Arial, system-ui, sans-serif;
     --font-sans:
-        "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
-        "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+        "Helvetica Neue", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC",
+        "Microsoft YaHei", Arial, system-ui, sans-serif;
     --font-mono:
         ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -82,43 +82,46 @@
        hardcode durations and easings because @theme inline does not emit
        intermediate vars. */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-signal: cubic-bezier(0.22, 1, 0.36, 1); /* KOSX signature curve */
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --animate-rise: flaremo-rise 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-rise: flaremo-rise 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
     --animate-fade: flaremo-fade 140ms ease-out both;
     --animate-scale-in: flaremo-scale-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
     --animate-shimmer: flaremo-shimmer 1.6s linear infinite;
 }
 
 :root {
-    /* Brand flame: sampled from the logo gradient (orange → coral spark). */
-    --flame-50: oklch(0.96 0.025 62);
-    --flame-100: oklch(0.93 0.05 59);
-    --flame-200: oklch(0.87 0.09 56);
-    --flame-300: oklch(0.79 0.135 52);
-    --flame-400: oklch(0.72 0.17 50);
-    --flame-500: oklch(0.63 0.19 45);
-    --flame-600: oklch(0.55 0.20 40);
-    --flame-700: oklch(0.47 0.18 36);
-    --flame-coral: oklch(0.64 0.21 30);
+    /* Brand flame: hue-aligned with the KOSX signal orange (#ff6a00).
+       Lightness/chroma ramp unchanged from the logo-gradient sampling. */
+    --flame-50: oklch(0.96 0.025 52);
+    --flame-100: oklch(0.93 0.05 49);
+    --flame-200: oklch(0.87 0.09 46);
+    --flame-300: oklch(0.79 0.135 42);
+    --flame-400: oklch(0.72 0.17 40);
+    --flame-500: oklch(0.63 0.19 35);
+    --flame-600: oklch(0.55 0.20 30);
+    --flame-700: oklch(0.47 0.18 26);
+    --flame-coral: oklch(0.64 0.21 20);
     --gradient-brand: linear-gradient(
         135deg,
         var(--flame-400),
         var(--flame-coral)
     );
 
-    /* Warm neutrals (hue ~70) so the flame accent never sits on cold gray. */
-    --background: oklch(0.982 0.004 80);
-    --foreground: oklch(0.24 0.012 60);
+    /* Near-neutral surfaces (KOSX paper/ink family) with a hint of warmth
+       so the signal-orange accent never sits on cold gray. */
+    --background: oklch(0.982 0.003 75);
+    --foreground: oklch(0.24 0.006 75);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.24 0.012 60);
+    --card-foreground: oklch(0.24 0.006 75);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.24 0.012 60);
+    --popover-foreground: oklch(0.24 0.006 75);
     --primary: var(--flame-500);
-    --primary-foreground: oklch(0.99 0.005 70);
-    --secondary: oklch(0.955 0.006 75);
-    --secondary-foreground: oklch(0.28 0.012 60);
-    --muted: oklch(0.952 0.007 75);
-    --muted-foreground: oklch(0.52 0.014 65);
+    --primary-foreground: oklch(0.99 0.003 75);
+    --secondary: oklch(0.955 0.004 75);
+    --secondary-foreground: oklch(0.28 0.006 75);
+    --muted: oklch(0.952 0.004 75);
+    --muted-foreground: oklch(0.52 0.008 75);
     --accent: var(--flame-50);
     --accent-foreground: var(--flame-700);
     --destructive: oklch(0.577 0.245 27.325);
@@ -128,10 +131,10 @@
     --warning-foreground: oklch(0.30 0.04 70);
     --info: oklch(0.58 0.10 240);
     --info-foreground: oklch(0.98 0.005 240);
-    --border: oklch(0.912 0.006 75);
-    --input: oklch(0.912 0.006 75);
+    --border: oklch(0.912 0.004 75);
+    --input: oklch(0.912 0.004 75);
     --ring: var(--flame-400);
-    --radius: 0.75rem;
+    --radius: 0.875rem;
     --shadow-xs: 0 1px 2px oklch(0.30 0.02 60 / 0.05);
     --shadow-sm:
         0 1px 3px oklch(0.30 0.02 60 / 0.07),
@@ -145,19 +148,21 @@
 }
 
 .dark {
-    --background: oklch(0.175 0.006 60);
-    --foreground: oklch(0.955 0.006 75);
-    --card: oklch(0.215 0.007 62);
-    --card-foreground: oklch(0.955 0.006 75);
-    --popover: oklch(0.235 0.008 62);
-    --popover-foreground: oklch(0.955 0.006 75);
+    /* KOSX paper/surface anchors: paper #0a0a0a ≈ oklch(0.155),
+       surface #1c1c1e ≈ oklch(0.21). */
+    --background: oklch(0.155 0.003 75);
+    --foreground: oklch(0.955 0.003 75);
+    --card: oklch(0.21 0.003 75);
+    --card-foreground: oklch(0.955 0.003 75);
+    --popover: oklch(0.235 0.003 75);
+    --popover-foreground: oklch(0.955 0.003 75);
     --primary: var(--flame-400);
-    --primary-foreground: oklch(0.20 0.03 45);
-    --secondary: oklch(0.265 0.008 62);
-    --secondary-foreground: oklch(0.955 0.006 75);
-    --muted: oklch(0.26 0.008 62);
-    --muted-foreground: oklch(0.68 0.012 68);
-    --accent: oklch(0.30 0.03 50);
+    --primary-foreground: oklch(0.20 0.03 30);
+    --secondary: oklch(0.265 0.004 75);
+    --secondary-foreground: oklch(0.955 0.003 75);
+    --muted: oklch(0.26 0.004 75);
+    --muted-foreground: oklch(0.68 0.008 75);
+    --accent: oklch(0.30 0.03 35);
     --accent-foreground: var(--flame-200);
     --destructive: oklch(0.704 0.191 22.216);
     --success: oklch(0.70 0.13 155);
@@ -303,7 +308,7 @@
 @keyframes flaremo-rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px); /* KOSX entrance distance */
   }
   to {
     opacity: 1;
