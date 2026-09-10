@@ -21,7 +21,7 @@ import {
   updateMemoSchema,
 } from "./memos";
 
-export const FLAREMO_API_VERSION = "0.17.1";
+export const FLAREMO_API_VERSION = "0.18.0";
 
 type JsonSchema = Record<string, unknown>;
 
