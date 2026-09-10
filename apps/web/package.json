@@ -2,7 +2,7 @@
   "name": "@flaremo/web",
   "license": "AGPL-3.0-only",
   "private": true,
-  "version": "0.18.0",
+  "version": "0.19.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
