@@ -27,9 +27,6 @@ export function TransferPanel({
         <CardTitle>{t("transfer.title")}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground">
-          {t("transfer.description")}
-        </p>
         {dataTasksQuery.isLoading ? (
           <Skeleton className="h-16 w-full" />
         ) : dataTasksQuery.isError ? (

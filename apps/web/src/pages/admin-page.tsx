@@ -477,9 +477,6 @@ function BrandingCard() {
         <CardTitle>{t("admin.branding.title")}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <p className="text-xs leading-5 text-muted-foreground">
-          {t("admin.branding.description")}
-        </p>
         <form
           className="flex flex-col gap-3"
           onSubmit={(event) => {
