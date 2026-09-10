@@ -44,6 +44,17 @@ export default defineConfig({
         storageState: E2E_AUTH_STATE,
       },
     },
+    {
+      name: "branding-ui",
+      dependencies: ["auth-contract"],
+      testMatch: /branding\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        // The first case must see the default branding anonymously; the
+        // owner flow signs in via its own storage state contexts.
+        storageState: undefined,
+      },
+    },
   ],
   webServer: {
     command: "node ./scripts/e2e-server.mjs",

@@ -24,6 +24,7 @@ import {
   deleteTag,
   estimateTokenCount,
   getAuthUserById,
+  getBranding,
   getFlaremoUserNames,
   getMemoById,
   getMemoStats,
@@ -90,13 +91,14 @@ appApi.get("/me", async (c) => {
 
 appApi.get("/health", async (c) => {
   try {
-    await getRequestContext(c);
+    const { db } = await getRequestContext(c);
     const repository = normalizeGitHubRepository(
       c.env.FLAREMO_DEPLOY_REPOSITORY,
     );
+    const branding = await getBranding(db);
     return c.json({
       ok: true,
-      product: "FlareMo",
+      product: branding.product,
       version: FLAREMO_API_VERSION,
       update_repository: repository,
       update_workflow_url: repository

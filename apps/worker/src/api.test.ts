@@ -344,6 +344,102 @@ describe("FlareMo Worker API", () => {
     });
   });
 
+  it("serves default branding to anonymous visitors", async () => {
+    const response = await fetchApp(
+      "http://flaremo.test/api/app/branding",
+      { method: "GET" },
+      { authenticated: false },
+    );
+    expect(response.status).toBe(200);
+    const body = await json<{ product: string; mark_light_url: string | null }>(
+      response,
+    );
+    expect(body.product).toBe("FlareMo");
+    expect(body.mark_light_url).toBeNull();
+  });
+
+  it("reflects a custom product name in public branding and health", async () => {
+    const put = await fetchApp("http://flaremo.test/api/app/admin/branding", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ product_name: "KOS Notes" }),
+    });
+    expect(put.status).toBe(200);
+    const anonymous = await fetchApp(
+      "http://flaremo.test/api/app/branding",
+      { method: "GET" },
+      { authenticated: false },
+    );
+    expect((await json<{ product: string }>(anonymous)).product).toBe(
+      "KOS Notes",
+    );
+    const health = await json(
+      await fetchApp("http://flaremo.test/api/app/health"),
+    );
+    expect(health.product).toBe("KOS Notes");
+  });
+
+  it("uploads, serves, and removes a custom logo mark", async () => {
+    // Minimal 1x1 PNG.
+    const png = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      ),
+      (char) => char.charCodeAt(0),
+    );
+    const upload = await fetchApp(
+      "http://flaremo.test/api/app/admin/branding/marks/light",
+      {
+        body: png,
+        headers: { "content-type": "image/png" },
+        method: "PUT",
+      },
+    );
+    expect(upload.status).toBe(200);
+
+    const anonymous = await fetchApp(
+      "http://flaremo.test/api/app/branding",
+      { method: "GET" },
+      { authenticated: false },
+    );
+    const branding = await json<{ mark_light_url: string | null }>(anonymous);
+    expect(branding.mark_light_url).toContain("/api/app/branding/marks/light");
+
+    const mark = await fetchApp(
+      `http://flaremo.test${branding.mark_light_url}`,
+      { method: "GET" },
+      { authenticated: false },
+    );
+    expect(mark.status).toBe(200);
+    expect(mark.headers.get("content-type")).toBe("image/png");
+
+    const remove = await fetchApp(
+      "http://flaremo.test/api/app/admin/branding/marks/light",
+      { method: "DELETE" },
+    );
+    expect(remove.status).toBe(200);
+    const after = await fetchApp(
+      "http://flaremo.test/api/app/branding",
+      { method: "GET" },
+      { authenticated: false },
+    );
+    expect(
+      (await json<{ mark_light_url: string | null }>(after)).mark_light_url,
+    ).toBeNull();
+  });
+
+  it("rejects unsupported logo content types", async () => {
+    const response = await fetchApp(
+      "http://flaremo.test/api/app/admin/branding/marks/light",
+      {
+        body: "<svg></svg>",
+        headers: { "content-type": "text/html" },
+        method: "PUT",
+      },
+    );
+    expect(response.status).toBe(400);
+  });
+
   it("does not create an update link from an invalid repository value", async () => {
     env.FLAREMO_DEPLOY_REPOSITORY = "https://github.com/example/flaremo";
     const health = await json(

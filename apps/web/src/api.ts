@@ -84,7 +84,7 @@ export type ListMemoParams = {
 
 export type AppInfo = {
   ok: true;
-  product: "FlareMo";
+  product: string;
   version: string;
   update_repository: string | null;
   update_workflow_url: string | null;
@@ -586,6 +586,83 @@ export async function getCurrentFlareMoUser() {
 
 export async function listAdminUsers() {
   return apiRequest<{ users: AdminUser[] }>("/api/app/admin/users");
+}
+
+export type BrandingInfo = {
+  product: string;
+  mark_light_url: string | null;
+  mark_dark_url: string | null;
+};
+
+export type AdminBranding = {
+  product_name: string | null;
+  mark_light_url: string | null;
+  mark_dark_url: string | null;
+};
+
+export type BrandingMarkVariant = "light" | "dark";
+
+async function brandingErrorMessage(response: Response, fallback: string) {
+  try {
+    const body = (await response.json()) as { error?: { message?: string } };
+    return body.error?.message ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Public branding, readable without a session (login page, shared memos). */
+export async function getPublicBranding(): Promise<BrandingInfo | null> {
+  try {
+    const response = await fetch("/api/app/branding");
+    if (!response.ok) return null;
+    return (await response.json()) as BrandingInfo;
+  } catch {
+    return null;
+  }
+}
+
+export async function getAdminBranding() {
+  return apiRequest<AdminBranding>("/api/app/admin/branding");
+}
+
+export async function updateAdminBrandingProductName(
+  product_name: string | null,
+) {
+  return apiRequest<{ product: string }>("/api/app/admin/branding", {
+    method: "PUT",
+    body: JSON.stringify({ product_name }),
+  });
+}
+
+export async function uploadAdminBrandingMark(
+  variant: BrandingMarkVariant,
+  file: File,
+) {
+  const bytes = await file.arrayBuffer();
+  const response = await fetch(`/api/app/admin/branding/marks/${variant}`, {
+    method: "PUT",
+    headers: { "content-type": file.type || "application/octet-stream" },
+    body: bytes,
+  });
+  if (!response.ok) {
+    throw new Error(
+      await brandingErrorMessage(response, "Failed to upload the logo."),
+    );
+  }
+  return (await response.json()) as { saved: boolean; variant: string };
+}
+
+export async function clearAdminBrandingMark(variant: BrandingMarkVariant) {
+  const response = await fetch(`/api/app/admin/branding/marks/${variant}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(
+      await brandingErrorMessage(response, "Failed to remove the logo."),
+    );
+  }
+  return (await response.json()) as { removed: boolean; variant: string };
 }
 
 export async function createAdminUser(input: { name: string; email: string }) {

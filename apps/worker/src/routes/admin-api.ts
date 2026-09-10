@@ -1,26 +1,37 @@
 import {
   assertMemberQuota,
+  BRANDING_MARK_CONTENT_TYPES,
+  BRANDING_MARK_MAX_BYTES,
+  BRANDING_PRODUCT_NAME_MAX_CHARS,
+  type BrandingMark,
   beginFlaremoMemberRemoval,
+  brandingMarkR2Key,
+  clearBrandingMark,
   createFlaremoMemberWithLink,
   createMemberRemovalJob,
+  DEFAULT_FLAREMO_PRODUCT_NAME,
   deriveUniqueUsername,
   ForbiddenError,
   failMemberRemovalJob,
   finalizeFlaremoMemberRemoval,
   getAuthUserById,
   getAuthUserIdByFlaremoUserId,
+  getBranding,
   getFlaremoUserById,
   getMemberRemovalJob,
   getUserRegistrationAllowed,
   isOwner,
   isTeamAdmin,
+  isValidBrandingContentType,
   listFlaremoUsers,
   listMemberRemovalJobs,
   NotFoundError,
   rebuildEmbeddingIndexes,
+  setBrandingProductName,
   setUserRegistrationAllowed,
   updateFlaremoUserRole,
   updateMemberRemovalJob,
+  upsertBrandingMark,
   ValidationError,
 } from "@flaremo/domain";
 import { zValidator } from "@hono/zod-validator";
@@ -97,6 +108,101 @@ adminApi.patch(
     }
   },
 );
+
+const updateBrandingSchema = z.object({
+  product_name: z
+    .string()
+    .trim()
+    .max(BRANDING_PRODUCT_NAME_MAX_CHARS)
+    .nullable(),
+});
+
+adminApi.get("/branding", async (c) => {
+  try {
+    const { db } = await ownerContext(c);
+    const branding = await getBranding(db);
+    const markUrl = (variant: "light" | "dark", mark: BrandingMark | null) =>
+      mark
+        ? `/api/app/branding/marks/${variant}?v=${encodeURIComponent(mark.updated_at)}`
+        : null;
+    return c.json({
+      product_name:
+        branding.product === DEFAULT_FLAREMO_PRODUCT_NAME
+          ? null
+          : branding.product,
+      mark_light_url: markUrl("light", branding.marks.light),
+      mark_dark_url: markUrl("dark", branding.marks.dark),
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+adminApi.put(
+  "/branding",
+  zValidator("json", updateBrandingSchema),
+  async (c) => {
+    try {
+      const { db } = await ownerContext(c);
+      const branding = await setBrandingProductName(
+        db,
+        c.req.valid("json").product_name,
+      );
+      return c.json({ product: branding.product });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+// Binary logo upload: raw body + explicit content type (validated against
+// BRANDING_MARK_CONTENT_TYPES, size-capped at BRANDING_MARK_MAX_BYTES).
+adminApi.put("/branding/marks/:variant", async (c) => {
+  try {
+    const { db } = await ownerContext(c);
+    const variant = z.enum(["light", "dark"]).safeParse(c.req.param("variant"));
+    if (!variant.success) {
+      throw new ValidationError("Variant must be light or dark.");
+    }
+    const contentType = c.req.header("content-type") ?? null;
+    if (!isValidBrandingContentType(contentType)) {
+      throw new ValidationError(
+        `Logo must be one of: ${BRANDING_MARK_CONTENT_TYPES.join(", ")}.`,
+      );
+    }
+    const bytes = await c.req.arrayBuffer();
+    if (bytes.byteLength === 0 || bytes.byteLength > BRANDING_MARK_MAX_BYTES) {
+      throw new ValidationError(
+        `Logo must be between 1 and ${BRANDING_MARK_MAX_BYTES} bytes.`,
+      );
+    }
+    const key = brandingMarkR2Key(variant.data);
+    await c.env.ATTACHMENTS.put(key, bytes, {
+      httpMetadata: { contentType },
+    });
+    await upsertBrandingMark(db, variant.data, contentType);
+    return c.json({ saved: true, variant: variant.data });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+adminApi.delete("/branding/marks/:variant", async (c) => {
+  try {
+    const { db } = await ownerContext(c);
+    const variant = z.enum(["light", "dark"]).safeParse(c.req.param("variant"));
+    if (!variant.success) {
+      throw new ValidationError("Variant must be light or dark.");
+    }
+    const staleKey = await clearBrandingMark(db, variant.data);
+    if (staleKey) {
+      await c.env.ATTACHMENTS.delete(staleKey);
+    }
+    return c.json({ removed: true, variant: variant.data });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 adminApi.get("/users", async (c) => {
   try {

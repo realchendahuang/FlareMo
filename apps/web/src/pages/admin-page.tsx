@@ -2,19 +2,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckIcon,
   ClipboardIcon,
+  ImageUpIcon,
   KeyRoundIcon,
   Loader2Icon,
   Trash2Icon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   type AdminUser,
+  type BrandingMarkVariant,
+  clearAdminBrandingMark,
   createAdminUser,
   deleteAdminUser,
+  getAdminBranding,
   listAdminUsers,
   requestAdminPasswordReset,
+  updateAdminBrandingProductName,
   updateAdminUserRole,
+  uploadAdminBrandingMark,
 } from "@/api";
 import {
   AlertDialog,
@@ -131,6 +137,7 @@ export function AdminPanel() {
 
   return (
     <div className="flex flex-col gap-4">
+      <BrandingCard />
       <Card>
         <CardHeader>
           <CardTitle>{t("admin.usersTitle")}</CardTitle>
@@ -341,5 +348,193 @@ export function AdminPanel() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+const ACCEPTED_MARK_TYPES = "image/png,image/webp,image/svg+xml";
+
+function BrandingCard() {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [productName, setProductName] = useState("");
+  const lightInputRef = useRef<HTMLInputElement>(null);
+  const darkInputRef = useRef<HTMLInputElement>(null);
+
+  const brandingQuery = useQuery({
+    queryKey: ["admin-branding"],
+    queryFn: getAdminBranding,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (brandingQuery.data) {
+      setProductName(brandingQuery.data.product_name ?? "");
+    }
+  }, [brandingQuery.data]);
+
+  const saveNameMutation = useMutation({
+    mutationFn: () =>
+      updateAdminBrandingProductName(productName.trim() || null),
+    onSuccess: () => {
+      toast.success(t("admin.branding.saved"));
+      void queryClient.invalidateQueries({ queryKey: ["admin-branding"] });
+    },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("admin.branding.failed"))),
+  });
+
+  const uploadMarkMutation = useMutation({
+    mutationFn: ({
+      variant,
+      file,
+    }: {
+      variant: BrandingMarkVariant;
+      file: File;
+    }) => uploadAdminBrandingMark(variant, file),
+    onSuccess: () => {
+      toast.success(t("admin.branding.markUploaded"));
+      void queryClient.invalidateQueries({ queryKey: ["admin-branding"] });
+    },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("admin.branding.failed"))),
+  });
+
+  const clearMarkMutation = useMutation({
+    mutationFn: (variant: BrandingMarkVariant) =>
+      clearAdminBrandingMark(variant),
+    onSuccess: () => {
+      toast.success(t("admin.branding.markRemoved"));
+      void queryClient.invalidateQueries({ queryKey: ["admin-branding"] });
+    },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("admin.branding.failed"))),
+  });
+
+  const handleFileChange = (
+    variant: BrandingMarkVariant,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) {
+      void uploadMarkMutation.mutateAsync({ variant, file });
+    }
+  };
+
+  const renderMarkRow = (
+    variant: BrandingMarkVariant,
+    label: string,
+    url: string | null,
+    inputRef: React.RefObject<HTMLInputElement | null>,
+  ) => (
+    <div className="flex items-center gap-3">
+      <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-muted/40 dark:bg-muted/20">
+        {url ? (
+          <img alt="" className="size-8 object-contain" src={url} />
+        ) : (
+          <ImageUpIcon className="size-4 text-muted-foreground" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{label}</p>
+        <div className="mt-1 flex gap-2">
+          <input
+            accept={ACCEPTED_MARK_TYPES}
+            className="hidden"
+            ref={inputRef}
+            type="file"
+            onChange={(event) => handleFileChange(variant, event)}
+          />
+          <Button
+            disabled={uploadMarkMutation.isPending}
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => inputRef.current?.click()}
+          >
+            {url ? t("admin.branding.replace") : t("admin.branding.upload")}
+          </Button>
+          {url && (
+            <Button
+              disabled={clearMarkMutation.isPending}
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={() => void clearMarkMutation.mutateAsync(variant)}
+            >
+              <Trash2Icon data-icon="inline-start" />
+              {t("admin.branding.remove")}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("admin.branding.title")}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <p className="text-xs leading-5 text-muted-foreground">
+          {t("admin.branding.description")}
+        </p>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveNameMutation.mutateAsync();
+          }}
+        >
+          <label
+            className="flex flex-col gap-1.5 text-sm font-medium"
+            htmlFor="branding-product-name"
+          >
+            {t("admin.branding.productName")}
+            <Input
+              autoComplete="off"
+              id="branding-product-name"
+              maxLength={40}
+              placeholder={t("admin.branding.productNamePlaceholder")}
+              value={productName}
+              onChange={(event) => setProductName(event.target.value)}
+            />
+          </label>
+          <div>
+            <Button
+              disabled={
+                saveNameMutation.isPending ||
+                productName.trim() === (brandingQuery.data?.product_name ?? "")
+              }
+              type="submit"
+            >
+              {saveNameMutation.isPending && (
+                <Loader2Icon
+                  className="animate-spin"
+                  data-icon="inline-start"
+                />
+              )}
+              <CheckIcon data-icon="inline-start" />
+              {t("common.save")}
+            </Button>
+          </div>
+        </form>
+        <div className="flex flex-col gap-3 border-t pt-3">
+          {renderMarkRow(
+            "light",
+            t("admin.branding.markLight"),
+            brandingQuery.data?.mark_light_url ?? null,
+            lightInputRef,
+          )}
+          {renderMarkRow(
+            "dark",
+            t("admin.branding.markDark"),
+            brandingQuery.data?.mark_dark_url ?? null,
+            darkInputRef,
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

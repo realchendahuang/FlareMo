@@ -1,5 +1,6 @@
 import { LanguagesIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { useBranding } from "@/branding";
 import { FlareMoLogo } from "@/components/flaremo-logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ export function AuthPageFrame({
   title: string;
 }) {
   const { t, toggleLocale } = useI18n();
+  const { product, markLightUrl, markDarkUrl } = useBranding();
 
   return (
     <main className="grid min-h-svh lg:grid-cols-2">
@@ -39,10 +41,12 @@ export function AuthPageFrame({
             alt=""
             aria-hidden="true"
             className="size-8"
-            src="/brand/flaremo-mark-dark-320.png"
+            src={
+              markDarkUrl ?? markLightUrl ?? "/brand/flaremo-mark-dark-320.png"
+            }
           />
           <span className="font-heading text-lg font-semibold tracking-tight text-flame-50">
-            FlareMo
+            {product}
           </span>
         </div>
         <div className="relative max-w-md py-16">
