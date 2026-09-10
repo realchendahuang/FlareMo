@@ -2,6 +2,17 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.16.0
+
+新功能版本：管理员现在可以在后台「团队管理 → 品牌外观」配置实例的产品名称与 Logo（白标能力，面向企业定制与自部署品牌化）。配置存 D1，Logo 图片存 R2（`branding/` 前缀）；未配置时完全保持 FlareMo 默认外观。
+
+### 升级影响
+
+- 无数据库 migration（复用现有 `settings` 表）、无新 Cloudflare 资源（复用 `ATTACHMENTS` R2 bucket），直接部署即可。
+- 新增公开只读端点 `GET /api/app/branding`（匿名可访问，返回产品名与 Logo URL）与 `GET /api/app/branding/marks/:variant`（Logo 流式输出，带 ETag 与 300s 缓存）。
+- `GET /api/app/health` 的 `product` 字段现在返回配置后的产品名（未配置仍为 `FlareMo`）。
+- 管理员专用端点：`GET/PUT /api/app/admin/branding`、`PUT/DELETE /api/app/admin/branding/marks/:variant`（仅 owner；Logo 限 PNG/WebP/SVG，≤512KB）。
+
 ## v0.15.4
 
 紧急修复版本：修复 v0.15.3 登录守卫回归——匿名或会话过期的访客在首页永远停留在「加载中…」，无法到达登录页（线上 KosX 实例因此自 0.15.3 部署起不可用）。**v0.15.3 自建用户请立即升级。**
