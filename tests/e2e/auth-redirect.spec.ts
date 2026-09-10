@@ -4,6 +4,19 @@ import { E2E_AUTH_STATE, E2E_EMAIL } from "./auth-fixture";
 const TEST_PASSWORD =
   "flaremo-e2e-initial-password-never-use-in-production-2026";
 
+// An expired/absent session at the workspace root must bounce to sign-in
+// instead of hanging on the loading screen forever (2026-09-10 regression).
+test("bounces an anonymous visitor from the root to sign-in", async ({
+  page,
+}) => {
+  await page.context().clearCookies();
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login\?redirect=%2F$/);
+  // The loading screen must never be the resting state for anonymous users.
+  await expect(page.getByText(/^加载中…$|^Loading…$/)).toHaveCount(0);
+});
+
 // The auth guard preserves the deep-linked destination under `redirect`;
 // signing in must return the user there instead of the timeline root.
 test("returns a deep-linked visitor to their destination after sign-in", async ({

@@ -39,9 +39,12 @@ export function AuthenticatedRoute({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (session.isPending || session.data?.user) return;
-    // Never bounce from the login page itself (or the root): the redirect
-    // value would otherwise wrap the current URL recursively.
-    if (destination === "/" || destination.startsWith("/login")) return;
+    // Never bounce from the login page itself: the login page's session
+    // render branch is the single navigation owner there (bouncing from it
+    // would recurse). Every other destination — including the root — must
+    // bounce, otherwise an expired session at `/` hangs on the loading
+    // screen forever instead of reaching sign-in.
+    if (destination.startsWith("/login")) return;
     if (redirectedDestination.current === destination) return;
     redirectedDestination.current = destination;
     void navigate({
@@ -50,6 +53,15 @@ export function AuthenticatedRoute({ children }: { children: ReactNode }) {
       to: "/login",
     });
   }, [destination, navigate, session.data, session.isPending]);
+
+  // Clear the one-shot marker once the bounce lands on the login page so a
+  // later anonymous arrival at the same destination (sign-out, back
+  // navigation) bounces again instead of hanging on the loading screen.
+  useEffect(() => {
+    if (destination.startsWith("/login")) {
+      redirectedDestination.current = null;
+    }
+  }, [destination]);
 
   if (session.isPending) {
     return <RouteLoading />;
