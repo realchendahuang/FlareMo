@@ -2,6 +2,15 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## v0.17.0
+
+设计系统版本：与 KOSX（impact.kosx.ai）设计语言完全对齐——纯 token 级变更，无功能变化。flame 主色相旋转至 KOSX signal 橙（#ff6a00）色系、中性色降饱和至纸墨色系（dark 主题锚定 KOSX paper #0a0a0a / surface #1c1c1e）、全局圆角 0.75rem→0.875rem、字体栈对齐 KOSX（Helvetica Neue / PingFang SC）、动效采用 KOSX 标志性缓动 cubic-bezier(0.22, 1, 0.36, 1)。
+
+### 升级影响
+
+- 无数据库 migration、无 Cloudflare 资源变化、无 API 兼容面变化，直接部署即可。
+- 自部署用户升级后界面颜色/圆角/字体会有轻微视觉变化（同一设计语言内的调优），功能与布局零变化。若你在本地覆写过 `index.css` token，需要手动合并。
+
 ## v0.16.0
 
 新功能版本：管理员现在可以在后台「团队管理 → 品牌外观」配置实例的产品名称与 Logo（白标能力，面向企业定制与自部署品牌化）。配置存 D1，Logo 图片存 R2（`branding/` 前缀）；未配置时完全保持 FlareMo 默认外观。
