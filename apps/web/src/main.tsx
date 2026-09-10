@@ -9,7 +9,18 @@ import { registerPwaServiceWorker } from "./pwa.ts";
 import "./index.css";
 import App from "./App.tsx";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Window-focus refetches used to revalidate every cached list at once,
+      // flashing skeletons and replaying entrance animations (the reported
+      // "卡顿"). Data goes stale after 30s instead of immediately.
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 const root = document.getElementById("root");
 
 if (!root) {

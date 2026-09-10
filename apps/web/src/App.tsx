@@ -28,6 +28,7 @@ import {
 } from "@/api";
 import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
+import { InfoTip } from "@/components/info-tip";
 import { MemoComposer } from "@/components/memo-composer";
 import { MemoList } from "@/components/memo-list";
 import { NotificationBell } from "@/components/notification-bell";
@@ -568,9 +569,9 @@ export function FlareMoApp() {
                 </div>
               )}
               {query.trim() && !semanticMode && (
-                <p className="-mt-1 text-xs text-muted-foreground">
-                  {t("search.syntaxHint")}
-                </p>
+                <div className="-mt-1">
+                  <InfoTip text={t("search.syntaxHint")} />
+                </div>
               )}
               <MemoList
                 attachmentsByMemo={attachmentsByMemo}

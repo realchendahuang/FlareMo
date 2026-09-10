@@ -125,7 +125,7 @@ export function MemoCard({
   return (
     <article
       className={cn(
-        "group relative flex w-full flex-col gap-2 rounded-xl px-3 py-4 text-card-foreground [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:animate-rise motion-safe:transition-[background-color,transform,box-shadow] motion-safe:duration-150 hover:bg-card hover:shadow-xs motion-safe:hover:-translate-y-px",
+        "group relative flex w-full flex-col gap-2 rounded-xl px-3 py-4 text-card-foreground [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:transition-[background-color,transform,box-shadow] motion-safe:duration-150 hover:bg-card hover:shadow-xs motion-safe:hover:-translate-y-px",
         isEditing && "bg-card shadow-xs ring-1 ring-flame-400/40",
       )}
       style={{ animationDelay: `${Math.min(index, 7) * 35}ms` }}

@@ -2,6 +2,7 @@ import { LanguagesIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useBranding } from "@/branding";
 import { FlareMoLogo } from "@/components/flaremo-logo";
+import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -80,7 +81,10 @@ export function AuthPageFrame({
             ) : null}
             <CardTitle className="text-xl">{title}</CardTitle>
             {description ? (
-              <CardDescription>{description}</CardDescription>
+              <CardDescription className="flex items-start gap-1.5">
+                <InfoTip text={description} />
+                <span className="sr-only">{description}</span>
+              </CardDescription>
             ) : null}
           </CardHeader>
           <CardContent>{children}</CardContent>

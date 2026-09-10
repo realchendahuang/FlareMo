@@ -109,10 +109,7 @@ export function SecurityPanel({
         <CardHeader>
           <CardTitle>{t("auth.passwordTitle")}</CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {t("auth.passwordLength")}
-          </p>
+        <CardContent className="flex items-center justify-end gap-3">
           <Button
             size="sm"
             type="button"
@@ -153,10 +150,7 @@ export function SecurityPanel({
           <CardHeader>
             <CardTitle>{t("auth.deleteAccountTitle")}</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between gap-3">
-            <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
-              {t("auth.deleteAccountDescription")}
-            </p>
+          <CardContent className="flex items-center justify-end gap-3">
             <Button
               type="button"
               variant="destructive"

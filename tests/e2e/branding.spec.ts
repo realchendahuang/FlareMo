@@ -24,9 +24,11 @@ test("the owner can customize the product name and it reaches the login page", a
   });
   const ownerPage = await ownerContext.newPage();
   await ownerPage.goto(`${E2E_BASE_URL}/account`);
-  const teamTab = ownerPage.getByRole("tab", { name: /团队管理|Team/ });
-  await teamTab.click();
-  await expect(teamTab).toHaveAttribute("aria-selected", "true");
+  const brandingTab = ownerPage.getByRole("tab", {
+    name: /品牌外观|Branding/,
+  });
+  await brandingTab.click();
+  await expect(brandingTab).toHaveAttribute("aria-selected", "true");
   await ownerPage
     .getByText(/品牌外观|Branding/)
     .first()
@@ -63,7 +65,9 @@ test("the owner can customize the product name and it reaches the login page", a
   });
   const resetPage = await resetContext.newPage();
   await resetPage.goto(`${E2E_BASE_URL}/account`);
-  const resetTab = resetPage.getByRole("tab", { name: /团队管理|Team/ });
+  const resetTab = resetPage.getByRole("tab", {
+    name: /品牌外观|Branding/,
+  });
   await resetTab.click();
   await expect(resetTab).toHaveAttribute("aria-selected", "true", {
     timeout: 15_000,

@@ -57,7 +57,9 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   await expect(
     page.getByText(/请立即安全保存这个令牌|save this token/i),
   ).toBeVisible();
-  await page.getByRole("button", { name: /关闭并隐藏|Hide/i }).click();
+  await page
+    .getByRole("button", { name: /^关闭并隐藏$|^Hide token$/i })
+    .click();
   await expect(page.locator("code")).toHaveCount(0);
 
   const revokeButton = page.getByRole("button", {

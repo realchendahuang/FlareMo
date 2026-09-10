@@ -1,5 +1,6 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { VectorUsageReport } from "@/api";
+import { InfoTip } from "@/components/info-tip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TranslationKey } from "@/i18n";
@@ -70,7 +71,10 @@ function VectorUsagePanel({
         limit={report.queried_limit}
       />
       {report.plan && <PlanQuotaBars plan={report.plan} t={t} />}
-      <p className="text-xs text-muted-foreground">{t("usage.disclaimer")}</p>
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <InfoTip text={t("usage.disclaimer")} />
+        <span className="sr-only">{t("usage.disclaimer")}</span>
+      </p>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { PersonalAccessToken } from "@/api";
+import { InfoTip } from "@/components/info-tip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,11 +99,9 @@ export function TokensPanel({
             <div className="flex items-start gap-2">
               <KeyRoundIcon className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-amber-900 dark:text-amber-100">
+                <p className="flex items-center gap-1.5 font-medium text-amber-900 dark:text-amber-100">
                   {t("auth.tokenShownOnce")}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
-                  {t("auth.tokenShownOnceDescription")}
+                  <InfoTip text={t("auth.tokenShownOnceDescription")} />
                 </p>
               </div>
             </div>

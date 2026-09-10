@@ -5,9 +5,12 @@ import {
   ImageUpIcon,
   KeyRoundIcon,
   Loader2Icon,
+  MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
+  SearchIcon,
   Trash2Icon,
+  UserCogIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +27,7 @@ import {
   updateAdminUserRole,
   uploadAdminBrandingMark,
 } from "@/api";
+import { InfoTip } from "@/components/info-tip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +48,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
@@ -60,6 +71,8 @@ export function AdminPanel() {
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const usersQuery = useQuery({
     queryKey: ["admin-users"],
@@ -147,7 +160,6 @@ export function AdminPanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <BrandingCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t("admin.usersTitle")}</CardTitle>
@@ -188,68 +200,123 @@ export function AdminPanel() {
               </p>
             )}
             {usersQuery.data && (
-              <p className="mb-3 text-sm text-muted-foreground">
-                {t("admin.userCount", {
-                  count: String(usersQuery.data.users.length),
-                })}
-              </p>
-            )}
-            {usersQuery.data?.users.map((user) => (
-              <div
-                key={user.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-medium">{user.name}</p>
-                    <Badge variant="secondary">@{user.username}</Badge>
-                    <Badge
-                      variant={user.role !== "member" ? "default" : "outline"}
-                    >
-                      {user.role === "owner"
-                        ? t("admin.role.owner")
-                        : user.role === "admin"
-                          ? t("admin.role.admin")
-                          : t("admin.role.member")}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {user.email}
+              <>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.userCount", {
+                      count: String(
+                        filterMembers(usersQuery.data.users, memberSearch)
+                          .length,
+                      ),
+                    })}
                   </p>
-                </div>
-                {user.role !== "owner" && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      disabled={updateRoleMutation.isPending}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void handleUpdateRole(user)}
-                    >
-                      {user.role === "admin"
-                        ? t("admin.makeMember")
-                        : t("admin.makeAdmin")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void handleResetPassword(user)}
-                    >
-                      <KeyRoundIcon data-icon="inline-start" />
-                      {t("admin.resetPassword")}
-                    </Button>
-                    <Button
-                      disabled={deleteUserMutation.isPending}
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDeleteTarget(user)}
-                    >
-                      <Trash2Icon data-icon="inline-start" />
-                      {t("admin.deleteUser")}
-                    </Button>
+                  <div className="relative w-full max-w-64">
+                    <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      aria-label={t("admin.memberSearchPlaceholder")}
+                      className="h-8 pl-8"
+                      placeholder={t("admin.memberSearchPlaceholder")}
+                      value={memberSearch}
+                      onChange={(event) => {
+                        setMemberSearch(event.target.value);
+                        setVisibleCount(MEMBER_PAGE_SIZE);
+                      }}
+                    />
                   </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {filterMembers(usersQuery.data.users, memberSearch)
+                    .slice(0, visibleCount)
+                    .map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium">
+                              {user.name}
+                            </p>
+                            <Badge variant="secondary">@{user.username}</Badge>
+                            <Badge
+                              variant={
+                                user.role !== "member" ? "default" : "outline"
+                              }
+                            >
+                              {user.role === "owner"
+                                ? t("admin.role.owner")
+                                : user.role === "admin"
+                                  ? t("admin.role.admin")
+                                  : t("admin.role.member")}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {user.email}
+                          </p>
+                        </div>
+                        {user.role !== "owner" && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-label={t("admin.memberActions")}
+                                size="icon-sm"
+                                type="button"
+                                variant="ghost"
+                              >
+                                <MoreHorizontalIcon />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => void handleUpdateRole(user)}
+                              >
+                                <UserCogIcon />
+                                {user.role === "admin"
+                                  ? t("admin.makeMember")
+                                  : t("admin.makeAdmin")}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => void handleResetPassword(user)}
+                              >
+                                <KeyRoundIcon />
+                                {t("admin.resetPassword")}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => setDeleteTarget(user)}
+                              >
+                                <Trash2Icon />
+                                {t("admin.deleteUser")}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    ))}
+                  {filterMembers(usersQuery.data.users, memberSearch).length ===
+                    0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {t("admin.memberSearchEmpty")}
+                    </p>
+                  )}
+                </div>
+                {filterMembers(usersQuery.data.users, memberSearch).length >
+                  visibleCount && (
+                  <Button
+                    className="mt-3"
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setVisibleCount((count) => count + MEMBER_PAGE_SIZE)
+                    }
+                  >
+                    {t("admin.showMore")}
+                  </Button>
                 )}
-              </div>
-            ))}
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -352,8 +419,11 @@ export function AdminPanel() {
                     onChange={(event) => setEmail(event.target.value)}
                   />
                 </label>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  {t("admin.activationDescription")}
+                <p className="flex items-center gap-1 text-xs leading-5 text-muted-foreground">
+                  <InfoTip text={t("admin.activationDescription")} />
+                  <span className="sr-only">
+                    {t("admin.activationDescription")}
+                  </span>
                 </p>
                 {createError && (
                   <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
@@ -408,11 +478,9 @@ function ResetLinkBlock({
       <div className="flex items-start gap-2">
         <KeyRoundIcon className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-amber-900 dark:text-amber-100">
+          <p className="flex items-center gap-1.5 font-medium text-amber-900 dark:text-amber-100">
             {t("admin.resetLinkTitle")}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
-            {t("admin.resetLinkDescription")}
+            <InfoTip text={t("admin.resetLinkDescription")} />
           </p>
         </div>
       </div>
@@ -439,8 +507,19 @@ function ResetLinkBlock({
 }
 
 const ACCEPTED_MARK_TYPES = "image/png,image/webp,image/svg+xml";
+const MEMBER_PAGE_SIZE = 20;
 
-function BrandingCard() {
+function filterMembers(users: AdminUser[], search: string): AdminUser[] {
+  const query = search.trim().toLowerCase();
+  if (!query) return users;
+  return users.filter((user) =>
+    [user.name, user.email, user.username].some((value) =>
+      value?.toLowerCase().includes(query),
+    ),
+  );
+}
+
+export function BrandingCard() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
