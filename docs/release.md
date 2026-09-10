@@ -1,6 +1,6 @@
 # 发版规则
 
-FlareMo 使用 Git tag 和 GitHub Release 发布版本。项目不依赖 GitHub Actions 做 CI 或生产部署；发布前由维护者在本地跑完整门禁。用户部署仓库中的更新 workflow 只消费这里发布的正式 Release。
+FlareMo 使用 Git tag 和 GitHub Release 发布版本。仓库有瘦 CI（format / lint / typecheck / 单元测试）作为 push 与外部 PR 的快速门禁，但它不跑 E2E、不做部署；发布前的完整门禁由维护者在本地执行。用户部署仓库中的更新 workflow 只消费这里发布的正式 Release。
 
 ## 标准流程（runbook）
 

@@ -30,7 +30,7 @@ pnpm verify
 pnpm deploy:dry-run
 ```
 
-项目不使用 GitHub Actions 作为 CI 或生产部署器。PR 作者需要在本地跑完门禁，并在 PR 里写明结果。仓库中的 `flaremo-update.yml` 只服务自部署用户自己的部署仓库，用于把上游 Release 准备成升级 PR。
+仓库带一个瘦 CI（`.github/workflows/ci.yml`：format / lint / typecheck / 单元测试，约 3 分钟），作为兜底与外部 PR 的强制门禁。它不跑 E2E、不部署；完整门禁 `pnpm verify`（含 Playwright E2E）仍由 PR 作者在本地跑完并在 PR 里写明结果。仓库中的 `flaremo-update.yml` 只服务自部署用户自己的部署仓库，用于把上游 Release 准备成升级 PR。
 
 如需自动修复格式：
 

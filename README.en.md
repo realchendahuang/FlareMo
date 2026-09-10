@@ -169,7 +169,7 @@ pnpm backup:drill
 pnpm release vX.Y.Z
 ```
 
-The project does not use GitHub Actions as CI or as the production deployer. Maintainers run the local release gate before publishing. A self-hosted deployment repository includes the least-privilege `Prepare FlareMo update` workflow that only prepares upstream Release updates as pull requests; Cloudflare Workers Builds remains the deployer for repositories connected to it. See [the update guide](./docs/en/update.md).
+A thin CI (format / lint / typecheck / unit tests, ~3 min) guards every push and external PR. It does not run E2E and never deploys. Maintainers run the full local release gate before publishing: A self-hosted deployment repository includes the least-privilege `Prepare FlareMo update` workflow that only prepares upstream Release updates as pull requests; Cloudflare Workers Builds remains the deployer for repositories connected to it. See [the update guide](./docs/en/update.md).
 
 ## Contributing
 

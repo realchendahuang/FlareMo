@@ -41,6 +41,30 @@ if (existingTag) {
 }
 
 run("pnpm", ["verify"]);
+
+// Conditional gate: if migrations changed since the last release tag, the
+// backup/restore drill must pass before this release can be cut. The drill
+// is cheap locally but easy to forget; schema-bearing releases are exactly
+// when forgetting it hurts (see docs/release.md 数据库 migration rules).
+const lastTag = run("git", ["describe", "--tags", "--abbrev=0"], {
+  capture: true,
+}).stdout.trim();
+if (lastTag) {
+  const changed = run(
+    "git",
+    ["diff", "--name-only", `${lastTag}..HEAD`, "--", "migrations/"],
+    { capture: true },
+  ).stdout.trim();
+  if (changed) {
+    console.log(
+      `migrations changed since ${lastTag}:\n${changed}\n→ running backup drill before release`,
+    );
+    run("pnpm", ["backup:drill"]);
+  } else {
+    console.log(`no migration changes since ${lastTag}; skipping backup drill`);
+  }
+}
+
 run("pnpm", ["deploy:dry-run"]);
 
 const notesDir = mkdtempSync(join(tmpdir(), "flaremo-release-"));

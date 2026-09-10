@@ -313,7 +313,7 @@ FlareMo 当前已经具备：
 
 ## 工程化
 
-项目不使用 GitHub Actions 作为 CI 或生产部署器。发布前由维护者在本地执行：
+仓库带一个瘦 CI（format / lint / typecheck / 单元测试，约 3 分钟）作为兕底与外部 PR 门禁。发布前由维护者在本地执行完整门禁：
 
 ```bash
 pnpm verify

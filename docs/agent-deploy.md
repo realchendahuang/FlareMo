@@ -18,7 +18,7 @@
 
 ## 禁止事项
 
-- 不要新增 GitHub Actions CI 或部署 workflow。`flaremo-update.yml` 是唯一例外，只在用户部署仓库中准备上游升级 PR。
+- 不要新增 CI workflow 或部署自动化。`ci.yml` 是唯一的 check workflow（format / lint / typecheck / 单元测试）；`flaremo-update.yml` 只在用户部署仓库中准备上游升级 PR。GitHub Actions 永远不做生产部署器。
 - 不要绕过 `pnpm verify` 直接部署。
 - 不要把 `Temp/`、`node_modules/`、`dist/`、`.wrangler/` 提交。
 - 不要新增绕开 Better Auth 的登录、共享密码或第二套 Bearer token；机器访问使用已撤销能力的 `memos_pat_` PAT。

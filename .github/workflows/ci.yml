@@ -1,0 +1,42 @@
+# 瘦 CI：只做格式 / lint / typecheck / 单元测试的快速防线（约 3 分钟）。
+# 定位（2026-09-10 起引入，见 AGENTS.md 与 docs/release.md）：
+#   - 兜底「忘了本地跑 pnpm check」的情况，是 advisory + 外部 PR 强制门禁；
+#   - 不跑 E2E、不构建、不部署：完整门禁（pnpm verify，含 Playwright E2E）
+#     仍由维护者在发版前本地执行（pnpm release 自动跑）；
+#   - 永远不做生产部署器（no CI/CD）。
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: checks (format / lint / typecheck / unit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint & typecheck
+        run: pnpm check
+
+      - name: Unit tests
+        run: pnpm test
