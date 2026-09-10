@@ -309,6 +309,7 @@ export function AccountPage() {
 
           <TabsContent value="profile" className="mt-4">
             <ProfilePanel
+              currentUsername={session.data?.user.username ?? ""}
               error={accountError}
               isPending={updateUsernameMutation.isPending}
               setUsername={setUsername}
@@ -322,6 +323,7 @@ export function AccountPage() {
             <SecurityPanel
               changeEmailIsPending={changeEmailMutation.isPending}
               changePasswordIsPending={changePasswordMutation.isPending}
+              currentEmail={session.data?.user.email ?? ""}
               currentPassword={currentPassword}
               deleteAccountIsPending={deleteAccountMutation.isPending}
               deleteError={deleteError}

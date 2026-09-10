@@ -32,6 +32,11 @@ test("the owner can customize the product name and it reaches the login page", a
     .first()
     .waitFor();
 
+  // The branding form lives in a dialog opened from the card header.
+  await ownerPage
+    .getByRole("button", { name: /^编辑$|^Edit$/ })
+    .first()
+    .click();
   const nameInput = ownerPage.getByLabel(/产品名称|Product name/);
   await nameInput.fill(CUSTOM_PRODUCT_NAME);
   await ownerPage
@@ -63,6 +68,10 @@ test("the owner can customize the product name and it reaches the login page", a
   await expect(resetTab).toHaveAttribute("aria-selected", "true", {
     timeout: 15_000,
   });
+  await resetPage
+    .getByRole("button", { name: /^编辑$|^Edit$/ })
+    .first()
+    .click();
   await resetPage.getByLabel(/产品名称|Product name/).fill("");
   await resetPage
     .getByRole("button", { name: /^保存|^Save/ })

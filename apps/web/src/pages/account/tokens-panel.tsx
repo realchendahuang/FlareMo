@@ -5,11 +5,30 @@ import {
   EyeOffIcon,
   KeyRoundIcon,
   Loader2Icon,
+  PlusIcon,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { PersonalAccessToken } from "@/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TranslationKey } from "@/i18n";
@@ -22,7 +41,7 @@ type TokensPanelProps = {
   revokingTokenId: string | undefined;
   setTokenExpiryDays: (value: string) => void;
   setTokenName: (value: string) => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   tokenError: string | null;
   tokenExpiryDays: string;
   tokenName: string;
@@ -54,10 +73,24 @@ export function TokensPanel({
   onRevokeToken,
   onHideCreatedToken,
 }: TokensPanelProps) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const wasPending = useRef(false);
+  // Close only after a successful create: pending -> idle with no error.
+  useEffect(() => {
+    if (wasPending.current && !createTokenIsPending && !tokenError) {
+      setCreateOpen(false);
+    }
+    wasPending.current = createTokenIsPending;
+  }, [createTokenIsPending, tokenError]);
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{t("auth.tokensTitle")}</CardTitle>
+        <Button size="sm" type="button" onClick={() => setCreateOpen(true)}>
+          <PlusIcon data-icon="inline-start" />
+          {t("auth.createToken")}
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {createdToken && (
@@ -93,51 +126,6 @@ export function TokensPanel({
           </div>
         )}
 
-        <form
-          className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_132px_auto] sm:items-end"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void onCreateToken();
-          }}
-        >
-          <label
-            className="flex flex-col gap-1.5 text-sm font-medium"
-            htmlFor="account-token-name"
-          >
-            {t("auth.tokenName")}
-            <Input
-              disabled={createTokenIsPending}
-              id="account-token-name"
-              maxLength={32}
-              placeholder={t("auth.tokenNamePlaceholder")}
-              required
-              value={tokenName}
-              onChange={(event) => setTokenName(event.target.value)}
-            />
-          </label>
-          <label
-            className="flex flex-col gap-1.5 text-sm font-medium"
-            htmlFor="account-token-expiry"
-          >
-            {t("auth.tokenExpiry")}
-            <Input
-              disabled={createTokenIsPending}
-              id="account-token-expiry"
-              inputMode="numeric"
-              max={365}
-              min={1}
-              placeholder={t("auth.never")}
-              type="number"
-              value={tokenExpiryDays}
-              onChange={(event) => setTokenExpiryDays(event.target.value)}
-            />
-          </label>
-          <Button disabled={createTokenIsPending} type="submit">
-            {createTokenIsPending
-              ? t("auth.creatingToken")
-              : t("auth.createToken")}
-          </Button>
-        </form>
         {tokenError && (
           <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
             {tokenError}
@@ -168,6 +156,76 @@ export function TokensPanel({
           ))}
         </div>
       </CardContent>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("auth.createToken")}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onCreateToken();
+            }}
+          >
+            <label
+              className="flex flex-col gap-1.5 text-sm font-medium"
+              htmlFor="account-token-name"
+            >
+              {t("auth.tokenName")}
+              <Input
+                autoFocus
+                disabled={createTokenIsPending}
+                id="account-token-name"
+                maxLength={32}
+                placeholder={t("auth.tokenNamePlaceholder")}
+                required
+                value={tokenName}
+                onChange={(event) => setTokenName(event.target.value)}
+              />
+            </label>
+            <label
+              className="flex flex-col gap-1.5 text-sm font-medium"
+              htmlFor="account-token-expiry"
+            >
+              {t("auth.tokenExpiry")}
+              <Input
+                disabled={createTokenIsPending}
+                id="account-token-expiry"
+                inputMode="numeric"
+                max={365}
+                min={1}
+                placeholder={t("auth.never")}
+                type="number"
+                value={tokenExpiryDays}
+                onChange={(event) => setTokenExpiryDays(event.target.value)}
+              />
+            </label>
+            <DialogFooter>
+              <Button
+                disabled={createTokenIsPending}
+                type="button"
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button disabled={createTokenIsPending} type="submit">
+                {createTokenIsPending && (
+                  <Loader2Icon
+                    className="animate-spin"
+                    data-icon="inline-start"
+                  />
+                )}
+                {createTokenIsPending
+                  ? t("auth.creatingToken")
+                  : t("auth.createToken")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -181,10 +239,11 @@ function PersonalAccessTokenRow({
 }: {
   locale: string;
   pending: boolean;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   token: PersonalAccessToken;
   onRevoke: () => Promise<void>;
 }) {
+  const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const dateFormatter = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -217,17 +276,42 @@ function PersonalAccessTokenRow({
         </p>
       </div>
       {token.enabled && (
-        <Button
-          disabled={pending}
-          size="sm"
-          variant="outline"
-          onClick={() => void onRevoke()}
-        >
-          {pending && (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
-          )}
-          {t("auth.revokeToken")}
-        </Button>
+        <AlertDialog open={confirmingRevoke} onOpenChange={setConfirmingRevoke}>
+          <Button
+            disabled={pending}
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => setConfirmingRevoke(true)}
+          >
+            {pending && (
+              <Loader2Icon className="animate-spin" data-icon="inline-start" />
+            )}
+            {t("auth.revokeToken")}
+          </Button>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("auth.revokeToken")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("auth.revokeTokenConfirm", {
+                  name: token.name ?? t("auth.unnamedToken"),
+                })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  setConfirmingRevoke(false);
+                  void onRevoke();
+                }}
+              >
+                {t("auth.revokeToken")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
@@ -236,6 +320,7 @@ function PersonalAccessTokenRow({
 function TokenListSkeleton() {
   return (
     <div className="flex flex-col gap-2">
+      <Skeleton className="h-20 w-full" />
       <Skeleton className="h-20 w-full" />
       <Skeleton className="h-20 w-full" />
     </div>

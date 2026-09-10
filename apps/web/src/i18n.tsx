@@ -259,6 +259,8 @@ const messages = {
     "auth.neverUsed": "从未使用",
     "auth.requestCount": "请求次数",
     "auth.revokeToken": "撤销",
+    "auth.revokeTokenConfirm":
+      "撤销后使用该令牌的客户端将立即失去访问权限，且无法恢复。确定撤销「{name}」吗？",
     "auth.tokenRevokeFailed": "无法撤销令牌。",
     "auth.registerTitle": "注册 FlareMo 账户",
     "auth.registerLink": "还没有账户？注册",
@@ -340,6 +342,8 @@ const messages = {
     "admin.resetPassword": "重设密码",
     "admin.resetFailed": "无法生成重置链接。",
     "admin.resetLinkTitle": "请把下面的链接安全地发给该用户",
+    "admin.userCreatedTitle": "成员已创建",
+    "admin.branding.statusDefault": "未自定义，使用 FlareMo 默认品牌",
     "admin.resetLinkDescription":
       "链接一次性有效，一小时后过期。用户打开后自行设置密码，你永远不会看到明文。",
     "admin.activationDescription":
@@ -790,6 +794,8 @@ const messages = {
     "auth.neverUsed": "Never used",
     "auth.requestCount": "Requests",
     "auth.revokeToken": "Revoke",
+    "auth.revokeTokenConfirm":
+      "Clients using this token lose access immediately and it cannot be restored. Revoke \u201c{name}\u201d?",
     "auth.tokenRevokeFailed": "Could not revoke the token.",
     "auth.registerTitle": "Create a FlareMo account",
     "auth.registerLink": "No account? Sign up",
@@ -882,6 +888,8 @@ const messages = {
     "admin.resetFailed": "Could not generate a reset link.",
     "admin.resetLinkTitle":
       "Share this link with the user through a secure channel",
+    "admin.userCreatedTitle": "Member created",
+    "admin.branding.statusDefault": "Using the FlareMo default brand",
     "admin.resetLinkDescription":
       "The link is single-use and expires in one hour. The user sets their own password; you never see the plaintext.",
     "admin.activationDescription":

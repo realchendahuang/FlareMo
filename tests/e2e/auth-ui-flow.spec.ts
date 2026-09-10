@@ -39,11 +39,19 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   await page.getByRole("tab", { name: /访问令牌|Access tokens/i }).click();
 
   const tokenName = `UI E2E client ${Date.now()}`;
+  // The create-token form lives in a dialog opened from the card header.
+  await page
+    .getByRole("button", { name: /创建令牌|Create token/i })
+    .first()
+    .click();
   await page
     .getByRole("textbox", { name: /令牌名称|Token name/i })
     .fill(tokenName);
   await page.getByPlaceholder(/永不过期|Never/i).fill("30");
-  await page.getByRole("button", { name: /创建令牌|Create token/i }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /创建令牌|Create token/i })
+    .click();
 
   await expect(page.locator("code")).toBeVisible();
   await expect(
@@ -57,6 +65,46 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   });
   await expect(revokeButton).toHaveCount(1);
   await revokeButton.click();
+  // Revoking asks for confirmation inside an AlertDialog.
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /^撤销$|^Revoke$/i })
+    .click();
   await expect(page.getByText(/^已撤销$|^Revoked$/i)).toBeVisible();
   await expect(page.getByText(tokenName, { exact: true })).toBeVisible();
+});
+
+test("adds a member through the admin dialog and shows the activation link", async ({
+  page,
+}) => {
+  const memberName = `E2E Member ${Date.now()}`;
+  await page.goto("/account");
+  await page.getByRole("tab", { name: /团队管理|Team/ }).click();
+  await expect(
+    page.getByRole("button", { name: /添加成员|Add member/i }),
+  ).toBeVisible();
+
+  // The member form lives in a dialog opened from the team card header.
+  await page
+    .getByRole("button", { name: /添加成员|Add member/i })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("textbox", { name: /显示名称|Display name/i })
+    .fill(memberName);
+  await dialog
+    .getByRole("textbox", { name: /^邮箱$|^Email$/i })
+    .fill(`e2e.member.${Date.now()}@example.test`);
+  await dialog.getByRole("button", { name: /添加成员|Add member/i }).click();
+
+  // Success shows the one-time activation link inside the dialog.
+  await expect(dialog.getByText(/成员已创建|Member created/i)).toBeVisible();
+  await expect(dialog.locator("code")).toBeVisible();
+  await dialog
+    .locator('[data-slot="dialog-footer"]')
+    .getByRole("button", { name: /^关闭$|^Close$/i })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText(memberName)).toBeVisible();
 });
