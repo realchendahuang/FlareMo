@@ -19,7 +19,9 @@ test("creates a memo and filters it by tag", async ({ page }) => {
 
   await composer.fill(content);
   await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
-
+  // Submission is done when the composer clears; the card and the composer
+  // briefly both show the content while the optimistic insert lands.
+  await expect(composer).toHaveValue("");
   await expect(page.getByText(content)).toBeVisible();
   await expect(page.getByText(`#${tag}`, { exact: true })).toBeVisible();
 
@@ -245,7 +247,12 @@ test("edits and shares a memo", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("textbox", { name: /new note|新笔记/i }).fill(content);
   await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
-  await expect(page.getByText(content)).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: /new note|新笔记/i }),
+  ).toHaveValue("");
+  await expect(
+    page.locator("article").filter({ hasText: content }),
+  ).toBeVisible();
 
   const card = page.locator("article").filter({ hasText: content });
   await card.getByRole("button", { name: /actions|操作/i }).click();
@@ -282,7 +289,12 @@ test("archives and restores a memo", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("textbox", { name: /new note|新笔记/i }).fill(content);
   await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
-  await expect(page.getByText(content)).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: /new note|新笔记/i }),
+  ).toHaveValue("");
+  await expect(
+    page.locator("article").filter({ hasText: content }),
+  ).toBeVisible();
 
   const card = page.locator("article").filter({ hasText: content });
   await card.getByRole("button", { name: /actions|操作/i }).click();
@@ -309,7 +321,12 @@ test("trashes, restores, and hard-deletes a memo", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("textbox", { name: /new note|新笔记/i }).fill(content);
   await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
-  await expect(page.getByText(content)).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: /new note|新笔记/i }),
+  ).toHaveValue("");
+  await expect(
+    page.locator("article").filter({ hasText: content }),
+  ).toBeVisible();
 
   const card = page.locator("article").filter({ hasText: content });
   await card.getByRole("button", { name: /actions|操作/i }).click();

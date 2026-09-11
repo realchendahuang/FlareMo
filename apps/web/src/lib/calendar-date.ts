@@ -82,6 +82,27 @@ export function compareDayKeys(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+// Locale-aware titles: zh shows 「2026年9月」 / 「9月16日」, en shows
+// "September 2026" / "Sep 16". Built by hand instead of Date#split so the
+// two locales never leak each other's separators.
+export function formatMonthTitle(monthKey: string, locale: string): string {
+  const date = new Date(`${monthKey}-15T12:00:00`);
+  return locale.startsWith("en")
+    ? date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : `${date.getFullYear()}年${date.getMonth() + 1}月`;
+}
+
+export function formatDayTitle(dayKey: string, locale: string): string {
+  const date = new Date(`${dayKey}T12:00:00`);
+  if (locale.startsWith("en")) {
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  }
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 // Universe of the timeline search operator stack: a single local day maps to
 // `after:D before:D+1`, which the backend reads as [D 00:00, D+1 00:00) UTC.
 export function dayFilterQuery(day: string): string {

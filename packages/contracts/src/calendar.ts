@@ -9,6 +9,10 @@ export const calendarViewQuerySchema = z
   .object({
     from: dateKey,
     to: dateKey,
+    // Client UTC offset in minutes (Date#getTimezoneOffset, e.g. -480 for
+    // UTC+8). Day bucketing for notes runs in this local frame so the UI's
+    // "today" matches what the user sees.
+    tz: z.coerce.number().int().min(-840).max(840).default(0),
   })
   .refine(
     ({ from, to }) =>
@@ -25,8 +29,8 @@ export const calendarViewQuerySchema = z
   }, "Calendar range is limited to 93 days.");
 
 export const calendarViewSchema = z.object({
-  // Notes per day keyed by `substr(created_at, 1, 10)`, only for days that
-  // have content, within the requested range.
+  // Notes per day keyed by `substr(created_at, 1, 10)` in the client's local
+  // frame, only for days that have content, within the requested range.
   notes: z.array(
     z.object({
       date: z.string(),

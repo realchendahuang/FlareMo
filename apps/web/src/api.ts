@@ -402,8 +402,16 @@ export async function listTasks(
   return apiRequest<{ tasks: Task[] }>(`/api/app/tasks${suffix}`);
 }
 
-export async function getCalendarView(params: { from: string; to: string }) {
-  const query = new URLSearchParams({ from: params.from, to: params.to });
+export async function getCalendarView(params: {
+  from: string;
+  to: string;
+  tz?: number;
+}) {
+  const query = new URLSearchParams({
+    from: params.from,
+    to: params.to,
+    tz: String(params.tz ?? 0),
+  });
   return apiRequest<Calendar>(`/api/app/calendar?${query.toString()}`);
 }
 

@@ -128,6 +128,25 @@ describe("FlareMo calendar API", () => {
       expect(view.note_tasks).toEqual([{ date: todayDate, count: 1 }]);
     }
 
+    // Day bucketing follows the client's time zone: with tz = getTimezoneOffset()
+    // (e.g. -480 for UTC+8) the note lands on its local day, not the UTC day.
+    // Use the test machine's own offset, whatever zone it runs in.
+    const machineTz = new Date().getTimezoneOffset();
+    const mzView = await json<{
+      notes: Array<{ date: string; count: number }>;
+    }>(
+      await fetchApp(
+        `http://flaremo.test/api/app/calendar?from=2026-09-01&to=2026-09-30&tz=${machineTz}`,
+      ),
+    );
+    const localToday = new Date(Date.now() - machineTz * 60_000)
+      .toISOString()
+      .slice(0, 10);
+    if (localDateWithinSeptember(localToday)) {
+      const localNote = mzView.notes.find((note) => note.date === localToday);
+      expect(localNote?.count).toBeGreaterThan(0);
+    }
+
     // A task whose due date falls outside the window stays out.
     const narrow = await json<{ tasks: Array<{ title: string }> }>(
       await fetchApp(
@@ -259,4 +278,8 @@ function extractCookieHeader(response: Response) {
     .filter(Boolean);
   expect(cookies.length).toBeGreaterThan(0);
   return cookies.join("; ");
+}
+
+function localDateWithinSeptember(key: string) {
+  return key >= "2026-09-01" && key <= "2026-09-30";
 }

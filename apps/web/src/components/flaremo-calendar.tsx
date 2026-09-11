@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import {
   buildMonthGrid,
+  formatMonthTitle,
   type WeekStart,
   weekdayLabels,
 } from "@/lib/calendar-date";
@@ -71,17 +72,10 @@ export const FlareMoCalendar = memo(function FlareMoCalendar({
     [weekStart, locale],
   );
 
-  const monthTitle = useMemo(() => {
-    const [yearText, monthText] = new Date(`${monthKey}-15T12:00:00`)
-      .toLocaleDateString(locale, {
-        year: "numeric",
-        month: "long",
-      })
-      .split(" ");
-    return locale.startsWith("en")
-      ? `${monthText} ${yearText}`
-      : `${yearText}年${monthText}`;
-  }, [locale, monthKey]);
+  const monthTitle = useMemo(
+    () => formatMonthTitle(monthKey, locale),
+    [locale, monthKey],
+  );
 
   return (
     <div className={cn("flex flex-col", className)}>
@@ -268,13 +262,10 @@ export const FlareMoMiniCalendar = memo(function FlareMoMiniCalendar({
       ),
     [weekStart, locale],
   );
-  const monthTitle = useMemo(() => {
-    const date = new Date(`${monthKey}-15T12:00:00`);
-    if (locale.startsWith("en")) {
-      return date.toLocaleDateString("en", { month: "long", year: "numeric" });
-    }
-    return `${date.getFullYear()}年${date.getMonth() + 1}月`;
-  }, [locale, monthKey]);
+  const monthTitle = useMemo(
+    () => formatMonthTitle(monthKey, locale),
+    [locale, monthKey],
+  );
 
   return (
     <div className={cn("text-xs", className)} data-testid="mini-calendar">
@@ -321,8 +312,8 @@ export const FlareMoMiniCalendar = memo(function FlareMoMiniCalendar({
                 hasSchedule &&
                   activeDay !== day.key &&
                   (day.key < today
-                    ? "ring-1 ring-destructive/50 dark:ring-destructive/40"
-                    : "ring-1 ring-flame-500/40 dark:ring-flame-400/30"),
+                    ? "ring-2 ring-destructive/60 dark:ring-destructive/50"
+                    : "ring-2 ring-flame-500/70 dark:ring-flame-400/60"),
               )}
             >
               <span

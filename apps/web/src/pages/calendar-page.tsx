@@ -42,6 +42,7 @@ import {
   addMonths,
   buildMonthGrid,
   dayFilterQuery,
+  formatDayTitle,
   monthOf,
   todayKey,
   type WeekStart,
@@ -67,9 +68,11 @@ export function CalendarPage() {
   const gridStart = grid[0].key;
   const gridEnd = grid[grid.length - 1].key;
 
+  const timeZoneOffset = useMemo(() => new Date().getTimezoneOffset(), []);
   const calendarQuery = useQuery({
-    queryKey: ["calendar", gridStart, gridEnd],
-    queryFn: () => getCalendarView({ from: gridStart, to: gridEnd }),
+    queryKey: ["calendar", gridStart, gridEnd, timeZoneOffset],
+    queryFn: () =>
+      getCalendarView({ from: gridStart, to: gridEnd, tz: timeZoneOffset }),
   });
 
   const data = useMemo(() => {
@@ -247,7 +250,10 @@ export function CalendarPage() {
   );
 
   function invalidateCalendar() {
+    // Both caches read the scheduled data: the month grid uses the aggregate,
+    // the agenda view and the explorer mini calendar read the task list.
     void queryClient.invalidateQueries({ queryKey: ["calendar"] });
+    void queryClient.invalidateQueries({ queryKey: ["tasks"] });
   }
 }
 
@@ -272,7 +278,7 @@ function DayPanel({
   onTaskDragStart: (task: Task | null) => void;
   onTaskSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [rescheduling, setRescheduling] = useState<string | null>(null);
@@ -337,7 +343,9 @@ function DayPanel({
       <CardContent className="p-4">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="font-heading text-base font-semibold">
-            {day === today ? t("calendar.todayTitle") : day}
+            {day === today
+              ? t("calendar.todayTitle")
+              : formatDayTitle(day, locale)}
           </h2>
           <span className="text-xs text-muted-foreground">
             {t("calendar.notesCount", { count: notes })}
@@ -566,7 +574,7 @@ function AgendaView({
   today: string;
   onDaySelect: (dayKey: string) => void;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const tasksQuery = useQuery({
     queryKey: ["tasks"],
     queryFn: () => listTasks(),
@@ -618,7 +626,9 @@ function AgendaView({
                     group.overdue ? "text-destructive" : "text-foreground",
                   )}
                 >
-                  {group.key === today ? t("calendar.todayTitle") : group.key}
+                  {group.key === today
+                    ? t("calendar.todayTitle")
+                    : formatDayTitle(group.key, locale)}
                 </span>
                 {group.overdue && (
                   <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
