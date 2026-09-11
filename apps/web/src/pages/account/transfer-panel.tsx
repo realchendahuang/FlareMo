@@ -9,22 +9,36 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { TranslationKey } from "@/i18n";
 
 type TransferPanelProps = {
+  createExportIsPending: boolean;
   dataTasksQuery: UseQueryResult<{ tasks: DataTaskDto[] }, Error>;
   retryExportIsPending: boolean;
   t: (key: TranslationKey) => string;
+  onCreateExport: () => void;
   onRetryExport: () => void;
 };
 
 export function TransferPanel({
+  createExportIsPending,
   dataTasksQuery,
   retryExportIsPending,
   t,
+  onCreateExport,
   onRetryExport,
 }: TransferPanelProps) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>{t("transfer.title")}</CardTitle>
+        <Button
+          disabled={createExportIsPending}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={onCreateExport}
+        >
+          <DownloadIcon data-icon="inline-start" />
+          {t("transfer.newExport")}
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {dataTasksQuery.isLoading ? (
