@@ -77,8 +77,10 @@ export const memosApi = new Hono<HonoBindings>();
 
 memosApi.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {
   try {
-    const { db, user } = await getRequestContext(c);
-    const result = await listMemos(db, user, c.req.valid("query"));
+    const { db, user, memoFilterScanLimit } = await getRequestContext(c);
+    const result = await listMemos(db, user, c.req.valid("query"), {
+      celScanLimit: memoFilterScanLimit,
+    });
     return c.json(memosToListResponse({ ...result, user }));
   } catch (error) {
     return jsonError(c, error);

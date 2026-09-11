@@ -23,10 +23,9 @@ import {
   finalizeFlaremoMemberRemoval,
   getAttachmentById,
   getAuthBootstrapStatus,
-  getAuthUserById,
+  type getAuthUserById,
   getAuthUserIdByFlaremoUserId,
   getFlaremoUserByAuthSessionToken,
-  getFlaremoUserById,
   getMemoById,
   getMemoByIdForViewer,
   getMemoParent,
@@ -103,6 +102,8 @@ import {
 } from "../context";
 import { resolveEmailConfig } from "../email";
 import type { FlareMoEnv } from "../env";
+import { memoFilterScanLimit } from "../filter-scan-limit";
+import { getAuthUserCached, getFlaremoUserCached } from "../identity-cache";
 import { fetchLinkMetadata } from "../memos-link-metadata";
 import {
   clearMemosRefreshCookie,
@@ -645,7 +646,7 @@ async function connectUserMethod(
   transport?: BinaryTransport,
 ) {
   const body = record(value);
-  const authUser = await getAuthUserById(context.db, context.authUserId);
+  const authUser = await getAuthUserCached(context.db, context.authUserId);
   switch (method) {
     case "ListUsers": {
       const filter = optionalString(body.filter);
@@ -766,7 +767,7 @@ async function connectUserMethod(
       if (fields.includes("username")) {
         const username = requiredString(user.username, "user.username");
         await updateBetterAuthUsername(c, context, username);
-        nextAuthUser = await getAuthUserById(context.db, context.authUserId);
+        nextAuthUser = await getAuthUserCached(context.db, context.authUserId);
       }
       const updatedUser = await updateFlaremoUserProfile(
         context.db,
@@ -1161,7 +1162,7 @@ async function connectInstanceMethod(
       const admin = context.authUserId
         ? currentUserToDto(
             context.user,
-            await getAuthUserById(context.db, context.authUserId),
+            await getAuthUserCached(context.db, context.authUserId),
           )
         : publicUserToDto(context.user);
       return connectValue(
@@ -1472,16 +1473,21 @@ async function connectPublicMemoRead(
   const body = record(value);
   switch (method) {
     case "ListMemos": {
-      const result = await listMemosForViewer(context.db, context.user, {
-        page_size: pageSize(body.pageSize),
-        page_token: optionalString(body.pageToken),
-        order_by: normalizeOrderBy(
-          optionalString(body.orderBy) ?? "create_time desc",
-        ),
-        state: stateToLegacy(optionalString(body.state)),
-        filter: optionalString(body.filter),
-        include_deleted: body.showDeleted === true,
-      });
+      const result = await listMemosForViewer(
+        context.db,
+        context.user,
+        {
+          page_size: pageSize(body.pageSize),
+          page_token: optionalString(body.pageToken),
+          order_by: normalizeOrderBy(
+            optionalString(body.orderBy) ?? "create_time desc",
+          ),
+          state: stateToLegacy(optionalString(body.state)),
+          filter: optionalString(body.filter),
+          include_deleted: body.showDeleted === true,
+        },
+        { celScanLimit: context.memoFilterScanLimit },
+      );
       const memos = await hydrateConnectPublicMemos(context, result.memos);
       return connectValue(
         c,
@@ -1653,7 +1659,7 @@ async function getMemoCreatorForViewer(
   memo: Awaited<ReturnType<typeof getMemoByIdForViewer>>,
 ) {
   if (context.user?.id === memo.userId) return context.user;
-  const creator = await getFlaremoUserById(context.db, memo.userId);
+  const creator = await getFlaremoUserCached(context.db, memo.userId);
   if (!creator) throw new Error("Memo creator not found");
   return creator;
 }
@@ -1732,7 +1738,9 @@ async function listConnectMemos(
     filter: optionalString(body.filter),
     include_deleted: body.showDeleted === true,
   };
-  const result = await listMemos(context.db, context.user, query);
+  const result = await listMemos(context.db, context.user, query, {
+    celScanLimit: context.memoFilterScanLimit,
+  });
   const attachments = await listMemoAttachmentsForPage(
     context,
     result.memos.map((memo) => memo.id),
@@ -2215,7 +2223,7 @@ async function getPublicInstanceContext(
 ): Promise<ConnectRequestContext> {
   const db = createDb(c.env.DB);
   const user =
-    (await getFlaremoUserById(db, "users/owner")) ??
+    (await getFlaremoUserCached(db, "users/owner")) ??
     publicOwnerFallback(c.env.FLAREMO_SINGLE_USER_NAME);
   return {
     db,
@@ -2225,6 +2233,8 @@ async function getPublicInstanceContext(
     bearerSession: false,
     nativeAccessToken: false,
     session: null,
+    authUser: undefined,
+    memoFilterScanLimit: memoFilterScanLimit(c.env),
     limits: SELF_HOST_UNLIMITED,
     userLimits: null,
   };
@@ -2330,7 +2340,7 @@ async function userSettingResponse(
 
 async function listConnectUserSettings(context: ConnectRequestContext) {
   const username =
-    (await getAuthUserById(context.db, context.authUserId))?.username ??
+    (await getAuthUserCached(context.db, context.authUserId))?.username ??
     "owner";
   const generalName = `${context.user.id}/settings/GENERAL`;
   const stored = await getStoredSetting(
@@ -2718,7 +2728,7 @@ async function connectAuthSignIn(
       {
         user: currentUserToDto(
           session.user,
-          await getAuthUserById(db, session.authUserId),
+          await getAuthUserCached(db, session.authUserId),
         ),
         accessToken: nativeTokens.accessToken,
         accessTokenExpiresAt: nativeTokens.accessTokenExpiresAt.toISOString(),
@@ -2952,13 +2962,13 @@ function grpcStatusForCode(code: string) {
 async function getAuthUserForContext(
   context: Awaited<ReturnType<typeof getRequestContext>>,
 ) {
-  return getAuthUserById(context.db, context.authUserId);
+  return getAuthUserCached(context.db, context.authUserId);
 }
 
 async function getUserByName(db: ReturnType<typeof createDb>, name: unknown) {
   const value = requiredString(name, "name");
   const id = value.startsWith("users/") ? value : `users/${value}`;
-  return getFlaremoUserById(db, id);
+  return getFlaremoUserCached(db, id);
 }
 
 async function connectUserToDto(
@@ -2972,7 +2982,7 @@ async function connectUserToDto(
   const authUserId = await getAuthUserIdByFlaremoUserId(db, user.id);
   return currentUserToDto(
     user,
-    authUserId ? await getAuthUserById(db, authUserId) : null,
+    authUserId ? await getAuthUserCached(db, authUserId) : null,
   );
 }
 
@@ -2986,7 +2996,7 @@ async function connectPublicUserToDto(
   user: UserRow,
 ) {
   const authUserId = await getAuthUserIdByFlaremoUserId(db, user.id);
-  const authUser = authUserId ? await getAuthUserById(db, authUserId) : null;
+  const authUser = authUserId ? await getAuthUserCached(db, authUserId) : null;
   return publicUserToDto(user, authUser?.username ?? undefined);
 }
 
@@ -3025,7 +3035,7 @@ async function createConnectUser(
   return {
     authUserId: result.user.id,
     user,
-    dto: currentUserToDto(user, await getAuthUserById(db, result.user.id)),
+    dto: currentUserToDto(user, await getAuthUserCached(db, result.user.id)),
   };
 }
 

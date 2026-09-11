@@ -17,6 +17,7 @@ import {
   MEMOS_PAT_CONFIG_ID,
 } from "./auth";
 import type { FlareMoEnv } from "./env";
+import { memoFilterScanLimit } from "./filter-scan-limit";
 import { authenticateMemosAccessToken } from "./memos-native-auth";
 
 export type HonoBindings = {
@@ -67,6 +68,33 @@ const runtimeCache = new WeakMap<
   }
 >();
 
+/**
+ * Auth identity fields the /me surface needs. Sourced from the Better Auth
+ * session (no extra query) on browser paths; undefined otherwise.
+ */
+type AuthUserSummary = {
+  email: string;
+  username: string | null;
+};
+
+/**
+ * Better Auth's typed api surface only promises `user.id`, but the transport
+ * payload (and the session cookie used for browser cookie caching) always
+ * carries email/username. Normalize defensively so a missing field degrades
+ * to no auth-user summary instead of a wrong value.
+ */
+function browserAuthUserSummary(user: unknown): AuthUserSummary | undefined {
+  const record = user as {
+    email?: unknown;
+    username?: unknown;
+  } | null;
+  if (typeof record?.email !== "string") return undefined;
+  return {
+    email: record.email,
+    username: typeof record.username === "string" ? record.username : null,
+  };
+}
+
 export function getFlareMoRuntime(env: FlareMoEnv) {
   let runtime = runtimeCache.get(env);
   if (!runtime) {
@@ -99,6 +127,8 @@ export async function getRequestContext(c: Context<HonoBindings>) {
           bearerSession: false,
           nativeAccessToken: true,
           session: null,
+          authUser: undefined,
+          memoFilterScanLimit: memoFilterScanLimit(c.env),
           limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
           userLimits: await resolveUserLimits(c, nativeAccess.user.id),
         };
@@ -116,6 +146,8 @@ export async function getRequestContext(c: Context<HonoBindings>) {
         bearerSession: true,
         nativeAccessToken: false,
         session: session.session,
+        authUser: undefined,
+        memoFilterScanLimit: memoFilterScanLimit(c.env),
         limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
         userLimits: await resolveUserLimits(c, session.user.id),
       };
@@ -145,6 +177,8 @@ export async function getRequestContext(c: Context<HonoBindings>) {
       bearerSession: false,
       nativeAccessToken: false,
       session: null,
+      authUser: undefined,
+      memoFilterScanLimit: memoFilterScanLimit(c.env),
       limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
       userLimits: await resolveUserLimits(c, user.id),
     };
@@ -176,6 +210,8 @@ export async function getOptionalRequestContext(c: Context<HonoBindings>) {
         bearerSession: false,
         nativeAccessToken: false,
         session: null,
+        authUser: undefined,
+        memoFilterScanLimit: memoFilterScanLimit(c.env),
         limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
         userLimits: null,
       };
@@ -209,6 +245,8 @@ export async function getBrowserRequestContext(c: Context<HonoBindings>) {
     bearerSession: false,
     nativeAccessToken: false,
     session: null,
+    memoFilterScanLimit: memoFilterScanLimit(c.env),
+    authUser: browserAuthUserSummary(session.user),
     limits: c.get("planLimits") ?? SELF_HOST_UNLIMITED,
     userLimits: await resolveUserLimits(c, user.id),
   };

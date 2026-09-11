@@ -215,6 +215,12 @@ export function createFlareMoAuth(
       // the operator cannot inspect in a browser.
       revokeSessionsOnPasswordReset: true,
     },
+    // NOTE: Better Auth's `session.cookieCache` is deliberately NOT enabled.
+    // It serves the session from a signed cookie without a DB check for up
+    // to maxAge, but FlareMo's contract (enforced by auth.test.ts and
+    // memos-compatibility.test.ts) requires sign-out and password resets to
+    // invalidate cookie sessions immediately. If the hot-path session query
+    // ever needs caching, it needs an invalidation story first.
     rateLimit: {
       // Local D1/Miniflare does not provide Cloudflare's trusted client-IP
       // header, so enabling the shared fallback bucket there makes unrelated

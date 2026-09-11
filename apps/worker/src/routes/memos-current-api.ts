@@ -13,10 +13,8 @@ import {
   finalizeFlaremoMemberRemoval,
   getAttachmentById,
   getAuthBootstrapStatus,
-  getAuthUserById,
   getAuthUserIdByFlaremoUserId,
   getFlaremoUserByAuthSessionToken,
-  getFlaremoUserById,
   type getMemoById,
   getMemoByIdForViewer,
   getMemosPersonalAccessToken,
@@ -65,6 +63,7 @@ import {
   type HonoBindings,
 } from "../context";
 import { resolveEmailConfig } from "../email";
+import { getAuthUserCached, getFlaremoUserCached } from "../identity-cache";
 import { hardDeleteMemoWithAttachments } from "../memo-hard-delete";
 import {
   authenticateMemosAccessToken,
@@ -470,6 +469,7 @@ memosCurrentApi.get("/memos", async (c, next) => {
       context.db,
       context.user,
       currentListQuery(c),
+      { celScanLimit: context.memoFilterScanLimit },
     );
     const attachments = await listAttachmentsForMemosForViewer(
       context.db,
@@ -910,7 +910,7 @@ memosCurrentApi.get("/users", async (c, next) => {
           user.id,
         );
         const authUser = authUserId
-          ? await getAuthUserById(context.db, authUserId)
+          ? await getAuthUserCached(context.db, authUserId)
           : null;
         return user.id === context.user.id
           ? currentUserToDto(user, authUser)
@@ -1051,11 +1051,11 @@ memosCurrentApi.get("/users/:user", async (c, next) => {
   try {
     const context = await getRequestContext(c);
     const userId = normalizeUserName(c.req.param("user"));
-    const user = await getFlaremoUserById(context.db, userId);
+    const user = await getFlaremoUserCached(context.db, userId);
     if (!user) throw new NotFoundCurrentError("User not found");
     const authUserId = await getAuthUserIdByFlaremoUserId(context.db, user.id);
     const authUser = authUserId
-      ? await getAuthUserById(context.db, authUserId)
+      ? await getAuthUserCached(context.db, authUserId)
       : null;
     return c.json(
       user.id === context.user.id
@@ -1140,7 +1140,7 @@ async function currentMemoCreator(
   memo: Awaited<ReturnType<typeof getMemoById>>,
 ) {
   if (context.user?.id === memo.userId) return context.user;
-  const creator = await getFlaremoUserById(context.db, memo.userId);
+  const creator = await getFlaremoUserCached(context.db, memo.userId);
   if (!creator) throw new Error("Memo creator not found");
   return creator;
 }
@@ -1152,7 +1152,7 @@ async function currentUserForContext(context: {
 }) {
   return currentUserToDto(
     context.user,
-    await getAuthUserById(context.db, context.authUserId),
+    await getAuthUserCached(context.db, context.authUserId),
   );
 }
 

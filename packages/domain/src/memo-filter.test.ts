@@ -254,3 +254,43 @@ describe("Memos Attachment CEL filter", () => {
     );
   });
 });
+
+describe("Memos CEL filter SQL pushdown completeness", () => {
+  it("marks comparisons of pinned/state/visibility and their boolean chains complete", () => {
+    expect(compileMemoFilter("pinned == true")?.completeInSql).toBe(true);
+    expect(compileMemoFilter("pinned == false")?.completeInSql).toBe(true);
+    expect(compileMemoFilter('state == "NORMAL"')?.completeInSql).toBe(true);
+    expect(compileMemoFilter('visibility == "PUBLIC"')?.completeInSql).toBe(
+      true,
+    );
+    expect(
+      compileMemoFilter('pinned == true && state == "NORMAL"')?.completeInSql,
+    ).toBe(true);
+    expect(
+      compileMemoFilter('pinned == true || state == "NORMAL"')?.completeInSql,
+    ).toBe(true);
+  });
+
+  it("marks expressions with JS-evaluated leaves incomplete", () => {
+    expect(
+      compileMemoFilter('content.contains("roadmap")')?.completeInSql,
+    ).toBe(false);
+    expect(
+      compileMemoFilter('pinned == true && content.contains("roadmap")')
+        ?.completeInSql,
+    ).toBe(false);
+    expect(compileMemoFilter("size(tags) == 2")?.completeInSql).toBe(false);
+  });
+
+  it("matches JS evaluation on completely pushed-down expressions", () => {
+    const filter = compileMemoFilter('pinned == true && state == "NORMAL"');
+    expect(filter?.completeInSql).toBe(true);
+    for (const candidate of [memo, { ...memo, pinned: false }]) {
+      // SQL `upper(status) = 'NORMAL'` and the JS evaluator agree per row.
+      expect(filter?.(candidate as MemoRow, user)).toBe(
+        (candidate as MemoRow).pinned &&
+          candidate.status.toUpperCase() === "NORMAL",
+      );
+    }
+  });
+});

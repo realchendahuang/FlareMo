@@ -110,6 +110,9 @@
     // Self-measured vector usage limits for the usage panel. Defaults are the
     // Workers Free Vectorize allowance (5M stored / 30M queried dims per month).
     "FLAREMO_VECTORIZE_STORED_LIMIT": "5000000",
-    "FLAREMO_VECTORIZE_QUERIED_LIMIT": "30000000"
+    "FLAREMO_VECTORIZE_QUERIED_LIMIT": "30000000",
+    // CEL memo filters that cannot fully translate to SQL scan up to this
+    // many candidate rows in JS (D1 read quota). Unset = 5000.
+    "FLAREMO_MEMO_FILTER_SCAN_LIMIT": "5000"
   }
 }

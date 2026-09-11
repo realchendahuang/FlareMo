@@ -23,7 +23,6 @@ import {
   createMemoryFromMemoInputToWrite,
   deleteTag,
   estimateTokenCount,
-  getAuthUserById,
   getBranding,
   getFlaremoUserNames,
   getMemoById,
@@ -62,6 +61,7 @@ import {
   resolveEmbeddingConfig,
 } from "../embedding";
 import { jsonError } from "../http";
+import { getAuthUserCached } from "../identity-cache";
 import { buildMemoContext } from "../memo-context";
 import { hardDeleteMemoWithAttachments } from "../memo-hard-delete";
 
@@ -74,15 +74,19 @@ const FLAREMO_UPDATE_GUIDE_URL =
 
 appApi.get("/me", async (c) => {
   try {
-    const { db, user, authUserId } = await getRequestContext(c);
-    const authUser = await getAuthUserById(db, authUserId);
+    const { db, user, authUserId, authUser } = await getRequestContext(c);
+    // Browser sessions carry the auth identity inside the (session-cached)
+    // Better Auth session, so no extra D1 lookup is needed; non-browser
+    // credentials fall back to the TTL-cached row read.
+    const resolvedAuthUser =
+      authUser ?? (await getAuthUserCached(db, authUserId));
     return c.json({
       id: user.id,
       role: user.role,
       status: user.status,
       name: user.name,
-      email: authUser?.email ?? user.email,
-      username: authUser?.username ?? user.id.replace(/^users\//, ""),
+      email: resolvedAuthUser?.email ?? user.email,
+      username: resolvedAuthUser?.username ?? user.id.replace(/^users\//, ""),
     });
   } catch (error) {
     return jsonError(c, error);
@@ -114,8 +118,10 @@ appApi.get("/health", async (c) => {
 
 appApi.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {
   try {
-    const { db, user } = await getRequestContext(c);
-    const result = await listMemos(db, user, c.req.valid("query"));
+    const { db, user, memoFilterScanLimit } = await getRequestContext(c);
+    const result = await listMemos(db, user, c.req.valid("query"), {
+      celScanLimit: memoFilterScanLimit,
+    });
     const creatorNames = await getFlaremoUserNames(
       db,
       result.memos.map((memo) => memo.userId),

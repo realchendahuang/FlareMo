@@ -5,7 +5,6 @@ import {
   type DomainError,
   deleteMemoReaction,
   deleteShortcut,
-  getFlaremoUserById,
   getMemoByIdForViewer,
   getShortcut,
   listAttachmentsForMemosForViewer,
@@ -28,6 +27,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import type { HonoBindings } from "../context";
 import { getOptionalRequestContext, getRequestContext } from "../context";
+import { getFlaremoUserCached } from "../identity-cache";
 
 /**
  * Mount this app at `/api/v1`, before the legacy Memos app:
@@ -383,7 +383,7 @@ async function memoToCurrentDto(
   const creator =
     context.user?.id === memo.userId
       ? context.user
-      : await getFlaremoUserById(context.db, memo.userId);
+      : await getFlaremoUserCached(context.db, memo.userId);
   if (!creator) throw new Error("Memo creator not found");
   return {
     ...currentMemoToDto(memo, creator, {
@@ -485,7 +485,7 @@ async function hydrateSocialMemos(
         const resolved =
           context.user?.id === memo.userId && context.user
             ? context.user
-            : await getFlaremoUserById(context.db, memo.userId);
+            : await getFlaremoUserCached(context.db, memo.userId);
         if (!resolved) throw new Error("Memo creator not found");
         creator = resolved;
         creators.set(memo.userId, resolved);

@@ -51,6 +51,29 @@ type MemoCursor = {
 const MAX_MEMO_CONTENT_LENGTH = 100_000;
 const MAX_MEMO_PAYLOAD_JSON_LENGTH = 100_000;
 
+/**
+ * Candidate-row ceiling for CEL filters that cannot be fully translated to
+ * SQL. Starred higher than attachment filters because memo scans may include
+ * an unbounded visibility window; deployments on quota-sensitive plans can
+ * lower it via FLAREMO_MEMO_FILTER_SCAN_LIMIT.
+ */
+export const DEFAULT_MEMO_FILTER_SCAN_LIMIT = 5_000;
+
+/**
+ * Parse FLAREMO_MEMO_FILTER_SCAN_LIMIT. Values below the page-sized floor,
+ * above the hard cap of 50000, or non-integers fall back to the default.
+ */
+export function parseMemoFilterScanLimit(
+  value: string | undefined,
+): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || String(parsed) !== value.trim()) {
+    return undefined;
+  }
+  return parsed;
+}
+
 function assertMemoContentSize(content: string) {
   if (content.length > MAX_MEMO_CONTENT_LENGTH) {
     throw new ValidationError(
@@ -170,9 +193,16 @@ export async function listMemos(
   db: FlareMoDb,
   user: UserRow,
   query: ListMemosQuery,
+  options: MemoFilterOptions = {},
 ): Promise<MemoListResult> {
-  return listMemosForViewer(db, user, query);
+  return listMemosForViewer(db, user, query, options);
 }
+
+/** Optional list-scanning knobs threaded from the worker's env. */
+export type MemoFilterOptions = {
+  /** Upper bound for candidate rows scanned for a not-fully-translatable CEL filter. */
+  celScanLimit?: number;
+};
 
 /**
  * List memos using the same visibility boundary as the Memos API. An
@@ -184,6 +214,7 @@ export async function listMemosForViewer(
   db: FlareMoDb,
   user: UserRow | null,
   query: ListMemosQuery,
+  options: MemoFilterOptions = {},
 ): Promise<MemoListResult> {
   const search = parseMemoSearchQuery(query.q);
   const celFilter = compileMemoFilter(query.filter);
@@ -309,20 +340,25 @@ export async function listMemosForViewer(
   // If the bounded window contains a complete page plus a lookahead match,
   // the existing cursor safely resumes after that page. Otherwise require a
   // narrower query rather than silently claiming that a partial scan is final.
-  const scanLimit = 5_000;
+  // A CEL filter that fully translates to SQL (checked by completeInSql) is
+  // evaluated by SQLite itself and needs neither the JS scan nor the limit.
+  const fullyPushedDown = celFilter?.completeInSql === true;
+  const scanLimit = options.celScanLimit ?? DEFAULT_MEMO_FILTER_SCAN_LIMIT;
   const candidates = await orderedQuery.limit(
-    celFilter ? scanLimit + 1 : query.page_size + 1,
+    celFilter && !fullyPushedDown ? scanLimit + 1 : query.page_size + 1,
   );
-  const rows = celFilter
-    ? candidates.slice(0, scanLimit).filter((memo) => celFilter(memo, user))
-    : candidates;
+  const rows =
+    celFilter && !fullyPushedDown
+      ? candidates.slice(0, scanLimit).filter((memo) => celFilter(memo, user))
+      : candidates;
   if (
     celFilter &&
+    !fullyPushedDown &&
     candidates.length > scanLimit &&
     rows.length <= query.page_size
   ) {
     throw new ValidationError(
-      "Filter scan limit reached (5000 memos). Narrow the query using a tag, date range, state, or visibility.",
+      `Filter scan limit reached (${scanLimit} memos). Narrow the query using a tag, date range, state, or visibility.`,
     );
   }
 

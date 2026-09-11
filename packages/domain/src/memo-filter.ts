@@ -24,7 +24,15 @@ type MemoFilterAst = {
 export type CompiledMemoFilter = ((
   memo: MemoRow,
   user: UserRow | null,
-) => boolean) & { sqlPredicate?: SQL };
+) => boolean) & {
+  sqlPredicate?: SQL;
+  /**
+   * True when the SQL predicate is an exact logical translation of the whole
+   * CEL expression (for comparisons the evaluator and SQL agree on), so SQL
+   * alone decides matches and the JS evaluator may be skipped entirely.
+   */
+  completeInSql: boolean;
+};
 
 export type CompiledAttachmentFilter = (attachment: AttachmentRow) => boolean;
 
@@ -167,7 +175,35 @@ export function compileMemoFilter(
     }
   };
   evaluate.sqlPredicate = memoFilterSqlPredicate(compiled.ast);
+  evaluate.completeInSql = memoFilterSqlIsComplete(compiled.ast);
   return evaluate;
+}
+
+/**
+ * Exact translation; identical comparison semantics in SQL and the CEL
+ * evaluator (state/visibility compare upper-cased on both sides, pinned is a
+ * boolean on both sides), verified in memoFilterContext and
+ * memoFilterSqlPredicate.
+ */
+function memoFilterSqlIsComplete(value: unknown): boolean {
+  if (!isAstNode(value)) return false;
+  if (value.op === "&&") {
+    return (binaryAstArgs(value) ?? []).every((side) =>
+      memoFilterSqlIsComplete(side),
+    );
+  }
+  if (value.op === "||") {
+    const operands = binaryAstArgs(value) ?? [];
+    return (
+      operands.length === 2 &&
+      operands.every(
+        (side) =>
+          memoFilterSqlIsComplete(side) &&
+          memoFilterSqlPredicate(side) !== undefined,
+      )
+    );
+  }
+  return value.op === "==" && memoFilterSqlPredicate(value) !== undefined;
 }
 
 /** Only push down necessary conditions; the CEL evaluator remains authoritative. */

@@ -208,11 +208,13 @@ async function callTool(
   name: string,
   args: Record<string, unknown>,
 ) {
-  const { db, user } = context;
+  const { db, user, memoFilterScanLimit } = context;
 
   if (name === "list_memos") {
     const query = listMemosQuerySchema.parse(args) as ListMemosQuery;
-    const result = await listMemos(db, user, query);
+    const result = await listMemos(db, user, query, {
+      celScanLimit: memoFilterScanLimit,
+    });
     return memosToListResponse({ ...result, user });
   }
 
@@ -222,7 +224,9 @@ async function callTool(
       q: args.q,
       page_size: args.page_size ?? 30,
     }) as ListMemosQuery;
-    const result = await listMemos(db, user, query);
+    const result = await listMemos(db, user, query, {
+      celScanLimit: memoFilterScanLimit,
+    });
     return memosToListResponse({ ...result, user });
   }
 
@@ -1001,7 +1005,9 @@ async function streamableListMemos(
       optionalBoolean(args, "include_deleted") ??
       false,
   }) as ListMemosQuery;
-  const result = await listMemos(context.db, context.user, query);
+  const result = await listMemos(context.db, context.user, query, {
+    celScanLimit: context.memoFilterScanLimit,
+  });
   return {
     memos: result.memos.map((memo) =>
       memoToCurrentMemosDto(memo, context.user),

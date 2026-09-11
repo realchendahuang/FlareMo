@@ -4,10 +4,14 @@ import {
   type FlareMoDb,
   type UserRow,
 } from "@flaremo/db";
-import { getAuthUserById, getFlaremoUserByAuthUserId } from "@flaremo/domain";
+import {
+  type getAuthUserById,
+  getFlaremoUserByAuthUserId,
+} from "@flaremo/domain";
 import { and, eq, gt } from "drizzle-orm";
 import { getBetterAuthSecret } from "./auth";
 import type { FlareMoEnv } from "./env";
+import { getAuthUserCached } from "./identity-cache";
 
 export const MEMOS_ISSUER = "memos";
 export const MEMOS_JWT_KEY_ID = "v1";
@@ -387,7 +391,7 @@ async function resolveMemosIdentityByAuthUserId(
   authUserId: string,
 ): Promise<MemosNativeIdentity | null> {
   const user = await getFlaremoUserByAuthUserId(db, authUserId);
-  const authUser = await getAuthUserById(db, authUserId);
+  const authUser = await getAuthUserCached(db, authUserId);
   if (!user || !authUser) return null;
 
   return {

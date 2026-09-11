@@ -39,4 +39,7 @@ export type FlareMoEnv = Env & {
   // Usage-panel limits. Defaults are the Workers Free Vectorize allowance.
   FLAREMO_VECTORIZE_STORED_LIMIT?: string;
   FLAREMO_VECTORIZE_QUERIED_LIMIT?: string;
+  // Upper bound (rows) for CEL memo-filter scans that cannot fully translate
+  // to SQL (see src/filter-scan-limit.ts). Unset = 5000.
+  FLAREMO_MEMO_FILTER_SCAN_LIMIT?: string;
 };
