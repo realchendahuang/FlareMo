@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { AlertCircleIcon } from "lucide-react";
 import { useMemo } from "react";
 import type { MemoStatsResponse } from "@/api";
 import { listTasks } from "@/api";
@@ -21,7 +22,7 @@ export function MiniCalendarPanel({
 }: {
   activity: MemoStatsResponse["activity"];
 }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const navigate = useNavigate();
   const today = useMemo(() => todayKey(), []);
   const monthKey = monthOf(today);
@@ -50,27 +51,48 @@ export function MiniCalendarPanel({
     queryKey: ["tasks"],
     queryFn: () => listTasks(),
   });
-  const tasks = useMemo(() => {
+  const openTasks = useMemo(() => {
     const map = new Map<string, number>();
+    let overdue = 0;
     for (const task of tasksQuery.data?.tasks ?? []) {
       if (!task.due_at || task.status === "done") continue;
       if (task.due_at < rangeStart || task.due_at > rangeEnd) continue;
       map.set(task.due_at, (map.get(task.due_at) ?? 0) + 1);
+      if (task.due_at < today) overdue += 1;
     }
-    return map;
-  }, [tasksQuery.data, rangeStart, rangeEnd]);
+    return { map, overdue };
+  }, [tasksQuery.data, rangeStart, rangeEnd, today]);
 
   const jump = (day: string) => {
     void navigate({ to: `/?q=${encodeURIComponent(dayFilterQuery(day))}` });
   };
 
+  const dueToday = openTasks.map.get(today) ?? 0;
+
   return (
-    <FlareMoMiniCalendar
-      monthKey={monthKey}
-      notes={notes}
-      tasks={tasks}
-      today={today}
-      onDayClick={jump}
-    />
+    <>
+      {dueToday > 0 && (
+        <Link
+          className="mb-1.5 flex items-center gap-1.5 rounded-md px-1 py-1 text-xs font-medium text-flame-700 dark:text-flame-200 bg-flame-100 dark:bg-flame-400/12 motion-safe:transition-colors motion-safe:duration-150 hover:bg-flame-100/80 dark:hover:bg-flame-400/20 focus-visible:ring-2 focus-visible:ring-ring"
+          data-testid="mini-calendar-today-notice"
+          to="/calendar"
+        >
+          <AlertCircleIcon className="shrink-0" />
+          {t("calendar.overdueToday", { count: dueToday })}
+        </Link>
+      )}
+      {openTasks.overdue > 0 && (
+        <p className="mb-1 px-1 text-xs text-destructive">
+          {t("calendar.overdueCount", { count: openTasks.overdue })}
+        </p>
+      )}
+      <FlareMoMiniCalendar
+        monthKey={monthKey}
+        notes={notes}
+        tasks={openTasks.map}
+        today={today}
+        onDayClick={jump}
+      />
+    </>
   );
 }

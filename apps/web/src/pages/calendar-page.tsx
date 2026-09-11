@@ -6,20 +6,33 @@ import {
   GripVerticalIcon,
   ListTodoIcon,
   PlusIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   createProject,
   createTask,
+  deleteTask,
   getCalendarView,
   listProjects,
+  listTasks,
   type Task,
   updateTask,
 } from "@/api";
 import type { CalendarDateCell } from "@/components/flaremo-calendar";
 import { FlareMoCalendar } from "@/components/flaremo-calendar";
 import { SubpageHeader } from "@/components/subpage-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,6 +56,7 @@ export function CalendarPage() {
   const [cursor, setCursor] = useState(() => today);
   const [selected, setSelected] = useState(() => today);
   const [dragTask, setDragTask] = useState<Task | null>(null);
+  const [viewMode, setViewMode] = useState<"month" | "agenda">("month");
 
   const weekStart: WeekStart = locale.startsWith("en") ? "sunday" : "monday";
   const monthKey = monthOf(cursor);
@@ -109,74 +123,125 @@ export function CalendarPage() {
           <h1 className="font-heading text-xl font-semibold">
             {t("calendar.title")}
           </h1>
-          <Button
-            size="sm"
-            type="button"
-            onClick={() => {
-              setCursor(today);
-              setSelected(today);
-            }}
-          >
-            {t("calendar.today")}
-          </Button>
-        </div>
-
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <Card className="lg:max-w-sm">
-            <CardContent className="p-4">
-              {calendarQuery.isLoading ? (
-                <Skeleton className="h-72 w-full" />
-              ) : (
-                <FlareMoCalendar
-                  data={data}
-                  monthKey={monthKey}
-                  selected={selected}
-                  today={today}
-                  onDayClick={(dayKey) => {
-                    setSelected(dayKey);
-                    setCursor(dayKey);
-                  }}
-                  onTaskDrop={(dayKey) => {
-                    const task = dragTask;
-                    setDragTask(null);
-                    if (!task || task.due_at === dayKey) return;
-                    void updateTask(stripResourceName(task.id, "tasks"), {
-                      due_at: dayKey,
-                    })
-                      .then(() => {
-                        invalidateCalendar();
-                        toast.success(t("calendar.toastRescheduled"));
-                      })
-                      .catch((error) =>
-                        toast.error(
-                          errorMessage(error, t("calendar.actionFailed")),
-                        ),
-                      );
-                  }}
-                  onMonthChange={(direction) => {
-                    const next = addMonths(direction, `${monthKey}-01`);
-                    setCursor(next);
-                  }}
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex min-w-0 flex-1 flex-col gap-4">
-            <DayPanel
-              day={selected}
-              noteTasks={selectedCell?.note_tasks ?? 0}
-              notes={selectedCell?.notes ?? 0}
-              tasks={selectedTasks}
-              today={today}
-              defaultProjectId={defaultProjectId}
-              projectsReady={Boolean(projectsQuery.data)}
-              onTaskDragStart={setDragTask}
-              onTaskSaved={invalidateCalendar}
-            />
-            <NotesPanel day={selected} monthNotes={monthNotes} />
+          <div className="flex items-center gap-2">
+            <div
+              aria-label={t("calendar.viewLabel")}
+              className="flex rounded-lg border border-border/60 p-0.5 text-xs"
+              role="tablist"
+            >
+              {(
+                [
+                  ["month", t("calendar.viewMonth")],
+                  ["agenda", t("calendar.viewAgenda")],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  aria-selected={viewMode === value}
+                  className={cn(
+                    "rounded-md px-3 py-1 text-xs motion-safe:transition-colors motion-safe:duration-150",
+                    viewMode === value
+                      ? "bg-accent font-medium text-accent-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  key={value}
+                  role="tab"
+                  type="button"
+                  onClick={() => setViewMode(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              type="button"
+              onClick={() => {
+                setCursor(today);
+                setSelected(today);
+              }}
+            >
+              {t("calendar.today")}
+            </Button>
           </div>
         </div>
+
+        {viewMode === "agenda" ? (
+          <AgendaView
+            monthKey={monthKey}
+            today={today}
+            onDaySelect={(dayKey) => {
+              setSelected(dayKey);
+              setCursor(dayKey);
+              setViewMode("month");
+            }}
+          />
+        ) : (
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <Card className="lg:max-w-sm">
+              <CardContent className="p-4">
+                {calendarQuery.isLoading ? (
+                  <Skeleton className="h-72 w-full" />
+                ) : (
+                  <FlareMoCalendar
+                    data={data}
+                    monthKey={monthKey}
+                    selected={selected}
+                    showTaskTitles
+                    today={today}
+                    onDayClick={(dayKey) => {
+                      setSelected(dayKey);
+                      setCursor(dayKey);
+                    }}
+                    onTaskDrop={(dayKey) => {
+                      const task = dragTask;
+                      setDragTask(null);
+                      if (!task || task.due_at === dayKey) return;
+                      void updateTask(stripResourceName(task.id, "tasks"), {
+                        due_at: dayKey,
+                      })
+                        .then(() => {
+                          invalidateCalendar();
+                          if (dayKey < today) {
+                            toast.warning(
+                              t("calendar.toastRescheduledPast", {
+                                date: dayKey,
+                              }),
+                            );
+                          } else {
+                            toast.success(t("calendar.toastRescheduled"));
+                          }
+                        })
+                        .catch((error) =>
+                          toast.error(
+                            errorMessage(error, t("calendar.actionFailed")),
+                          ),
+                        );
+                    }}
+                    onMonthChange={(direction) => {
+                      const next = addMonths(direction, `${monthKey}-01`);
+                      setCursor(next);
+                    }}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <DayPanel
+                day={selected}
+                noteTasks={selectedCell?.note_tasks ?? 0}
+                notes={selectedCell?.notes ?? 0}
+                tasks={selectedTasks}
+                today={today}
+                defaultProjectId={defaultProjectId}
+                projectsReady={Boolean(projectsQuery.data)}
+                onTaskDragStart={setDragTask}
+                onTaskSaved={invalidateCalendar}
+              />
+              <NotesPanel day={selected} monthNotes={monthNotes} />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -212,6 +277,7 @@ function DayPanel({
   const [creating, setCreating] = useState(false);
   const [rescheduling, setRescheduling] = useState<string | null>(null);
   const [nextDate, setNextDate] = useState(day);
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
   const toggleDone = (task: Task) => {
     setRescheduling(null);
@@ -225,6 +291,18 @@ function DayPanel({
         toast.error(errorMessage(error, t("calendar.actionFailed")));
       }
     })();
+  };
+
+  const removeTask = (task: Task) => {
+    setDeleteTarget(null);
+    void deleteTask(stripResourceName(task.id, "tasks"))
+      .then(() => {
+        onTaskSaved();
+        toast.success(t("calendar.toastDeleted"));
+      })
+      .catch((error) =>
+        toast.error(errorMessage(error, t("calendar.actionFailed"))),
+      );
   };
 
   const submit = async () => {
@@ -281,9 +359,14 @@ function DayPanel({
           )}
           {tasks.map((task) => {
             const done = task.status === "done";
+            const overdue =
+              !done && task.due_at !== null && task.due_at < today;
             return (
               <li
-                className="flex items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60"
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60",
+                  overdue && "bg-destructive/5",
+                )}
                 draggable={!done}
                 key={task.id}
                 onDragEnd={() => onTaskDragStart(null)}
@@ -307,7 +390,12 @@ function DayPanel({
                   {done ? (
                     <CheckCircle2Icon className="text-primary" />
                   ) : (
-                    <CircleIcon className="text-muted-foreground" />
+                    <CircleIcon
+                      className={cn(
+                        "text-muted-foreground",
+                        overdue && "text-destructive",
+                      )}
+                    />
                   )}
                 </button>
                 <span
@@ -318,6 +406,11 @@ function DayPanel({
                 >
                   {task.title}
                 </span>
+                {overdue && (
+                  <span className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                    {t("calendar.overdue")}
+                  </span>
+                )}
                 {rescheduling === task.id ? (
                   <span className="flex items-center gap-1">
                     <Input
@@ -350,21 +443,62 @@ function DayPanel({
                     </Button>
                   </span>
                 ) : (
-                  <button
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                    type="button"
-                    onClick={() => {
-                      setNextDate(task.due_at ?? day);
-                      setRescheduling(task.id);
-                    }}
-                  >
-                    {t("calendar.reschedule")}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                      type="button"
+                      onClick={() => {
+                        setNextDate(task.due_at ?? day);
+                        setRescheduling(task.id);
+                      }}
+                    >
+                      {t("calendar.reschedule")}
+                    </button>
+                    <button
+                      aria-label={t("calendar.deleteTask")}
+                      className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+                      type="button"
+                      onClick={() => setDeleteTarget(task)}
+                    >
+                      <Trash2Icon className="size-3.5" />
+                    </button>
+                  </div>
                 )}
               </li>
             );
           })}
         </ul>
+
+        <AlertDialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <AlertDialogContent size="sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("calendar.deleteTask")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("calendar.deleteTaskConfirm", {
+                  title: deleteTarget?.title ?? "",
+                })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel variant="ghost">
+                {t("common.cancel")}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  if (deleteTarget) removeTask(deleteTarget);
+                }}
+              >
+                {t("calendar.deleteTask")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <form
           className="mt-3 flex items-center gap-2"
@@ -418,6 +552,96 @@ function NotesPanel({ day, monthNotes }: { day: string; monthNotes: number }) {
         >
           {t("calendar.viewDayNotes")}
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AgendaView({
+  monthKey,
+  today,
+  onDaySelect,
+}: {
+  monthKey: string;
+  today: string;
+  onDaySelect: (dayKey: string) => void;
+}) {
+  const { t } = useI18n();
+  const tasksQuery = useQuery({
+    queryKey: ["tasks"],
+    queryFn: () => listTasks(),
+  });
+
+  const groups = useMemo(() => {
+    const byDay = new Map<string, Task[]>();
+    for (const task of tasksQuery.data?.tasks ?? []) {
+      if (!task.due_at) continue;
+      if (task.status === "done") continue;
+      const list = byDay.get(task.due_at) ?? [];
+      list.push(task);
+      byDay.set(task.due_at, list);
+    }
+    const keys = [...byDay.keys()].sort();
+    const overdue = keys.filter((key) => key < today);
+    const upcoming = keys.filter((key) => key >= today);
+    return [...overdue, ...upcoming].map((key) => ({
+      key,
+      overdue: key < today,
+      tasks: byDay.get(key) ?? [],
+    }));
+  }, [tasksQuery.data, today]);
+
+  void monthKey;
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <h2 className="text-sm font-semibold text-muted-foreground">
+          {t("calendar.agendaTitle")}
+        </h2>
+        <ul className="mt-3 flex flex-col divide-y divide-border/60">
+          {groups.length === 0 && (
+            <li className="text-sm text-muted-foreground">
+              {t("calendar.agendaEmpty")}
+            </li>
+          )}
+          {groups.map((group) => (
+            <li className="py-2" key={group.key}>
+              <button
+                className="flex w-full items-baseline gap-2 text-left"
+                type="button"
+                onClick={() => onDaySelect(group.key)}
+              >
+                <span
+                  className={cn(
+                    "text-xs font-medium tabular-nums",
+                    group.overdue ? "text-destructive" : "text-foreground",
+                  )}
+                >
+                  {group.key === today ? t("calendar.todayTitle") : group.key}
+                </span>
+                {group.overdue && (
+                  <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                    {t("calendar.overdue")}
+                  </span>
+                )}
+                <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+                  {t("calendar.dayTasks", { count: group.tasks.length })}
+                </span>
+              </button>
+              <div className="mt-1 flex flex-col gap-0.5 pl-4">
+                {group.tasks.map((task) => (
+                  <span
+                    className="truncate text-sm text-muted-foreground"
+                    key={task.id}
+                  >
+                    {task.title}
+                  </span>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   );

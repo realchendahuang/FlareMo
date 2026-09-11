@@ -26,6 +26,8 @@ export type FlareMoCalendarProps = {
   onDayClick?: (dayKey: string, cell?: CalendarDateCell) => void;
   // Drop target for drag-to-reschedule of a scheduled task.
   onTaskDrop?: (dayKey: string) => void;
+  // Renders task titles inside day cells (full calendar only).
+  showTaskTitles?: boolean;
   className?: string;
 };
 
@@ -47,6 +49,7 @@ export const FlareMoCalendar = memo(function FlareMoCalendar({
   onMonthChange,
   onTaskDrop,
   selected,
+  showTaskTitles = false,
   today,
   className,
 }: FlareMoCalendarProps) {
@@ -122,6 +125,13 @@ export const FlareMoCalendar = memo(function FlareMoCalendar({
           const isToday = day.key === today;
           const isSelected = selected === day.key;
           const taskCount = cell?.tasks.length ?? 0;
+          const overdueCount =
+            cell?.tasks.filter(
+              (task) =>
+                task.status !== "done" &&
+                task.due_at !== null &&
+                task.due_at < today,
+            ).length ?? 0;
           return (
             <button
               aria-current={isToday ? "date" : undefined}
@@ -176,11 +186,44 @@ export const FlareMoCalendar = memo(function FlareMoCalendar({
                     (heat(cell?.notes ?? 0) ?? "bg-primary/30"),
                 )}
               />
-              {taskCount > 0 && (
-                <span className="mt-0.5 text-[10px] tabular-nums opacity-60">
-                  {t("calendar.dayTasks", { count: taskCount })}
-                </span>
-              )}
+              {showTaskTitles && taskCount > 0 ? (
+                <>
+                  {cell!.tasks.slice(0, 2).map((task) => (
+                    <span
+                      className={cn(
+                        "mt-0.5 w-full truncate rounded px-0.5 text-left text-[10px] leading-4",
+                        task.status === "done"
+                          ? "text-muted-foreground line-through"
+                          : day.key < today
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-muted text-foreground",
+                      )}
+                      key={task.id}
+                    >
+                      {task.title}
+                    </span>
+                  ))}
+                  {taskCount > 2 && (
+                    <span className="text-[10px] tabular-nums opacity-60">
+                      +{taskCount - 2}
+                    </span>
+                  )}
+                </>
+              ) : taskCount > 0 ? (
+                <>
+                  <span className="mt-0.5 text-[10px] tabular-nums opacity-60">
+                    {overdueCount > 0
+                      ? t("calendar.dayOverdue", { count: overdueCount })
+                      : t("calendar.dayTasks", { count: taskCount })}
+                  </span>
+                  {overdueCount > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 h-1 w-4 max-w-4 rounded-full bg-destructive"
+                    />
+                  )}
+                </>
+              ) : null}
             </button>
           );
         })}
@@ -277,7 +320,9 @@ export const FlareMoMiniCalendar = memo(function FlareMoMiniCalendar({
                 activeDay === day.key ? "bg-accent" : "hover:bg-muted",
                 hasSchedule &&
                   activeDay !== day.key &&
-                  "ring-1 ring-flame-500/40 dark:ring-flame-400/30",
+                  (day.key < today
+                    ? "ring-1 ring-destructive/50 dark:ring-destructive/40"
+                    : "ring-1 ring-flame-500/40 dark:ring-flame-400/30"),
               )}
             >
               <span
