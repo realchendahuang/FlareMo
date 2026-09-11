@@ -18,7 +18,7 @@ test("creates a memo and filters it by tag", async ({ page }) => {
   await expect(composer).toBeVisible();
 
   await composer.fill(content);
-  await page.getByRole("button", { name: /save|保存/i }).click();
+  await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
 
   await expect(page.getByText(content)).toBeVisible();
   await expect(page.getByText(`#${tag}`, { exact: true })).toBeVisible();
@@ -57,7 +57,7 @@ test("queues an offline note and saves it after connectivity returns", async ({
   await expect(composer).toBeVisible();
   await page.context().setOffline(true);
   await composer.fill(content);
-  await page.getByRole("button", { name: /save|保存/i }).click();
+  await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
   await expect(page.getByText(/offline|离线/i)).toBeVisible();
 
   await page.context().setOffline(false);
@@ -231,7 +231,7 @@ test("keeps a composer draft when saving fails", async ({ page }) => {
   await page.goto("/");
   const composer = page.getByRole("textbox", { name: /new note|新笔记/i });
   await composer.fill(content);
-  await page.getByRole("button", { name: /save|保存/i }).click();
+  await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
 
   await expect(page.getByText("temporary create failure")).toBeVisible();
   await expect(composer).toHaveValue(content);
@@ -244,7 +244,7 @@ test("edits and shares a memo", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("textbox", { name: /new note|新笔记/i }).fill(content);
-  await page.getByRole("button", { name: /save|保存/i }).click();
+  await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
   const card = page.locator("article").filter({ hasText: content });
@@ -281,7 +281,7 @@ test("archives and restores a memo", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("textbox", { name: /new note|新笔记/i }).fill(content);
-  await page.getByRole("button", { name: /save|保存/i }).click();
+  await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
   const card = page.locator("article").filter({ hasText: content });
@@ -308,7 +308,7 @@ test("trashes, restores, and hard-deletes a memo", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("textbox", { name: /new note|新笔记/i }).fill(content);
-  await page.getByRole("button", { name: /save|保存/i }).click();
+  await page.getByRole("button", { name: /save|保存|send|发送/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
   const card = page.locator("article").filter({ hasText: content });

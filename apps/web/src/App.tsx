@@ -33,6 +33,13 @@ import { MemoComposer } from "@/components/memo-composer";
 import { MemoList } from "@/components/memo-list";
 import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -122,6 +129,7 @@ export function FlareMoApp() {
   const mobileSearchRef = useRef<HTMLInputElement>(null);
   const [isTimelineScrolled, setIsTimelineScrolled] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [shortcutsOpen, setShowShortcutsOpen] = useState(false);
   const isQueueFlushing = useRef(false);
   const isQueueFlushPending = useRef(false);
   const isCaptureSubmitting = useRef(false);
@@ -184,13 +192,18 @@ export function FlareMoApp() {
         focusSearch();
         return;
       }
-      // "c" jumps straight into the composer, like Memos' quick capture.
+      // "c" jumps straight into the composer for quick capture.
       if (event.key.toLocaleLowerCase() === "c" && !editable) {
         const composer = document.getElementById("flaremo-composer-input");
         if (composer instanceof HTMLTextAreaElement) {
           event.preventDefault();
           composer.focus();
         }
+      }
+      // "?" lists the available keyboard shortcuts.
+      if (event.key === "?" && !editable) {
+        event.preventDefault();
+        setShowShortcutsOpen(true);
       }
     };
 
@@ -640,6 +653,37 @@ export function FlareMoApp() {
           </main>
         </div>
       </div>
+      <Dialog open={shortcutsOpen} onOpenChange={setShowShortcutsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("shortcuts.title")}</DialogTitle>
+            <DialogDescription>{t("shortcuts.subtitle")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col divide-y divide-border/60">
+            {(
+              [
+                ["shortcuts.search", "⌘K / /"],
+                ["shortcuts.composer", "C"],
+                ["shortcuts.send", "Enter"],
+                ["shortcuts.linebreak", "Shift + Enter"],
+                ["shortcuts.saveEdit", "⌘Enter"],
+              ] as const
+            ).map(([key, combo]) => (
+              <div
+                className="flex items-center justify-between gap-3 py-2 text-sm"
+                key={key}
+              >
+                <span className="text-muted-foreground">
+                  {t(key as TranslationKey)}
+                </span>
+                <kbd className="rounded-md border bg-muted px-2 py-0.5 font-mono text-xs">
+                  {combo}
+                </kbd>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
