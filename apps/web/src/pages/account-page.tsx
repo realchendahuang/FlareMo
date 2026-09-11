@@ -316,31 +316,31 @@ export function AccountPage() {
               />
 
               <SecurityPanel
-              changeEmailIsPending={changeEmailMutation.isPending}
-              changePasswordIsPending={changePasswordMutation.isPending}
-              currentEmail={session.data?.user.email ?? ""}
-              currentPassword={currentPassword}
-              deleteAccountIsPending={deleteAccountMutation.isPending}
-              deleteError={deleteError}
-              deletePassword={deletePassword}
-              emailCurrentPassword={emailCurrentPassword}
-              emailError={emailError}
-              emailVerificationPending={emailVerificationPending}
-              isOwner={meQuery.data?.role === "owner"}
-              newPassword={newPassword}
-              newPasswordConfirmation={newPasswordConfirmation}
-              passwordError={passwordError}
-              setCurrentPassword={setCurrentPassword}
-              setDeletePassword={setDeletePassword}
-              setEmailCurrentPassword={setEmailCurrentPassword}
-              setNewEmail={setNewEmail}
-              setNewPassword={setNewPassword}
-              setNewPasswordConfirmation={setNewPasswordConfirmation}
-              t={t}
-              newEmail={newEmail}
-              onEmailSubmit={handleEmailSubmit}
-              onPasswordSubmit={handlePasswordSubmit}
-              onDeleteAccount={handleDeleteAccount}
+                changeEmailIsPending={changeEmailMutation.isPending}
+                changePasswordIsPending={changePasswordMutation.isPending}
+                currentEmail={session.data?.user.email ?? ""}
+                currentPassword={currentPassword}
+                deleteAccountIsPending={deleteAccountMutation.isPending}
+                deleteError={deleteError}
+                deletePassword={deletePassword}
+                emailCurrentPassword={emailCurrentPassword}
+                emailError={emailError}
+                emailVerificationPending={emailVerificationPending}
+                isOwner={meQuery.data?.role === "owner"}
+                newPassword={newPassword}
+                newPasswordConfirmation={newPasswordConfirmation}
+                passwordError={passwordError}
+                setCurrentPassword={setCurrentPassword}
+                setDeletePassword={setDeletePassword}
+                setEmailCurrentPassword={setEmailCurrentPassword}
+                setNewEmail={setNewEmail}
+                setNewPassword={setNewPassword}
+                setNewPasswordConfirmation={setNewPasswordConfirmation}
+                t={t}
+                newEmail={newEmail}
+                onEmailSubmit={handleEmailSubmit}
+                onPasswordSubmit={handlePasswordSubmit}
+                onDeleteAccount={handleDeleteAccount}
               />
 
               <TokensPanel
