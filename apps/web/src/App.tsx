@@ -498,7 +498,7 @@ export function FlareMoApp() {
                 </div>
               </div>
               <SearchBox
-                className="hidden w-[243px] md:block"
+                className="hidden w-[243px] md:block motion-safe:transition-[width] motion-safe:duration-200 focus-within:w-[300px]"
                 inputRef={desktopSearchRef}
                 onToggleSemantic={
                   semanticEnabled
@@ -514,9 +514,12 @@ export function FlareMoApp() {
           </header>
           <main
             className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pt-1 pb-8 lg:px-3"
-            onScroll={(event) =>
-              setIsTimelineScrolled(event.currentTarget.scrollTop > 4)
-            }
+            onScroll={(event) => {
+              const scrolled = event.currentTarget.scrollTop > 4;
+              setIsTimelineScrolled((prev) =>
+                prev === scrolled ? prev : scrolled,
+              );
+            }}
           >
             <SearchBox
               className="mb-3 md:hidden motion-safe:animate-rise"

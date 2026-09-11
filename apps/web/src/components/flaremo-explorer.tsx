@@ -11,7 +11,14 @@ import {
   PencilIcon,
   Trash2Icon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { MemoStatsResponse, TagHierarchyNode } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
 import {
@@ -46,7 +53,7 @@ type FlareMoExplorerProps = {
   onNavigate?: () => void;
 };
 
-export function FlareMoExplorer({
+export const FlareMoExplorer = memo(function FlareMoExplorer({
   activeTag,
   activeView,
   footer,
@@ -82,11 +89,14 @@ export function FlareMoExplorer({
       view: "trashed" as const,
     },
   ];
-  const activityTotal = stats.activity.reduce(
-    (total, day) => total + day.count,
-    0,
+  const activityTotal = useMemo(
+    () => stats.activity.reduce((total, day) => total + day.count, 0),
+    [stats.activity],
   );
-  const monthLabels = buildMonthLabels(stats.activity, locale);
+  const monthLabels = useMemo(
+    () => buildMonthLabels(stats.activity, locale),
+    [stats.activity, locale],
+  );
 
   return (
     <aside className="flex min-h-full flex-col px-3 py-4 text-sm">
@@ -101,7 +111,7 @@ export function FlareMoExplorer({
         <StatCell label={t("explorer.days")} value={stats.active_days} />
       </section>
 
-      <section className="mb-5 px-1">
+      <section className="mb-5 px-1 motion-safe:animate-fade">
         <div
           aria-label={t("explorer.heatmapSummary", {
             count: activityTotal,
@@ -111,15 +121,14 @@ export function FlareMoExplorer({
           data-testid="activity-heatmap"
           role="img"
         >
-          {stats.activity.map((day, index) => (
+          {stats.activity.map((day) => (
             <div
               aria-hidden="true"
               className={cn(
-                "aspect-square rounded-[3px] motion-safe:animate-fade motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
+                "aspect-square rounded-[3px] motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
                 heatmapColor(day.count),
               )}
               key={day.date}
-              style={{ animationDelay: `${index * 4}ms` }}
               title={t("explorer.heatmapDay", {
                 count: day.count,
                 date: day.date,
@@ -244,7 +253,7 @@ export function FlareMoExplorer({
       {footer && <div className="mt-auto px-1 pt-5 pb-1">{footer}</div>}
     </aside>
   );
-}
+});
 
 type TagTreeProps = {
   activeTag?: string;

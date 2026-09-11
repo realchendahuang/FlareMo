@@ -1,4 +1,5 @@
 import { CircleAlertIcon, InboxIcon, Loader2Icon } from "lucide-react";
+import { memo } from "react";
 import type { Attachment, Memo, MemoVisibility, Share } from "@/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +40,29 @@ type MemoListProps = {
   onTagClick?: (tag: string) => void;
 };
 
-export function MemoList({
+function MemoCardSkeleton() {
+  return (
+    <div className="flex flex-col gap-2.5 rounded-xl border border-border/50 bg-card/50 px-3.5 py-4 shadow-xs">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-3.5 rounded-full" />
+          <Skeleton className="h-3 w-20 rounded" />
+        </div>
+        <Skeleton className="h-4 w-12 rounded" />
+      </div>
+      <div className="space-y-1.5 py-1">
+        <Skeleton className="h-3.5 w-full rounded" />
+        <Skeleton className="h-3.5 w-3/4 rounded" />
+      </div>
+      <div className="flex items-center gap-1.5 pt-0.5">
+        <Skeleton className="h-5 w-14 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+export const MemoList = memo(function MemoList({
   isLoading,
   hasError,
   hasNextPage,
@@ -64,10 +87,10 @@ export function MemoList({
 
   if (isLoading && !hasError) {
     return (
-      <div className="flex flex-col gap-4 pt-2 motion-safe:animate-fade">
-        <Skeleton className="h-20 rounded-xl" />
-        <Skeleton className="h-16 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
+      <div className="flex flex-col gap-2.5 pt-1 motion-safe:animate-fade">
+        <MemoCardSkeleton />
+        <MemoCardSkeleton />
+        <MemoCardSkeleton />
       </div>
     );
   }
@@ -115,7 +138,7 @@ export function MemoList({
 
   return (
     <>
-      <div className="flex flex-col divide-y motion-safe:animate-fade">
+      <div className="flex flex-col gap-2.5 motion-safe:animate-fade">
         {memos.map((memo, index) => (
           <MemoCard
             attachments={attachmentsByMemo.get(memo.name) ?? []}
@@ -153,4 +176,4 @@ export function MemoList({
       )}
     </>
   );
-}
+});

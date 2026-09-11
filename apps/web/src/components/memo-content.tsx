@@ -1,8 +1,9 @@
+import { memo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 
-export function MemoContent({
+export const MemoContent = memo(function MemoContent({
   className,
   content,
 }: {
@@ -35,4 +36,4 @@ export function MemoContent({
       </Markdown>
     </div>
   );
-}
+});

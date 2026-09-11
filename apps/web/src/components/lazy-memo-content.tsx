@@ -1,4 +1,4 @@
-import { Component, lazy, type ReactNode, Suspense } from "react";
+import { Component, lazy, memo, type ReactNode, Suspense } from "react";
 
 const MarkdownMemoContent = lazy(() =>
   import("./memo-content").then((module) => ({ default: module.MemoContent })),
@@ -38,7 +38,7 @@ class MemoContentErrorBoundary extends Component<
   }
 }
 
-export function LazyMemoContent({
+export const LazyMemoContent = memo(function LazyMemoContent({
   className,
   content,
 }: {
@@ -56,4 +56,4 @@ export function LazyMemoContent({
       </Suspense>
     </MemoContentErrorBoundary>
   );
-}
+});

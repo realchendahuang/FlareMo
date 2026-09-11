@@ -13,7 +13,7 @@ import {
   ShieldIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { Attachment, Memo, MemoState, MemoVisibility, Share } from "@/api";
 import { AttachmentGallery } from "@/components/attachment-gallery";
 import { LazyMemoContent } from "@/components/lazy-memo-content";
@@ -70,7 +70,7 @@ type MemoCardProps = {
   canManage?: boolean;
 };
 
-export function MemoCard({
+export const MemoCard = memo(function MemoCard({
   memo,
   attachments,
   onArchive,
@@ -125,7 +125,9 @@ export function MemoCard({
   return (
     <article
       className={cn(
-        "group relative flex w-full flex-col gap-2 rounded-xl px-3 py-4 text-card-foreground [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:transition-[background-color,transform,box-shadow] motion-safe:duration-150 hover:bg-card hover:shadow-xs motion-safe:hover:-translate-y-px",
+        "group relative flex w-full flex-col gap-2 rounded-xl border border-border/50 bg-card/60 px-3.5 py-4 text-card-foreground [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:animate-rise motion-safe:transition-[background-color,border-color,transform,box-shadow] motion-safe:duration-150 hover:border-border hover:bg-card hover:shadow-xs motion-safe:hover:-translate-y-px",
+        memo.pinned &&
+          "border-flame-300/40 bg-flame-50/35 dark:border-flame-400/25 dark:bg-flame-400/5",
         isEditing && "bg-card shadow-xs ring-1 ring-flame-400/40",
       )}
       style={{ animationDelay: `${Math.min(index, 7) * 35}ms` }}
@@ -367,7 +369,7 @@ export function MemoCard({
       </AlertDialog>
     </article>
   );
-}
+});
 
 function VisibilityBadge({ visibility }: { visibility: MemoVisibility }) {
   const { t } = useI18n();
