@@ -263,8 +263,16 @@ test("edits and shares a memo", async ({ page }) => {
   ).toHaveCount(0);
 
   const updatedCard = page.locator("article").filter({ hasText: updated });
+  // Share now opens the Feishu-style dialog: pick public, confirm, and the
+  // public link appears on the card.
   await updatedCard.getByRole("button", { name: /actions|操作/i }).click();
   await page.getByRole("menuitem", { name: /share|分享/i }).click();
+  const shareDialog = page.getByRole("dialog");
+  await shareDialog
+    .getByRole("button", { name: /全网公开|Public web/i })
+    .click();
+  await shareDialog.getByRole("button", { name: /保存|^Save$/i }).click();
+  await expect(shareDialog).toHaveCount(0);
   await expect(updatedCard.getByText(/\/share\//)).toBeVisible();
 });
 
