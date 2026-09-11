@@ -36,7 +36,16 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
     page.getByRole("heading", { name: /账户与访问|Account/i }),
   ).toBeVisible();
 
-  await page.getByRole("tab", { name: /访问令牌|Access tokens/i }).click();
+  // Access tokens now live on the single Account tab, stacked under the
+  // profile and security cards.
+  await page
+    .locator('div[data-slot="card-title"], h3')
+    .filter({ hasText: /个人访问令牌|Personal access tokens/i })
+    .first()
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByText(/个人访问令牌|Personal access tokens/i).first(),
+  ).toBeVisible();
 
   const tokenName = `UI E2E client ${Date.now()}`;
   // The create-token form lives in a dialog opened from the card header.
