@@ -25,13 +25,8 @@ export function PublicSharePage({ token }: { token: string }) {
   return (
     <div className="min-h-svh bg-background px-4 py-6 sm:py-10">
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-        <header className="flex items-end justify-between border-b pb-4">
-          <div>
-            <FlareMoLogo labelClassName="text-lg" markClassName="size-7" />
-            <div className="text-sm text-muted-foreground">
-              {t("share.title")}
-            </div>
-          </div>
+        <header className="border-b pb-4">
+          <FlareMoLogo labelClassName="text-lg" markClassName="size-7" />
         </header>
         {shareQuery.isLoading && (
           <div className="flex flex-col gap-3">
