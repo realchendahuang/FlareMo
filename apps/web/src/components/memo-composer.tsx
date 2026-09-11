@@ -94,6 +94,16 @@ export function MemoComposer({
         value={draft.content}
         onChange={(event) => updateContent(event.target.value)}
         onKeyDown={(event) => {
+          // Enter sends; IME composition and Shift+Enter never submit.
+          if (
+            event.key === "Enter" &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing
+          ) {
+            event.preventDefault();
+            void submit();
+            return;
+          }
           if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
             event.preventDefault();
             void submit();
@@ -177,20 +187,23 @@ export function MemoComposer({
           </Button>
         </div>
         <Button
-          className="size-8 rounded-lg px-0"
+          className="h-8 shrink-0 self-center px-3"
           disabled={isPending || !canSubmit}
           type="submit"
           variant="brand"
         >
           {isPending ? (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
+            <>
+              <Loader2Icon className="animate-spin" data-icon="inline-start" />
+              {t("composer.sending")}
+            </>
           ) : (
             <SendIcon
               className="motion-safe:animate-scale-in"
               data-icon="inline-start"
             />
           )}
-          <span className="sr-only">{t("common.save")}</span>
+          <span>{t("composer.send")}</span>
         </Button>
       </div>
     </form>
