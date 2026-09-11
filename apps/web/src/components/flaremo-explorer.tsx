@@ -3,6 +3,7 @@ import {
   ArchiveIcon,
   BrainIcon,
   CalendarDaysIcon,
+  CalendarIcon,
   ChevronRightIcon,
   FolderKanbanIcon,
   FootprintsIcon,
@@ -21,6 +22,7 @@ import {
 } from "react";
 import type { MemoStatsResponse, TagHierarchyNode } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
+import { MiniCalendarPanel } from "@/components/flaremo-mini-calendar-panel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,6 +150,10 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         </div>
       </section>
 
+      <section className="mb-4 px-1">
+        <MiniCalendarPanel activity={stats.activity} />
+      </section>
+
       <nav aria-label={t("sidebar.navigation")} className="flex flex-col gap-1">
         {navItems.map((item) => (
           <button
@@ -206,6 +212,14 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         >
           <BrainIcon />
           <span className="min-w-0 flex-1 truncate">{t("nav.memory")}</span>
+        </Link>
+        <Link
+          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+          onClick={onNavigate}
+          to="/calendar"
+        >
+          <CalendarIcon />
+          <span className="min-w-0 flex-1 truncate">{t("nav.calendar")}</span>
         </Link>
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"

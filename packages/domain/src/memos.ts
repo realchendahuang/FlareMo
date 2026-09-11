@@ -103,6 +103,13 @@ export async function createMemo(
   }
   const tags = normalizeMemoTags(payload.tags ?? extractTags(input.content));
   payload.tags = tags;
+  // The task-list flags are domain truth, not client courtesy: recomputing
+  // keeps every write path (web, IM, agents) stamped even when the client
+  // sends no property at all.
+  payload.property = {
+    ...payload.property,
+    has_incomplete_tasks: hasUncheckedTaskList(input.content),
+  };
   const row = {
     id: createResourceId("memos"),
     userId: user.id,
@@ -608,7 +615,13 @@ export async function updateMemo(
   const tags = metadataChanged
     ? normalizeMemoTags(nextPayload.tags ?? extractTags(nextContent))
     : [];
-  if (metadataChanged) nextPayload.tags = tags;
+  if (metadataChanged) {
+    nextPayload.tags = tags;
+    nextPayload.property = {
+      ...nextPayload.property,
+      has_incomplete_tasks: hasUncheckedTaskList(nextContent),
+    };
+  }
 
   const shouldCreateRevision =
     input.content !== undefined ||
@@ -862,6 +875,12 @@ export function normalizeMemoClientId(value: unknown) {
   if (typeof value !== "string") return undefined;
   const clientId = value.trim();
   return clientId && clientId.length <= 128 ? clientId : undefined;
+}
+
+// Unchecked item of a Markdown task list: `- [ ]`, `* [ ]`, `+ [ ]` or an
+// ordered `1. [ ]` variant, at the start of a line.
+export function hasUncheckedTaskList(content: string): boolean {
+  return /(?:^|\n)[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[ \]/.test(content);
 }
 
 function encodePageToken(value: MemoCursor) {

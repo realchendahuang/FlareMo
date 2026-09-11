@@ -1,6 +1,7 @@
 export * from "./attachments";
 export * from "./auth";
 export * from "./branding";
+export * from "./calendar-view";
 export * from "./data-tasks";
 export * from "./embedding";
 export * from "./embedding-outbox";

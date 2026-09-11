@@ -1,4 +1,5 @@
 import {
+  calendarViewQuerySchema,
   createMemoryFromMemoSchema,
   createMemoSchema,
   dailyReviewQuerySchema,
@@ -24,6 +25,7 @@ import {
   deleteTag,
   estimateTokenCount,
   getBranding,
+  getCalendarView,
   getFlaremoUserNames,
   getMemoById,
   getMemoStats,
@@ -159,6 +161,19 @@ appApi.get("/stats", zValidator("query", memoStatsQuerySchema), async (c) => {
     return jsonError(c, error);
   }
 });
+
+appApi.get(
+  "/calendar",
+  zValidator("query", calendarViewQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      return c.json(await getCalendarView(db, user, c.req.valid("query")));
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 appApi.get(
   "/search/semantic",

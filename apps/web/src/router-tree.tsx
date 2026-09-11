@@ -86,6 +86,11 @@ const ProjectsPage = lazy(() =>
     default: module.ProjectsPage,
   })),
 );
+const CalendarPage = lazy(() =>
+  import("@/pages/calendar-page").then((module) => ({
+    default: module.CalendarPage,
+  })),
+);
 
 function PublicShareRoutePage() {
   const { token } = shareRoute.useParams();
@@ -342,6 +347,22 @@ const projectsRoute = createRoute({
   component: ProjectsRoutePage,
 });
 
+function CalendarRoutePage() {
+  return (
+    <AuthenticatedRoute>
+      <Suspense fallback={<RouteLoading />}>
+        <CalendarPage />
+      </Suspense>
+    </AuthenticatedRoute>
+  );
+}
+
+const calendarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/calendar",
+  component: CalendarRoutePage,
+});
+
 const router = createRouter({
   defaultPreload: "intent",
   routeTree: rootRoute.addChildren([
@@ -361,6 +382,7 @@ const router = createRouter({
     randomWalkRoute,
     memoryRoute,
     projectsRoute,
+    calendarRoute,
   ]),
   scrollRestoration: true,
 });

@@ -1,6 +1,7 @@
 import type {
   AppNotificationDto,
   AttachmentDto,
+  CalendarView,
   CreateMemoInput,
   CreateMemoryInput,
   CreateProjectInput,
@@ -66,6 +67,7 @@ export type UpdateMemoryRequest = UpdateMemoryInput;
 
 export type Project = ProjectDto;
 export type Task = TaskDto;
+export type Calendar = CalendarView;
 export type CreateProjectRequest = CreateProjectInput;
 export type UpdateProjectRequest = UpdateProjectInput;
 export type CreateTaskRequest = CreateTaskInput;
@@ -388,7 +390,7 @@ export async function deleteProject(id: string) {
   );
 }
 
-// --- Tasks ------------------------------------------------------------------
+// --- Tasks & calendar ---------------------------------------------------------
 
 export async function listTasks(
   params: { project_id?: string; status?: Task["status"] } = {},
@@ -398,6 +400,11 @@ export async function listTasks(
   if (params.status) query.set("status", params.status);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return apiRequest<{ tasks: Task[] }>(`/api/app/tasks${suffix}`);
+}
+
+export async function getCalendarView(params: { from: string; to: string }) {
+  const query = new URLSearchParams({ from: params.from, to: params.to });
+  return apiRequest<Calendar>(`/api/app/calendar?${query.toString()}`);
 }
 
 export async function createTask(input: CreateTaskRequest) {
