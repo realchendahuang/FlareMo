@@ -31,6 +31,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -38,7 +46,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useI18n } from "@/i18n";
 import {
   extractTags,
@@ -97,14 +104,40 @@ export const MemoCard = memo(function MemoCard({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [draftContent, setDraftContent] = useState(memo.content);
-  const [draftVisibility, setDraftVisibility] = useState<MemoVisibility>(
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareVisibility, setShareVisibility] = useState<MemoVisibility>(
     memo.visibility,
   );
+  const [isSharing, setIsSharing] = useState(false);
 
   const startEditing = () => {
     setDraftContent(memo.content);
-    setDraftVisibility(memo.visibility);
     setIsEditing(true);
+  };
+
+  const openShareDialog = () => {
+    setShareVisibility(memo.visibility);
+    setIsShareOpen(true);
+  };
+
+  // Feishu-style share panel: visibility changed after publishing; picking
+  // the public option also provisions the public link token.
+  const saveSharing = async () => {
+    setIsSharing(true);
+    try {
+      await onUpdate(id, {
+        content: memo.content,
+        visibility: shareVisibility,
+      });
+      if (shareVisibility === "public" && !share) {
+        onShare(id);
+      }
+      setIsShareOpen(false);
+    } catch {
+      // The mutation displays the error and the dialog stays open.
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const saveEditing = async () => {
@@ -112,7 +145,7 @@ export const MemoCard = memo(function MemoCard({
     try {
       await onUpdate(id, {
         content: draftContent,
-        visibility: draftVisibility,
+        visibility: memo.visibility,
       });
       setIsEditing(false);
     } catch {
@@ -203,7 +236,7 @@ export const MemoCard = memo(function MemoCard({
                           ? t("memo.moveToTimeline")
                           : t("view.archive")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onShare(id)}>
+                      <DropdownMenuItem onClick={openShareDialog}>
                         <Share2Icon />
                         {t("memo.share")}
                       </DropdownMenuItem>
@@ -238,33 +271,6 @@ export const MemoCard = memo(function MemoCard({
             }}
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <ToggleGroup
-              type="single"
-              value={draftVisibility}
-              onValueChange={(value) => {
-                if (!value) return;
-                if (
-                  value === "public" &&
-                  draftVisibility !== "public" &&
-                  !window.confirm(t("visibility.publicConfirm"))
-                ) {
-                  return;
-                }
-                setDraftVisibility(value as MemoVisibility);
-              }}
-              size="sm"
-              variant="outline"
-            >
-              <ToggleGroupItem value="private">
-                {t("visibility.private")}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="protected">
-                {t("visibility.protected")}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="public">
-                {t("visibility.public")}
-              </ToggleGroupItem>
-            </ToggleGroup>
             <div className="flex items-center gap-2">
               <Button
                 disabled={isSaving}
@@ -367,6 +373,89 @@ export const MemoCard = memo(function MemoCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("share.title")}</DialogTitle>
+            <DialogDescription>{t("share.subtitle")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            {(
+              [
+                ["private", LockIcon],
+                ["protected", ShieldIcon],
+                ["public", Globe2Icon],
+              ] as const
+            ).map(([value, Icon]) => {
+              const selected = shareVisibility === value;
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={cn(
+                    "flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm motion-safe:transition-colors",
+                    selected
+                      ? "border-flame-400/60 bg-flame-400/8"
+                      : "border-transparent bg-muted/40 hover:bg-muted",
+                  )}
+                  key={value}
+                  type="button"
+                  onClick={() => setShareVisibility(value)}
+                >
+                  <Icon
+                    className={cn(
+                      "mt-0.5 size-4 shrink-0",
+                      selected ? "text-flame-500" : "text-muted-foreground",
+                    )}
+                  />
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-medium">
+                      {t(`visibility.${value}`)}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-xs",
+                        selected
+                          ? "text-muted-foreground"
+                          : "text-muted-foreground/80",
+                      )}
+                    >
+                      {t(`share.desc.${value}`)}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {shareVisibility === "public" && shareUrl && (
+            <p className="truncate rounded-md bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+              {shareUrl}
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              disabled={isSharing}
+              type="button"
+              variant="ghost"
+              onClick={() => setIsShareOpen(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              disabled={isSharing}
+              onClick={() => void saveSharing()}
+              type="button"
+            >
+              {isSharing && (
+                <Loader2Icon
+                  className="animate-spin"
+                  data-icon="inline-start"
+                />
+              )}
+              {t("share.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 });
