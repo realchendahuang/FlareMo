@@ -42,6 +42,27 @@ FlareMo 以 Memos 作为生态锚点，但不复制 Memos 的内部实现。
 
 FlareMo 的实际目标不是“能导入 Memos 数据的普通笔记 App”，而是“Cloudflare-native 的 Memos-compatible 个人知识系统”。
 
+## 产品定位与兼容边界
+
+FlareMo 的产品目标是 **AI native 的个人知识管理**：一个人用是安静的私人笔记，一个团队用是共享知识库，语义检索、AI 记忆、Agent 读写是产品的原生部分而不是外挂。这与 Memos 的目标不同，因此 **FlareMo 不以「完全兼容 Memos」为目标**。
+
+Memos 在这里的角色是**生态底座**，不是要复刻的对象：
+
+- **兼容是手段，不是目标。** 复用 Memos 的领域模型、资源命名、`/api/v1` 协议、OpenAPI、导入导出和 MCP 方向，是为了直接接上它的客户端、脚本和周边工具生态，少走弯路。
+- **允许并预期超出上游。** Agent Memory、语义检索与「找一找」、项目与任务、音频文稿阅读等能力在 Memos 中没有对应物，属 FlareMo 原生面（`/api/app/*`），由 FlareMo 自己的需求定义，不受上游形态约束。`AIService.Transcribe` 等上游接口在 FlareMo 明确返回 `501`，也说明 AI 是 FlareMo 的独立赛道而非兼容目标。
+- **上游能力按需兼容。** 只在我们需要、且语义说得通的时候接入，不为了对齐而实现无业务价值的上游资源。
+- **与上游分叉是预期结果。** 底座借它的形，路自己走；兼容面不构成产品演进的约束。
+
+### 兼容面的工程纪律
+
+`/api/v1/*` 的**既有字段形状与语义是第三方客户端的契约**，由 `memos-compatibility.test.ts`、`memos-transport.test.ts` 等测试锁定。第三方客户端按上游行为编写、不会阅读 FlareMo 文档，因此：
+
+- **只做加法，不改形状。** 新增字段不会破坏兼容（客户端忽略未知字段）；但改动既有字段的语义或类型会让第三方客户端静默出错。
+- **新能力优先落在原生面。** FlareMo 独有能力走 `/api/app/*`（如 branding、account、admin、memory、projects、tasks 已是先例）。
+- **memo payload 是可自由扩展的通道。** `memoPayloadSchema` 为 `.passthrough()`，新增键零 migration、零兼容风险，适合需要随 memo 一起读写、又不想动 `/api/v1` 响应形状的扩展。
+
+这条纪律的目的不是限制演进，而是保证「复用上游生态」与「自行扩展」两条路互不干扰。
+
 ## 参考项目定位
 
 ### Memos

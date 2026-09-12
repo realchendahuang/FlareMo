@@ -119,6 +119,22 @@ curl "$FLAREMO_URL/api/v1/memos" \
 
 D1 is the source of truth for notes, users, relations, shares, settings, and attachment metadata. R2 stores only binary objects and export bundles.
 
+## Positioning: AI-native personal knowledge management
+
+FlareMo is built as **AI-native personal knowledge management**: use it alone and it is a quiet personal notebook, use it with a team and it becomes a shared knowledge base, with semantic search, AI memory, and agent read/write as first-class parts of the product. Its goals differ from Memos, so **full compatibility is not a goal**.
+
+Memos is the ecosystem anchor FlareMo chose, not a template to reproduce:
+
+- **Reuse what works**: the domain model, resource naming, the `/api/v1` protocol, OpenAPI, import/export, and the MCP direction, along with the third-party clients and scripts built around them.
+- **Extend where upstream has nothing**: Agent Memory, semantic search ("Find"), projects and tasks, and audio-transcript reading are FlareMo-native capabilities, not constrained by upstream shape.
+- **Take upstream features on demand**: adopt them only where we need them and the semantics make sense. Upstream interfaces such as `AIService.Transcribe` return `501` in FlareMo, because AI is FlareMo's own track.
+
+**Diverging from upstream over time is an expected outcome, not an accident.** Compatibility is a way to start from a mature foundation and avoid wasted effort, not a product goal in itself; FlareMo's direction is defined by its own needs.
+
+One engineering discipline applies to the compatibility surface: the **existing fields and semantics of `/api/v1/*` are a contract for third-party clients**, so we only add to it and never reshape it. New capabilities go to the FlareMo-native `/api/app/*` surface first, or into the freely extensible memo payload. That keeps the Memos ecosystem usable without limiting where FlareMo can grow. See the compatibility strategy section in [docs/architecture-notes.md](./docs/architecture-notes.md).
+
+---
+
 ## Memos Compatibility
 
 FlareMo uses Memos as an ecosystem anchor, not as an internal server fork. The compatibility layer is an adapter over FlareMo domain services.

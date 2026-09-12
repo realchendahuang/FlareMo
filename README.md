@@ -242,6 +242,22 @@ flowchart LR
 
 ---
 
+## 定位：AI native 的个人知识管理
+
+FlareMo 要做的是 **AI native 的个人知识管理**——一个人用是安静的私人笔记，一个团队用是共享的知识库，并且把语义检索、AI 记忆、Agent 读写这些能力做成产品的原生部分。它和 Memos 的目标不一样，所以**不以「完全兼容」为目标**。
+
+Memos 是 FlareMo 选定的生态底座，不是要复刻的对象：
+
+- **能复用的就复用**：领域模型、资源命名、`/api/v1` 协议、OpenAPI、导入导出和 MCP 方向，以及围绕它们生长的第三方客户端与脚本生态。
+- **上游没有的，自己扩展**：Agent Memory、语义检索与「找一找」、项目与任务、音频文稿阅读等，都是 FlareMo 原生能力，不受上游形态约束。
+- **上游有的，也按需兼容**：只在我们需要、且语义说得通的时候接。`AIService.Transcribe` 这类上游接口在 FlareMo 明确返回 `501`，因为 AI 能力是 FlareMo 自己的赛道。
+
+**未来与上游分叉是预期结果，不是意外。** 兼容是「借一个成熟底座、少走弯路」的手段，不是产品目标本身；FlareMo 的方向由自己的需求定义。
+
+兼容面有一条工程纪律：`/api/v1/*` 的**既有字段与语义是第三方客户端的契约**，只做加法、不改形状——新增能力优先落在 FlareMo 原生面 `/api/app/*`，或写入可自由扩展的 memo payload。这样既能持续复用 Memos 生态，也不妨碍 FlareMo 往前长。详见 [docs/architecture-notes.md](./docs/architecture-notes.md) 的兼容策略章节。
+
+---
+
 ## Memos 兼容面
 
 FlareMo 保留 Memos 风格的核心实体，目标是复用 Memos 的客户端、脚本、导入导出和周边工具，而不是把原版 Memos 的 Go server 搬过来。
