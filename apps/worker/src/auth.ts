@@ -208,7 +208,7 @@ export function createFlareMoAuth(
     emailAndPassword: {
       enabled: true,
       disableSignUp: !options.allowBootstrapSignUp,
-      minPasswordLength: 12,
+      minPasswordLength: 8,
       maxPasswordLength: 128,
       autoSignIn: false,
       // Password resets must invalidate every session, including sessions

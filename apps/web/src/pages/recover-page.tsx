@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 8;
 
 export function RecoverPage() {
   const { t } = useI18n();

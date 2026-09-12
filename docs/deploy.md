@@ -112,7 +112,7 @@ curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
 
 - Worker secret `FLAREMO_BOOTSTRAP_SECRET`。
 - 初始 Better Auth 用户名、显示名和邮箱。
-- 初始密码（12–128 个字符）。
+- 初始密码（8–128 个字符）。
 
 如果生产实例启用了 Cloudflare Access，先通过 Access 外层 policy 再打开 `/setup`。整个输入过程应只发生在 HTTPS 页面和部署者自己的密码管理器中；不要把 secret、密码或完整表单内容放入 shell 命令、shell history、Agent 输出、issue、日志或聊天。提交成功后页面会转到 `/login`，公共 signup 关闭；之后在账户页面修改密码或撤销其他 session。
 

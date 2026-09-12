@@ -705,9 +705,9 @@ async function connectUserMethod(
       const user = record(body.user);
       const username = requiredString(user.username, "user.username");
       const password = requiredString(user.password, "user.password");
-      if (password.length < 12) {
+      if (password.length < 8) {
         throw new ConnectInputError(
-          "user.password must be at least 12 characters",
+          "user.password must be at least 8 characters",
         );
       }
       const displayName =
@@ -3049,8 +3049,8 @@ async function connectAuthSignUp(
     const body = record(value);
     const username = requiredString(body.username, "username");
     const password = requiredString(body.password, "password");
-    if (password.length < 12) {
-      throw new ConnectInputError("password must be at least 12 characters");
+    if (password.length < 8) {
+      throw new ConnectInputError("password must be at least 8 characters");
     }
     const displayName =
       optionalString(body.displayName) ??

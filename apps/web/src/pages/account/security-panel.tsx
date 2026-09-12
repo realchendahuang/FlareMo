@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { TranslationKey } from "@/i18n";
 
-export const MIN_PASSWORD_LENGTH = 12;
+export const MIN_PASSWORD_LENGTH = 8;
 
 type SecurityPanelProps = {
   changeEmailIsPending: boolean;
