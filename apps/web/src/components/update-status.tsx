@@ -15,6 +15,9 @@ import {
 import { useI18n } from "@/i18n";
 import { compareVersions } from "@/lib/version";
 
+// Two states, two shapes. Up to date: one line + one link — most visits land
+// here, so nothing more earns its place. Update available: a current → latest
+// arrow with the release date, one primary action.
 export function UpdateStatus() {
   const { locale, t } = useI18n();
   const appInfoQuery = useQuery({
@@ -39,6 +42,30 @@ export function UpdateStatus() {
     appInfo && release && compareVersions(release.version, appInfo.version) > 0,
   );
   const updateUrl = appInfo?.update_workflow_url ?? appInfo?.update_guide_url;
+  const published = release?.published_at
+    ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
+        new Date(release.published_at),
+      )
+    : null;
+
+  const versionLine = appInfo
+    ? published
+      ? t("update.versionLine", { current: appInfo.version, published })
+      : t("update.versionLineNoDate", { current: appInfo.version })
+    : null;
+  const rangeLine =
+    appInfo && release
+      ? published
+        ? t("update.rangeLine", {
+            current: appInfo.version,
+            latest: release.version,
+            published,
+          })
+        : t("update.rangeLineNoDate", {
+            current: appInfo.version,
+            latest: release.version,
+          })
+      : null;
 
   return (
     <Dialog>
@@ -65,62 +92,56 @@ export function UpdateStatus() {
       <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-2 pr-7">
-            <DialogTitle>{t("update.title")}</DialogTitle>
-            {updateAvailable && <Badge>{t("update.available")}</Badge>}
+            <DialogTitle>
+              {updateAvailable && release
+                ? t("update.availableTitle", { version: release.version })
+                : t("update.title")}
+            </DialogTitle>
+            {updateAvailable && <Badge>{t("update.badge")}</Badge>}
           </div>
           <DialogDescription>
-            {updateAvailable
-              ? t("update.availableDescription")
-              : t("update.currentDescription")}
+            {rangeLine ??
+              versionLine ??
+              (releaseQuery.isPending
+                ? t("update.loading")
+                : t("update.checkFailed"))}
           </DialogDescription>
         </DialogHeader>
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg bg-muted/60 p-3 text-sm">
-          <dt className="text-muted-foreground">{t("update.current")}</dt>
-          <dd className="font-medium">
-            {appInfo ? `v${appInfo.version}` : t("common.loading")}
-          </dd>
-          <dt className="text-muted-foreground">{t("update.latest")}</dt>
-          <dd className="font-medium">
-            {release ? `v${release.version}` : t("update.unavailable")}
-          </dd>
-          {release?.published_at && (
-            <>
-              <dt className="text-muted-foreground">{t("update.published")}</dt>
-              <dd>
-                {new Intl.DateTimeFormat(locale, {
-                  dateStyle: "medium",
-                }).format(new Date(release.published_at))}
-              </dd>
-            </>
-          )}
-        </dl>
-
-        {!appInfo?.update_workflow_url && (
+        {updateAvailable && !appInfo?.update_workflow_url && (
           <p className="text-xs text-muted-foreground">
             {t("update.repositoryNotConfigured")}
           </p>
         )}
 
         <DialogFooter>
-          {release && (
+          {release && updateAvailable ? (
             <Button asChild variant="outline">
               <a href={release.url} rel="noreferrer" target="_blank">
                 {t("update.releaseNotes")}
                 <ExternalLinkIcon />
               </a>
             </Button>
-          )}
-          {updateUrl && (
-            <Button asChild>
-              <a href={updateUrl} rel="noreferrer" target="_blank">
-                {appInfo?.update_workflow_url
-                  ? t("update.goToUpdate")
-                  : t("update.guide")}
+          ) : null}
+          {updateAvailable ? (
+            <Button asChild disabled={!updateUrl}>
+              <a
+                href={updateUrl ?? appInfo?.update_guide_url}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {t("update.guide")}
                 <ExternalLinkIcon />
               </a>
             </Button>
-          )}
+          ) : release ? (
+            <Button asChild variant="outline">
+              <a href={release.url} rel="noreferrer" target="_blank">
+                {t("update.releaseNotes")}
+                <ExternalLinkIcon />
+              </a>
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -396,8 +396,9 @@ test("shows the installed version and safe update fallback", async ({
 
   await page.goto("/");
 
+  // Up-to-date state names itself; the version pin lives next to the bell.
   const updateButton = page.getByRole("button", {
-    name: /system update|系统更新/i,
+    name: /up to date|已是最新|update/i,
   });
   await expect(updateButton).toBeVisible();
   await expect(updateButton).toContainText(version);
@@ -406,9 +407,14 @@ test("shows the installed version and safe update fallback", async ({
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(version);
+  // No update is available, so the dialog carries no upgrade action: only the
+  // release-notes link (self-hosted fallback opens the guide instead).
   await expect(
     dialog.getByRole("link", { name: /update guide|升级指南/i }),
-  ).toHaveAttribute("href", /docs\/update\.md$/);
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("link", { name: /release notes|版本说明/i }),
+  ).toBeVisible();
 });
 
 test("creates, follows, reads, and removes memo relations", async ({
