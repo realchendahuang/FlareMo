@@ -276,7 +276,10 @@ function MemoDetail({
 }) {
   const { t } = useI18n();
   return (
-    <Card>
+    // overflow-clip keeps the rounded clipping but, unlike the Card base's
+    // overflow-hidden, does not turn the card into a scroll container — the
+    // sticky reading transport needs the viewport as its scrollport.
+    <Card className="overflow-clip">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-sm font-normal text-muted-foreground">

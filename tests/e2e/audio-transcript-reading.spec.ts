@@ -120,3 +120,181 @@ test("collapses a long note in the timeline and expands it on demand", async ({
     card.getByRole("button", { name: /show less|收起/i }),
   ).toBeVisible();
 });
+
+const FILLER = Array.from(
+  { length: 40 },
+  (_, i) =>
+    `Filler paragraph ${i} carries enough words to occupy vertical space while the transcript scrolls.`,
+).join("\n\n");
+
+test("keeps the sticky transport in view while the transcript scrolls", async ({
+  page,
+}) => {
+  const marker = Date.now();
+  const content = [
+    "# Interview transcript",
+    "## Opening",
+    "[00:00:00] Welcome to the session.",
+    FILLER,
+    "## Closing",
+    "[00:00:01] Thanks for listening.",
+    `Marker ${marker}`,
+  ].join("\n\n");
+
+  const memoId = await createTranscriptMemo(page.request, content);
+  await page.goto(`/memo/${memoId}`);
+  const bar = page.getByTestId("reading-time");
+  await expect(bar).toBeVisible();
+
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await expect
+    .poll(async () => (await bar.boundingBox())?.y ?? -1)
+    .toBeGreaterThanOrEqual(0);
+  const y = (await bar.boundingBox())?.y ?? -1;
+  expect(y).toBeLessThan(100);
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThanOrEqual(900);
+});
+
+test("loads the audio so the player has real duration", async ({ page }) => {
+  const content = [
+    "# Interview transcript",
+    "## Opening",
+    "[00:00:00] Welcome.",
+    "## Closing",
+    "[00:00:01] Bye.",
+  ].join("\n\n");
+
+  const memoId = await createTranscriptMemo(page.request, content);
+  await page.goto(`/memo/${memoId}`);
+  await expect(page.getByTestId("reading-time")).toBeVisible();
+  await page.waitForFunction(
+    () => {
+      const audio = document.querySelector("audio");
+      return (
+        audio !== null &&
+        audio.readyState >= 1 &&
+        Number.isFinite(audio.duration) &&
+        audio.duration > 0
+      );
+    },
+    undefined,
+    { timeout: 15_000 },
+  );
+});
+
+test("scrolls the active paragraph into view when following playback", async ({
+  page,
+}) => {
+  const content = [
+    "# Interview transcript",
+    "## Opening",
+    "[00:00:00] Welcome to the session.",
+    FILLER,
+    "## Closing",
+    "[00:00:01] This final cue sits far below the first screen.",
+    FILLER,
+  ].join("\n\n");
+
+  const memoId = await createTranscriptMemo(page.request, content);
+  await page.goto(`/memo/${memoId}`);
+  const cue = page.getByRole("button", { name: "00:00:01" });
+  await expect(cue).toBeVisible();
+  await cue.click();
+
+  // Follow-on-seek must land the active paragraph around mid-viewport, not
+  // merely where Playwright's click auto-scroll parked it.
+  await page.waitForFunction(
+    () => {
+      const target = Array.from(document.querySelectorAll("button")).find(
+        (button) => button.textContent === "00:00:01",
+      );
+      const paragraph = target?.closest("p");
+      if (!paragraph) return false;
+      const rect = paragraph.getBoundingClientRect();
+      return (
+        rect.top >= 0 &&
+        rect.bottom <= window.innerHeight &&
+        rect.top + rect.height / 2 < window.innerHeight * 0.75
+      );
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+});
+
+test("keeps the transcript readable on a phone", async ({
+  browser,
+  request,
+}) => {
+  const content = [
+    "# Interview transcript",
+    "## Opening",
+    "[00:00:00] Welcome.",
+    "## Closing",
+    "[00:00:01] Bye.",
+  ].join("\n\n");
+
+  const memoId = await createTranscriptMemo(request, content);
+  const mobile = await browser.newPage({
+    viewport: { width: 390, height: 800 },
+  });
+  await mobile.goto(`/memo/${memoId}`);
+  await expect(mobile.getByTestId("reading-time")).toBeVisible();
+
+  const layout = await mobile.evaluate(() => {
+    const body = document.querySelector(".memo-markdown");
+    const trigger = Array.from(document.querySelectorAll("button")).find(
+      (button) => /目录|Outline/i.test(button.textContent ?? ""),
+    );
+    return {
+      bodyWidth: body?.getBoundingClientRect().width,
+      bodyTop: body?.getBoundingClientRect().top,
+      triggerBottom: trigger?.getBoundingClientRect().bottom,
+      hasTrigger: trigger !== undefined,
+    };
+  });
+  expect(layout.bodyWidth).toBeGreaterThan(250);
+  expect(layout.hasTrigger).toBe(true);
+  expect(layout.triggerBottom ?? 0).toBeLessThanOrEqual(layout.bodyTop ?? 0);
+  await mobile.close();
+});
+
+test("serves the transcript audio on the public share page", async ({
+  page,
+  request,
+}) => {
+  const content = [
+    "# Shared transcript",
+    "## Opening",
+    "[00:00:00] Hello.",
+    "## Closing",
+    "[00:00:01] Bye.",
+  ].join("\n\n");
+
+  const memoId = await createTranscriptMemo(request, content);
+  const shareResponse = await request.post(`/api/v1/memos/${memoId}/shares`, {
+    headers: { origin: E2E_BASE_URL },
+    data: {},
+  });
+  expect(shareResponse.ok()).toBe(true);
+  // The modern wire embeds the token in the share's resource name rather
+  // than returning it as a field.
+  const share = (await shareResponse.json()) as { name: string };
+  const token = share.name.split("/shares/").at(-1) as string;
+
+  await page.goto(`/share/${token}`);
+  await expect(page.getByTestId("reading-time")).toBeVisible();
+  await page.waitForFunction(
+    () => {
+      const audio = document.querySelector("audio");
+      return (
+        audio !== null &&
+        audio.readyState >= 1 &&
+        Number.isFinite(audio.duration) &&
+        audio.duration > 0
+      );
+    },
+    undefined,
+    { timeout: 15_000 },
+  );
+});

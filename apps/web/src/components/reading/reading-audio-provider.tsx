@@ -15,6 +15,8 @@ export type ReadingAudioTrack = {
   id: string;
   filename: string;
   src: string;
+  downloadUrl: string;
+  sizeBytes: number;
   contentType?: string | null;
 };
 
@@ -76,6 +78,11 @@ export function ReadingAudioProvider({
   tracks: ReadingAudioTrack[];
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  // Object refs are detached before passive-effect cleanup runs, so this
+  // second ref intentionally survives unmount and lets the last position be
+  // saved after React has already cleared audioRef.
+  const detachedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const trackIdRef = useRef<string | null>(null);
   const listeners = useRef(new Set<(seconds: number) => void>());
   const [activeId, setActiveId] = useState<string | null>(
     tracks[0]?.id ?? null,
@@ -90,6 +97,7 @@ export function ReadingAudioProvider({
     () => tracks.find((item) => item.id === activeId) ?? tracks[0] ?? null,
     [tracks, activeId],
   );
+  trackIdRef.current = track?.id ?? null;
 
   const emitTime = useCallback((seconds: number) => {
     for (const listener of listeners.current) listener(seconds);
@@ -103,7 +111,9 @@ export function ReadingAudioProvider({
   }, []);
 
   // Restore the saved position whenever the active track changes. The element
-  // itself is a single node in the DOM, so its source swaps in place.
+  // itself is a single node in the DOM, so its source swaps in place. The
+  // React state and subscribers are synced too, so the readout and the
+  // transcript highlight reflect the restored spot instead of 00:00.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !track) return;
@@ -111,12 +121,49 @@ export function ReadingAudioProvider({
     const apply = () => {
       if (saved > 0 && audio.duration > saved + 1) {
         audio.currentTime = saved;
+        setCurrentTime(saved);
+        emitTime(saved);
       }
     };
     if (audio.readyState >= 1) apply();
     else audio.addEventListener("loadedmetadata", apply, { once: true });
     return () => audio.removeEventListener("loadedmetadata", apply);
-  }, [track]);
+  }, [emitTime, track]);
+
+  // Positions are also saved outside explicit pauses: on track switch, on
+  // SPA navigation away (unmount) and on tab close (pagehide).
+  const selectTrack = useCallback((id: string) => {
+    const audio = audioRef.current;
+    const outgoing = trackIdRef.current;
+    if (audio && outgoing && outgoing !== id && audio.currentTime > 0) {
+      savePosition(outgoing, audio.currentTime);
+    }
+    setActiveId(id);
+  }, []);
+
+  useEffect(() => {
+    const id = trackIdRef.current;
+    return () => {
+      const audio = detachedAudioRef.current;
+      if (audio && id && audio.currentTime > 0) {
+        savePosition(id, audio.currentTime);
+      }
+    };
+    // Unmount-only cleanup: the closure freezes the track that was live when
+    // the provider mounted, which is exactly the one to save on the way out.
+  }, []);
+
+  useEffect(() => {
+    const save = () => {
+      const audio = audioRef.current;
+      const id = trackIdRef.current;
+      if (audio && id && audio.currentTime > 0) {
+        savePosition(id, audio.currentTime);
+      }
+    };
+    document.addEventListener("pagehide", save);
+    return () => document.removeEventListener("pagehide", save);
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -147,10 +194,6 @@ export function ReadingAudioProvider({
 
   const setRate = useCallback((next: number) => {
     setRateState(next);
-  }, []);
-
-  const selectTrack = useCallback((id: string) => {
-    setActiveId(id);
   }, []);
 
   const value: ReadingAudioContextValue = {
@@ -191,7 +234,10 @@ export function ReadingAudioProvider({
             emitTime(seconds);
           }}
           preload="metadata"
-          ref={audioRef}
+          ref={(element) => {
+            audioRef.current = element;
+            if (element) detachedAudioRef.current = element;
+          }}
           src={track.src}
         />
       )}

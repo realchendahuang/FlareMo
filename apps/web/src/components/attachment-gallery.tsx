@@ -4,14 +4,8 @@ import { formatBytes } from "@/lib/utils";
 
 export function AttachmentGallery({
   attachments,
-  audioMode = "inline",
 }: {
   attachments: Attachment[];
-  /**
-   * `external` hands audio to the sticky reading player instead of rendering an
-   * inline element, so a transcript page has one transport rather than two.
-   */
-  audioMode?: "inline" | "external";
 }) {
   if (attachments.length === 0) return null;
 
@@ -20,7 +14,6 @@ export function AttachmentGallery({
       {attachments.map((attachment) => {
         const isImage = attachment.content_type?.startsWith("image/");
         const isAudio = attachment.content_type?.startsWith("audio/");
-        const showInlineAudio = isAudio && audioMode === "inline";
         return (
           <div
             className="overflow-hidden rounded-xl border bg-card transition-shadow duration-200 hover:shadow-sm"
@@ -36,7 +29,7 @@ export function AttachmentGallery({
                 />
               </a>
             )}
-            {showInlineAudio && (
+            {isAudio && (
               // biome-ignore lint/a11y/useMediaCaption: User-uploaded audio does not include a caption track.
               <audio className="w-full px-3 pt-3" controls preload="metadata">
                 <source

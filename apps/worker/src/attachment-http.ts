@@ -55,8 +55,14 @@ export async function attachmentObjectResponse(input: {
     return new Response(null, { status: 304, headers });
   }
 
-  if (range && object.range) {
-    const { offset, length } = resolveObjectRange(object.range, object.size);
+  // The served range is computed from our own header parse, not R2's
+  // `object.range` echo: the runtime echo carries a spurious `suffix` key (set
+  // to undefined) even for offset/length ranges, which made the resolver
+  // produce `Content-Range: bytes NaN-NaN/size` and broke all media playback.
+  const served =
+    range && r2Range ? resolveObjectRange(r2Range, object.size) : undefined;
+  if (served && served.length > 0) {
+    const { offset, length } = served;
     headers.set(
       "content-range",
       `bytes ${offset}-${offset + length - 1}/${object.size}`,
@@ -82,6 +88,10 @@ function parseRangeHeader(value: string): R2Range | undefined {
   return { offset: start, length: end - start + 1 };
 }
 
+/**
+ * Resolves one of our own parsed ranges (see parseRangeHeader) against the
+ * object size, clamping an over-long end the way R2 would.
+ */
 function resolveObjectRange(range: R2Range, objectSize: number) {
   if ("suffix" in range) {
     const length = Math.min(range.suffix, objectSize);

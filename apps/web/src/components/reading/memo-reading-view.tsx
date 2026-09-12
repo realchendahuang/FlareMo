@@ -32,23 +32,34 @@ function MemoAudioTracks(attachments: Attachment[]) {
     id: attachment.name,
     filename: attachment.filename,
     src: attachment.preview_url,
+    downloadUrl: attachment.download_url,
+    sizeBytes: attachment.size,
     contentType: attachment.content_type,
   }));
 }
 
 /**
- * Marks the paragraph covering the current playback position. Driven by a DOM
- * effect on each tick rather than React state: a transcript can hold tens of
- * thousands of characters, and re-rendering it every second would jank.
+ * Marks the paragraph covering the current playback position and, with
+ * follow enabled, keeps it in view. Driven by a DOM effect on each tick rather
+ * than React state: a transcript can hold tens of thousands of characters, and
+ * re-rendering it every second would jank. The effect only re-subscribes when
+ * follow or enabled-ness changes — `subscribeTime` is a stable callback, so
+ * playback ticks never rebuild it.
  */
 function useParagraphHighlight(
   containerRef: React.RefObject<HTMLDivElement | null>,
   enabled: boolean,
 ) {
   const audio = useReadingAudio();
+  const follow = audio?.follow ?? false;
+  const subscribeTime = audio?.subscribeTime;
+  // Snapshot for the initial apply; excluded from deps so playback ticks do
+  // not re-run the effect (the subscription covers those).
+  const initialTimeRef = useRef(0);
+  initialTimeRef.current = audio?.currentTime ?? 0;
 
   useEffect(() => {
-    if (!enabled || !audio) return;
+    if (!enabled || !subscribeTime) return;
     const container = containerRef.current;
     if (!container) return;
 
@@ -69,11 +80,20 @@ function useParagraphHighlight(
       highlighted?.classList.remove("memo-transcript-active");
       paragraph?.classList.add("memo-transcript-active");
       highlighted = paragraph;
+      if (follow && paragraph) {
+        const reducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        paragraph.scrollIntoView({
+          behavior: reducedMotion ? "auto" : "smooth",
+          block: "center",
+        });
+      }
     };
 
-    apply(audio.currentTime);
-    return audio.subscribeTime(apply);
-  }, [audio, containerRef, enabled]);
+    apply(initialTimeRef.current);
+    return subscribeTime(apply);
+  }, [containerRef, enabled, follow, subscribeTime]);
 }
 
 function ArticleReadingView({
@@ -93,8 +113,18 @@ function ArticleReadingView({
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       <ReadingAudioBar />
-      <div className="flex gap-6">
-        <div className="flex min-w-0 flex-1 flex-col gap-4" ref={bodyRef}>
+      {/* Stacked on narrow screens (outline collapsed above the body), two
+          columns from lg up. The width classes are lg-scoped so the mobile
+          outline takes the full row instead of squeezing the transcript. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+        <MemoOutline
+          className="lg:order-2 lg:w-44 lg:shrink-0"
+          content={content}
+        />
+        <div
+          className="flex min-w-0 flex-1 flex-col gap-4 lg:order-1"
+          ref={bodyRef}
+        >
           <LazyMemoContent
             className={contentClassName}
             content={content}
@@ -103,7 +133,6 @@ function ArticleReadingView({
           />
           {nonAudio.length > 0 && <AttachmentGallery attachments={nonAudio} />}
         </div>
-        <MemoOutline className="w-44 shrink-0" content={content} />
       </div>
     </div>
   );
@@ -135,6 +164,8 @@ export function MemoReadingView({
   contentClassName,
   layout = "article",
 }: ReadingViewProps) {
+  // Stable identity across renders: the provider keys restore/save effects on
+  // the active track object.
   const tracks = useMemo(() => MemoAudioTracks(attachments), [attachments]);
 
   if (layout === "article" && tracks.length > 0) {

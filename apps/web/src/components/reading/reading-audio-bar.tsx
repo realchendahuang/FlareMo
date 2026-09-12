@@ -1,10 +1,10 @@
-import { PauseIcon, PlayIcon } from "lucide-react";
+import { DownloadIcon, PauseIcon, PlayIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
 import { useI18n } from "@/i18n";
 import { formatClock } from "@/lib/transcript";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 import { useReadingAudio } from "./reading-audio-provider";
 
 const RATES = [1, 1.25, 1.5, 2];
@@ -80,9 +80,21 @@ export function ReadingAudioBar({ className }: { className?: string }) {
         </div>
       </div>
 
-      {audio.tracks.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {audio.tracks.map((item) => (
+      {/* The active file with its download entry — shown even for a single
+          track, which is the common case and the only place the audio file
+          remains reachable in the article layout. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <a
+          aria-label={t("reading.downloadAudio")}
+          className="flex min-w-0 max-w-56 items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-[0.7rem] text-muted-foreground transition-colors hover:text-foreground"
+          href={track.downloadUrl}
+          title={`${track.filename} · ${formatBytes(track.sizeBytes)}`}
+        >
+          <DownloadIcon className="size-3 shrink-0" />
+          <span className="min-w-0 truncate">{track.filename}</span>
+        </a>
+        {audio.tracks.length > 1 &&
+          audio.tracks.map((item) => (
             <button
               className={cn(
                 "max-w-56 truncate rounded-md px-2 py-0.5 text-[0.7rem] transition-colors",
@@ -97,8 +109,7 @@ export function ReadingAudioBar({ className }: { className?: string }) {
               {item.filename}
             </button>
           ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

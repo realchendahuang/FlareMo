@@ -23,7 +23,7 @@ export function PublicSharePage({ token }: { token: string }) {
 
   return (
     <div className="min-h-svh bg-background px-4 py-6 sm:py-10">
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <header className="border-b pb-4">
           <FlareMoLogo labelClassName="text-lg" markClassName="size-7" />
         </header>
@@ -44,7 +44,11 @@ export function PublicSharePage({ token }: { token: string }) {
           </Empty>
         )}
         {shareQuery.data && (
-          <Card>
+          // overflow-clip keeps the rounded clipping but, unlike the Card
+          // base's overflow-hidden, does not turn the card into a scroll
+          // container — the sticky reading transport needs the viewport as
+          // its scrollport.
+          <Card className="overflow-clip">
             <CardHeader>
               <CardTitle className="text-sm font-normal text-muted-foreground">
                 {formatMemoTime(shareQuery.data.memo.display_time, locale)}
