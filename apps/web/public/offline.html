@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex" />
+    <!-- Machine-readable marker: the service worker only caches this document
+         after confirming the response body carries it, which proves the fetch
+         returned the offline page rather than an access/login wall. -->
+    <meta name="flaremo-offline-shell" content="flaremo-offline-shell" />
+    <title>FlareMo · 离线</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #faf9f7;
+        --fg: #17191d;
+        --muted: #6b6b70;
+        --card: #ffffff;
+        --border: rgba(23, 25, 29, 0.1);
+        --accent: #f2603c;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d0c0b;
+          --fg: #f2f1ef;
+          --muted: #9a9a9f;
+          --card: #191817;
+          --border: rgba(242, 241, 239, 0.12);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--fg);
+        font-family:
+          "Helvetica Neue", "PingFang SC", "Noto Sans CJK SC",
+          "Microsoft YaHei", Arial, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: 100%;
+        max-width: 380px;
+        padding: 32px 28px;
+        text-align: center;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+      }
+      .mark {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 18px;
+        border-radius: 11px;
+        background: linear-gradient(135deg, #f59e2c, var(--accent));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 20px;
+        color: #ffffff;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+      button {
+        margin-top: 22px;
+        padding: 9px 18px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        color: #ffffff;
+        background: var(--fg);
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      button:hover {
+        opacity: 0.88;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="mark" aria-hidden="true">F</div>
+      <h1>当前离线</h1>
+      <p>网络连接不可用。已保存到本机的记录会在恢复联网后自动同步。</p>
+      <button type="button" onclick="location.reload()">重试</button>
+    </main>
+  </body>
+</html>

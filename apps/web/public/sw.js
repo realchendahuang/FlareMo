@@ -1,19 +1,39 @@
 /*
  * FlareMo's service worker deliberately caches only the public application
- * shell and Vite's content-addressed build assets. API, attachment, share,
- * and Cloudflare Access traffic always stays on the network.
+ * shell, the local offline page, and Vite's content-addressed build assets.
+ * API, attachment, share, and Cloudflare Access traffic always stays on the
+ * network. Every cached HTML document is verified by a body marker so a login
+ * or error page can never masquerade as the offline shell.
  */
-const CACHE_PREFIX = "flaremo-pwa-v1";
+const CACHE_PREFIX = "flaremo-pwa-v2";
 const APP_SHELL_CACHE = `${CACHE_PREFIX}-shell`;
 const STATIC_ASSET_CACHE = `${CACHE_PREFIX}-assets`;
-const CACHE_NAMES = new Set([APP_SHELL_CACHE, STATIC_ASSET_CACHE]);
+const OFFLINE_CACHE = `${CACHE_PREFIX}-offline`;
+const CACHE_NAMES = new Set([
+  APP_SHELL_CACHE,
+  STATIC_ASSET_CACHE,
+  OFFLINE_CACHE,
+]);
+
+// Markers are emitted by the real documents (index.html, offline.html). Their
+// absence proves the response is an access wall or an error page.
+const APP_SHELL_MARKER = "flaremo-app-shell";
+const OFFLINE_SHELL_MARKER = "flaremo-offline-shell";
+
 const scopeUrl = new URL(self.registration.scope);
 const appShellRequest = new Request(scopeUrl.href);
+// Workers Assets canonicalize "/offline.html" to "/offline" with a redirect, so
+// the worker fetches the extensionless path directly: a redirected response is
+// rejected by the marker check and could never be cached.
+const offlineUrl = new URL("offline", scopeUrl);
 
 self.addEventListener("install", (event) => {
-  // Do not prefetch here: a Cloudflare Access login response must never become
-  // an offline fallback. The shell is saved only after a verified app navigation.
-  event.waitUntil(self.skipWaiting());
+  // Never prefetch the app shell: a Cloudflare Access login response must not
+  // become an offline fallback. Only the local offline page is precached, and
+  // only once its body carries the offline marker. A waiting worker is kept
+  // (no skipWaiting here) so an open tab can prompt before it reloads; browsers
+  // still activate immediately on a first install with no controller.
+  event.waitUntil(precacheOfflineShell());
 });
 
 self.addEventListener("activate", (event) => {
@@ -36,6 +56,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Update handshake: the page decides when to swap in a waiting worker so an
+// in-flight edit is never interrupted by an unprompted reload.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -48,10 +76,24 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (request.mode === "navigate" && isPrivateAppNavigation(url)) {
-    event.respondWith(networkFirstAppNavigation(request));
+  if (request.mode === "navigate") {
+    event.respondWith(networkFirstNavigation(request));
   }
 });
+
+async function precacheOfflineShell() {
+  try {
+    const response = await fetch(
+      new Request(offlineUrl.href, { cache: "no-store" }),
+    );
+    const verified = await verifyHtmlMarker(response, OFFLINE_SHELL_MARKER);
+    if (!verified) return;
+    const cache = await caches.open(OFFLINE_CACHE);
+    await cache.put(offlineUrl.href, verified);
+  } catch {
+    // Offline or blocked at install time; the page is cached on a later run.
+  }
+}
 
 function isImmutableStaticAsset(url, request) {
   return (
@@ -65,6 +107,7 @@ function isPrivateAppNavigation(url) {
   const scopePath = scopeUrl.pathname;
   const privateRoutes = [
     `${scopePath}account`,
+    `${scopePath}calendar`,
     `${scopePath}forgot-password`,
     `${scopePath}login`,
     `${scopePath}memory`,
@@ -99,17 +142,33 @@ async function cacheFirstStaticAsset(request) {
   return response;
 }
 
-async function networkFirstAppNavigation(request) {
-  const cache = await caches.open(APP_SHELL_CACHE);
-
+async function networkFirstNavigation(request) {
   try {
     const response = await fetch(request);
     if (isCacheableAppShellResponse(response)) {
-      await cache.put(appShellRequest, response.clone()).catch(() => undefined);
+      // Verify a clone: reading the body consumes the stream, and the live
+      // response must still be returned to the page intact.
+      const verified = await verifyHtmlMarker(
+        response.clone(),
+        APP_SHELL_MARKER,
+      );
+      if (verified) {
+        const cache = await caches.open(APP_SHELL_CACHE);
+        await cache.put(appShellRequest, verified).catch(() => undefined);
+      }
     }
     return response;
   } catch {
-    return (await cache.match(appShellRequest)) ?? Response.error();
+    if (isPrivateAppNavigation(new URL(request.url))) {
+      const shell = await caches.match(appShellRequest, {
+        cacheName: APP_SHELL_CACHE,
+      });
+      if (shell) return shell;
+    }
+    return (
+      (await caches.match(offlineUrl.href, { cacheName: OFFLINE_CACHE })) ??
+      Response.error()
+    );
   }
 }
 
@@ -139,6 +198,36 @@ function isCacheableAppShellResponse(response) {
   return (
     responseUrl.origin === scopeUrl.origin && isPrivateAppNavigation(responseUrl)
   );
+}
+
+/**
+ * Reads an HTML response and returns an equivalent response only when its body
+ * carries the expected marker. Returns null for redirected documents (an access
+ * wall), non-HTML bodies, or mismatched content, so nothing unverified is ever
+ * stored as an offline document. Callers that still need the original must pass
+ * a clone, because reading the body consumes the stream.
+ */
+async function verifyHtmlMarker(response, marker) {
+  if (
+    !response.ok ||
+    response.redirected ||
+    response.type !== "basic" ||
+    hasNoStoreDirective(response)
+  ) {
+    return null;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/html")) return null;
+
+  const text = await response.text();
+  if (!text.includes(marker)) return null;
+
+  return new Response(text, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
 }
 
 function hasNoStoreDirective(response) {

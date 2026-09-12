@@ -46,6 +46,7 @@ export function LoginPage() {
           tag: undefined,
           view: undefined,
           untagged: undefined,
+          compose: undefined,
         }}
         to="/"
       />

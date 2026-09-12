@@ -34,6 +34,7 @@ import { InfoTip } from "@/components/info-tip";
 import { MemoComposer } from "@/components/memo-composer";
 import { MemoList } from "@/components/memo-list";
 import { NotificationBell } from "@/components/notification-bell";
+import { PwaUpdatePrompt } from "@/components/pwa-update-prompt";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -93,6 +94,7 @@ export function FlareMoApp() {
   const activeTag = search.tag;
   const untagged = Boolean(search.untagged);
   const query = search.q ?? "";
+  const composeRequested = Boolean(search.compose);
   // A query that is exactly one local day is not a text search; it renders as
   // a removable date chip and the search box stays empty.
   const dayFilter = dayFilterFromQuery(query);
@@ -325,6 +327,21 @@ export function FlareMoApp() {
     restoredDraftNotified.current = true;
     toast.success(t("toast.draftRestored"));
   }, [capture.didRestoreStoredDraft, t]);
+
+  // The PWA "new note" shortcut lands on `/?compose=1`. Focus the composer and
+  // strip the flag so a later reload does not steal focus again.
+  useEffect(() => {
+    if (!composeRequested) return;
+    const composer = document.getElementById("flaremo-composer-input");
+    if (composer instanceof HTMLTextAreaElement) {
+      composer.focus();
+      composer.setSelectionRange(composer.value.length, composer.value.length);
+    }
+    void navigate({
+      replace: true,
+      search: (current) => ({ ...current, compose: undefined }),
+    });
+  }, [composeRequested, navigate]);
 
   const handleCaptureSubmit = async (input: MemoCaptureInput) => {
     if (isCaptureSubmitting.current) return;
@@ -784,5 +801,10 @@ function viewTitle(view: ViewMode, t: (key: TranslationKey) => string) {
 }
 
 export default function App() {
-  return <AppRoutes />;
+  return (
+    <>
+      <PwaUpdatePrompt />
+      <AppRoutes />
+    </>
+  );
 }

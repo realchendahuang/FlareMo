@@ -16,6 +16,7 @@ export function SubpageHeader() {
             tag: undefined,
             view: undefined,
             untagged: undefined,
+            compose: undefined,
           }}
           to="/"
         >

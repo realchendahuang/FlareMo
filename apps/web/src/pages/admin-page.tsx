@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CheckIcon,
-  ClipboardIcon,
   ImageUpIcon,
   KeyRoundIcon,
   Loader2Icon,
@@ -28,6 +26,7 @@ import {
   uploadAdminBrandingMark,
 } from "@/api";
 import { InfoTip } from "@/components/info-tip";
+import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,6 +113,7 @@ export function AdminPanel() {
       });
       setCreatedLink(`${window.location.origin}${result.activation_path}`);
       setCopied(false);
+      setCreateOpen(false);
     } catch (error) {
       setCreateError(errorMessage(error, t("admin.userCreateFailed")));
     }
@@ -177,16 +177,6 @@ export function AdminPanel() {
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          {resetLink && (
-            <ResetLinkBlock
-              copied={copied}
-              link={resetLink}
-              onCopy={() => void handleCopyResetLink(resetLink)}
-              onDismiss={() => setResetLink(null)}
-              t={t}
-            />
-          )}
-
           <div className="border-t pt-4">
             {usersQuery.isLoading && (
               <div className="flex flex-col gap-2">
@@ -352,156 +342,117 @@ export function AdminPanel() {
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
-          {createdLink ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{t("admin.userCreatedTitle")}</DialogTitle>
-              </DialogHeader>
-              <ResetLinkBlock
-                copied={copied}
-                link={createdLink}
-                onCopy={() => void handleCopyResetLink(createdLink)}
-                t={t}
+          <DialogHeader>
+            <DialogTitle>{t("admin.createUser")}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleCreateUser();
+            }}
+          >
+            <label
+              className="flex flex-col gap-1.5 text-sm font-medium"
+              htmlFor="admin-name"
+            >
+              {t("auth.displayName")}
+              <Input
+                autoFocus
+                autoComplete="off"
+                disabled={createUserMutation.isPending}
+                id="admin-name"
+                maxLength={80}
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
               />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setCreatedLink(null);
-                    setCreateOpen(false);
-                  }}
-                >
-                  {t("common.close")}
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>{t("admin.createUser")}</DialogTitle>
-              </DialogHeader>
-              <form
-                className="flex flex-col gap-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleCreateUser();
-                }}
+            </label>
+            <label
+              className="flex flex-col gap-1.5 text-sm font-medium"
+              htmlFor="admin-email"
+            >
+              {t("auth.email")}
+              <Input
+                autoComplete="off"
+                disabled={createUserMutation.isPending}
+                id="admin-email"
+                maxLength={320}
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
+            <p className="flex items-center gap-1 text-xs leading-5 text-muted-foreground">
+              <InfoTip text={t("admin.activationDescription")} />
+              <span className="sr-only">
+                {t("admin.activationDescription")}
+              </span>
+            </p>
+            {createError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
+                {createError}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                disabled={createUserMutation.isPending}
+                type="button"
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
               >
-                <label
-                  className="flex flex-col gap-1.5 text-sm font-medium"
-                  htmlFor="admin-name"
-                >
-                  {t("auth.displayName")}
-                  <Input
-                    autoFocus
-                    autoComplete="off"
-                    disabled={createUserMutation.isPending}
-                    id="admin-name"
-                    maxLength={80}
-                    required
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
+                {t("common.cancel")}
+              </Button>
+              <Button disabled={createUserMutation.isPending} type="submit">
+                {createUserMutation.isPending && (
+                  <Loader2Icon
+                    className="animate-spin"
+                    data-icon="inline-start"
                   />
-                </label>
-                <label
-                  className="flex flex-col gap-1.5 text-sm font-medium"
-                  htmlFor="admin-email"
-                >
-                  {t("auth.email")}
-                  <Input
-                    autoComplete="off"
-                    disabled={createUserMutation.isPending}
-                    id="admin-email"
-                    maxLength={320}
-                    required
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                </label>
-                <p className="flex items-center gap-1 text-xs leading-5 text-muted-foreground">
-                  <InfoTip text={t("admin.activationDescription")} />
-                  <span className="sr-only">
-                    {t("admin.activationDescription")}
-                  </span>
-                </p>
-                {createError && (
-                  <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                    {createError}
-                  </p>
                 )}
-                <DialogFooter>
-                  <Button
-                    disabled={createUserMutation.isPending}
-                    type="button"
-                    variant="outline"
-                    onClick={() => setCreateOpen(false)}
-                  >
-                    {t("common.cancel")}
-                  </Button>
-                  <Button disabled={createUserMutation.isPending} type="submit">
-                    {createUserMutation.isPending && (
-                      <Loader2Icon
-                        className="animate-spin"
-                        data-icon="inline-start"
-                      />
-                    )}
-                    {createUserMutation.isPending
-                      ? t("admin.creatingUser")
-                      : t("admin.createUser")}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </>
-          )}
+                {createUserMutation.isPending
+                  ? t("admin.creatingUser")
+                  : t("admin.createUser")}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
 
-function ResetLinkBlock({
-  copied,
-  link,
-  onCopy,
-  onDismiss,
-  t,
-}: {
-  copied: boolean;
-  link: string;
-  onCopy: () => void;
-  onDismiss?: () => void;
-  t: (key: Parameters<ReturnType<typeof useI18n>["t"]>[0]) => string;
-}) {
-  return (
-    <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-3">
-      <div className="flex items-start gap-2">
-        <KeyRoundIcon className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 font-medium text-amber-900 dark:text-amber-100">
-            {t("admin.resetLinkTitle")}
-            <InfoTip text={t("admin.resetLinkDescription")} />
-          </p>
-        </div>
-      </div>
-      <code className="mt-3 block overflow-x-auto rounded-lg bg-background/80 px-3 py-2 text-xs text-foreground">
-        {link}
-      </code>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" type="button" onClick={onCopy}>
-          {copied ? (
-            <CheckIcon data-icon="inline-start" />
-          ) : (
-            <ClipboardIcon data-icon="inline-start" />
-          )}
-          {copied ? t("auth.copied") : t("admin.copyResetLink")}
-        </Button>
-        {onDismiss && (
-          <Button size="sm" type="button" variant="outline" onClick={onDismiss}>
-            {t("admin.hideResetLink")}
-          </Button>
-        )}
-      </div>
+      <SecretRevealDialog
+        closeLabelKey="common.close"
+        copied={copied}
+        copyLabelKey="admin.copyResetLink"
+        description={t("admin.activationDescription")}
+        onCopy={() => {
+          if (createdLink) void handleCopyResetLink(createdLink);
+        }}
+        onOpenChange={(open) => {
+          if (!open) setCreatedLink(null);
+        }}
+        open={createdLink !== null}
+        t={t}
+        titleKey="admin.userCreatedTitle"
+        value={createdLink ?? ""}
+      />
+
+      <SecretRevealDialog
+        closeLabelKey="admin.hideResetLink"
+        copied={copied}
+        copyLabelKey="admin.copyResetLink"
+        description={t("admin.resetLinkDescription")}
+        onCopy={() => {
+          if (resetLink) void handleCopyResetLink(resetLink);
+        }}
+        onOpenChange={(open) => {
+          if (!open) setResetLink(null);
+        }}
+        open={resetLink !== null}
+        t={t}
+        titleKey="admin.resetLinkTitle"
+        value={resetLink ?? ""}
+      />
     </div>
   );
 }

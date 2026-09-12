@@ -51,6 +51,23 @@ function applyFavicon(theme: ResolvedTheme) {
   }
 }
 
+// Keep the browser chrome (Android address bar, iOS status bar) on the same
+// background the app actually renders, in both themes.
+const THEME_COLORS: Record<ResolvedTheme, string> = {
+  dark: "#0d0c0b",
+  light: "#faf9f7",
+};
+
+function applyThemeColor(theme: ResolvedTheme) {
+  const meta = document.querySelector<HTMLMetaElement>(
+    "[data-flaremo-theme-color]",
+  );
+
+  if (meta) {
+    meta.content = THEME_COLORS[theme];
+  }
+}
+
 function disableTransitionsTemporarily() {
   const style = document.createElement("style");
   style.appendChild(
@@ -125,6 +142,7 @@ export function ThemeProvider({
       root.classList.remove("light", "dark");
       root.classList.add(resolvedTheme);
       applyFavicon(resolvedTheme);
+      applyThemeColor(resolvedTheme);
 
       if (restoreTransitions) {
         restoreTransitions();

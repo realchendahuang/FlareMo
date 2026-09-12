@@ -1,15 +1,8 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import {
-  CheckIcon,
-  ClipboardIcon,
-  EyeOffIcon,
-  KeyRoundIcon,
-  Loader2Icon,
-  PlusIcon,
-} from "lucide-react";
+import { Loader2Icon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { PersonalAccessToken } from "@/api";
-import { InfoTip } from "@/components/info-tip";
+import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,37 +87,6 @@ export function TokensPanel({
         </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        {createdToken && (
-          <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-3">
-            <div className="flex items-start gap-2">
-              <KeyRoundIcon className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 font-medium text-amber-900 dark:text-amber-100">
-                  {t("auth.tokenShownOnce")}
-                  <InfoTip text={t("auth.tokenShownOnceDescription")} />
-                </p>
-              </div>
-            </div>
-            <code className="mt-3 block overflow-x-auto rounded-lg bg-background/80 px-3 py-2 text-xs text-foreground">
-              {createdToken}
-            </code>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => void onCopyToken()}>
-                {copied ? (
-                  <CheckIcon data-icon="inline-start" />
-                ) : (
-                  <ClipboardIcon data-icon="inline-start" />
-                )}
-                {copied ? t("auth.copied") : t("auth.copyToken")}
-              </Button>
-              <Button size="sm" variant="outline" onClick={onHideCreatedToken}>
-                <EyeOffIcon data-icon="inline-start" />
-                {t("auth.hideToken")}
-              </Button>
-            </div>
-          </div>
-        )}
-
         {tokenError && (
           <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
             {tokenError}
@@ -225,6 +187,21 @@ export function TokensPanel({
           </form>
         </DialogContent>
       </Dialog>
+
+      <SecretRevealDialog
+        closeLabelKey="auth.hideToken"
+        copied={copied}
+        copyLabelKey="auth.copyToken"
+        description={t("auth.tokenShownOnceDescription")}
+        onCopy={() => void onCopyToken()}
+        onOpenChange={(open) => {
+          if (!open) onHideCreatedToken();
+        }}
+        open={createdToken !== null}
+        t={t}
+        titleKey="auth.tokenShownOnce"
+        value={createdToken ?? ""}
+      />
     </Card>
   );
 }

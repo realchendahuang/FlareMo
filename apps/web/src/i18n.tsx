@@ -585,6 +585,24 @@ const messages = {
       "此实例未配置一键升级仓库，按部署指南手动升级即可。",
     "update.releaseNotes": "版本说明",
     "update.guide": "升级指南",
+    "pwa.installTitle": "安装桌面应用",
+    "pwa.installDescription":
+      "把 FlareMo 装到桌面或主屏幕，像原生应用一样打开，并支持离线记录与自动同步。",
+    "pwa.installButton": "安装 FlareMo",
+    "pwa.installUnavailable": "当前浏览器不支持一键安装。",
+    "pwa.iosHint":
+      "在 Safari 中点击「分享」，再选择「添加到主屏幕」，即可安装。",
+    "pwa.installedTitle": "已安装为应用",
+    "pwa.installedDescription":
+      "当前已在独立窗口中运行。离线记录会在恢复联网后自动同步。",
+    "pwa.offlineTitle": "离线可用",
+    "pwa.offlineDescription":
+      "断网时仍可继续写记录与草稿，重新联网后按顺序自动提交。",
+    "pwa.dismiss": "不再提示",
+    "pwa.updateAvailable": "有新版本可用",
+    "pwa.updateDescription": "刷新后即可使用最新版本。",
+    "pwa.updateNow": "立即更新",
+    "pwa.updateLater": "稍后",
   },
   "en-US": {
     "common.search": "Search",
@@ -1190,6 +1208,24 @@ const messages = {
       "One-click update repository is not configured for this instance; follow the deploy guide to upgrade manually.",
     "update.releaseNotes": "Release notes",
     "update.guide": "Update guide",
+    "pwa.installTitle": "Install desktop app",
+    "pwa.installDescription":
+      "Install FlareMo to your desktop or home screen to open it like a native app, with offline capture and automatic sync.",
+    "pwa.installButton": "Install FlareMo",
+    "pwa.installUnavailable": "This browser cannot install the app directly.",
+    "pwa.iosHint":
+      "In Safari, tap Share and choose “Add to Home Screen” to install.",
+    "pwa.installedTitle": "Installed as an app",
+    "pwa.installedDescription":
+      "Running in its own window. Offline notes sync automatically once you are back online.",
+    "pwa.offlineTitle": "Works offline",
+    "pwa.offlineDescription":
+      "Keep writing notes and drafts without a connection; they submit in order once access returns.",
+    "pwa.dismiss": "Don't show again",
+    "pwa.updateAvailable": "A new version is available",
+    "pwa.updateDescription": "Reload to use the latest version.",
+    "pwa.updateNow": "Update now",
+    "pwa.updateLater": "Later",
   },
 } as const satisfies Record<Locale, Record<string, string>>;
 

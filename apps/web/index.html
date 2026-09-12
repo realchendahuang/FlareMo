@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#17191d" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Updated by the bootstrap script below and by ThemeProvider so the
+         browser chrome / iOS status bar tracks the resolved theme. -->
+    <meta data-flaremo-theme-color name="theme-color" content="#17191d" />
     <link
       data-dark-href="/brand/flaremo-mark-dark-320.png"
       data-flaremo-favicon
@@ -12,8 +15,12 @@
       rel="icon"
       type="image/png"
     />
-    <link rel="apple-touch-icon" href="/brand/flaremo-app-icon-180.png" />
+    <link rel="apple-touch-icon" href="/brand/flaremo-app-icon-touch-180.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="FlareMo" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>FlareMo</title>
     <script>
       try {
@@ -30,10 +37,20 @@
           resolved === "dark" ? "darkHref" : "lightHref"
         ];
         if (faviconHref) favicon.href = faviconHref;
+        const themeColor = document.querySelector(
+          "[data-flaremo-theme-color]",
+        );
+        if (themeColor) {
+          themeColor.content = resolved === "dark" ? "#0d0c0b" : "#faf9f7";
+        }
       } catch {}
     </script>
   </head>
   <body>
+    <!-- Marker the service worker looks for before it will cache this document
+         as the offline app shell: it proves the response is the real app rather
+         than a Cloudflare Access login or error page. -->
+    <meta name="flaremo-app-shell" content="flaremo-app-shell" />
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

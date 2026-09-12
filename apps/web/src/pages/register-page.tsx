@@ -55,6 +55,7 @@ export function RegisterPage() {
           tag: undefined,
           view: undefined,
           untagged: undefined,
+          compose: undefined,
         }}
         to="/"
       />

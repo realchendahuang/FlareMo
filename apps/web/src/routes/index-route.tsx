@@ -38,6 +38,10 @@ export const indexRoute = createRoute({
     tag: typeof search.tag === "string" && search.tag ? search.tag : undefined,
     untagged:
       search.untagged === true || search.untagged === "true" ? true : undefined,
+    // Set by the PWA "new note" shortcut (`/?compose=1`) to focus the composer
+    // on launch.
+    compose:
+      search.compose === true || search.compose === "1" ? true : undefined,
   }),
 });
 

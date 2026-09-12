@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { InstallAppCard } from "./account/install-app-card";
 import { ProfilePanel } from "./account/profile-panel";
 import { MIN_PASSWORD_LENGTH, SecurityPanel } from "./account/security-panel";
 import { TokensPanel } from "./account/tokens-panel";
@@ -314,6 +315,8 @@ export function AccountPage() {
                 username={username}
                 onSubmit={handleUsernameSubmit}
               />
+
+              <InstallAppCard />
 
               <SecurityPanel
                 changeEmailIsPending={changeEmailMutation.isPending}
