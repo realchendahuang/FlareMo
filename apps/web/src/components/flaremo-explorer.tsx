@@ -22,7 +22,10 @@ import {
 } from "react";
 import type { MemoStatsResponse, TagHierarchyNode } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
-import { MiniCalendarPanel } from "@/components/flaremo-mini-calendar-panel";
+import {
+  MiniCalendarPanel,
+  MiniCalendarReminders,
+} from "@/components/flaremo-mini-calendar-panel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +41,22 @@ import { buildMonthLabels } from "@/lib/activity";
 import { cn } from "@/lib/utils";
 
 export type ExplorerView = "all" | "archived" | "trashed";
+
+// One slot, two looks at time: the 12-week writing trend, or the current
+// month's schedule. Persisted so the sidebar keeps the user's choice.
+export type TimeView = "trend" | "calendar";
+
+const TIME_VIEW_STORAGE_KEY = "flaremo.explorer.timeView";
+
+function readTimeView(): TimeView {
+  try {
+    const stored = localStorage.getItem(TIME_VIEW_STORAGE_KEY);
+    if (stored === "trend" || stored === "calendar") return stored;
+  } catch {
+    // Storage can be unavailable (private mode); fall back to the default.
+  }
+  return "trend";
+}
 
 type FlareMoExplorerProps = {
   activeTag?: string;
@@ -99,6 +118,15 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
     () => buildMonthLabels(stats.activity, locale),
     [stats.activity, locale],
   );
+  const [timeView, setTimeView] = useState<TimeView>(readTimeView);
+  const selectTimeView = (view: TimeView) => {
+    setTimeView(view);
+    try {
+      localStorage.setItem(TIME_VIEW_STORAGE_KEY, view);
+    } catch {
+      // Persistence is best-effort; the in-memory choice still applies.
+    }
+  };
 
   return (
     <aside className="flex min-h-full flex-col px-3 py-4 text-sm">
@@ -113,45 +141,78 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         <StatCell label={t("explorer.days")} value={stats.active_days} />
       </section>
 
-      <section className="mb-5 px-1 motion-safe:animate-fade">
+      <section className="mb-4 px-1 motion-safe:animate-fade">
+        <MiniCalendarReminders />
         <div
-          aria-label={t("explorer.heatmapSummary", {
-            count: activityTotal,
-            days: stats.activity.length,
-          })}
-          className="grid grid-flow-col grid-rows-7 gap-1"
-          data-testid="activity-heatmap"
-          role="img"
+          aria-label={t("explorer.timeViewLabel")}
+          className="mb-2 flex rounded-lg border border-border/60 p-0.5 text-xs"
+          role="tablist"
         >
-          {stats.activity.map((day) => (
-            <div
-              aria-hidden="true"
+          {(
+            [
+              ["trend", t("explorer.viewTrend")],
+              ["calendar", t("explorer.viewCalendar")],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              aria-selected={timeView === value}
               className={cn(
-                "aspect-square rounded-[3px] motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
-                heatmapColor(day.count),
+                "flex-1 rounded-md px-2 py-1 motion-safe:transition-colors motion-safe:duration-150",
+                timeView === value
+                  ? "bg-accent font-medium text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
-              key={day.date}
-              title={t("explorer.heatmapDay", {
-                count: day.count,
-                date: day.date,
-              })}
-            />
+              key={value}
+              role="tab"
+              type="button"
+              onClick={() => selectTimeView(value)}
+            >
+              {label}
+            </button>
           ))}
         </div>
-        <div
-          aria-hidden="true"
-          className="mt-2 grid grid-cols-12 gap-1 px-1 text-xs text-muted-foreground"
-        >
-          {monthLabels.map((month) => (
-            <span className="whitespace-nowrap" key={month.date}>
-              {month.label}
-            </span>
-          ))}
+        <div className="min-h-[14.5rem]">
+          {timeView === "trend" ? (
+            <>
+              <div
+                aria-label={t("explorer.heatmapSummary", {
+                  count: activityTotal,
+                  days: stats.activity.length,
+                })}
+                className="grid grid-flow-col grid-rows-7 gap-1"
+                data-testid="activity-heatmap"
+                role="img"
+              >
+                {stats.activity.map((day) => (
+                  <div
+                    aria-hidden="true"
+                    className={cn(
+                      "aspect-square rounded-[3px] motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
+                      heatmapColor(day.count),
+                    )}
+                    key={day.date}
+                    title={t("explorer.heatmapDay", {
+                      count: day.count,
+                      date: day.date,
+                    })}
+                  />
+                ))}
+              </div>
+              <div
+                aria-hidden="true"
+                className="mt-2 grid grid-cols-12 gap-1 px-1 text-xs text-muted-foreground"
+              >
+                {monthLabels.map((month) => (
+                  <span className="whitespace-nowrap" key={month.date}>
+                    {month.label}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <MiniCalendarPanel activity={stats.activity} />
+          )}
         </div>
-      </section>
-
-      <section className="mb-4 px-1">
-        <MiniCalendarPanel activity={stats.activity} />
       </section>
 
       <nav aria-label={t("sidebar.navigation")} className="flex flex-col gap-1">

@@ -175,6 +175,9 @@ const messages = {
     "explorer.tagDeleteFailed": "删除标签失败，请重试",
     "explorer.heatmapDay": "{date}: {count}",
     "explorer.heatmapSummary": "最近 {days} 天共记录 {count} 条",
+    "explorer.timeViewLabel": "时间视角",
+    "explorer.viewTrend": "趋势",
+    "explorer.viewCalendar": "日历",
     "share.title": "分享",
     "share.unavailable": "分享不可用。",
     "share.unavailableDescription":
@@ -752,6 +755,9 @@ const messages = {
     "explorer.tagDeleteFailed": "Delete failed, please retry",
     "explorer.heatmapDay": "{date}: {count}",
     "explorer.heatmapSummary": "{count} notes in the last {days} days",
+    "explorer.timeViewLabel": "Time view",
+    "explorer.viewTrend": "Trend",
+    "explorer.viewCalendar": "Calendar",
     "share.title": "Share",
     "share.unavailable": "This share is unavailable.",
     "share.unavailableDescription":

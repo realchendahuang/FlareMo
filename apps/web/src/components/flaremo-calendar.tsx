@@ -272,7 +272,7 @@ export const FlareMoMiniCalendar = memo(function FlareMoMiniCalendar({
       <div className="mb-1.5 flex items-center justify-between px-0.5 font-medium">
         <span>{monthTitle}</span>
         <Button
-          aria-label={t("nav.calendar")}
+          aria-label={t("calendar.todayMini")}
           size="xs"
           type="button"
           variant="ghost"
