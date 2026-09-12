@@ -599,13 +599,11 @@ export const attachments = sqliteTable(
       table.state,
       table.createdAt,
     ),
-    // The cleanup cron scans globally on this predicate (state='deleting' or
-    // orphaned imports); keep the sweep off a full table scan.
+    // The cleanup cron scans globally on this predicate (deleting rows or
+    // orphaned unbound attachments); keep the sweep off a full table scan.
     index("attachments_cleanup_idx")
       .on(table.createdAt)
-      .where(
-        sql`(deleted_at is null and (state = 'deleting' or memo_id is null))`,
-      ),
+      .where(sql`(state = 'deleting' or memo_id is null)`),
   ],
 );
 

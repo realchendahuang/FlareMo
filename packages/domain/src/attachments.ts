@@ -661,7 +661,7 @@ export async function softDeleteAttachment(
   const now = new Date().toISOString();
   await db
     .update(attachments)
-    .set({ deletedAt: now, updatedAt: now, memoId: null })
+    .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
     .where(
       and(
         eq(attachments.id, attachment.id),
@@ -702,10 +702,9 @@ export async function finalizeAttachmentDelete(
     includeUnavailable: true,
   });
   await assertCanManageAttachment(db, user, attachment);
-  const now = new Date().toISOString();
+  // Called after the R2 binary is already deleted, so the row can go too.
   await db
-    .update(attachments)
-    .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
+    .delete(attachments)
     .where(
       and(
         eq(attachments.id, attachment.id),
@@ -723,22 +722,22 @@ export async function listAttachmentCleanupCandidates(
     .select()
     .from(attachments)
     .where(
-      and(
-        isNull(attachments.deletedAt),
-        or(
-          eq(attachments.state, "deleting"),
-          and(isNull(attachments.memoId), lt(attachments.createdAt, cutoff)),
-        ),
+      or(
+        // Rows awaiting R2 cleanup carry `deleting` regardless of `deletedAt`
+        // (both pre-deletion markers and finalize survivors), so a hard-delete
+        // path that forgot the immediate marker is still caught by the cron.
+        eq(attachments.state, "deleting"),
+        and(isNull(attachments.memoId), lt(attachments.createdAt, cutoff)),
       ),
     )
     .limit(100);
 }
 
 export async function finalizeAttachmentCleanup(db: FlareMoDb, id: string) {
-  const now = new Date().toISOString();
+  // The binary is already gone when we finalize, so the row is dead weight:
+  // delete it instead of parking `deletedAt` on it forever (D1 accumulation).
   await db
-    .update(attachments)
-    .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
+    .delete(attachments)
     .where(eq(attachments.id, parseResourceName(id, "attachments")));
 }
 
@@ -748,11 +747,7 @@ export async function finalizeAttachmentCleanupForIds(
   ids: string[],
 ) {
   if (ids.length === 0) return;
-  const now = new Date().toISOString();
-  await db
-    .update(attachments)
-    .set({ deletedAt: now, updatedAt: now, memoId: null, state: "deleting" })
-    .where(inArray(attachments.id, ids));
+  await db.delete(attachments).where(inArray(attachments.id, ids));
 }
 
 function normalizeAttachmentPageSize(value: number | undefined) {

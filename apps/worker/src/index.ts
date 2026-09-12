@@ -14,8 +14,10 @@ import {
   failMemberRemovalJob,
   finalizeAttachmentCleanupForIds,
   finalizeFlaremoMemberRemoval,
+  getFlaremoUserById,
   getQueuedMemberRemovalJobsByIds,
   listAttachmentCleanupCandidates,
+  listExpiredTrashedMemos,
   listQueuedMemberRemovalJobs,
   type PlanLimits,
   parseUserPlanLimits,
@@ -37,6 +39,7 @@ import {
 import { createEmbeddingProvider, createVectorIndex } from "./embedding";
 import type { FlareMoEnv } from "./env";
 import { jsonError } from "./http";
+import { hardDeleteMemoWithAttachments } from "./memo-hard-delete";
 import { betterAuthRateLimitBucket, rateLimitGuard } from "./rate-limit";
 import { accountApi } from "./routes/account-api";
 import { adminApi } from "./routes/admin-api";
@@ -274,6 +277,19 @@ export function createFlareMoApp(
  * day" review notifications. Exported so a shared-instance shell (hosted
  * composition) can drive the exact same sequence without mirroring it.
  */
+const ATTACHMENT_CLEANUP_BATCH = 100;
+// Safety bound for the drain loop: 100 batches x 100 rows = 10k rows/day.
+const MAX_ATTACHMENT_CLEANUP_BATCHES = 100;
+const DEFAULT_TRASH_RETENTION_DAYS = 30;
+
+function parseTrashRetentionDays(value: string | undefined): number {
+  const parsed = Number.parseInt(value?.trim() ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_TRASH_RETENTION_DAYS;
+  }
+  return Math.min(parsed, 365);
+}
+
 export async function runScheduledMaintenance(
   env: FlareMoEnv,
   scheduledTime: number,
@@ -330,16 +346,45 @@ export async function runScheduledMaintenance(
         : options.userLimits,
     resolveUserLimits: options.resolveUserLimits,
   });
-  const cutoff = new Date(scheduledTime - 24 * 60 * 60 * 1_000).toISOString();
-  const candidates = await listAttachmentCleanupCandidates(db, cutoff);
-  const objectKeys = candidates.map((attachment) => attachment.r2Key);
-  if (objectKeys.length > 0) {
+  // Attachment GC. The orphan grace period is 7 days: an upload that rebinds
+  // to its memo slower than that is dropped by design. Drain candidates in
+  // 100-row batches so a delete storm finishes the same day instead of
+  // backing up at one batch per daily cron.
+  const orphanCutoff = new Date(
+    scheduledTime - 7 * 24 * 60 * 60 * 1_000,
+  ).toISOString();
+  let cleanupCount = 0;
+  for (let batch = 0; batch < MAX_ATTACHMENT_CLEANUP_BATCHES; batch++) {
+    const candidates = await listAttachmentCleanupCandidates(db, orphanCutoff);
+    if (candidates.length === 0) break;
+    const objectKeys = candidates.map((attachment) => attachment.r2Key);
     await env.ATTACHMENTS.delete(objectKeys);
+    await finalizeAttachmentCleanupForIds(
+      db,
+      candidates.map((attachment) => attachment.id),
+    );
+    cleanupCount += candidates.length;
+    if (candidates.length < ATTACHMENT_CLEANUP_BATCH) break;
   }
-  await finalizeAttachmentCleanupForIds(
-    db,
-    candidates.map((attachment) => attachment.id),
+  // Expired trash purging: memos sitting in the recycle bin past the
+  // retention window are hard-deleted together with their attachments, so
+  // storage does not accumulate on trashed-only usage. 0 disables the sweep.
+  let trashPurgeCount = 0;
+  const retentionDays = parseTrashRetentionDays(
+    env.FLAREMO_TRASH_RETENTION_DAYS,
   );
+  if (retentionDays > 0) {
+    const trashCutoff = new Date(
+      scheduledTime - retentionDays * 24 * 60 * 60 * 1_000,
+    ).toISOString();
+    const expired = await listExpiredTrashedMemos(db, trashCutoff);
+    for (const { id: memoId, userId } of expired) {
+      const owner = await getFlaremoUserById(db, userId);
+      if (!owner) continue;
+      await hardDeleteMemoWithAttachments(env, db, owner, memoId);
+      trashPurgeCount += 1;
+    }
+  }
   // Reconcile data-transfer tasks: expire stale queued/running tasks whose
   // lease lapsed (interrupted request), then garbage-collect completed task
   // rows older than the TTL along with their R2 export artifacts.
@@ -365,7 +410,8 @@ export async function runScheduledMaintenance(
   console.log(
     JSON.stringify({
       message: "attachment cleanup complete",
-      count: candidates.length,
+      count: cleanupCount,
+      trashPurgeCount,
       staleTaskCount: staleCount,
       expiredTaskCount: expiredIds.length,
       reviewNotificationCount,

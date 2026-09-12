@@ -42,4 +42,8 @@ export type FlareMoEnv = Env & {
   // Upper bound (rows) for CEL memo-filter scans that cannot fully translate
   // to SQL (see src/filter-scan-limit.ts). Unset = 5000.
   FLAREMO_MEMO_FILTER_SCAN_LIMIT?: string;
+  // Recycle-bin retention in days: trashed memos older than this are
+  // hard-deleted (with their R2 attachments) by the daily sweep. Unset = 30;
+  // 0 disables the purge entirely.
+  FLAREMO_TRASH_RETENTION_DAYS?: string;
 };

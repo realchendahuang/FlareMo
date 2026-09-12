@@ -770,6 +770,23 @@ export async function updateMemo(
   return getMemoById(db, user, id, { includeDeleted: true });
 }
 
+/**
+ * Recycle-bin TTL sweep candidates: trashed memos whose `deletedAt` fell
+ * behind the retention cutoff. Trash purging hard-deletes these together
+ * with their attachment binaries (see the worker's scheduled maintenance).
+ */
+export async function listExpiredTrashedMemos(
+  db: FlareMoDb,
+  cutoff: string,
+  limit = 200,
+) {
+  return db
+    .select({ id: memos.id, userId: memos.userId })
+    .from(memos)
+    .where(and(eq(memos.status, "trashed"), lt(memos.deletedAt, cutoff)))
+    .limit(limit);
+}
+
 export async function moveMemoToTrash(
   db: FlareMoDb,
   user: UserRow,
@@ -807,8 +824,15 @@ export async function hardDeleteMemo(
     operation: "delete",
     createdAt: now,
   });
+  // Attachment rows are only marked `deleting`, never dropped here: the daily
+  // GC removes the binary from R2 and then deletes the rows. This way even a
+  // hard-delete path that skips `markMemoAttachmentsDeleting` cannot orphan
+  // the object — the rows let the cron predicate find it forever.
   await db.batch([
-    db.delete(attachments).where(eq(attachments.memoId, id)),
+    db
+      .update(attachments)
+      .set({ state: "deleting", updatedAt: now })
+      .where(eq(attachments.memoId, id)),
     eventStatement,
     webhookEventStatement,
     embeddingTaskStatement,

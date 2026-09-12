@@ -1193,12 +1193,70 @@ describe("FlareMo Worker API", () => {
     );
     await app.scheduled(
       {
-        scheduledTime: Date.now() + 2 * 24 * 60 * 60 * 1_000,
+        // Past the 7-day unbound-orphan grace period, so the created orphan
+        // is inside the GC window.
+        scheduledTime: Date.now() + 9 * 24 * 60 * 60 * 1_000,
       } as ScheduledController,
       env,
     );
     expect(
       await fetchApp(`http://flaremo.test/api/v1/${orphan.name}`),
+    ).toMatchObject({ status: 404 });
+  });
+
+  it("recovers a raw memo-row delete through the attachment GC", async () => {
+    const memo = await createMemo("rogue hard delete");
+    const attachment = await uploadAttachment(memo.name);
+    // A hard-delete path that skips the marker entirely: drop the memo row
+    // directly so attachment rows keep no `deleting` state — only the
+    // unbound-orphan clause can still reclaim the binary. (Production D1
+    // nulls attachment.memo_id via the FK cascade; Miniflare does not, so
+    // mimic that step explicitly.)
+    await env.DB.prepare(
+      "UPDATE attachments SET memo_id = NULL WHERE memo_id = ?",
+    )
+      .bind(memo.name)
+      .run();
+    await env.DB.prepare("DELETE FROM memos WHERE id = ?")
+      .bind(memo.name)
+      .run();
+    await app.scheduled(
+      {
+        scheduledTime: Date.now() + 9 * 24 * 60 * 60 * 1_000,
+      } as ScheduledController,
+      env,
+    );
+    expect(
+      await fetchApp(`http://flaremo.test/api/v1/${attachment.name}`),
+    ).toMatchObject({ status: 404 });
+  });
+
+  it("purges recycle-bin memos past the trash retention window", async () => {
+    const memo = await createMemo("expired trash");
+    const attachment = await uploadAttachment(memo.name);
+    await json(
+      await fetchApp(`http://flaremo.test/api/app/memos/${memo.id}`, {
+        method: "DELETE",
+      }),
+    );
+    // Backdate deletedAt beyond the default 30-day retention. Raw D1 here:
+    // drizzle updates without a consuming clause don't always flush in the
+    // Miniflare test harness.
+    await env.DB.prepare("UPDATE memos SET deleted_at = ? WHERE id = ?")
+      .bind(
+        new Date(Date.now() - 45 * 24 * 60 * 60 * 1_000).toISOString(),
+        memo.name,
+      )
+      .run();
+    await app.scheduled(
+      { scheduledTime: Date.now() } as ScheduledController,
+      env,
+    );
+    expect(
+      await fetchApp(`http://flaremo.test/api/app/memos/${memo.id}`),
+    ).toMatchObject({ status: 404 });
+    expect(
+      await fetchApp(`http://flaremo.test/api/v1/${attachment.name}`),
     ).toMatchObject({ status: 404 });
   });
 
@@ -3063,6 +3121,23 @@ async function createMemo<T = Record<string, unknown>>(content: string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ content }),
+    }),
+  );
+}
+
+async function uploadAttachment<T = Record<string, unknown>>(memoName: string) {
+  const formData = new FormData();
+  formData.set("memo", memoName);
+  formData.set(
+    "file",
+    new File(["payload"], "file.txt", {
+      type: "text/plain",
+    }),
+  );
+  return json<T>(
+    await fetchApp("http://flaremo.test/api/v1/attachments", {
+      method: "POST",
+      body: formData,
     }),
   );
 }
