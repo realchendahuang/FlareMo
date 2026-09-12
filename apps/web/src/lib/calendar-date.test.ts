@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   addMonths,
   buildMonthGrid,
+  dayFilterFromQuery,
+  dayFilterQuery,
   isoDay,
   monthOf,
   nextDay,
@@ -82,5 +84,24 @@ describe("weekdayLabels", () => {
       "7",
       "1",
     ]);
+  });
+});
+
+describe("dayFilterFromQuery / dayFilterQuery", () => {
+  it("round-trips a single-day filter", () => {
+    expect(dayFilterFromQuery(dayFilterQuery("2026-09-16"))).toBe("2026-09-16");
+  });
+
+  it("accepts the operators in either order", () => {
+    expect(dayFilterFromQuery("before:2026-09-17 after:2026-09-16")).toBe(
+      "2026-09-16",
+    );
+  });
+
+  it("rejects free text, extra operators, and open ranges", () => {
+    expect(dayFilterFromQuery("meeting after:2026-09-16")).toBe(null);
+    expect(dayFilterFromQuery("after:2026-09-16 before:2026-10-01")).toBe(null);
+    expect(dayFilterFromQuery("after:2026-09-16")).toBe(null);
+    expect(dayFilterFromQuery("")).toBe(null);
   });
 });

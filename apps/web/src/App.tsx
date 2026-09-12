@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  CalendarIcon,
   DownloadIcon,
   LanguagesIcon,
   MenuIcon,
@@ -8,6 +9,7 @@ import {
   SettingsIcon,
   SparklesIcon,
   UploadIcon,
+  XIcon,
 } from "lucide-react";
 import {
   type RefObject,
@@ -53,6 +55,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useMemoMutations, viewToMemoState } from "@/hooks/use-memo-mutations";
 import { useNewMemoCapture } from "@/hooks/use-new-memo-capture";
 import { type TranslationKey, useI18n } from "@/i18n";
+import { dayFilterFromQuery, formatDayTitle } from "@/lib/calendar-date";
 import {
   enqueueMemoSubmission,
   flushQueuedMemoSubmissions,
@@ -83,13 +86,16 @@ const EMPTY_STATS: MemoStatsResponse = {
 registerWorkspaceComponent(FlareMoApp);
 
 export function FlareMoApp() {
-  const { t, toggleLocale } = useI18n();
+  const { locale, t, toggleLocale } = useI18n();
   const navigate = useNavigate({ from: "/" });
   const search = indexRoute.useSearch();
   const view = search.view ?? "all";
   const activeTag = search.tag;
   const untagged = Boolean(search.untagged);
   const query = search.q ?? "";
+  // A query that is exactly one local day is not a text search; it renders as
+  // a removable date chip and the search box stays empty.
+  const dayFilter = dayFilterFromQuery(query);
   const setView = (nextView: ViewMode) =>
     void navigate({
       replace: true,
@@ -507,7 +513,11 @@ export function FlareMoApp() {
                   /
                 </span>
                 <div className="truncate px-1.5 py-1 text-sm font-semibold">
-                  {query.trim() ? t("search.results") : viewTitle(view, t)}
+                  {dayFilter
+                    ? formatDayTitle(dayFilter, locale)
+                    : query.trim()
+                      ? t("search.results")
+                      : viewTitle(view, t)}
                 </div>
               </div>
               <SearchBox
@@ -518,7 +528,7 @@ export function FlareMoApp() {
                     ? () => setSemanticMode((value) => !value)
                     : undefined
                 }
-                query={query}
+                query={dayFilter ? "" : query}
                 semanticMode={semanticMode}
                 setQuery={setQuery}
                 t={t}
@@ -542,7 +552,7 @@ export function FlareMoApp() {
                   ? () => setSemanticMode((value) => !value)
                   : undefined
               }
-              query={query}
+              query={dayFilter ? "" : query}
               semanticMode={semanticMode}
               setQuery={setQuery}
               t={t}
@@ -558,9 +568,26 @@ export function FlareMoApp() {
               )}
               {(activeTag || query.trim()) && (
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground motion-safe:animate-rise">
-                  {query.trim() && (
+                  {query.trim() && !dayFilter && (
                     <span className="rounded-md bg-muted px-2 py-1">
                       {t("search.globalScope")}
+                    </span>
+                  )}
+                  {dayFilter && (
+                    <span className="flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                      <CalendarIcon
+                        aria-hidden="true"
+                        className="size-3 shrink-0"
+                      />
+                      {formatDayTitle(dayFilter, locale)}
+                      <button
+                        aria-label={t("filter.clearDate")}
+                        className="-mr-1 rounded p-0.5 hover:text-foreground"
+                        type="button"
+                        onClick={() => setQuery("")}
+                      >
+                        <XIcon className="size-3.5" />
+                      </button>
                     </span>
                   )}
                   {activeTag && (
@@ -572,19 +599,21 @@ export function FlareMoApp() {
                       #{activeTag}
                     </button>
                   )}
-                  <button
-                    className="rounded-md px-2 py-1 motion-safe:transition-colors hover:bg-muted hover:text-foreground"
-                    type="button"
-                    onClick={() => {
-                      setActiveTag(undefined);
-                      setQuery("");
-                    }}
-                  >
-                    {t("common.clearFilters")}
-                  </button>
+                  {query.trim() && !dayFilter && (
+                    <button
+                      className="rounded-md px-2 py-1 motion-safe:transition-colors hover:bg-muted hover:text-foreground"
+                      type="button"
+                      onClick={() => {
+                        setActiveTag(undefined);
+                        setQuery("");
+                      }}
+                    >
+                      {t("common.clearFilters")}
+                    </button>
+                  )}
                 </div>
               )}
-              {query.trim() && !semanticMode && (
+              {query.trim() && !dayFilter && !semanticMode && (
                 <div className="-mt-1">
                   <InfoTip text={t("search.syntaxHint")} />
                 </div>

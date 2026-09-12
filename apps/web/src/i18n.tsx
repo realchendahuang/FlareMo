@@ -24,6 +24,7 @@ const messages = {
     "search.syntaxHint":
       "筛选：has:attachment · is:pinned · before:2026-07-01 · after:2026-07-01 · in:archive",
     "common.clearFilters": "清除筛选",
+    "filter.clearDate": "清除这一天的筛选",
     "common.save": "保存",
     "common.cancel": "取消",
     "common.close": "关闭",
@@ -597,6 +598,7 @@ const messages = {
     "search.syntaxHint":
       "Filters: has:attachment · is:pinned · before:2026-07-01 · after:2026-07-01 · in:archive",
     "common.clearFilters": "Clear filters",
+    "filter.clearDate": "Clear the day filter",
     "common.save": "Save",
     "common.cancel": "Cancel",
     "common.close": "Close",

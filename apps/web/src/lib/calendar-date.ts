@@ -108,3 +108,21 @@ export function formatDayTitle(dayKey: string, locale: string): string {
 export function dayFilterQuery(day: string): string {
   return `after:${day} before:${nextDay(day)}`;
 }
+
+// Inverse of dayFilterQuery: a query that is exactly one local day maps back
+// to its day key so the UI can render it as a date chip instead of raw query
+// syntax. Anything else (extra operators, free text, a partial range) stays a
+// genuine text query.
+export function dayFilterFromQuery(query: string): string | null {
+  const fields = new Map<string, string>();
+  for (const token of query.split(/\s+/)) {
+    if (!token) continue;
+    const colon = token.indexOf(":");
+    if (colon <= 0) return null;
+    fields.set(token.slice(0, colon), token.slice(colon + 1));
+  }
+  const start = fields.get("after");
+  const end = fields.get("before");
+  if (fields.size !== 2 || !start || !end) return null;
+  return end === nextDay(start) ? start : null;
+}
