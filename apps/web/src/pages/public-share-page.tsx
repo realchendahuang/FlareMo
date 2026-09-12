@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getPublicShare } from "@/api";
-import { AttachmentGallery } from "@/components/attachment-gallery";
 import { FlareMoLogo } from "@/components/flaremo-logo";
-import { LazyMemoContent } from "@/components/lazy-memo-content";
+import { MemoReadingView } from "@/components/reading/memo-reading-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Empty,
@@ -52,11 +51,11 @@ export function PublicSharePage({ token }: { token: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
-              <LazyMemoContent
-                className="text-base"
+              <MemoReadingView
+                attachments={shareQuery.data.attachments}
                 content={shareQuery.data.memo.content}
+                contentClassName="text-base"
               />
-              <AttachmentGallery attachments={shareQuery.data.attachments} />
             </CardContent>
           </Card>
         )}

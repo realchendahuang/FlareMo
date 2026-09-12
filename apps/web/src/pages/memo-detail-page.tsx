@@ -21,8 +21,7 @@ import {
   restoreMemoRevision,
   revokeShare,
 } from "@/api";
-import { AttachmentGallery } from "@/components/attachment-gallery";
-import { LazyMemoContent } from "@/components/lazy-memo-content";
+import { MemoReadingView } from "@/components/reading/memo-reading-view";
 import { SubpageHeader } from "@/components/subpage-header";
 import {
   AlertDialog,
@@ -319,11 +318,11 @@ function MemoDetail({
             )}
           </TabsList>
           <TabsContent className="flex flex-col gap-5 pt-4" value="content">
-            <LazyMemoContent
-              className="text-base"
+            <MemoReadingView
+              attachments={context.attachments}
               content={context.memo.content}
+              contentClassName="text-base"
             />
-            <AttachmentGallery attachments={context.attachments} />
             {context.memories.length > 0 && (
               <section className="flex flex-col gap-2 border-t border-border/60 pt-4">
                 <h2 className="text-sm font-medium">{t("memory.title")}</h2>

@@ -41,9 +41,13 @@ class MemoContentErrorBoundary extends Component<
 export const LazyMemoContent = memo(function LazyMemoContent({
   className,
   content,
+  onTimestampClick,
+  withHeadingIds,
 }: {
   className?: string;
   content: string;
+  onTimestampClick?: (seconds: number) => void;
+  withHeadingIds?: boolean;
 }) {
   return (
     <MemoContentErrorBoundary
@@ -52,7 +56,12 @@ export const LazyMemoContent = memo(function LazyMemoContent({
       <Suspense
         fallback={<PlainMemoContent className={className} content={content} />}
       >
-        <MarkdownMemoContent className={className} content={content} />
+        <MarkdownMemoContent
+          className={className}
+          content={content}
+          onTimestampClick={onTimestampClick}
+          withHeadingIds={withHeadingIds}
+        />
       </Suspense>
     </MemoContentErrorBoundary>
   );

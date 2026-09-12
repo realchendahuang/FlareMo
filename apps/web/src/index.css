@@ -303,6 +303,44 @@
   .memo-markdown input[type="checkbox"] {
     @apply mr-2 align-middle accent-flame-500;
   }
+
+  /* Transcript reading: an attachment image is constrained so a large scan
+     cannot break the column, and heading anchors clear the sticky player. */
+  .memo-markdown img {
+    @apply my-1 h-auto max-w-full rounded-xl border border-border/60;
+  }
+
+  .memo-markdown figure {
+    @apply mt-3;
+  }
+
+  .memo-markdown figcaption {
+    @apply mt-2 text-center text-xs text-muted-foreground;
+  }
+
+  .memo-markdown hr {
+    @apply my-6 border-border/60;
+  }
+
+  .memo-markdown h4,
+  .memo-markdown h5,
+  .memo-markdown h6 {
+    @apply text-sm font-semibold;
+  }
+
+  /* Timestamp chips: tappable cues in a transcript. */
+  .memo-timestamp {
+    @apply mr-1.5 inline-flex items-center rounded-md bg-flame-50 px-1.5 py-0.5 font-mono text-[0.8em] text-flame-700 tabular-nums transition-colors hover:bg-flame-100 dark:bg-flame-400/12 dark:text-flame-200 dark:hover:bg-flame-400/20;
+  }
+
+  .memo-timestamp-static {
+    @apply mr-1.5 inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.8em] text-muted-foreground tabular-nums;
+  }
+
+  /* The paragraph currently being played. */
+  .memo-transcript-active {
+    @apply rounded-md bg-flame-50/60 shadow-[inset_2px_0_0_0_var(--color-flame-400)] dark:bg-flame-400/8;
+  }
 }
 
 @keyframes flaremo-rise {

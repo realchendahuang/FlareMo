@@ -55,6 +55,9 @@ import {
 } from "@/lib/memo";
 import { cn } from "@/lib/utils";
 
+/** Bodies beyond this size collapse in the timeline. */
+const COLLAPSE_THRESHOLD = 600;
+
 type MemoCardProps = {
   memo: Memo;
   attachments: Attachment[];
@@ -100,6 +103,13 @@ export const MemoCard = memo(function MemoCard({
     : undefined;
   const tags = memo.payload.tags ?? extractTags(memo.content);
   const isTrashed = memo.state === "trashed";
+  // Long bodies (transcripts, articles) collapse so one memo cannot dominate
+  // the timeline. Expanded state is per-card and resets on remount.
+  const isCollapsible =
+    memo.content.length > COLLAPSE_THRESHOLD ||
+    memo.content.split("\n").length > 12;
+  const [expanded, setExpanded] = useState(false);
+  const collapsed = isCollapsible && !expanded;
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -298,7 +308,29 @@ export const MemoCard = memo(function MemoCard({
         </div>
       ) : (
         <div>
-          <LazyMemoContent content={memo.content} />
+          <div className="relative">
+            <div
+              className={cn(
+                collapsed && "max-h-52 overflow-hidden",
+                !collapsed && "transition-[max-height]",
+              )}
+            >
+              <LazyMemoContent content={memo.content} />
+            </div>
+            {collapsed && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card to-transparent" />
+            )}
+          </div>
+          {isCollapsible && (
+            <Button
+              className="mt-1.5"
+              onClick={() => setExpanded((value) => !value)}
+              size="sm"
+              variant="ghost"
+            >
+              {collapsed ? t("reading.expand") : t("reading.collapse")}
+            </Button>
+          )}
           {searchQuery && (
             <MemoSearchExcerpt content={memo.content} query={searchQuery} />
           )}
