@@ -80,8 +80,8 @@
   "ai": {
     "binding": "AI"
   },
-  // Per-IP throttling for credential endpoints (register / auth / email
-  // buckets). 30 requests per minute per IP. Fails open if the binding errors.
+  // Throttling for credential endpoints (per IP) and paid ASR connection starts
+  // (per authenticated user). Each bucket permits 30 calls/minute/key.
   "ratelimits": [
     {
       "name": "RATE_LIMITER",
@@ -107,6 +107,14 @@
     "FLAREMO_EMBEDDING_PROVIDER": "workers-ai",
     "FLAREMO_EMBEDDING_MODEL": "@cf/qwen/qwen3-embedding-0.6b",
     "FLAREMO_EMBEDDING_DIMENSIONS": "1024",
+    // Optional voice capture: dashscope or tencent. Blank model uses the
+    // provider default. Put provider keys in Worker secrets, never public vars.
+    "FLAREMO_ASR_PROVIDER": "dashscope",
+    "FLAREMO_ASR_MODEL": "",
+    "FLAREMO_ASR_TENCENT_APP_ID": "",
+    // Optional Tencent accuracy hint. A console vocabulary ID is a public var.
+    // Configure a private temporary list as a Worker secret instead.
+    "FLAREMO_ASR_TENCENT_HOTWORD_ID": "",
     // Self-measured vector usage limits for the usage panel. Defaults are the
     // Workers Free Vectorize allowance (5M stored / 30M queried dims per month).
     "FLAREMO_VECTORIZE_STORED_LIMIT": "5000000",

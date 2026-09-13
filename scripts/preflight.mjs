@@ -2,6 +2,9 @@ import { spawn } from "node:child_process";
 
 const commands = [
   ["node", ["./scripts/check-persistence-manifest.mjs"]],
+  ["pnpm", ["capture:gate:test"]],
+  ["pnpm", ["capture:harness:test"]],
+  ["pnpm", ["capture:production:test"]],
   ["pnpm", ["format:check"]],
   ["pnpm", ["check"]],
   ["pnpm", ["test"]],

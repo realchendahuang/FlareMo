@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "check": "tsc -b --pretty false",
+    "check": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests",
     "preview": "vite preview"

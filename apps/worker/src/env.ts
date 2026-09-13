@@ -1,6 +1,14 @@
 import type { RateLimiterBinding } from "./rate-limit";
 
 export type FlareMoEnv = Env & {
+  FLAREMO_ASR_DASHSCOPE_API_KEY?: string;
+  FLAREMO_ASR_TENCENT_APP_ID?: string;
+  FLAREMO_ASR_TENCENT_HOTWORD_ID?: string;
+  FLAREMO_ASR_TENCENT_HOTWORD_LIST?: string;
+  FLAREMO_ASR_TENCENT_SECRET_ID?: string;
+  FLAREMO_ASR_TENCENT_SECRET_KEY?: string;
+  FLAREMO_ASR_PROVIDER?: string;
+  FLAREMO_ASR_MODEL?: string;
   MEMBER_REMOVAL_QUEUE?: Queue<{ jobId: string }>;
   DATA_EXPORT_QUEUE?: Queue<{ taskId: string }>;
   BETTER_AUTH_SECRET?: string;
@@ -8,8 +16,8 @@ export type FlareMoEnv = Env & {
   FLAREMO_RECOVERY_SECRET?: string;
   FLAREMO_PUBLIC_URL?: string;
   FLAREMO_TRUSTED_ORIGINS?: string;
-  // Optional Cloudflare rate-limiting binding for credential endpoints
-  // (see src/rate-limit.ts). Unbound deployments skip throttling entirely.
+  // Optional Cloudflare rate-limiting binding for credential endpoints and
+  // paid ASR connection starts. Unbound deployments skip throttling entirely.
   RATE_LIMITER?: RateLimiterBinding;
   // Transactional email for registration verification (see src/email.ts).
   // `cloudflare` uses the EMAIL binding (Workers Paid); `none` skips
@@ -39,11 +47,4 @@ export type FlareMoEnv = Env & {
   // Usage-panel limits. Defaults are the Workers Free Vectorize allowance.
   FLAREMO_VECTORIZE_STORED_LIMIT?: string;
   FLAREMO_VECTORIZE_QUERIED_LIMIT?: string;
-  // Upper bound (rows) for CEL memo-filter scans that cannot fully translate
-  // to SQL (see src/filter-scan-limit.ts). Unset = 5000.
-  FLAREMO_MEMO_FILTER_SCAN_LIMIT?: string;
-  // Recycle-bin retention in days: trashed memos older than this are
-  // hard-deleted (with their R2 attachments) by the daily sweep. Unset = 30;
-  // 0 disables the purge entirely.
-  FLAREMO_TRASH_RETENTION_DAYS?: string;
 };

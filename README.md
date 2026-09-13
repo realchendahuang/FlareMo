@@ -373,3 +373,7 @@ FlareMo 以 [GNU AGPL-3.0](./LICENSE)（AGPL-3.0-only）授权开源。
 - 自部署、修改和再分发按 AGPL-3.0 条款执行；以网络服务形式提供修改版本时，需要向该服务的使用者公开对应源码。
 - Copyright (c) 2026 realchendahuang。版权持有者可以在 AGPL-3.0 之外，为 FlareMo 托管服务使用双许可。
 - "FlareMo" 名称与标识不属于 AGPL-3.0 授权范围；fork 与衍生项目不得使用 FlareMo 品牌进行推广或暗示官方背书。
+
+### 主动语音记录（Capture）
+
+登录后进入 `/capture`，点击开始，在前台实时识别语音；停止后编辑文字并保存为普通记录，默认仅自己可见并带 `voice` 标签。支持腾讯云或 DashScope 实时 ASR；未配置时不显示导航入口。不保存原始音频，不承诺后台或锁屏录音。配置和真机验收见 [Voice Capture](docs/voice-capture.md)。

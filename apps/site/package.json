@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node ./scripts/build.mjs",
-    "check": "tsc -b --pretty false",
+    "check": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "format": "prettier --write \"**/*.{ts,tsx,css,md}\"",
     "preview": "vite preview",
     "deploy": "pnpm build && wrangler deploy --config ./wrangler.jsonc",

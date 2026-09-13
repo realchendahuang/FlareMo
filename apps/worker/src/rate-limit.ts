@@ -23,20 +23,21 @@ export function clientIpFromRequest(request: Request): string {
 }
 
 /**
- * Bucketed per-IP check against the deployment's rate-limiting binding.
- * Absent binding → allowed. Binding errors fail open: this is deployment
- * hardening for credential endpoints, not a correctness gate, and taking the
- * whole auth surface down because a limiter hiccupped is the worse failure.
+ * Bucketed check against the deployment's rate-limiting binding. Callers may
+ * supply an authenticated subject; credential endpoints default to client IP.
+ * Absent binding means allowed. Binding errors fail open because this is
+ * resource hardening rather than a correctness gate.
  */
 export async function checkRateLimit(
   limiter: RateLimiterBinding | undefined,
   bucket: string,
   request: Request,
+  subject = clientIpFromRequest(request),
 ): Promise<boolean> {
   if (!limiter) return false;
   try {
     const result = await limiter.limit({
-      key: `${bucket}:${clientIpFromRequest(request)}`,
+      key: `${bucket}:${subject}`,
     });
     return !result.success;
   } catch (error) {
@@ -58,8 +59,14 @@ export async function checkRateLimit(
 export async function rateLimitGuard(
   c: Context<HonoBindings>,
   bucket: string,
+  subject?: string,
 ): Promise<Response | null> {
-  const limited = await checkRateLimit(c.env.RATE_LIMITER, bucket, c.req.raw);
+  const limited = await checkRateLimit(
+    c.env.RATE_LIMITER,
+    bucket,
+    c.req.raw,
+    subject,
+  );
   if (!limited) return null;
   return c.json(
     { error: { message: "Too many requests. Please try again later." } },

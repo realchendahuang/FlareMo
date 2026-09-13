@@ -50,6 +50,12 @@ Cloudflare 打包验证：
 pnpm deploy:dry-run
 ```
 
+如果本次部署启用 Voice Capture，先验证生产 Wrangler 配置：
+
+```bash
+pnpm capture:production:check
+```
+
 配置生产认证 secrets（交互式输入，不要把值写进命令行参数、仓库或日志）：
 
 ```bash
@@ -57,6 +63,21 @@ pnpm exec wrangler secret put BETTER_AUTH_SECRET --config ./wrangler.jsonc
 pnpm exec wrangler secret put FLAREMO_BOOTSTRAP_SECRET --config ./wrangler.jsonc
 # 仅在批准的 operator recovery 窗口临时执行；成功后立即 rotate/delete。
 pnpm exec wrangler secret put FLAREMO_RECOVERY_SECRET --config ./wrangler.jsonc
+```
+
+Voice Capture 根据 `FLAREMO_ASR_PROVIDER` 选择一组交互式 secret 命令。腾讯使用前两项，DashScope 使用第三项；腾讯私有临时热词表存在时再设置第四项：
+
+```bash
+pnpm exec wrangler secret put FLAREMO_ASR_TENCENT_SECRET_ID --config ./wrangler.jsonc
+pnpm exec wrangler secret put FLAREMO_ASR_TENCENT_SECRET_KEY --config ./wrangler.jsonc
+pnpm exec wrangler secret put FLAREMO_ASR_DASHSCOPE_API_KEY --config ./wrangler.jsonc
+pnpm exec wrangler secret put FLAREMO_ASR_TENCENT_HOTWORD_LIST --config ./wrangler.jsonc
+```
+
+配置完成后只读核对远端 secret 名称，不读取或输出值：
+
+```bash
+pnpm capture:production:check -- --remote
 ```
 
 Wrangler secret 不提供安全的值回读路径。Agent 只检查配置后的 bootstrap status，不得要求用户把 secret 重新粘贴、打印或通过命令行转交。

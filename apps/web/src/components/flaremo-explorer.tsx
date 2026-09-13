@@ -1,31 +1,26 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   ArchiveIcon,
   BrainIcon,
   CalendarDaysIcon,
-  CalendarIcon,
   ChevronRightIcon,
   FolderKanbanIcon,
   FootprintsIcon,
   HashIcon,
   InboxIcon,
+  MicIcon,
   PencilIcon,
   Trash2Icon,
 } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
-  memo,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type { MemoStatsResponse, TagHierarchyNode } from "@/api";
+  getCaptureStatus,
+  type MemoStatsResponse,
+  type TagHierarchyNode,
+} from "@/api";
+import { authClient } from "@/auth-client";
 import { FlareMoLogo } from "@/components/flaremo-logo";
-import {
-  MiniCalendarPanel,
-  MiniCalendarReminders,
-} from "@/components/flaremo-mini-calendar-panel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,22 +36,6 @@ import { buildMonthLabels } from "@/lib/activity";
 import { cn } from "@/lib/utils";
 
 export type ExplorerView = "all" | "archived" | "trashed";
-
-// One slot, two looks at time: the 12-week writing trend, or the current
-// month's schedule. Persisted so the sidebar keeps the user's choice.
-export type TimeView = "trend" | "calendar";
-
-const TIME_VIEW_STORAGE_KEY = "flaremo.explorer.timeView";
-
-function readTimeView(): TimeView {
-  try {
-    const stored = localStorage.getItem(TIME_VIEW_STORAGE_KEY);
-    if (stored === "trend" || stored === "calendar") return stored;
-  } catch {
-    // Storage can be unavailable (private mode); fall back to the default.
-  }
-  return "trend";
-}
 
 type FlareMoExplorerProps = {
   activeTag?: string;
@@ -74,7 +53,7 @@ type FlareMoExplorerProps = {
   onNavigate?: () => void;
 };
 
-export const FlareMoExplorer = memo(function FlareMoExplorer({
+export function FlareMoExplorer({
   activeTag,
   activeView,
   footer,
@@ -90,6 +69,14 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   onNavigate,
 }: FlareMoExplorerProps) {
   const { locale, t } = useI18n();
+  const session = authClient.useSession();
+  const captureStatus = useQuery({
+    queryKey: ["capture-status", session.data?.user.id],
+    queryFn: getCaptureStatus,
+    enabled: Boolean(session.data?.user),
+    staleTime: 30_000,
+    retry: false,
+  });
   const navItems = [
     {
       count: stats.counts.normal,
@@ -110,23 +97,11 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
       view: "trashed" as const,
     },
   ];
-  const activityTotal = useMemo(
-    () => stats.activity.reduce((total, day) => total + day.count, 0),
-    [stats.activity],
+  const activityTotal = stats.activity.reduce(
+    (total, day) => total + day.count,
+    0,
   );
-  const monthLabels = useMemo(
-    () => buildMonthLabels(stats.activity, locale),
-    [stats.activity, locale],
-  );
-  const [timeView, setTimeView] = useState<TimeView>(readTimeView);
-  const selectTimeView = (view: TimeView) => {
-    setTimeView(view);
-    try {
-      localStorage.setItem(TIME_VIEW_STORAGE_KEY, view);
-    } catch {
-      // Persistence is best-effort; the in-memory choice still applies.
-    }
-  };
+  const monthLabels = buildMonthLabels(stats.activity, locale);
 
   return (
     <aside className="flex min-h-full flex-col px-3 py-4 text-sm">
@@ -141,77 +116,41 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         <StatCell label={t("explorer.days")} value={stats.active_days} />
       </section>
 
-      <section className="mb-4 px-1 motion-safe:animate-fade">
-        <MiniCalendarReminders />
+      <section className="mb-5 px-1">
         <div
-          aria-label={t("explorer.timeViewLabel")}
-          className="mb-2 flex rounded-lg border border-border/60 p-0.5 text-xs"
-          role="tablist"
+          aria-label={t("explorer.heatmapSummary", {
+            count: activityTotal,
+            days: stats.activity.length,
+          })}
+          className="grid grid-flow-col grid-rows-7 gap-1"
+          data-testid="activity-heatmap"
+          role="img"
         >
-          {(
-            [
-              ["trend", t("explorer.viewTrend")],
-              ["calendar", t("explorer.viewCalendar")],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              aria-selected={timeView === value}
+          {stats.activity.map((day, index) => (
+            <div
+              aria-hidden="true"
               className={cn(
-                "flex-1 rounded-md px-2 py-1 motion-safe:transition-colors motion-safe:duration-150",
-                timeView === value
-                  ? "bg-accent font-medium text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                "aspect-square rounded-[3px] motion-safe:animate-fade motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
+                heatmapColor(day.count),
               )}
-              key={value}
-              role="tab"
-              type="button"
-              onClick={() => selectTimeView(value)}
-            >
-              {label}
-            </button>
+              key={day.date}
+              style={{ animationDelay: `${index * 4}ms` }}
+              title={t("explorer.heatmapDay", {
+                count: day.count,
+                date: day.date,
+              })}
+            />
           ))}
         </div>
-        <div className="min-h-[14.5rem]">
-          {timeView === "trend" ? (
-            <>
-              <div
-                aria-label={t("explorer.heatmapSummary", {
-                  count: activityTotal,
-                  days: stats.activity.length,
-                })}
-                className="grid grid-flow-col grid-rows-7 gap-1"
-                data-testid="activity-heatmap"
-                role="img"
-              >
-                {stats.activity.map((day) => (
-                  <div
-                    aria-hidden="true"
-                    className={cn(
-                      "aspect-square rounded-[3px] motion-safe:transition-[opacity,transform] motion-safe:duration-150 hover:opacity-85 motion-safe:hover:scale-110",
-                      heatmapColor(day.count),
-                    )}
-                    key={day.date}
-                    title={t("explorer.heatmapDay", {
-                      count: day.count,
-                      date: day.date,
-                    })}
-                  />
-                ))}
-              </div>
-              <div
-                aria-hidden="true"
-                className="mt-2 grid grid-cols-12 gap-1 px-1 text-xs text-muted-foreground"
-              >
-                {monthLabels.map((month) => (
-                  <span className="whitespace-nowrap" key={month.date}>
-                    {month.label}
-                  </span>
-                ))}
-              </div>
-            </>
-          ) : (
-            <MiniCalendarPanel activity={stats.activity} />
-          )}
+        <div
+          aria-hidden="true"
+          className="mt-2 grid grid-cols-12 gap-1 px-1 text-xs text-muted-foreground"
+        >
+          {monthLabels.map((month) => (
+            <span className="whitespace-nowrap" key={month.date}>
+              {month.label}
+            </span>
+          ))}
         </div>
       </section>
 
@@ -248,6 +187,16 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
       </nav>
 
       <section className="mt-5 flex flex-col gap-1 border-t border-border/60 pt-4">
+        {captureStatus.data?.available && (
+          <Link
+            className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
+            onClick={onNavigate}
+            to="/capture"
+          >
+            <MicIcon />
+            <span className="min-w-0 flex-1 truncate">{t("nav.capture")}</span>
+          </Link>
+        )}
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
           onClick={onNavigate}
@@ -273,14 +222,6 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         >
           <BrainIcon />
           <span className="min-w-0 flex-1 truncate">{t("nav.memory")}</span>
-        </Link>
-        <Link
-          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
-          onClick={onNavigate}
-          to="/calendar"
-        >
-          <CalendarIcon />
-          <span className="min-w-0 flex-1 truncate">{t("nav.calendar")}</span>
         </Link>
         <Link
           className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-muted-foreground motion-safe:transition-[background-color,color,transform] motion-safe:duration-150 hover:bg-muted hover:text-foreground motion-safe:hover:translate-x-0.5"
@@ -328,7 +269,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
       {footer && <div className="mt-auto px-1 pt-5 pb-1">{footer}</div>}
     </aside>
   );
-});
+}
 
 type TagTreeProps = {
   activeTag?: string;

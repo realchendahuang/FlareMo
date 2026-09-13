@@ -474,3 +474,7 @@ FlareMo 的架构核心是：
 **面向 Memos 生态的兼容 API + Better Auth + FlareMo-native internal model + Cloudflare Workers runtime + D1/Drizzle source of truth。**
 
 对外吃 Memos 生态，对内保持干净，不复制 Memos 的历史包袱，也不为了凑技术栈而引入 Cloudflare 全家桶。
+
+## 主动语音记录
+
+Capture 复用 realtime-context 的浏览器 PCM / 流式 ASR 思路，将服务端适配移入 FlareMo Worker。浏览器以 Better Auth cookie 连接同源 `/api/app/capture/ws`，Worker 校验 Origin、持有腾讯云或 DashScope 凭据并转换事件。录音过程中的文字进入现有 IndexedDB 草稿；停止并确认后调用现有 Memo API，继续使用 D1、FTS 与可选 embedding pipeline。不新增语音数据库、第二套认证或 Python 服务。详细生命周期、音频处理和验收边界见 [Capture 设计](voice-capture-design.md)。

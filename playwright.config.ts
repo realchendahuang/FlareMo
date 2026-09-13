@@ -38,22 +38,10 @@ export default defineConfig({
     {
       name: "memo-ui",
       dependencies: ["auth-ui"],
-      testMatch:
-        /(memo-flow|memory-flow|audio-transcript-reading|attachment-inline)\.spec\.ts/,
+      testMatch: /(memo-flow|memory-flow|capture-flow)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: E2E_AUTH_STATE,
-      },
-    },
-    {
-      name: "branding-ui",
-      dependencies: ["auth-contract"],
-      testMatch: /branding\.spec\.ts/,
-      use: {
-        ...devices["Desktop Chrome"],
-        // The first case must see the default branding anonymously; the
-        // owner flow signs in via its own storage state contexts.
-        storageState: undefined,
       },
     },
   ],
