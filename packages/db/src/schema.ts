@@ -1249,3 +1249,11 @@ export type TaskRow = typeof tasks.$inferSelect;
 export type NewTaskRow = typeof tasks.$inferInsert;
 export type TaskActivityRow = typeof taskActivity.$inferSelect;
 export type NewTaskActivityRow = typeof taskActivity.$inferInsert;
+
+// Instance-wide encrypted service credentials. Never part of user memo exports.
+export const voiceServiceConfig = sqliteTable("voice_service_config", {
+  id: text("id").primaryKey(),
+  revision: text("revision").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull(),
+  ciphertext: text("ciphertext"),
+});

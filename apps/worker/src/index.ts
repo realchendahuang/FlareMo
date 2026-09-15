@@ -68,6 +68,7 @@ import { memosSseApi } from "./routes/memos-sse";
 import { projectsApi } from "./routes/projects-api";
 import { publicApi } from "./routes/public-api";
 import { tasksApi } from "./routes/tasks-api";
+import { voiceSettingsApi } from "./routes/voice-settings-api";
 
 /**
  * Kernel assembly entry. Every call returns a fresh Hono instance so hosts
@@ -218,6 +219,7 @@ export function createFlareMoApp(
     return getFlareMoRuntime(c.env).auth.handler(c.req.raw);
   });
   app.route("/api/app/branding", brandingApi);
+  app.route("/api/app/voice-settings", voiceSettingsApi);
   app.route("/api/app/capture", captureApi);
   app.route("/api/app/account", accountApi);
   app.route("/api/app/admin", adminApi);

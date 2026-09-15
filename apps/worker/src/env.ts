@@ -3,6 +3,7 @@ import type { RateLimiterBinding } from "./rate-limit";
 export type FlareMoEnv = Env & {
   // Voice capture ASR providers (see src/asr/provider.ts). Provider selection
   // is a public var; provider credentials are Worker secrets.
+  FLAREMO_VOICE_CONFIG_KEY?: string;
   FLAREMO_ASR_PROVIDER?: string;
   FLAREMO_ASR_MODEL?: string;
   FLAREMO_ASR_DASHSCOPE_API_KEY?: string;

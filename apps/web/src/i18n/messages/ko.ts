@@ -5,6 +5,34 @@
 import type { TranslationKey } from "../key";
 
 const messages = {
+  "voiceSettings.loadError": "Could not load voice settings. Refresh to retry.",
+  "voiceSettings.error":
+    "Operation failed. Reload settings and check credentials, balance, and region.",
+  "voiceSettings.title": "Voice recognition settings",
+  "voiceSettings.description":
+    "Shared site service, configured only by administrators. Saved secrets are never displayed. Leave fields blank to keep credentials saved here.",
+  "voiceSettings.configured": "Credentials configured",
+  "voiceSettings.unconfigured": "Not configured",
+  "voiceSettings.masterKey":
+    "First set an independent FLAREMO_VOICE_CONFIG_KEY (at least 32 characters) in Worker Secrets for encrypted storage.",
+  "voiceSettings.unreadable":
+    "Cannot decrypt saved credentials. Restore the encryption key, or delete and replace the credentials.",
+  "voiceSettings.saved": "Settings saved.",
+  "voiceSettings.provider": "Provider",
+  "voiceSettings.tencent": "Tencent Cloud",
+  "voiceSettings.model": "Recognition model (blank uses the default)",
+  "voiceSettings.enabled": "Enable voice capture",
+  "voiceSettings.save": "Save settings",
+  "voiceSettings.testWarning":
+    "Connection tests use saved settings and may incur cloud charges. They do not verify transcription quality.",
+  "voiceSettings.testSuccess": "Connection test succeeded.",
+  "voiceSettings.test": "Test saved connection",
+  "voiceSettings.confirmDelete":
+    "Delete credentials and disable voice capture? Deployment environment keys will not be used as a fallback.",
+  "voiceSettings.deleted": "Credentials deleted. Voice capture disabled.",
+  "voiceSettings.delete": "Delete credentials and disable",
+  "voiceSettings.migration":
+    "Enter all credentials when first switching to site settings or changing provider. Environment secrets are not imported automatically.",
   "common.search": "검색",
   "search.placeholder": "노트 검색…",
   "search.semanticPlaceholder": "찾기: 자연어로 설명…",

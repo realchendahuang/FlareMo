@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { LogOutIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   changeEmail,
@@ -30,6 +30,12 @@ import { TokensPanel } from "./account/tokens-panel";
 import { TransferPanel } from "./account/transfer-panel";
 import { UsagePanel } from "./account/usage-panel";
 import { AdminPanel, BrandingCard } from "./admin-page";
+
+const VoicePanel = lazy(() =>
+  import("./account/voice-panel").then((module) => ({
+    default: module.VoicePanel,
+  })),
+);
 
 type AccountTab = "account" | "usage" | "branding" | "admin";
 
@@ -83,6 +89,20 @@ export function AccountPage() {
     queryFn: getCurrentFlareMoUser,
     retry: false,
   });
+  const voicePermission = useQuery({
+    queryKey: ["voice-management-permission", session.data?.user.id],
+    queryFn: getCurrentFlareMoUser,
+    enabled: !session.isPending && Boolean(session.data?.user.id),
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+  const showVoiceSettings =
+    !session.isPending &&
+    Boolean(session.data?.user.id) &&
+    voicePermission.isSuccess &&
+    !voicePermission.isFetching &&
+    voicePermission.data.can_manage_voice_service === true;
   const appInfoQuery = useQuery({
     queryKey: ["app-info"],
     queryFn: getAppInfo,
@@ -360,6 +380,11 @@ export function AccountPage() {
               <InstallAppCard />
 
               <PushPanel />
+              {showVoiceSettings && (
+                <Suspense fallback={null}>
+                  <VoicePanel key={session.data?.user.id} />
+                </Suspense>
+              )}
 
               <SecurityPanel
                 emailProviderDisabled={

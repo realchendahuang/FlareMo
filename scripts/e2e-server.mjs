@@ -8,6 +8,7 @@ const testBetterAuthSecret =
 const testBootstrapSecret =
   "flaremo-e2e-bootstrap-secret-never-use-in-production-2026";
 const testBindings = [
+  "FLAREMO_VOICE_CONFIG_KEY:voice-e2e-encryption-secret-never-use-in-production",
   `FLAREMO_PUBLIC_URL:${testPublicUrl}`,
   // Wrangler's local proxy normalizes Better Auth's origin check to the
   // loopback host without the test port. This is an explicit E2E-only origin;

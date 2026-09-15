@@ -140,6 +140,7 @@ export type CurrentFlareMoUser = {
   id: string;
   role: "owner" | "admin" | "member" | null;
   is_instance_owner: boolean;
+  can_manage_voice_service: boolean;
   status: "active" | "removed";
   name: string;
   email: string;
@@ -1118,3 +1119,28 @@ async function apiRequest<T>(
 
   return (await response.json()) as T;
 }
+
+export type VoiceSettings = {
+  revision: string | null;
+  enabled: boolean;
+  configured: boolean;
+  source: "database" | "environment";
+  provider: "tencent" | "dashscope" | null;
+  model: string;
+  unreadable: boolean;
+  canStore: boolean;
+};
+export const getVoiceSettings = () =>
+  apiRequest<VoiceSettings>("/api/app/voice-settings");
+export const saveVoiceSettings = (input: unknown) =>
+  apiRequest("/api/app/voice-settings", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+export const deleteVoiceSettings = (revision: string | null) =>
+  apiRequest("/api/app/voice-settings", {
+    method: "DELETE",
+    body: JSON.stringify({ revision }),
+  });
+export const testVoiceSettings = () =>
+  apiRequest("/api/app/voice-settings/test", { method: "POST" });

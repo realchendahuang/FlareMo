@@ -33,3 +33,4 @@ export * from "./tasks";
 export * from "./team-permissions";
 export * from "./usage";
 export * from "./users";
+export * from "./voice-service";

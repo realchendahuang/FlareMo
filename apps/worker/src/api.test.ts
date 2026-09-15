@@ -64,6 +64,92 @@ describe("FlareMo Worker API", () => {
     await mf.dispose();
   });
 
+  it("encrypts instance voice settings and rejects stale writes and foreign origins", async () => {
+    Object.assign(env, {
+      FLAREMO_VOICE_CONFIG_KEY: "test-only-voice-encryption-key-long-enough",
+      FLAREMO_ASR_DASHSCOPE_API_KEY: "environment-test-key",
+    });
+    const request = (
+      method: string,
+      body?: unknown,
+      cookie = sessionCookie,
+      origin = "http://flaremo.test",
+    ) =>
+      app.fetch(
+        new Request("http://flaremo.test/api/app/voice-settings", {
+          method,
+          headers: { cookie, origin, "Content-Type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        }),
+        env,
+      );
+    expect((await request("GET", undefined, "")).status).toBe(401);
+    expect(
+      (
+        await request("PUT", {
+          revision: null,
+          enabled: true,
+          credentials: { provider: "tencent" },
+        })
+      ).status,
+    ).toBe(400);
+    const input = {
+      revision: null,
+      enabled: true,
+      credentials: { provider: "dashscope", apiKey: "test-database-secret" },
+    };
+    expect(
+      (await request("PUT", input, sessionCookie, "https://evil.test")).status,
+    ).toBe(403);
+    expect((await request("PUT", input)).status).toBe(200);
+    const text = await (await request("GET")).text();
+    expect(text).not.toContain("test-database-secret");
+    const state = JSON.parse(text);
+    const stored = await env.DB.prepare(
+      "SELECT ciphertext FROM voice_service_config",
+    ).first<{ ciphertext: string }>();
+    expect(stored?.ciphertext).not.toContain("test-database-secret");
+    expect((await request("PUT", input)).status).toBe(409);
+    expect(
+      (
+        await request("PUT", {
+          ...input,
+          revision: state.revision,
+          credentials: { provider: "dashscope", apiKey: "" },
+        })
+      ).status,
+    ).toBe(200);
+    const cipherAfterBlank = await env.DB.prepare(
+      "SELECT ciphertext FROM voice_service_config",
+    ).first<{ ciphertext: string }>();
+    const { openVoiceCredentials } = await import("./asr/configuration");
+    expect(
+      (
+        await openVoiceCredentials(
+          env.FLAREMO_VOICE_CONFIG_KEY,
+          cipherAfterBlank?.ciphertext ?? "",
+        )
+      ).apiKey,
+    ).toBe("test-database-secret");
+    const latest = (await (await request("GET")).json()) as {
+      revision: string;
+    };
+    expect(
+      (await request("DELETE", { revision: latest.revision })).status,
+    ).toBe(200);
+    const status = await app.fetch(
+      new Request("http://flaremo.test/api/app/capture/status", {
+        headers: { cookie: sessionCookie },
+      }),
+      env,
+    );
+    expect(await status.json()).toEqual({
+      available: false,
+      provider: null,
+      streaming: false,
+    });
+  });
+
   it("protects capture capability and WebSocket with browser auth and exact Origin", async () => {
     const base = "http://flaremo.test/api/app/capture";
     const raw = (path: string, headers: Record<string, string> = {}) =>
@@ -104,13 +190,34 @@ describe("FlareMo Worker API", () => {
     ).toBe(503);
     Object.assign(env, {
       FLAREMO_ASR_DASHSCOPE_API_KEY: "test-only-asr-secret",
+      FLAREMO_VOICE_CONFIG_KEY: "test-only-voice-encryption-key-long-enough",
     });
+    const configured = await app.fetch(
+      new Request("http://flaremo.test/api/app/voice-settings", {
+        method: "PUT",
+        headers: {
+          cookie: sessionCookie,
+          origin: "http://flaremo.test",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          revision: null,
+          enabled: true,
+          credentials: {
+            provider: "dashscope",
+            apiKey: "test-only-asr-secret",
+          },
+        }),
+      }),
+      env,
+    );
+    expect(configured.status).toBe(200);
     const available = await raw("/status", authenticated);
     expect(available.headers.get("cache-control")).toBe("no-store");
     const body = await available.text();
     expect(JSON.parse(body)).toEqual({
       available: true,
-      provider: "dashscope",
+      provider: null,
       streaming: true,
     });
     expect(body).not.toContain("test-only-asr-secret");
@@ -172,12 +279,37 @@ describe("FlareMo Worker API", () => {
     expect(
       (await raw("/ws", { ...headers, upgrade: "websocket" })).status,
     ).toBe(503);
-    Object.assign(env, { FLAREMO_ASR_TENCENT_APP_ID: "1234567890" });
+    Object.assign(env, {
+      FLAREMO_ASR_TENCENT_APP_ID: "1234567890",
+      FLAREMO_VOICE_CONFIG_KEY: "test-only-voice-encryption-key-long-enough",
+    });
+    const configured = await app.fetch(
+      new Request("http://flaremo.test/api/app/voice-settings", {
+        method: "PUT",
+        headers: {
+          cookie: sessionCookie,
+          origin: "http://flaremo.test",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          revision: null,
+          enabled: true,
+          credentials: {
+            provider: "tencent",
+            appId: "1234567890",
+            secretId: "test-tencent-secret-id",
+            secretKey: "test-tencent-secret-key",
+          },
+        }),
+      }),
+      env,
+    );
+    expect(configured.status).toBe(200);
     const response = await raw("/status", headers);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({
       available: true,
-      provider: "tencent",
+      provider: null,
       streaming: true,
     });
     expect((await raw("/status")).status).toBe(401);
@@ -2631,6 +2763,73 @@ describe("FlareMo Worker API", () => {
     );
     expect(signIn.status).toBe(200);
     const memberCookie = extractCookieHeader(signIn);
+
+    // Role changes take effect for the existing session, without re-login.
+    Object.assign(env, {
+      FLAREMO_VOICE_CONFIG_KEY: "test-admin-encryption-secret-long-enough",
+    });
+    const voiceRequest = (method: string, body?: unknown, suffix = "") =>
+      app.fetch(
+        new Request(`http://flaremo.test/api/app/voice-settings${suffix}`, {
+          method,
+          headers: {
+            cookie: memberCookie,
+            origin: "http://flaremo.test",
+            "content-type": "application/json",
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        }),
+        env,
+      );
+    for (const role of ["member", "admin", "member"] as const) {
+      expect((await updateRole(role)).status).toBe(200);
+      const me = await app.fetch(
+        new Request("http://flaremo.test/api/app/me", {
+          headers: { cookie: memberCookie },
+        }),
+        env,
+      );
+      expect(await me.json()).toMatchObject({
+        is_instance_owner: false,
+        can_manage_voice_service: role === "admin",
+      });
+      if (role === "admin") {
+        expect((await voiceRequest("GET")).status).toBe(200);
+        expect(
+          (
+            await voiceRequest("PUT", {
+              revision: null,
+              enabled: true,
+              credentials: {
+                provider: "dashscope",
+                apiKey: "fake-admin-test-key",
+              },
+            })
+          ).status,
+        ).toBe(200);
+        const state = await (await voiceRequest("GET")).json<{
+          revision: string;
+        }>();
+        expect(
+          (await voiceRequest("DELETE", { revision: state.revision })).status,
+        ).toBe(200);
+        // Deleted settings prevent any paid connection during this test.
+        expect((await voiceRequest("POST", undefined, "/test")).status).toBe(
+          503,
+        );
+      } else {
+        for (const [method, suffix] of [
+          ["GET", ""],
+          ["PUT", ""],
+          ["DELETE", ""],
+          ["POST", "/test"],
+        ]) {
+          expect((await voiceRequest(method, undefined, suffix)).status).toBe(
+            403,
+          );
+        }
+      }
+    }
 
     const createMemberMemo = async (visibility: "private" | "protected") => {
       const response = await app.fetch(

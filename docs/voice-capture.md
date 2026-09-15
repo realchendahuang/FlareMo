@@ -1,5 +1,7 @@
 # Voice Capture
 
+Administrators can now configure shared provider credentials from Account. See [Administrator-managed voice recognition](./voice-settings.md) for setup, encryption, permissions, and site-only credential storage.
+
 Capture adds an authenticated, foreground voice-to-note flow at `/capture`. The microphone opens only after **Start recording**. Keep the page visible, wait until it says **Recording**, then speak. Stop closes the microphone and waits for the final sentence, then opens an editor. Save produces an ordinary FlareMo note with the `voice` tag and private visibility by default.
 
 No original audio is retained. Switching tabs, leaving, logout, or interruption stops capture. Reload never resumes recording automatically. Local text recovery is available in the same browser tab session; it is not a server backup. If IndexedDB is unavailable, Capture reports that recovery is unavailable but recording and direct Memo saving still work. Reconnection can leave transcript gaps, and incomplete final speech is not promoted into a confirmed sentence. Network and capacity failures can retry with bounded backoff; credential, quota, model and protocol failures stop immediately so the UI does not remain in a misleading reconnect loop.

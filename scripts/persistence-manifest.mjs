@@ -34,6 +34,7 @@ export const RESTORE_TABLES = [
   "attachments",
   "shares",
   "settings",
+  "voice_service_config",
   "data_tasks",
   "member_removal_jobs",
   "memory_items",
