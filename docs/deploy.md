@@ -14,6 +14,12 @@ FlareMo 部署到 Cloudflare Workers。Worker 同时承载前端静态资源和 
 
 手动部署仍是受支持的完整路径，按钮流程更适合快速试用。
 
+## GitHub Action 手动部署（自托管 fork）
+
+自己的 fork 或部署仓库可以使用 `.github/workflows/deploy-cloudflare.yml`：在 Actions 里手动 `Run workflow`，创建缺失的 D1 / R2 / Queue / Vectorize，发布 Worker，并把仓库 Secrets 里的 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 同步到 Cloudflare。push 不会自动发布；上游 `realchendahuang/FlareMo` 不会跑这个 job。
+
+完整步骤见 [用 GitHub Action 部署](./github-action-deploy.md)。
+
 ## 手动部署
 
 仓库不跟踪 `wrangler.jsonc`（手动部署者的配置以本机文件形式存在），也没有 CI 或自动部署。先创建资源、复制配置模板并填入自己的值，再执行部署命令。
@@ -360,7 +366,7 @@ http://localhost:8787
 
 ## 升级
 
-应用内左下角的“系统更新”会显示当前版本和最新稳定版本。GitHub 部署可以按 [更新指南](./update.md) 运行更新 workflow、审查升级 PR，并在合并后交给 Workers Builds 自动部署。
+应用内左下角的“系统更新”会显示当前版本和最新稳定版本。使用 Workers Builds 的 GitHub 部署可以按 [更新指南](./update.md) 运行更新 workflow、审查升级 PR，并在合并后自动发布。若使用 [GitHub Action 手动部署](./github-action-deploy.md)，合并升级 PR 之后还要再运行一次 `Deploy to Cloudflare`。
 
 手工升级前先看 `CHANGELOG.md` 和 release notes，然后执行：
 

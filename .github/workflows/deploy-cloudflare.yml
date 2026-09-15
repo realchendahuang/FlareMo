@@ -1,0 +1,162 @@
+# 自托管 fork 的手动生产部署。只响应 workflow_dispatch，不在 push 时发布。
+# 上游仓库 realchendahuang/FlareMo 不会跑这个 job。
+# 真正执行的仍是仓库里的 `pnpm deploy`：构建前端、远端 D1 migration、再 wrangler deploy。
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only build and wrangler dry-run; skip D1 migration and publish"
+        required: false
+        type: boolean
+        default: false
+      provision:
+        description: "Create missing D1, R2, Queue, and Vectorize resources"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flaremo-cloudflare-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository != 'realchendahuang/FlareMo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check Cloudflare credentials
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" ]]; then
+            echo "Missing repository secret CLOUDFLARE_API_TOKEN." >&2
+            exit 1
+          fi
+          if [[ -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "Missing repository secret CLOUDFLARE_ACCOUNT_ID." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Write wrangler.jsonc
+        env:
+          WRANGLER_JSONC: ${{ secrets.WRANGLER_JSONC }}
+          FLAREMO_D1_DATABASE_ID: ${{ secrets.FLAREMO_D1_DATABASE_ID }}
+          FLAREMO_PUBLIC_URL: ${{ vars.FLAREMO_PUBLIC_URL || secrets.FLAREMO_PUBLIC_URL }}
+          FLAREMO_DEPLOY_REPOSITORY: ${{ vars.FLAREMO_DEPLOY_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const uuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const wranglerJsonc = process.env.WRANGLER_JSONC?.trim() ?? "";
+          const databaseId = process.env.FLAREMO_D1_DATABASE_ID?.trim() ?? "";
+          const publicUrl = process.env.FLAREMO_PUBLIC_URL?.trim() ?? "";
+          const repository =
+            process.env.FLAREMO_DEPLOY_REPOSITORY?.trim() ||
+            process.env.GITHUB_REPOSITORY ||
+            "";
+
+          if (wranglerJsonc) {
+            fs.writeFileSync("wrangler.jsonc", `${wranglerJsonc}\n`);
+            console.log("Wrote wrangler.jsonc from secret WRANGLER_JSONC.");
+            process.exit(0);
+          }
+
+          if (databaseId && !uuid.test(databaseId)) {
+            console.error(
+              "Secret FLAREMO_D1_DATABASE_ID must be a UUID, or leave it empty to create D1 automatically.",
+            );
+            process.exit(1);
+          }
+
+          let canonical = "";
+          if (publicUrl) {
+            let origin;
+            try {
+              origin = new URL(publicUrl);
+            } catch {
+              console.error("FLAREMO_PUBLIC_URL is not a valid URL.");
+              process.exit(1);
+            }
+            if (origin.protocol !== "https:") {
+              console.error("FLAREMO_PUBLIC_URL must use https.");
+              process.exit(1);
+            }
+            if (origin.pathname !== "/" || origin.search || origin.hash) {
+              console.error(
+                "FLAREMO_PUBLIC_URL must be an origin only, for example https://notes.example.com.",
+              );
+              process.exit(1);
+            }
+            canonical = origin.origin;
+          }
+
+          let text = fs.readFileSync("wrangler.jsonc.example", "utf8");
+          if (!text.includes("REPLACE_WITH_YOUR_D1_DATABASE_ID")) {
+            console.error("wrangler.jsonc.example is missing the D1 placeholder.");
+            process.exit(1);
+          }
+          if (databaseId) {
+            text = text.replace("REPLACE_WITH_YOUR_D1_DATABASE_ID", databaseId);
+          }
+          if (canonical) {
+            text = text.replace(
+              '"FLAREMO_PUBLIC_URL": ""',
+              `"FLAREMO_PUBLIC_URL": ${JSON.stringify(canonical)}`,
+            );
+          }
+          text = text.replace(
+            '"FLAREMO_DEPLOY_REPOSITORY": ""',
+            `"FLAREMO_DEPLOY_REPOSITORY": ${JSON.stringify(repository)}`,
+          );
+          fs.writeFileSync("wrangler.jsonc", text);
+          console.log("Wrote wrangler.jsonc from wrangler.jsonc.example.");
+          NODE
+
+      - name: Provision Cloudflare resources
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.provision }}" == "true" ]]; then
+            pnpm provision:remote
+          else
+            pnpm provision:remote -- --skip-resources
+          fi
+
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            pnpm deploy:dry-run
+          else
+            pnpm deploy
+          fi
+
+      - name: Sync Worker secrets
+        if: ${{ inputs.dry_run != true }}
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          FLAREMO_BOOTSTRAP_SECRET: ${{ secrets.FLAREMO_BOOTSTRAP_SECRET }}
+        run: pnpm secrets:sync

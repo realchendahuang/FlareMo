@@ -28,7 +28,7 @@ Then open the Cloudflare Worker's `Settings` -> `Build` and confirm:
 - The production deploy command is `pnpm run deploy`.
 - The non-production branch deploy command keeps Cloudflare's `wrangler versions upload` default; do not change it to `pnpm run deploy`.
 
-The workflow can only create an update branch and pull request in the deployment repository. It has no Cloudflare credentials and does not deploy production itself.
+The workflow can only create an update branch and pull request in the deployment repository. It has no Cloudflare credentials and does not deploy production itself. If production publishes through [GitHub Action deploy](./github-action-deploy.md), run `Deploy to Cloudflare` again after merging the upgrade PR.
 
 ## Install an update
 
@@ -40,7 +40,7 @@ To check immediately, open “System update” in the lower-left corner of Flare
 2. Select `Run workflow`; leave the version empty to use the latest stable release.
 3. Wait for the update pull request.
 4. Review the release notes and changes, then merge the pull request.
-5. Cloudflare Workers Builds builds the web app, applies pending D1 migrations, and deploys the new Worker version.
+5. Cloudflare Workers Builds builds the web app, applies pending D1 migrations, and deploys the new Worker version. If you publish with [GitHub Action deploy](./github-action-deploy.md) instead of Workers Builds, run `Deploy to Cloudflare` after merging the PR.
 
 The update pull request can produce a preview version without running a production D1 migration. After merge, the production build applies migrations before publishing the new Worker while the old version remains available. If the build or migration fails, the new Worker is not deployed; inspect the Cloudflare check on GitHub or Build history in the Cloudflare dashboard.
 

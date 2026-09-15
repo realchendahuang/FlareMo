@@ -28,7 +28,7 @@ octocat/flaremo
 - Production deploy command 是 `pnpm run deploy`。
 - Non-production branch deploy command 保持 Cloudflare 默认的 `wrangler versions upload`，不要改成 `pnpm run deploy`。
 
-这个 workflow 只向当前部署仓库创建更新分支和 pull request。它不持有 Cloudflare 凭据，也不负责生产部署。
+这个 workflow 只向当前部署仓库创建更新分支和 pull request。它不持有 Cloudflare 凭据，也不负责生产部署。若生产发布走的是 [GitHub Action 手动部署](./github-action-deploy.md)，合并升级 PR 后还要再运行 `Deploy to Cloudflare`。
 
 ## 日常更新
 
@@ -40,7 +40,7 @@ octocat/flaremo
 2. 点击 `Run workflow`；版本留空表示使用最新稳定版。
 3. 等待升级 pull request 创建。
 4. 查看版本说明和文件变化，然后合并 pull request。
-5. Cloudflare Workers Builds 会自动构建前端、执行尚未应用的 D1 migrations，并发布新的 Worker 版本。
+5. Cloudflare Workers Builds 会自动构建前端、执行尚未应用的 D1 migrations，并发布新的 Worker 版本。若未接入 Workers Builds、而是使用 [GitHub Action 手动部署](./github-action-deploy.md)，合并 PR 后再运行 `Deploy to Cloudflare`。
 
 更新 PR 可以生成 preview version，但不会执行生产 D1 migration。合并到 production branch 后，生产部署才会先执行 migration 再发布 Worker；期间旧版本继续服务。如果构建或 migration 失败，新 Worker 不会发布；到 GitHub 的 Cloudflare check 或 Cloudflare Dashboard 的 Build history 查看错误。
 

@@ -5,6 +5,8 @@ const commands = [
   ["pnpm", ["capture:gate:test"]],
   ["pnpm", ["capture:harness:test"]],
   ["pnpm", ["capture:production:test"]],
+  ["pnpm", ["provision:test"]],
+  ["pnpm", ["secrets:test"]],
   ["pnpm", ["format:check"]],
   ["pnpm", ["check"]],
   ["pnpm", ["test"]],

@@ -8,6 +8,8 @@
   //   - vars.FLAREMO_PUBLIC_URL: your public origin, no path/query/hash.
   // Bucket / queue / Vectorize index names below are suggested defaults;
   // rename them if you prefer, but keep the binding keys unchanged.
+  // `pnpm deploy` does not create those resources. Create them yourself, or
+  // run `pnpm provision:remote` (the GitHub deploy workflow does this too).
   "name": "flaremo",
   "main": "./apps/worker/src/index.ts",
   "compatibility_date": "2026-07-10",

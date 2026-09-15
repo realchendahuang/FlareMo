@@ -14,6 +14,12 @@ Known issues and notes:
 
 Manual deployment remains the fully supported path; the button flow is best for quick trials.
 
+## GitHub Action deploy (self-hosted fork)
+
+A fork or deployment repository can use `.github/workflows/deploy-cloudflare.yml`: run it manually from Actions, provision missing D1 / R2 / Queue / Vectorize resources, publish the Worker, and sync `BETTER_AUTH_SECRET` and `FLAREMO_BOOTSTRAP_SECRET` from repository Secrets. Pushes do not publish. Upstream `realchendahuang/FlareMo` never runs this job.
+
+Full steps: [Deploy with GitHub Actions](./github-action-deploy.md).
+
 ## Manual Deployment
 
 The repository does not track `wrangler.jsonc` (manual deployers keep their config as a local file), and there is no CI or automatic deployer. Create the resources, copy the config template, fill in your own values, then run the deploy commands.
@@ -216,7 +222,7 @@ http://localhost:8787
 
 Read `CHANGELOG.md` and GitHub Release notes before upgrading.
 
-The “System update” entry in the lower-left corner shows the installed and latest stable versions. GitHub deployments can follow the [update guide](./update.md) to prepare an update pull request and let Workers Builds deploy it after merge.
+The “System update” entry in the lower-left corner shows the installed and latest stable versions. GitHub deployments that use Workers Builds can follow the [update guide](./update.md) to prepare an update pull request and publish after merge. If you use [GitHub Action deploy](./github-action-deploy.md), run `Deploy to Cloudflare` again after merging the upgrade PR.
 
 For a manual update, read the changelog and release notes, then deploy. This command applies pending migrations before publishing the Worker:
 

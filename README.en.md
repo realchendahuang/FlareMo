@@ -121,7 +121,13 @@ Give the repository to an agent capable of executing terminal commands (e.g. Cla
 
 ---
 
-### Method 2: Manual 3-Step Deployment
+### Method 2: GitHub Action (self-hosted fork)
+
+On your fork, run **Deploy to Cloudflare** from Actions. Full steps: [GitHub Action deploy](./docs/en/github-action-deploy.md).
+
+---
+
+### Method 3: Manual 3-Step Deployment
 
 #### 1. Create Cloudflare Resources
 ```bash
@@ -148,7 +154,7 @@ pnpm deploy
 ```
 Visit your production domain at `/setup` and enter the `FLAREMO_BOOTSTRAP_SECRET` to initialize your Owner account.
 
-Detailed guides: [Deployment Guide](./docs/deploy.md) · [Update Guide](./docs/update.md).
+Detailed guides: [Deployment Guide](./docs/en/deploy.md) · [GitHub Action deploy](./docs/en/github-action-deploy.md) · [Update Guide](./docs/en/update.md).
 
 ---
 
