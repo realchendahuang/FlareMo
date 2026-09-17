@@ -14,7 +14,15 @@ import {
   UploadIcon,
   XIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import {
   getCaptureStatus,
@@ -60,6 +68,15 @@ import { WorkspaceSearch } from "@/components/workspace-search";
 import { useDataTransfer } from "@/hooks/use-data-transfer";
 import { useMemoMutations, viewToMemoState } from "@/hooks/use-memo-mutations";
 import { type TranslationKey, useI18n } from "@/i18n";
+
+// The settings modal is opened in place over the workspace; the chunk (and
+// its account-page dependency graph) only downloads on first open.
+const AccountSettingsDialog = lazy(() =>
+  import("@/pages/account-page").then((module) => ({
+    default: module.AccountSettingsDialog,
+  })),
+);
+
 import {
   dayFilterFromQuery,
   dayFilterQuery,
@@ -173,6 +190,7 @@ export function FlareMoApp() {
   const [isTimelineScrolled, setIsTimelineScrolled] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [shortcutsOpen, setShowShortcutsOpen] = useState(false);
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const searchQuery = query.trim();
   const isSearching = Boolean(searchQuery);
   const [semanticMode, setSemanticMode] = useState(false);
@@ -455,13 +473,11 @@ export function FlareMoApp() {
           <NotificationBell />
           <UpdateStatus />
           <Button
-            render={
-              <Link
-                onClick={onNavigate}
-                title={t("auth.accountTitle")}
-                to="/account"
-              />
-            }
+            onClick={() => {
+              onNavigate?.();
+              setAccountSettingsOpen(true);
+            }}
+            title={t("auth.accountTitle")}
             aria-label={t("auth.accountTitle")}
             size="icon-sm"
             variant="ghost"
@@ -840,6 +856,14 @@ export function FlareMoApp() {
           </main>
         </div>
       </div>
+      <Suspense fallback={null}>
+        {accountSettingsOpen && (
+          <AccountSettingsDialog
+            open
+            onClose={() => setAccountSettingsOpen(false)}
+          />
+        )}
+      </Suspense>
       <Dialog open={shortcutsOpen} onOpenChange={setShowShortcutsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

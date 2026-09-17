@@ -1,7 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { LogOutIcon } from "lucide-react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  AppWindowMacIcon,
+  ArrowDownUpIcon,
+  BellRingIcon,
+  GaugeIcon,
+  KeyRoundIcon,
+  LogOutIcon,
+  type LucideIcon,
+  MicIcon,
+  PaintbrushIcon,
+  ShieldCheckIcon,
+  UserRoundIcon,
+  UsersIcon,
+} from "lucide-react";
+import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   changeEmail,
@@ -20,12 +33,12 @@ import {
   revokePersonalAccessToken,
 } from "@/api";
 import { authClient } from "@/auth-client";
-import { SubpageHeader } from "@/components/subpage-header";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { cn } from "@/lib/utils";
 import { InstallAppCard } from "./account/install-app-card";
 import { ProfilePanel } from "./account/profile-panel";
 import { PushPanel } from "./account/push-panel";
@@ -41,7 +54,23 @@ const VoicePanel = lazy(() =>
   })),
 );
 
-type AccountTab = "account" | "usage" | "branding" | "admin";
+type SettingsSection =
+  | "profile"
+  | "security"
+  | "tokens"
+  | "push"
+  | "install"
+  | "voice"
+  | "usage"
+  | "transfer"
+  | "team"
+  | "branding";
+
+type NavItem = {
+  id: SettingsSection;
+  icon: LucideIcon;
+  label: string;
+};
 
 // Matches the lazy VoicePanel's frame (title + description + a few rows) so
 // the chunk download never pops the cards below it upward.
@@ -59,30 +88,47 @@ function VoicePanelSkeleton() {
   );
 }
 
-function AccountPageSkeleton() {
+function NavButton({
+  active,
+  icon: Icon,
+  label,
+  onSelect,
+}: {
+  active: boolean;
+  icon: LucideIcon;
+  label: string;
+  onSelect: () => void;
+}) {
   return (
-    <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-        <div className="flex items-start justify-between border-b pb-4">
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-7 w-40" />
-            <Skeleton className="h-4 w-56" />
-          </div>
-          <Skeleton className="h-8 w-24 rounded-md" />
-        </div>
-        <Skeleton className="h-9 w-full rounded-lg" />
-        <Skeleton className="h-44 w-full rounded-xl" />
-      </main>
-    </div>
+    <button
+      type="button"
+      aria-current={active ? "true" : undefined}
+      onClick={onSelect}
+      className={cn(
+        "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+        active
+          ? "bg-accent font-medium text-accent-foreground"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+      )}
+    >
+      <Icon className="size-4 shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
   );
 }
 
-export function AccountPage() {
+export function AccountSettingsDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const { locale, t } = useI18n();
   const navigate = useNavigate({ from: "/account" });
   const queryClient = useQueryClient();
   const session = authClient.useSession();
-  const [tab, setTab] = useState<AccountTab>("account");
+  const [section, setSection] = useState<SettingsSection>("profile");
   const [username, setUsername] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -121,11 +167,13 @@ export function AccountPage() {
     queryKey: ["personal-access-tokens"],
     queryFn: listPersonalAccessTokens,
     retry: false,
+    enabled: open,
   });
   const meQuery = useQuery({
     queryKey: ["current-flaremo-user"],
     queryFn: getCurrentFlareMoUser,
     retry: false,
+    enabled: open,
   });
   // The workspace already holds this viewer under the same key, so opening
   // the account page renders from cache instead of paying another /me round
@@ -136,11 +184,13 @@ export function AccountPage() {
     queryFn: getAppInfo,
     staleTime: 10 * 60 * 1000,
     retry: false,
+    enabled: open,
   });
   const vectorUsageQuery = useQuery({
     queryKey: ["vector-usage"],
     queryFn: getVectorUsage,
     retry: false,
+    enabled: open,
     // The global config disables refetchOnWindowFocus; poll mildly so the
     // quota bars move during a heavy-search session.
     refetchInterval: 120_000,
@@ -149,6 +199,7 @@ export function AccountPage() {
     queryKey: ["data-tasks"],
     queryFn: listDataTasks,
     retry: false,
+    enabled: open,
     refetchInterval: (query) => {
       const tasks = query.state.data?.tasks ?? [];
       return tasks.some(
@@ -354,13 +405,14 @@ export function AccountPage() {
 
   const isTeamAdmin =
     meQuery.data?.role === "owner" || meQuery.data?.role === "admin";
+  const isInstanceOwner = meQuery.data?.is_instance_owner === true;
 
-  // Admin tab cards fetch on mount; warm both queries while the viewer is on
-  // any tab so switching to 品牌外观/团队管理 paints with data, not skeletons.
-  // Voice settings rides along too: by the time the lazy VoicePanel chunk
-  // lands, its config is already in cache.
+  // Admin cards fetch on mount; warm both queries while the viewer is on
+  // any section so switching to 品牌外观/团队管理 paints with data, not
+  // skeletons. Voice settings rides along too: by the time the lazy
+  // VoicePanel chunk lands, its config is already in cache.
   useEffect(() => {
-    if (!isTeamAdmin) return undefined;
+    if (!open || !isTeamAdmin) return undefined;
     void queryClient.prefetchQuery({
       queryKey: ["admin-branding"],
       queryFn: getAdminBranding,
@@ -370,171 +422,260 @@ export function AccountPage() {
       queryFn: listAdminUsers,
     });
     return undefined;
-  }, [isTeamAdmin, queryClient]);
+  }, [isTeamAdmin, open, queryClient]);
 
   useEffect(() => {
-    if (meQuery.data?.can_manage_voice_service !== true) return undefined;
+    if (!open || meQuery.data?.can_manage_voice_service !== true) {
+      return undefined;
+    }
     void queryClient.prefetchQuery({
       queryKey: ["voice-settings"],
       queryFn: getVoiceSettings,
     });
     return undefined;
-  }, [meQuery.data?.can_manage_voice_service, queryClient]);
+  }, [meQuery.data?.can_manage_voice_service, open, queryClient]);
 
-  // The role arrives with the viewer query, one roundtrip after mount.
-  // Rendering before it resolves makes the tab row (and the whole page)
-  // reflow twice — hold everything behind one skeleton so the page paints
-  // once, complete. app-info rides in the gate too: its "no email provider"
-  // note would otherwise pop a row in after the paint.
-  if (session.isPending || meQuery.isPending || appInfoQuery.isPending) {
-    return <AccountPageSkeleton />;
-  }
+  // Sidebar groups read top-down like macOS System Settings: identity first,
+  // then preferences, data, and finally instance management. macOS separates
+  // groups with whitespace only — no group captions.
+  const navGroups: NavItem[][] = [
+    [
+      { icon: UserRoundIcon, id: "profile", label: t("settings.nav.profile") },
+      {
+        icon: ShieldCheckIcon,
+        id: "security",
+        label: t("settings.nav.security"),
+      },
+      { icon: KeyRoundIcon, id: "tokens", label: t("settings.nav.tokens") },
+    ],
+    [
+      { icon: BellRingIcon, id: "push", label: t("settings.nav.push") },
+      {
+        icon: AppWindowMacIcon,
+        id: "install",
+        label: t("settings.nav.install"),
+      },
+      ...(showVoiceSettings
+        ? [
+            {
+              icon: MicIcon,
+              id: "voice" as const,
+              label: t("settings.nav.voice"),
+            },
+          ]
+        : []),
+    ],
+    [
+      { icon: GaugeIcon, id: "usage", label: t("auth.tab.usage") },
+      {
+        icon: ArrowDownUpIcon,
+        id: "transfer",
+        label: t("settings.nav.transfer"),
+      },
+    ],
+    ...(isTeamAdmin
+      ? [
+          [
+            {
+              icon: UsersIcon,
+              id: "team" as const,
+              label: t("auth.tab.admin"),
+            },
+            ...(isInstanceOwner
+              ? [
+                  {
+                    icon: PaintbrushIcon,
+                    id: "branding" as const,
+                    label: t("auth.tab.branding"),
+                  },
+                ]
+              : []),
+          ],
+        ]
+      : []),
+  ];
+
+  const activeSection = navGroups.flat().find((item) => item.id === section);
+  const activeLabel = activeSection?.label ?? t("settings.nav.profile");
+
+  const contentBySection: Record<SettingsSection, ReactNode> = {
+    profile: (
+      <ProfilePanel
+        currentUsername={session.data?.user.username ?? ""}
+        error={accountError}
+        isPending={updateUsernameMutation.isPending}
+        setUsername={setUsername}
+        t={t}
+        username={username}
+        onSubmit={handleUsernameSubmit}
+      />
+    ),
+    security: (
+      <SecurityPanel
+        emailProviderDisabled={appInfoQuery.data?.email_provider === "none"}
+        changeEmailIsPending={changeEmailMutation.isPending}
+        changePasswordIsPending={changePasswordMutation.isPending}
+        currentEmail={session.data?.user.email ?? ""}
+        currentPassword={currentPassword}
+        deleteAccountIsPending={deleteAccountMutation.isPending}
+        deleteError={deleteError}
+        deletePassword={deletePassword}
+        emailCurrentPassword={emailCurrentPassword}
+        emailError={emailError}
+        emailVerificationPending={emailVerificationPending}
+        isOwner={isInstanceOwner}
+        newPassword={newPassword}
+        newPasswordConfirmation={newPasswordConfirmation}
+        passwordError={passwordError}
+        setCurrentPassword={setCurrentPassword}
+        setDeletePassword={setDeletePassword}
+        setEmailCurrentPassword={setEmailCurrentPassword}
+        setNewEmail={setNewEmail}
+        setNewPassword={setNewPassword}
+        setNewPasswordConfirmation={setNewPasswordConfirmation}
+        t={t}
+        newEmail={newEmail}
+        onEmailSubmit={handleEmailSubmit}
+        onPasswordSubmit={handlePasswordSubmit}
+        onDeleteAccount={handleDeleteAccount}
+      />
+    ),
+    tokens: (
+      <TokensPanel
+        copied={copied}
+        createTokenIsPending={createTokenMutation.isPending}
+        createdToken={createdToken}
+        locale={locale}
+        revokingTokenId={
+          revokeTokenMutation.isPending
+            ? revokeTokenMutation.variables
+            : undefined
+        }
+        deletingTokenId={
+          deleteTokenMutation.isPending
+            ? deleteTokenMutation.variables
+            : undefined
+        }
+        setTokenExpiryDays={setTokenExpiryDays}
+        setTokenName={setTokenName}
+        t={t}
+        tokenError={tokenError}
+        tokenExpiryDays={tokenExpiryDays}
+        tokenName={tokenName}
+        tokensQuery={tokensQuery}
+        onCopyToken={handleCopyToken}
+        onCreateToken={handleCreateToken}
+        onRevokeToken={handleRevokeToken}
+        onDeleteToken={handleDeleteToken}
+        onHideCreatedToken={() => setCreatedToken(null)}
+      />
+    ),
+    push: <PushPanel />,
+    install: <InstallAppCard />,
+    voice: showVoiceSettings ? (
+      <Suspense fallback={<VoicePanelSkeleton />}>
+        <VoicePanel key={session.data?.user.id} />
+      </Suspense>
+    ) : null,
+    usage: <UsagePanel t={t} vectorUsageQuery={vectorUsageQuery} />,
+    transfer: (
+      <TransferPanel
+        dataTasksQuery={dataTasksQuery}
+        createExportIsPending={retryExportMutation.isPending}
+        retryExportIsPending={retryExportMutation.isPending}
+        t={t}
+        onCreateExport={() => retryExportMutation.mutate()}
+        onRetryExport={() => retryExportMutation.mutate()}
+      />
+    ),
+    team: isTeamAdmin ? <AdminPanel /> : null,
+    branding: isInstanceOwner ? <BrandingCard /> : null,
+  };
 
   return (
-    <div className="min-h-svh bg-background px-4 py-5 sm:py-8">
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-        <SubpageHeader
-          actions={
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent className="flex h-svh max-h-svh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[min(46rem,calc(100svh-4rem))] sm:max-h-[calc(100svh-4rem)] sm:max-w-4xl sm:flex-row sm:rounded-2xl">
+        <aside className="flex shrink-0 flex-col gap-2 border-b bg-muted/40 p-3 sm:w-60 sm:border-b-0 sm:border-r sm:p-4">
+          <DialogTitle className="px-2 pt-1 text-lg font-semibold tracking-tight">
+            {t("settings.title")}
+          </DialogTitle>
+          <div className="hidden items-center gap-3 px-2 pb-1 sm:flex">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
+              {(session.data?.user.username ?? "?").slice(0, 1)}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {session.data?.user.username}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {session.data?.user.email}
+              </p>
+            </div>
+          </div>
+          <nav className="flex gap-3 overflow-x-auto pb-1 sm:flex-col sm:gap-4 sm:overflow-y-auto sm:overflow-x-visible sm:pb-0">
+            {navGroups.map((group) => (
+              <div className="flex gap-1 sm:flex-col" key={group[0].id}>
+                {group.map((item) => (
+                  <NavButton
+                    active={section === item.id}
+                    icon={item.icon}
+                    key={item.id}
+                    label={item.label}
+                    onSelect={() => setSection(item.id)}
+                  />
+                ))}
+              </div>
+            ))}
+          </nav>
+          <div className="mt-auto pt-2">
             <Button
-              size="sm"
-              variant="outline"
+              className="w-full"
               onClick={() => void handleSignOut()}
+              variant="outline"
             >
               <LogOutIcon data-icon="inline-start" />
               {t("auth.signOut")}
             </Button>
-          }
-          className="border-b pb-4"
-          subtitle={session.data?.user.email}
-          title={t("auth.accountTitle")}
-        />
-
-        <Tabs
-          value={tab}
-          onValueChange={(value) => setTab(value as AccountTab)}
-        >
-          <TabsList className="w-full">
-            <TabsTrigger value="account">{t("auth.tab.account")}</TabsTrigger>
-            <TabsTrigger value="usage">{t("auth.tab.usage")}</TabsTrigger>
-            {isTeamAdmin && (
-              <TabsTrigger value="branding">
-                {t("auth.tab.branding")}
-              </TabsTrigger>
-            )}
-            {isTeamAdmin && (
-              <TabsTrigger value="admin">{t("auth.tab.admin")}</TabsTrigger>
-            )}
-          </TabsList>
-
-          <TabsContent value="account" className="mt-4">
-            <div className="flex flex-col gap-4">
-              <ProfilePanel
-                currentUsername={session.data?.user.username ?? ""}
-                error={accountError}
-                isPending={updateUsernameMutation.isPending}
-                setUsername={setUsername}
-                t={t}
-                username={username}
-                onSubmit={handleUsernameSubmit}
-              />
-
-              <InstallAppCard />
-
-              <PushPanel />
-              {showVoiceSettings && (
-                <Suspense fallback={<VoicePanelSkeleton />}>
-                  <VoicePanel key={session.data?.user.id} />
-                </Suspense>
-              )}
-
-              <SecurityPanel
-                emailProviderDisabled={
-                  appInfoQuery.data?.email_provider === "none"
-                }
-                changeEmailIsPending={changeEmailMutation.isPending}
-                changePasswordIsPending={changePasswordMutation.isPending}
-                currentEmail={session.data?.user.email ?? ""}
-                currentPassword={currentPassword}
-                deleteAccountIsPending={deleteAccountMutation.isPending}
-                deleteError={deleteError}
-                deletePassword={deletePassword}
-                emailCurrentPassword={emailCurrentPassword}
-                emailError={emailError}
-                emailVerificationPending={emailVerificationPending}
-                isOwner={meQuery.data?.is_instance_owner === true}
-                newPassword={newPassword}
-                newPasswordConfirmation={newPasswordConfirmation}
-                passwordError={passwordError}
-                setCurrentPassword={setCurrentPassword}
-                setDeletePassword={setDeletePassword}
-                setEmailCurrentPassword={setEmailCurrentPassword}
-                setNewEmail={setNewEmail}
-                setNewPassword={setNewPassword}
-                setNewPasswordConfirmation={setNewPasswordConfirmation}
-                t={t}
-                newEmail={newEmail}
-                onEmailSubmit={handleEmailSubmit}
-                onPasswordSubmit={handlePasswordSubmit}
-                onDeleteAccount={handleDeleteAccount}
-              />
-
-              <TokensPanel
-                copied={copied}
-                createTokenIsPending={createTokenMutation.isPending}
-                createdToken={createdToken}
-                locale={locale}
-                revokingTokenId={
-                  revokeTokenMutation.isPending
-                    ? revokeTokenMutation.variables
-                    : undefined
-                }
-                deletingTokenId={
-                  deleteTokenMutation.isPending
-                    ? deleteTokenMutation.variables
-                    : undefined
-                }
-                setTokenExpiryDays={setTokenExpiryDays}
-                setTokenName={setTokenName}
-                t={t}
-                tokenError={tokenError}
-                tokenExpiryDays={tokenExpiryDays}
-                tokenName={tokenName}
-                tokensQuery={tokensQuery}
-                onCopyToken={handleCopyToken}
-                onCreateToken={handleCreateToken}
-                onRevokeToken={handleRevokeToken}
-                onDeleteToken={handleDeleteToken}
-                onHideCreatedToken={() => setCreatedToken(null)}
-              />
-
-              <TransferPanel
-                dataTasksQuery={dataTasksQuery}
-                createExportIsPending={retryExportMutation.isPending}
-                retryExportIsPending={retryExportMutation.isPending}
-                t={t}
-                onCreateExport={() => retryExportMutation.mutate()}
-                onRetryExport={() => retryExportMutation.mutate()}
-              />
+          </div>
+        </aside>
+        <section className="min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-2xl px-5 py-5 sm:px-8 sm:py-7">
+            <h2 className="pr-8 font-heading text-lg font-semibold tracking-tight">
+              {activeLabel}
+            </h2>
+            <div className="mt-4 flex flex-col gap-4">
+              {contentBySection[section]}
             </div>
-          </TabsContent>
+          </div>
+        </section>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-          <TabsContent value="usage" className="mt-4">
-            <UsagePanel t={t} vectorUsageQuery={vectorUsageQuery} />
-          </TabsContent>
-
-          {meQuery.data?.is_instance_owner && (
-            <TabsContent value="branding" className="mt-4">
-              <BrandingCard />
-            </TabsContent>
-          )}
-
-          {isTeamAdmin && (
-            <TabsContent value="admin" className="mt-4">
-              <AdminPanel />
-            </TabsContent>
-          )}
-        </Tabs>
-      </main>
-    </div>
+export function AccountPage() {
+  const navigate = useNavigate({ from: "/account" });
+  return (
+    <AccountSettingsDialog
+      open
+      onClose={() =>
+        void navigate({
+          search: {
+            compose: undefined,
+            q: undefined,
+            space: undefined,
+            tag: undefined,
+            untagged: undefined,
+            view: undefined,
+          },
+          to: "/",
+        })
+      }
+    />
   );
 }

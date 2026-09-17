@@ -51,6 +51,9 @@ for (const mobile of [false, true]) {
     ).toHaveCount(0);
     expect(settingsRequests).toBe(0);
     release();
+    // Voice settings moved to their own settings pane; the pane entry only
+    // appears once the viewer permission resolves.
+    await page.getByRole("button", { name: /语音服务|Voice service/i }).click();
     await expect(
       page.getByText(/Voice recognition settings|语音识别设置/, {
         exact: true,
@@ -124,6 +127,7 @@ test("owner saves encrypted credentials through the UI and disables capture", as
   page,
 }) => {
   await page.goto("/account");
+  await page.getByRole("button", { name: /语音服务|Voice service/i }).click();
   await expect(page.locator("#voice-secretKey")).toBeVisible();
   await page.locator("#voice-appId").fill("1234567890");
   await page.locator("#voice-secretId").fill("e2e-not-a-real-secret-id");

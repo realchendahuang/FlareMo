@@ -33,22 +33,19 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   await page.goto("/account");
   await expect(page).toHaveURL(/\/account$/);
   await expect(
-    page.getByRole("heading", { name: /账户与访问|Account/i }),
+    page.getByRole("heading", { name: /^设置$|^Settings$/i }),
   ).toBeVisible();
 
-  // Access tokens now live on the single Account tab, stacked under the
-  // profile and security cards.
-  await page
-    .locator('div[data-slot="card-title"], h3')
-    .filter({ hasText: /个人访问令牌|Personal access tokens/i })
-    .first()
-    .scrollIntoViewIfNeeded();
+  // The settings modal groups panes behind a sidebar; access tokens live on
+  // their own pane.
+  await page.getByRole("button", { name: /访问令牌|Access tokens/i }).click();
   await expect(
     page.getByText(/个人访问令牌|Personal access tokens/i).first(),
   ).toBeVisible();
 
   const tokenName = `UI E2E client ${Date.now()}`;
   // The create-token form lives in a dialog opened from the card header.
+  // The settings modal itself is also a dialog, so scope to the topmost one.
   await page
     .getByRole("button", { name: /创建令牌|Create token/i })
     .first()
@@ -59,6 +56,7 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   await page.getByPlaceholder(/永不过期|Never/i).fill("30");
   await page
     .getByRole("dialog")
+    .last()
     .getByRole("button", { name: /创建令牌|Create token/i })
     .click();
 
@@ -90,17 +88,18 @@ test("adds a member through the admin dialog and shows the activation link", asy
 }) => {
   const memberName = `E2E Member ${Date.now()}`;
   await page.goto("/account");
-  await page.getByRole("tab", { name: /团队管理|Team/ }).click();
+  await page.getByRole("button", { name: /团队管理|Team/ }).click();
   await expect(
     page.getByRole("button", { name: /添加成员|Add member/i }),
   ).toBeVisible();
 
   // The member form lives in a dialog opened from the team card header.
+  // The settings modal itself is also a dialog, so scope to the topmost one.
   await page
     .getByRole("button", { name: /添加成员|Add member/i })
     .first()
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog").last();
   await dialog
     .getByRole("textbox", { name: /显示名称|Display name/i })
     .fill(memberName);
@@ -116,6 +115,7 @@ test("adds a member through the admin dialog and shows the activation link", asy
     .locator('[data-slot="dialog-footer"]')
     .getByRole("button", { name: /^关闭$|^Close$/i })
     .click();
-  await expect(dialog).toHaveCount(0);
+  // Only the settings modal itself remains open.
+  await expect(page.getByRole("dialog")).toHaveCount(1);
   await expect(page.getByText(memberName)).toBeVisible();
 });

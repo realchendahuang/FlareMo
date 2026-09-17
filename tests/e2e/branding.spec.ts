@@ -24,15 +24,10 @@ test("the owner can customize the product name and it reaches the login page", a
   });
   const ownerPage = await ownerContext.newPage();
   await ownerPage.goto(`${E2E_BASE_URL}/account`);
-  const brandingTab = ownerPage.getByRole("tab", {
-    name: /品牌外观|Branding/,
-  });
-  await brandingTab.click();
-  await expect(brandingTab).toHaveAttribute("aria-selected", "true");
-  await ownerPage
-    .getByText(/品牌外观|Branding/)
-    .first()
-    .waitFor();
+  await ownerPage.getByRole("button", { name: /品牌外观|Branding/ }).click();
+  await expect(
+    ownerPage.getByRole("heading", { name: /品牌外观|Branding/ }).first(),
+  ).toBeVisible();
 
   // The branding form lives in a dialog opened from the card header.
   await ownerPage
@@ -65,13 +60,13 @@ test("the owner can customize the product name and it reaches the login page", a
   });
   const resetPage = await resetContext.newPage();
   await resetPage.goto(`${E2E_BASE_URL}/account`);
-  const resetTab = resetPage.getByRole("tab", {
-    name: /品牌外观|Branding/,
-  });
-  await resetTab.click();
-  await expect(resetTab).toHaveAttribute("aria-selected", "true", {
-    timeout: 15_000,
-  });
+  await expect(
+    resetPage.getByRole("button", { name: /品牌外观|Branding/ }),
+  ).toBeVisible({ timeout: 15_000 });
+  await resetPage.getByRole("button", { name: /品牌外观|Branding/ }).click();
+  await expect(
+    resetPage.getByRole("heading", { name: /品牌外观|Branding/ }).first(),
+  ).toBeVisible({ timeout: 15_000 });
   await resetPage
     .getByRole("button", { name: /^编辑$|^Edit$/ })
     .first()
@@ -95,10 +90,7 @@ test("the owner picks an accent preset and it applies across sessions", async ({
   });
   const ownerPage = await ownerContext.newPage();
   await ownerPage.goto(`${E2E_BASE_URL}/account`);
-  const brandingTab = ownerPage.getByRole("tab", {
-    name: /品牌外观|Branding/,
-  });
-  await brandingTab.click();
+  await ownerPage.getByRole("button", { name: /品牌外观|Branding/ }).click();
   const jadeSwatch = ownerPage.getByRole("button", {
     name: /翡翠|Jade/,
   });
@@ -125,7 +117,7 @@ test("the owner picks an accent preset and it applies across sessions", async ({
   });
   const resetPage = await resetContext.newPage();
   await resetPage.goto(`${E2E_BASE_URL}/account`);
-  await resetPage.getByRole("tab", { name: /品牌外观|Branding/ }).click();
+  await resetPage.getByRole("button", { name: /品牌外观|Branding/ }).click();
   const flameSwatch = resetPage.getByRole("button", {
     name: /火焰|Flame/,
   });
@@ -146,10 +138,7 @@ test("the owner derives a theme from a custom hex seed", async ({
   });
   const ownerPage = await ownerContext.newPage();
   await ownerPage.goto(`${E2E_BASE_URL}/account`);
-  const brandingTab = ownerPage.getByRole("tab", {
-    name: /品牌外观|Branding/,
-  });
-  await brandingTab.click();
+  await ownerPage.getByRole("button", { name: /品牌外观|Branding/ }).click();
 
   await ownerPage.getByRole("button", { name: /自定义|Custom/ }).click();
   const hexInput = ownerPage.getByLabel(/十六进制色值|Hex color value/);
@@ -226,7 +215,7 @@ test("an already-open tab repaints when the owner changes the accent elsewhere",
 
   const adminPage = await context.newPage();
   await adminPage.goto(`${E2E_BASE_URL}/account`);
-  await adminPage.getByRole("tab", { name: /品牌外观|Branding/ }).click();
+  await adminPage.getByRole("button", { name: /品牌外观|Branding/ }).click();
   await adminPage.getByRole("button", { name: /翡翠|Jade/ }).click();
 
   // The untouched timeline tab picks the change up without a reload.
