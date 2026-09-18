@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
 import { DownloadIcon, Loader2Icon } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Memo } from "@/api";
 import { getMemoStats } from "@/api";
+import { WatercolorMemoryScene } from "@/components/share-image-watercolor-scene";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,6 +39,11 @@ const TEMPLATES: Array<{ id: TemplateId; labelKey: TranslationKey }> = [
   { id: "ticket", labelKey: "share.template.ticket" },
 ];
 
+const literarySerif: CSSProperties = {
+  fontFamily:
+    '"Songti SC", "STSong", "Noto Serif CJK SC", "Noto Serif SC", Georgia, serif',
+};
+
 /** Card-image body: markdown flattened to the text a picture should carry. */
 function shareBodyText(content: string) {
   return content
@@ -58,89 +64,30 @@ type CardProps = {
   stats: string;
 };
 
-/** 素白: the note on bare white, one quiet brand mark. */
-function PlainCard({ date, body, stats }: CardProps) {
-  return (
-    <div className="flex h-[420px] w-[340px] flex-col rounded-lg bg-white p-7 text-neutral-800 shadow-sm dark:bg-neutral-900 dark:text-neutral-100">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-neutral-400 dark:text-neutral-500">
-          {date}
-        </span>
-        <span className="font-heading text-sm font-semibold text-brand-500 dark:text-brand-400">
-          FlareMo
-        </span>
-      </div>
-      <div className="mt-7 min-h-0 flex-1 overflow-hidden text-[15px] leading-7 whitespace-pre-wrap">
-        {body}
-      </div>
-      <div className="mt-4 flex items-end justify-between">
-        <span className="text-xs tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
-          {stats}
-        </span>
-        <PixelDots />
-      </div>
-    </div>
-  );
-}
-
-/** 日签: the date as the hero, the note beneath, a stamp-like sign-off. */
-function DailyCard({ date, day, body, stats }: CardProps) {
-  return (
-    <div className="flex h-[420px] w-[340px] flex-col rounded-lg bg-brand-50 p-7 text-brand-950 shadow-sm dark:bg-brand-950 dark:text-brand-50">
-      <div className="flex items-baseline gap-2">
-        <span className="font-heading text-5xl leading-none font-semibold">
-          {day}
-        </span>
-        <span className="text-xs text-brand-700/70 dark:text-brand-200/60">
-          {date}
-        </span>
-      </div>
-      <div className="mt-6 min-h-0 flex-1 overflow-hidden text-[15px] leading-7 whitespace-pre-wrap">
-        {body}
-      </div>
-      <div className="mt-5 flex items-center justify-between">
-        <span className="text-xs text-brand-700/70 dark:text-brand-200/60">
-          {stats}
-        </span>
-        <span className="flex size-7 items-center justify-center rounded bg-brand-500 font-heading text-xs font-semibold text-white">
-          F
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/** 票根: a keepsake ticket — framed, perforated, with a barcode strip. */
+/** 票根: the newest reference, framed and perforated with a barcode strip. */
 function TicketCard({ date, body, stats }: CardProps) {
   return (
-    <div className="flex h-[420px] w-[340px] flex-col rounded-lg border border-neutral-300 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-      <div className="flex items-center justify-between border-b border-neutral-200 px-7 py-4 dark:border-neutral-800">
-        <span className="text-sm text-neutral-500 dark:text-neutral-400">
-          {date}
-        </span>
-        <span className="font-heading text-xs font-semibold text-neutral-400 dark:text-neutral-500">
-          FlareMo
-        </span>
+    <div className="flex h-[420px] w-[340px] flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white text-neutral-800 shadow-sm">
+      <div className="flex items-center justify-between border-b border-neutral-200 px-7 py-4">
+        <span className="text-sm text-neutral-500">{date}</span>
+        <span className="text-xs font-semibold text-neutral-400">FlareMo</span>
       </div>
       <div className="relative">
-        <div className="mx-7 border-t border-dashed border-neutral-300 dark:border-neutral-700" />
-        <span className="absolute top-1/2 -left-2 size-4 -translate-y-1/2 rounded-full bg-white dark:bg-neutral-900" />
-        <span className="absolute top-1/2 -right-2 size-4 -translate-y-1/2 rounded-full bg-white dark:bg-neutral-900" />
+        <div className="mx-7 border-t border-dashed border-neutral-300" />
+        <span className="absolute top-1/2 -left-2 size-4 -translate-y-1/2 rounded-full bg-white" />
+        <span className="absolute top-1/2 -right-2 size-4 -translate-y-1/2 rounded-full bg-white" />
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden p-7 text-[15px] leading-7 text-neutral-800 whitespace-pre-wrap dark:text-neutral-100">
+      <div className="min-h-0 flex-1 overflow-hidden p-7 text-[15px] leading-7 whitespace-pre-wrap">
         {body}
       </div>
       <div className="flex items-end justify-between px-7 pb-5">
-        <span className="text-xs text-neutral-400 dark:text-neutral-500">
-          {stats}
-        </span>
+        <span className="text-xs text-neutral-400">{stats}</span>
         <span
           aria-hidden="true"
-          className="h-6 w-24"
+          className="h-6 w-24 text-neutral-700"
           style={{
             backgroundImage:
               "repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 5px)",
-            color: "currentColor",
             opacity: 0.35,
           }}
         />
@@ -149,23 +96,58 @@ function TicketCard({ date, body, stats }: CardProps) {
   );
 }
 
-/** Deterministic pixel cluster (flomo's dot-matrix nod, no RNG flicker). */
-function PixelDots() {
-  const lit = new Set([4, 7, 10, 11, 13]);
+/** 明信片: a clear record above, a sparse watercolor memory below. */
+function PostcardCard({ date, body, stats }: CardProps) {
   return (
-    <span aria-hidden="true" className="grid grid-cols-5 gap-0.5">
-      {Array.from({ length: 15 }, (_, index) => `dot-${index}`).map((key) => (
-        <span
-          className={cn(
-            "size-1 rounded-[1px]",
-            lit.has(Number(key.slice(4)))
-              ? "bg-brand-400/70 dark:bg-brand-500/70"
-              : "bg-neutral-200 dark:bg-neutral-700",
-          )}
-          key={key}
-        />
-      ))}
-    </span>
+    <div className="flex h-[420px] w-[340px] flex-col overflow-hidden rounded-[3px] border border-[#d4c7b4] bg-[#f6f0e5] text-[#34312d] shadow-[0_18px_46px_rgba(70,57,42,0.14)]">
+      <div className="flex h-[210px] shrink-0 flex-col px-7 pt-6">
+        <div className="flex items-center justify-between text-[9px] tracking-[0.18em] text-[#7d7468] uppercase">
+          <span>Memory note</span>
+          <span>{date}</span>
+        </div>
+        <div
+          className="mt-6 min-h-0 overflow-hidden text-[15px] leading-7 tracking-[0.01em] whitespace-pre-wrap"
+          style={literarySerif}
+        >
+          {body}
+        </div>
+      </div>
+      <WatercolorMemoryScene stats={stats} />
+    </div>
+  );
+}
+
+/** KOSX: stark editorial type, inverted onto paper with one signal-orange hit. */
+function KosxCard({ date, day, body, stats }: CardProps) {
+  return (
+    <div className="flex h-[420px] w-[340px] flex-col overflow-hidden rounded-[3px] border border-[#171717] bg-[#f4f2ec] text-[#111] shadow-[0_18px_46px_rgba(30,27,22,0.16)]">
+      <div className="h-2 bg-[#ff5a1f]" />
+      <div className="flex items-center justify-between px-7 pt-5 text-[9px] font-semibold tracking-[0.18em] uppercase">
+        <span>KOSX.ai × FlareMo</span>
+        <span>{date}</span>
+      </div>
+      <div className="mx-7 mt-4 flex items-end justify-between border-y-2 border-[#111] py-4">
+        <span className="text-[31px] leading-[0.86] font-black tracking-[-0.055em]">
+          BUILD
+          <br />
+          SOMETHING
+          <br />
+          REAL.
+        </span>
+        <span className="flex size-8 items-center justify-center bg-[#ff5a1f] text-lg font-bold text-white">
+          ↗
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden px-7 py-5 text-[15px] leading-7 tracking-[0.01em] whitespace-pre-wrap">
+        {body}
+      </div>
+      <div className="mx-7 flex items-end justify-between border-t border-[#111] pt-3 pb-5 text-[9px] tracking-[0.14em] uppercase">
+        <span className="text-[#555]">{stats}</span>
+        <span className="font-semibold">
+          Field note / {day.padStart(2, "0")}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -232,13 +214,13 @@ export function ShareImageDialog({
         <div className="flex justify-center py-2">
           <div ref={previewRef}>
             {template === "plain" && (
-              <PlainCard body={body} date={date} day={day} stats={stats} />
+              <TicketCard body={body} date={date} day={day} stats={stats} />
             )}
             {template === "daily" && (
-              <DailyCard body={body} date={date} day={day} stats={stats} />
+              <PostcardCard body={body} date={date} day={day} stats={stats} />
             )}
             {template === "ticket" && (
-              <TicketCard body={body} date={date} day={day} stats={stats} />
+              <KosxCard body={body} date={date} day={day} stats={stats} />
             )}
           </div>
         </div>
