@@ -6,7 +6,7 @@ describe("formatDate", () => {
     expect(formatDate("2026-09-20T00:00:00Z", "en-US")).toMatch(
       /^Sep \d{1,2}, 2026$/,
     );
-    expect(formatDate("2026-09-20T00:00:00Z", "zh-CN")).toBe("2026年9月20日");
+    expect(formatDate("2026-09-20T12:00:00Z", "zh-CN")).toBe("2026年9月20日");
   });
 
   it("falls back to the raw input when the value is not a date", () => {
@@ -19,8 +19,10 @@ describe("formatDateTime", () => {
     expect(formatDateTime("2026-01-05T15:07:00Z", "en-US")).toMatch(
       /^Jan \d{1,2}, 2026(,)? \d{1,2}:\d{2} (AM|PM)$/,
     );
-    expect(formatDateTime("2026-01-05T15:07:00Z", "zh-CN")).toBe(
-      "2026年1月5日 23:07",
+    // The wall-clock hour depends on the host time zone (CI runs in UTC),
+    // so only the zh-CN shape is pinned here.
+    expect(formatDateTime("2026-01-05T15:07:00Z", "zh-CN")).toMatch(
+      /^2026年1月\d{1,2}日 \d{2}:07$/,
     );
   });
 });

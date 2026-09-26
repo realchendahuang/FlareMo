@@ -1,11 +1,19 @@
 // node:fs is type-available under the app tsconfig and runs only in vitest's
 // node runtime; this contract test reads sibling config files.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { parse as parseJsonc } from "jsonc-parser";
 import { describe, expect, it } from "vitest";
 
+// `wrangler.jsonc` is gitignored (each deployment writes its own); fresh
+// checkouts and CI only have the committed `wrangler.jsonc.example`.
+const localWranglerConfig = new URL("../../../wrangler.jsonc", import.meta.url);
 const wranglerConfig = parseJsonc(
-  readFileSync(new URL("../../../wrangler.jsonc", import.meta.url), "utf8"),
+  readFileSync(
+    existsSync(localWranglerConfig)
+      ? localWranglerConfig
+      : new URL("../../../wrangler.jsonc.example", import.meta.url),
+    "utf8",
+  ),
 ) as { assets?: { run_worker_first?: string[] } };
 
 const viteConfigSource = readFileSync(
