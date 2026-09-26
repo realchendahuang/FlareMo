@@ -449,6 +449,8 @@ const messages = {
   "detail.revokeShareDescription":
     "철회하면 링크가 즉시 무효가 되어 가진 사람도 더 이상 접근할 수 없습니다.",
   "toast.accessRequired": "로그인이 만료되었습니다. 다시 로그인해 주세요",
+  "toast.untrustedOrigin":
+    "{origin}은(는) 이 FlareMo의 신뢰된 주소가 아니어서 저장이 거부되었습니다. 배포된 URL로 열거나 이 주소를 FLAREMO_TRUSTED_ORIGINS에 추가하세요.",
   "toast.requestFailed": "작업에 실패했습니다. 다시 시도해 주세요",
   "auth.loginTitle": "FlareMo에 로그인",
   "auth.brandTitle": "아는 모든 것을 위한 조용한 공간.",
@@ -523,6 +525,7 @@ const messages = {
   "admin.memberSearchEmpty": "일치하는 멤버가 없습니다",
   "admin.showMore": "더 보기",
   "auth.signOut": "로그아웃",
+  "auth.signOutFailed": "로그아웃에 실패했습니다. 다시 시도해 주세요.",
   "auth.profileTitle": "로그인 이름",
   "auth.usernameHandle": "사용자 이름",
   "account.readerUntil": "리더 만료일: {date}",

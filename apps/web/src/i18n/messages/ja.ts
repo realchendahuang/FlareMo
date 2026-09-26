@@ -450,6 +450,8 @@ const messages = {
     "取り消すとリンクは即座に無効になり、リンクを知る人もアクセスできなくなります。",
   "toast.accessRequired":
     "ログインの有効期限が切れました。再度サインインしてください",
+  "toast.untrustedOrigin":
+    "{origin} はこの FlareMo の信頼済みアドレスではないため、保存できませんでした。デプロイ先の URL で開くか、このアドレスを FLAREMO_TRUSTED_ORIGINS に追加してください。",
   "toast.requestFailed": "操作に失敗しました。再試行してください",
   "auth.loginTitle": "FlareMo にサインイン",
   "auth.brandTitle": "知っていることを、静かにしまっておく場所。",
@@ -524,6 +526,7 @@ const messages = {
   "admin.memberSearchEmpty": "一致するメンバーがいません",
   "admin.showMore": "さらに表示",
   "auth.signOut": "サインアウト",
+  "auth.signOutFailed": "ログアウトに失敗しました。もう一度お試しください。",
   "auth.profileTitle": "サインイン名",
   "auth.usernameHandle": "ユーザー名",
   "account.readerUntil": "リーダー有効期限: {date}",

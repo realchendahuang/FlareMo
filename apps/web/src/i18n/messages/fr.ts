@@ -461,6 +461,8 @@ const messages = {
   "detail.revokeShareDescription":
     "Le lien cesse immédiatement de fonctionner pour quiconque le possède.",
   "toast.accessRequired": "Votre session a expiré. Veuillez vous reconnecter.",
+  "toast.untrustedOrigin":
+    "{origin} n'est pas une adresse de confiance pour ce FlareMo : la modification a été refusée. Ouvrez FlareMo via son URL déployée ou ajoutez cette adresse à FLAREMO_TRUSTED_ORIGINS.",
   "toast.requestFailed": "L'action a échoué. Veuillez réessayer.",
   "auth.loginTitle": "Se connecter à FlareMo",
   "auth.brandTitle": "Un foyer silencieux pour tout ce que vous savez.",
@@ -538,6 +540,7 @@ const messages = {
   "admin.memberSearchEmpty": "Aucun membre correspondant",
   "admin.showMore": "Afficher plus",
   "auth.signOut": "Se déconnecter",
+  "auth.signOutFailed": "La déconnexion a échoué. Veuillez réessayer.",
   "auth.profileTitle": "Nom de connexion",
   "auth.usernameHandle": "Nom d'utilisateur",
   "account.readerUntil": "Lecteur valable jusqu'au {date}",

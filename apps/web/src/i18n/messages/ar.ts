@@ -441,6 +441,8 @@ const messages = {
   "detail.revokeShareTitle": "إلغاء هذا الرابط المشترك؟",
   "detail.revokeShareDescription": "يتوقف الرابط عن العمل فورًا لمن يملكه.",
   "toast.accessRequired": "انتهت جلستك. سجّل الدخول من جديد.",
+  "toast.untrustedOrigin":
+    "{origin} ليس عنوانًا موثوقًا لهذا FlareMo، لذا رُفض التغيير. افتح FlareMo من عنوانه المنشور أو أضف هذا العنوان إلى FLAREMO_TRUSTED_ORIGINS.",
   "toast.requestFailed": "فشل الإجراء. أعد المحاولة.",
   "auth.loginTitle": "تسجيل الدخول إلى FlareMo",
   "auth.brandTitle": "منزل هادئ لكل ما تعرفه.",
@@ -515,6 +517,7 @@ const messages = {
   "admin.memberSearchEmpty": "لا أعضاء مطابقين",
   "admin.showMore": "عرض المزيد",
   "auth.signOut": "تسجيل الخروج",
+  "auth.signOutFailed": "تعذّر تسجيل الخروج. حاول مرة أخرى.",
   "auth.profileTitle": "اسم الدخول",
   "auth.usernameHandle": "اسم المستخدم",
   "account.readerUntil": "صلاحية القارئ حتى {date}",
