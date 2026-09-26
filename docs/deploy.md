@@ -203,6 +203,16 @@ curl "$FLAREMO_URL/api/v1/memos" \
 
 旧的 `/api/v1/mcp` 是 FlareMo 既有 JSON-RPC MCP 子集，同样需要 cookie session 或 PAT；它继续保留给旧客户端。current Memos 风格的无状态 JSON Streamable HTTP MCP 位于根 `/mcp`，支持 `initialize`、`notifications/initialized`、`tools/list` 和 `tools/call`，但不承诺 SSE、有状态 session 或完整 method surface。
 
+### Workers 免费套餐的可用性边界
+
+FlareMo 是全功能应用（认证 + 全文/向量检索 + 附件 + 队列），Worker 的每请求 CPU 开销天然贴近 Cloudflare Workers **免费套餐的 10ms CPU/请求上限**。免费套餐可以跑轻量单用户实例，但要清楚这些边界（issue #138 的实测）：
+
+- **登录是全应用 CPU 最重的路径**（argon2/scrypt 密码校验），负载或冷启动叠加时最先失败，表现为偶发「密码正确但无响应」（Error 1102）。
+- 正常使用数小时后，突发高并发写入可能把后续请求（包括 `/api/app/health`）打成 503，需要等 isolate 冷却。
+- 批量操作（大批量删除/导入）在贴线状态下也可能单请求 1102，重试即可。
+
+免费套餐的建议用法：单用户、低频写入、避免自动化工具高并发打接口。付费套餐（Standard 起，无 10ms 限制）没有这些约束。如果你在免费套餐上稳定遇到 Error 1102，先确认是否属于上述场景，再考虑升级套餐——应用层配置无法绕开该限制。
+
 ### Cloudflare 资源用量面板（可选）
 
 Owner 用量面板除了应用内自测的向量用量，还可以展示 Cloudflare 官方口径的本实例资源用量（Workers 请求数、D1 存储与读/写行数、R2 存储与 Class A / B 操作）。数据来自 GraphQL Analytics API（`api.cloudflare.com/client/v4/graphql`），按本部署自己的 Worker 名、D1 database id、R2 bucket 过滤，共享账号下其他项目的用量不会被计入。

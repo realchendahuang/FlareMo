@@ -199,8 +199,17 @@ export async function updateMemo(
   if (input.payload !== undefined && nextClientId) {
     nextPayload.client_id = nextClientId;
   }
+  // Tags are domain truth re-derived from the new content on every edit, so
+  // an edit that adds/removes `#tags` updates them. But when the caller sends
+  // an explicit payload (import overwrite, revision restore, API clients
+  // managing tags outside the content), its tags win — content-derived tags
+  // would drop tags the content itself does not spell out.
   const tags = metadataChanged
-    ? normalizeMemoTags(nextPayload.tags ?? extractTags(nextContent))
+    ? normalizeMemoTags(
+        input.payload !== undefined
+          ? (nextPayload.tags ?? extractTags(nextContent))
+          : extractTags(nextContent),
+      )
     : [];
   if (metadataChanged) {
     nextPayload.tags = tags;

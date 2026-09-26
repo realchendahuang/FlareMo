@@ -3,6 +3,7 @@ import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createMemo,
+  getMemoById,
   getMemoStats,
   listMemosForViewer,
   updateMemo,
@@ -240,5 +241,59 @@ describe("space-scoped stats and tags", () => {
     expect(tagOf(undefined)).resolves.toEqual([
       { name: "space-tags", count: 2 },
     ]);
+  });
+});
+
+describe("updateMemo tag re-extraction", () => {
+  it("re-derives tags from the new content when the patch carries no payload", async () => {
+    const memo = await createMemo(db, member, {
+      content: "first draft",
+      visibility: "private",
+      source: "web",
+    });
+    // No tags at creation time: the stored payload has tags: [].
+    expect(memo.payload.tags).toEqual([]);
+
+    // The web editor PATCHes only content+visibility; the added #随笔 must
+    // still be extracted (issue #139: tags used to freeze at creation time).
+    await updateMemo(db, member, memo.id, {
+      content: "first draft #随笔",
+      visibility: "private",
+    });
+    const edited = await getMemoById(db, member, memo.id);
+    expect(edited.payload.tags).toEqual(["随笔"]);
+    const tree = await listTagHierarchy(db, member, {});
+    expect(tree.map((node) => ({ name: node.name, count: node.count }))).toEqual(
+      [{ name: "随笔", count: 1 }],
+    );
+
+    // Removing the token in a later edit drops the tag again.
+    await updateMemo(db, member, memo.id, {
+      content: "second draft",
+      visibility: "private",
+    });
+    const reEdited = await getMemoById(db, member, memo.id);
+    expect(reEdited.payload.tags).toEqual([]);
+    expect(await listTagHierarchy(db, member, {})).toEqual([]);
+  });
+
+  it("honors payload.tags when the patch carries an explicit payload", async () => {
+    const memo = await createMemo(db, member, {
+      content: "first draft",
+      visibility: "private",
+      source: "web",
+    });
+    // Import overwrite / revision restore semantics: the caller manages the
+    // tag list itself, so a content edit plus explicit payload keeps tags the
+    // content does not spell out.
+    await updateMemo(db, member, memo.id, {
+      content: "first draft edited",
+      visibility: "private",
+      payload: { tags: ["imported-tag"] },
+    });
+    const edited = await getMemoById(db, member, memo.id);
+    expect(edited.payload.tags).toEqual(["imported-tag"]);
+    const tree = await listTagHierarchy(db, member, {});
+    expect(tree.map((node) => node.name)).toEqual(["imported-tag"]);
   });
 });
