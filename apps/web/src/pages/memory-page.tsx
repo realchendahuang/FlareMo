@@ -6,14 +6,13 @@ import {
   FolderIcon,
   PinIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { listMemories, listMemoryReview } from "@/api";
 import { Button } from "@/components/ui/button";
 import { FilterPill } from "@/components/ui/filter-pill";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { useI18n } from "@/i18n";
 import { formatProjectName, groupMemories } from "./memory/memory-filters";
-import { MemoryFormDialog } from "./memory/memory-form-dialog";
 import { MemoryLensDialog } from "./memory/memory-lens-dialog";
 import { MemoryList } from "./memory/memory-list";
 import { MemoryQuickComposer } from "./memory/memory-quick-composer";
@@ -34,11 +33,8 @@ export function MemoryPage() {
   const [tab, setTab] = useState<FilterTab>("all");
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
   const [lensOpen, setLensOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const composerInputRef = useRef<HTMLTextAreaElement>(null);
-  const mainRef = useRef<HTMLElement | null>(null);
 
   const listQuery = useQuery({
     queryKey: ["memories", "list"],
@@ -90,19 +86,6 @@ export function MemoryPage() {
     [reviewQuery.data],
   );
 
-  const observedMemories = useMemo(
-    () =>
-      filtered.filter(
-        (m) => m.verification === "observed" && m.status === "active",
-      ),
-    [filtered],
-  );
-
-  const activeMemories = useMemo(
-    () => filtered.filter((m) => m.status === "active"),
-    [filtered],
-  );
-
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["memories"] });
   };
@@ -111,7 +94,6 @@ export function MemoryPage() {
 
   return (
     <WorkspaceLayout
-      mainRef={mainRef}
       header={({
         sidebarCollapsed,
         toggleSidebarCollapsed,
@@ -158,7 +140,6 @@ export function MemoryPage() {
 
         {/* Quick Add Memory Box */}
         <MemoryQuickComposer
-          inputRef={composerInputRef}
           defaultScopeKey={tab === "projects" ? selectedProject : null}
           projects={projectCounts}
           onCreated={invalidate}
@@ -170,7 +151,7 @@ export function MemoryPage() {
             <FilterPill
               active={tab === "all"}
               label={t("memory.filterAll")}
-              count={activeMemories.length}
+              count={groups.active.length}
               onClick={() => {
                 setTab("all");
                 setSelectedProject(null);
@@ -188,11 +169,11 @@ export function MemoryPage() {
                 setSelectedProject(null);
               }}
             />
-            {observedMemories.length > 0 && (
+            {(groups.observed.length > 0 || tab === "observed") && (
               <FilterPill
                 active={tab === "observed"}
                 label={t("memory.filterObserved")}
-                count={observedMemories.length}
+                count={groups.observed.length}
                 icon={<EyeIcon className="size-3" />}
                 onClick={() => {
                   setTab("observed");
@@ -200,7 +181,7 @@ export function MemoryPage() {
                 }}
               />
             )}
-            {groups.projects.length > 0 && (
+            {(groups.projects.length > 0 || tab === "projects") && (
               <FilterPill
                 active={tab === "projects"}
                 label={t("memory.tab.projects")}
@@ -209,7 +190,7 @@ export function MemoryPage() {
                 onClick={() => setTab("projects")}
               />
             )}
-            {reviewCount > 0 && (
+            {(reviewCount > 0 || tab === "review") && (
               <FilterPill
                 active={tab === "review"}
                 label={t("memory.filterReview")}
@@ -221,7 +202,7 @@ export function MemoryPage() {
                 }}
               />
             )}
-            {groups.archive.length > 0 && (
+            {(groups.archive.length > 0 || tab === "archive") && (
               <FilterPill
                 active={tab === "archive"}
                 label={t("memory.tab.archive")}
@@ -240,7 +221,7 @@ export function MemoryPage() {
               <FilterPill
                 active={!selectedProject}
                 variant="sub"
-                label="全部项目"
+                label={t("memory.allProjects")}
                 count={groups.projects.length}
                 onClick={() => setSelectedProject(null)}
               />
@@ -277,7 +258,7 @@ export function MemoryPage() {
                 hasError={listQuery.isError && !listQuery.data}
                 isRetrying={listQuery.isRefetching}
                 loading={listQuery.isLoading}
-                memories={activeMemories}
+                memories={groups.active}
                 onMutated={invalidate}
                 onRetry={() => void listQuery.refetch()}
                 onSelectProject={handleSelectProject}
@@ -302,7 +283,7 @@ export function MemoryPage() {
               hasError={listQuery.isError && !listQuery.data}
               isRetrying={listQuery.isRefetching}
               loading={listQuery.isLoading}
-              memories={observedMemories}
+              memories={groups.observed}
               onMutated={invalidate}
               onRetry={() => void listQuery.refetch()}
               onSelectProject={handleSelectProject}
@@ -345,12 +326,6 @@ export function MemoryPage() {
           )}
         </div>
       </div>
-
-      <MemoryFormDialog
-        open={creating}
-        onOpenChange={setCreating}
-        onSaved={invalidate}
-      />
 
       <MemoryLensDialog open={lensOpen} onOpenChange={setLensOpen} />
     </WorkspaceLayout>

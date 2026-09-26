@@ -837,6 +837,22 @@ const messages = {
   "memory.filterCore": "Правила",
   "memory.filterObserved": "Наблюдения ИИ",
   "memory.filterReview": "На рассмотрении",
+  "memory.allProjects": "Все проекты",
+  "memory.coreShort": "Правило",
+  "memory.projectMemoryCount": "Воспоминаний: {count}",
+  "memory.projectCoreCount": "Правил: {count}",
+  "memory.projectRuleLabel": "Правило",
+  "memory.projectUpdated": "Обновлено {time}",
+  "memory.projectViewAll": "Показать все воспоминания",
+  "memory.composerPlaceholderProject":
+    "Задайте правило или привычку для {project}…",
+  "memory.composerPlaceholderCore": "Задайте правило или привычку для ИИ…",
+  "memory.composerPlaceholderPreference":
+    "Запишите предпочтение или наблюдение…",
+  "memory.composerPickProject": "Выбрать проект",
+  "memory.composerCustomProjectPrompt":
+    "Введите имя проекта или абсолютный путь (например, FlareMo или /Users/...):",
+  "memory.composerCustomProject": "Свой проект…",
   "memory.coldStartTitle": "Быстро задайте первое правило:",
   "memory.coldStart1": "Отвечать сразу по существу, без лишних предисловий",
   "memory.coldStart2":

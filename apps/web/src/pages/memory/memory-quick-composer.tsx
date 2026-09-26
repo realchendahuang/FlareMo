@@ -49,11 +49,11 @@ export function MemoryQuickComposer({
   const [scopeKey, setScopeKey] = useState(() => defaultScopeKey || "");
   const [isFocused, setIsFocused] = useState(false);
 
+  // Follow the page's project context both ways: leaving a project view must
+  // not keep silently filing new memories under that project.
   useEffect(() => {
-    if (defaultScopeKey) {
-      setScopeType("project");
-      setScopeKey(defaultScopeKey);
-    }
+    setScopeType(defaultScopeKey ? "project" : "global");
+    setScopeKey(defaultScopeKey || "");
   }, [defaultScopeKey]);
 
   const createMutation = useMutation({
@@ -88,7 +88,11 @@ export function MemoryQuickComposer({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
       event.preventDefault();
       handleSubmit();
     }
@@ -101,10 +105,10 @@ export function MemoryQuickComposer({
 
   const placeholder =
     scopeType === "project" && scopeKey
-      ? `给 ${activeProjectLabel} 立一条规则或习惯…`
+      ? t("memory.composerPlaceholderProject", { project: activeProjectLabel })
       : isCore
-        ? "给 AI 立一条规则或习惯…"
-        : "记下一条偏好或认知…";
+        ? t("memory.composerPlaceholderCore")
+        : t("memory.composerPlaceholderPreference");
 
   return (
     <form
@@ -125,7 +129,7 @@ export function MemoryQuickComposer({
           if (!content.trim()) setIsFocused(false);
         }}
         placeholder={placeholder}
-        disabled={createMutation.isPending}
+        readOnly={createMutation.isPending}
         className="w-full resize-none bg-transparent px-3.5 pt-3 pb-2 text-sm placeholder:text-muted-foreground/60 focus:outline-hidden leading-relaxed"
       />
 
@@ -149,7 +153,7 @@ export function MemoryQuickComposer({
             {isCore ? (
               <>
                 <PinIcon className="size-3.5 fill-current" />
-                <span>铁律</span>
+                <span>{t("memory.coreShort")}</span>
               </>
             ) : (
               <>
@@ -206,8 +210,8 @@ export function MemoryQuickComposer({
               {projects && projects.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[11px] text-muted-foreground px-2 py-1">
-                    选择已有项目
+                  <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
+                    {t("memory.composerPickProject")}
                   </DropdownMenuLabel>
                   {projects.slice(0, 10).map((p) => (
                     <DropdownMenuItem
@@ -234,7 +238,7 @@ export function MemoryQuickComposer({
               <DropdownMenuItem
                 onClick={() => {
                   const custom = window.prompt(
-                    "输入项目名称或绝对路径（例如 FlareMo 或 /Users/...）：",
+                    t("memory.composerCustomProjectPrompt"),
                     scopeKey,
                   );
                   if (custom?.trim()) {
@@ -244,7 +248,7 @@ export function MemoryQuickComposer({
                 }}
               >
                 <PlusIcon className="size-4" />
-                <span>输入自定义项目…</span>
+                <span>{t("memory.composerCustomProject")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

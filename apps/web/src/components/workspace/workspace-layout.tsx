@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import {
   lazy,
   type ReactNode,
@@ -31,6 +32,15 @@ const AccountSettingsDialog = lazy(() =>
 
 const SIDEBAR_COLLAPSED_KEY = "flaremo.sidebar.collapsed";
 
+const TIMELINE_SEARCH = {
+  view: undefined,
+  space: undefined,
+  q: undefined,
+  tag: undefined,
+  untagged: undefined,
+  compose: undefined,
+};
+
 const EMPTY_STATS: MemoStatsResponse = {
   counts: { normal: 0, archived: 0, trashed: 0, total: 0 },
   active_days: 0,
@@ -61,6 +71,7 @@ export function WorkspaceLayout({
   onScroll,
   maxWidthClass = "max-w-[640px]",
 }: WorkspaceLayoutProps) {
+  const navigate = useNavigate();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -130,9 +141,20 @@ export function WorkspaceLayout({
     onImportFile: handleImportFile,
     onOpenSettings: () => setAccountSettingsOpen(true),
     onRenameTag: (from, to) => renameTagMutation.mutate({ from, to }),
-    onTagChange: () => undefined,
+    // Tag filters live on the timeline; from any other workspace page a tag
+    // click jumps there with the filter applied instead of doing nothing.
+    onTagChange: (tag) => {
+      setMobileSheetOpen(false);
+      void navigate({ to: "/", search: { ...TIMELINE_SEARCH, tag } });
+    },
     onToggleCollapsed: toggleSidebarCollapsed,
-    onUntaggedChange: () => undefined,
+    onUntaggedChange: (next) => {
+      setMobileSheetOpen(false);
+      void navigate({
+        to: "/",
+        search: { ...TIMELINE_SEARCH, untagged: next || undefined },
+      });
+    },
   };
 
   return (
