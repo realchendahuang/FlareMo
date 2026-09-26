@@ -1,5 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import {
   BellIcon,
   CheckIcon,
@@ -13,7 +11,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { CurrentFlareMoUser } from "@/api";
-import { authClient } from "@/auth-client";
 import {
   NotificationList,
   useNotifications,
@@ -42,6 +39,7 @@ import {
   UpdateStatusDialog,
   useUpdateStatus,
 } from "@/components/update-status";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useI18n } from "@/i18n";
 
 // The sidebar's single identity affordance, flomo-style: the topbar shows
@@ -56,8 +54,6 @@ export function UserMenu({
 }) {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [updateOpen, setUpdateOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { appInfo, updateAvailable } = useUpdateStatus();
@@ -67,15 +63,7 @@ export function UserMenu({
     ? user.name || user.username || user.email
     : t("auth.accountTitle");
 
-  const handleSignOut = async () => {
-    try {
-      await authClient.signOut();
-    } catch {
-      // Local state still needs clearing even if the server call fails.
-    }
-    queryClient.clear();
-    await navigate({ replace: true, to: "/login" });
-  };
+  const handleSignOut = useSignOut();
 
   return (
     <>

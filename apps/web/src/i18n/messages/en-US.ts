@@ -526,6 +526,7 @@ const messages = {
   "admin.memberSearchEmpty": "No matching members",
   "admin.showMore": "Show more",
   "auth.signOut": "Sign out",
+  "auth.signOutFailed": "Sign-out failed. Please try again.",
   "auth.profileTitle": "Sign-in name",
   "auth.usernameHandle": "Username",
   "account.readerUntil": "Reader valid until {date}",

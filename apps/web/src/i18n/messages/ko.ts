@@ -525,6 +525,7 @@ const messages = {
   "admin.memberSearchEmpty": "일치하는 멤버가 없습니다",
   "admin.showMore": "더 보기",
   "auth.signOut": "로그아웃",
+  "auth.signOutFailed": "로그아웃에 실패했습니다. 다시 시도해 주세요.",
   "auth.profileTitle": "로그인 이름",
   "auth.usernameHandle": "사용자 이름",
   "account.readerUntil": "리더 만료일: {date}",

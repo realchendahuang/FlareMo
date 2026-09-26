@@ -517,6 +517,7 @@ const messages = {
   "admin.memberSearchEmpty": "لا أعضاء مطابقين",
   "admin.showMore": "عرض المزيد",
   "auth.signOut": "تسجيل الخروج",
+  "auth.signOutFailed": "تعذّر تسجيل الخروج. حاول مرة أخرى.",
   "auth.profileTitle": "اسم الدخول",
   "auth.usernameHandle": "اسم المستخدم",
   "account.readerUntil": "صلاحية القارئ حتى {date}",

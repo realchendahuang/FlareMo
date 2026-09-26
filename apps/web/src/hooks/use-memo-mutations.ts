@@ -13,7 +13,7 @@ import {
   updateMemo,
 } from "@/api";
 import { useI18n } from "@/i18n";
-import { errorMessage } from "@/lib/error";
+import { errorMessage, isUntrustedOriginError } from "@/lib/error";
 import {
   memoPatchFromUpdate,
   optimisticallyPatchMemo,
@@ -57,7 +57,7 @@ export function useMemoMutations() {
     // refused. The common case is opening FlareMo from an address outside
     // FLAREMO_PUBLIC_URL / FLAREMO_TRUSTED_ORIGINS, which fails the Worker's
     // exact-Origin check on every cookie mutation.
-    if (error instanceof ApiError && isUntrustedOriginError(error)) {
+    if (isUntrustedOriginError(error)) {
       toast.error(
         t("toast.untrustedOrigin", { origin: window.location.origin }),
       );
@@ -224,9 +224,4 @@ export function useMemoMutations() {
     trashMutation,
     updateMutation,
   };
-}
-
-/** Matches the Worker's `assertTrustedCookieMutation` / bearer-origin 403s. */
-export function isUntrustedOriginError(error: ApiError): boolean {
-  return error.status === 403 && /origin/i.test(error.message);
 }

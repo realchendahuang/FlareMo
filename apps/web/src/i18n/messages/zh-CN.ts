@@ -483,6 +483,7 @@ const messages = {
   "admin.memberSearchEmpty": "没有匹配的成员",
   "admin.showMore": "显示更多",
   "auth.signOut": "退出登录",
+  "auth.signOutFailed": "退出登录失败，请稍后重试",
   "auth.profileTitle": "登录名",
   "auth.usernameHandle": "用户名",
   "account.readerUntil": "读者有效期至 {date}",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/api/client";
-import { isUntrustedOriginError } from "./use-memo-mutations";
+import { isUntrustedOriginError } from "./error";
 
 describe("isUntrustedOriginError", () => {
   it("recognizes the Worker's exact-Origin rejections", () => {

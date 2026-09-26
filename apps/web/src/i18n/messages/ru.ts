@@ -531,6 +531,7 @@ const messages = {
   "admin.memberSearchEmpty": "Подходящих участников нет",
   "admin.showMore": "Показать больше",
   "auth.signOut": "Выйти",
+  "auth.signOutFailed": "Не удалось выйти. Попробуйте ещё раз.",
   "auth.profileTitle": "Имя входа",
   "auth.usernameHandle": "Имя пользователя",
   "account.readerUntil": "Читатель действителен до {date}",

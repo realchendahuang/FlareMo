@@ -526,6 +526,7 @@ const messages = {
   "admin.memberSearchEmpty": "一致するメンバーがいません",
   "admin.showMore": "さらに表示",
   "auth.signOut": "サインアウト",
+  "auth.signOutFailed": "ログアウトに失敗しました。もう一度お試しください。",
   "auth.profileTitle": "サインイン名",
   "auth.usernameHandle": "ユーザー名",
   "account.readerUntil": "リーダー有効期限: {date}",

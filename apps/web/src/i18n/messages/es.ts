@@ -536,6 +536,7 @@ const messages = {
   "admin.memberSearchEmpty": "No hay miembros que coincidan",
   "admin.showMore": "Mostrar más",
   "auth.signOut": "Cerrar sesión",
+  "auth.signOutFailed": "No se pudo cerrar sesión. Inténtalo de nuevo.",
   "auth.profileTitle": "Nombre de acceso",
   "auth.usernameHandle": "Usuario",
   "account.readerUntil": "Lector válido hasta {date}",

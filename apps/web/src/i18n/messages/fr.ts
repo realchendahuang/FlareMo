@@ -540,6 +540,7 @@ const messages = {
   "admin.memberSearchEmpty": "Aucun membre correspondant",
   "admin.showMore": "Afficher plus",
   "auth.signOut": "Se déconnecter",
+  "auth.signOutFailed": "La déconnexion a échoué. Veuillez réessayer.",
   "auth.profileTitle": "Nom de connexion",
   "auth.usernameHandle": "Nom d'utilisateur",
   "account.readerUntil": "Lecteur valable jusqu'au {date}",
