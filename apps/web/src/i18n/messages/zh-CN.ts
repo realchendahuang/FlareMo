@@ -770,6 +770,10 @@ const messages = {
   "memory.composerPlaceholderProject": "给 {project} 立一条规则或习惯…",
   "memory.composerPlaceholderCore": "给 AI 立一条规则或习惯…",
   "memory.composerPlaceholderPreference": "记下一条偏好或认知…",
+  "memory.composerPickProject": "选择已有项目",
+  "memory.composerCustomProjectPrompt":
+    "输入项目名称或绝对路径（例如 FlareMo 或 /Users/...）：",
+  "memory.composerCustomProject": "输入自定义项目…",
   "memory.coldStartTitle": "快速立下第一条规矩：",
   "memory.coldStart1": "回答直奔主题，避免客套与套话",
   "memory.coldStart2": "优先使用 TypeScript 严格类型与函数式风格",

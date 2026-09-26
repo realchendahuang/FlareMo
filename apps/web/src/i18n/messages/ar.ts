@@ -817,6 +817,10 @@ const messages = {
   "memory.composerPlaceholderProject": "ضع قاعدة أو عادة لـ {project}…",
   "memory.composerPlaceholderCore": "ضع قاعدة أو عادة للذكاء الاصطناعي…",
   "memory.composerPlaceholderPreference": "دوّن تفضيلًا أو فكرة…",
+  "memory.composerPickProject": "اختر مشروعًا",
+  "memory.composerCustomProjectPrompt":
+    "أدخل اسم المشروع أو مسارًا مطلقًا (مثل FlareMo أو /Users/...):",
+  "memory.composerCustomProject": "مشروع مخصص…",
   "memory.coldStartTitle": "حدد قاعدتك الأولى بسرعة:",
   "memory.coldStart1": "ادخل في صلب الموضوع مباشرة وتجنب المجاملات الزائدة",
   "memory.coldStart2": "تفضيل أنواع TypeScript الصارمة والأنماط الوظيفية",

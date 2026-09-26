@@ -211,7 +211,7 @@ export function MemoryQuickComposer({
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel className="text-[11px] text-muted-foreground px-2 py-1">
-                    选择已有项目
+                    {t("memory.composerPickProject")}
                   </DropdownMenuLabel>
                   {projects.slice(0, 10).map((p) => (
                     <DropdownMenuItem
@@ -238,7 +238,7 @@ export function MemoryQuickComposer({
               <DropdownMenuItem
                 onClick={() => {
                   const custom = window.prompt(
-                    "输入项目名称或绝对路径（例如 FlareMo 或 /Users/...）：",
+                    t("memory.composerCustomProjectPrompt"),
                     scopeKey,
                   );
                   if (custom?.trim()) {
@@ -248,7 +248,7 @@ export function MemoryQuickComposer({
                 }}
               >
                 <PlusIcon className="size-4" />
-                <span>输入自定义项目…</span>
+                <span>{t("memory.composerCustomProject")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

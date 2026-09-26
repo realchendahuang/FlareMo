@@ -866,6 +866,10 @@ const messages = {
   "memory.composerPlaceholderCore":
     "Définir une règle ou une habitude pour l'IA…",
   "memory.composerPlaceholderPreference": "Noter une préférence ou une idée…",
+  "memory.composerPickProject": "Choisir un projet",
+  "memory.composerCustomProjectPrompt":
+    "Saisissez un nom de projet ou un chemin absolu (ex. FlareMo ou /Users/...) :",
+  "memory.composerCustomProject": "Projet personnalisé…",
   "memory.coldStartTitle": "Définissez rapidement votre première règle :",
   "memory.coldStart1":
     "Allez droit au but, évitez les formules de politesse superflues",

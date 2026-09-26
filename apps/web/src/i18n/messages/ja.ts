@@ -845,6 +845,10 @@ const messages = {
   "memory.composerPlaceholderProject": "{project} にルールや習慣を設定…",
   "memory.composerPlaceholderCore": "AI にルールや習慣を設定…",
   "memory.composerPlaceholderPreference": "好みや気づきをメモ…",
+  "memory.composerPickProject": "既存のプロジェクトを選択",
+  "memory.composerCustomProjectPrompt":
+    "プロジェクト名または絶対パスを入力（例：FlareMo や /Users/...）：",
+  "memory.composerCustomProject": "カスタムプロジェクト…",
   "memory.coldStartTitle": "最初のルールを素早く設定：",
   "memory.coldStart1": "前置きを省き、要点から簡潔に回答する",
   "memory.coldStart2": "TypeScriptの厳格な型と関数型パターンを優先する",

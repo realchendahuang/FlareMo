@@ -841,6 +841,10 @@ const messages = {
   "memory.composerPlaceholderProject": "{project}에 규칙이나 습관 설정…",
   "memory.composerPlaceholderCore": "AI에게 규칙이나 습관 설정…",
   "memory.composerPlaceholderPreference": "선호나 인사이트 기록…",
+  "memory.composerPickProject": "기존 프로젝트 선택",
+  "memory.composerCustomProjectPrompt":
+    "프로젝트 이름 또는 절대 경로 입력 (예: FlareMo 또는 /Users/...):",
+  "memory.composerCustomProject": "사용자 지정 프로젝트…",
   "memory.coldStartTitle": "첫 번째 규칙을 빠르게 설정하세요:",
   "memory.coldStart1": "서론을 줄이고 요점부터 바로 답변하기",
   "memory.coldStart2": "엄격한 TypeScript 타입과 함수형 패턴 우선 사용",

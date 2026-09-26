@@ -849,6 +849,10 @@ const messages = {
   "memory.composerPlaceholderCore": "Задайте правило или привычку для ИИ…",
   "memory.composerPlaceholderPreference":
     "Запишите предпочтение или наблюдение…",
+  "memory.composerPickProject": "Выбрать проект",
+  "memory.composerCustomProjectPrompt":
+    "Введите имя проекта или абсолютный путь (например, FlareMo или /Users/...):",
+  "memory.composerCustomProject": "Свой проект…",
   "memory.coldStartTitle": "Быстро задайте первое правило:",
   "memory.coldStart1": "Отвечать сразу по существу, без лишних предисловий",
   "memory.coldStart2":
