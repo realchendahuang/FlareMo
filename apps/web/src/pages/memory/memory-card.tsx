@@ -312,7 +312,7 @@ export function MemoryCard({
             {memory.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+                className="text-xs text-brand-600 dark:text-brand-400"
               >
                 #{tag}
               </span>

@@ -846,6 +846,17 @@ const messages = {
   "memory.filterCore": "📌 Reglas de oro",
   "memory.filterObserved": "👀 Descubierto por IA",
   "memory.filterReview": "Pendiente",
+  "memory.allProjects": "Todos los proyectos",
+  "memory.coreShort": "Regla de oro",
+  "memory.projectMemoryCount": "{count} recuerdos",
+  "memory.projectCoreCount": "{count} reglas de oro",
+  "memory.projectRuleLabel": "Regla",
+  "memory.projectUpdated": "Actualizado {time}",
+  "memory.projectViewAll": "Ver todos los recuerdos",
+  "memory.composerPlaceholderProject":
+    "Define una regla o hábito para {project}…",
+  "memory.composerPlaceholderCore": "Define una regla o hábito para la IA…",
+  "memory.composerPlaceholderPreference": "Anota una preferencia o idea…",
   "memory.coldStartTitle": "Establece rápidamente tu primera regla:",
   "memory.coldStart1": "Ve directo al grano, evita rodeos y formalismos",
   "memory.coldStart2":

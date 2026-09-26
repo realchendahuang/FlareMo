@@ -114,7 +114,9 @@ export function ProjectGroups({
                   variant="outline"
                   className="text-[11px] font-normal tabular-nums"
                 >
-                  {activeProject.items.length} 条记忆
+                  {t("memory.projectMemoryCount", {
+                    count: activeProject.items.length,
+                  })}
                 </Badge>
                 {activeProject.coreCount > 0 && (
                   <Badge
@@ -122,7 +124,11 @@ export function ProjectGroups({
                     className="text-[11px] font-normal gap-1"
                   >
                     <PinIcon className="size-2.5 fill-current" />
-                    <span>{activeProject.coreCount} 铁律</span>
+                    <span>
+                      {t("memory.projectCoreCount", {
+                        count: activeProject.coreCount,
+                      })}
+                    </span>
                   </Badge>
                 )}
               </div>
@@ -144,7 +150,7 @@ export function ProjectGroups({
             className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
           >
             <ArrowLeftIcon className="size-3.5" />
-            <span>全部项目</span>
+            <span>{t("memory.allProjects")}</span>
           </Button>
         </div>
 
@@ -176,7 +182,10 @@ export function ProjectGroups({
                 {project.displayName}
               </span>
               <span className="text-xs text-muted-foreground tabular-nums">
-                · {project.items.length} 条记忆
+                ·{" "}
+                {t("memory.projectMemoryCount", {
+                  count: project.items.length,
+                })}
               </span>
             </div>
 
@@ -184,7 +193,11 @@ export function ProjectGroups({
               {project.coreCount > 0 && (
                 <Badge variant="default" className="text-xs font-normal gap-1">
                   <PinIcon className="size-2.5 fill-current" />
-                  <span>{project.coreCount} 铁律</span>
+                  <span>
+                    {t("memory.projectCoreCount", {
+                      count: project.coreCount,
+                    })}
+                  </span>
                 </Badge>
               )}
               <ChevronRightIcon className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
@@ -200,7 +213,7 @@ export function ProjectGroups({
           {project.latestRule && (
             <div className="rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground leading-relaxed border border-border/40">
               <span className="font-medium text-foreground/80 mr-1.5">
-                📌 规则:
+                📌 {t("memory.projectRuleLabel")}:
               </span>
               <span className="line-clamp-2">{project.latestRule.content}</span>
             </div>
@@ -208,10 +221,12 @@ export function ProjectGroups({
 
           <div className="flex items-center justify-between text-[11px] text-muted-foreground/60 pt-0.5 border-t border-border/30">
             <span>
-              最近更新 {formatMemoRelativeTime(project.lastUpdated, locale)}
+              {t("memory.projectUpdated", {
+                time: formatMemoRelativeTime(project.lastUpdated, locale),
+              })}
             </span>
             <span className="group-hover:text-brand-500 font-medium transition-colors">
-              查看全部记忆 ›
+              {t("memory.projectViewAll")} ›
             </span>
           </div>
         </button>

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import {
   lazy,
   type ReactNode,
@@ -61,6 +62,7 @@ export function WorkspaceLayout({
   onScroll,
   maxWidthClass = "max-w-[640px]",
 }: WorkspaceLayoutProps) {
+  const navigate = useNavigate();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -130,9 +132,17 @@ export function WorkspaceLayout({
     onImportFile: handleImportFile,
     onOpenSettings: () => setAccountSettingsOpen(true),
     onRenameTag: (from, to) => renameTagMutation.mutate({ from, to }),
-    onTagChange: () => undefined,
+    // Tag filters live on the timeline; from any other workspace page a tag
+    // click jumps there with the filter applied instead of doing nothing.
+    onTagChange: (tag) => {
+      setMobileSheetOpen(false);
+      void navigate({ to: "/", search: { tag } });
+    },
     onToggleCollapsed: toggleSidebarCollapsed,
-    onUntaggedChange: () => undefined,
+    onUntaggedChange: (next) => {
+      setMobileSheetOpen(false);
+      void navigate({ to: "/", search: { untagged: next || undefined } });
+    },
   };
 
   return (

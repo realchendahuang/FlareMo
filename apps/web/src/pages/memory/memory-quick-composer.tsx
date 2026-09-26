@@ -32,11 +32,11 @@ export function MemoryQuickComposer({
   const [scopeKey, setScopeKey] = useState(() => defaultScopeKey || "");
   const [isFocused, setIsFocused] = useState(false);
 
+  // Follow the page's project context both ways: leaving a project view must
+  // not keep silently filing new memories under that project.
   useEffect(() => {
-    if (defaultScopeKey) {
-      setScopeType("project");
-      setScopeKey(defaultScopeKey);
-    }
+    setScopeType(defaultScopeKey ? "project" : "global");
+    setScopeKey(defaultScopeKey || "");
   }, [defaultScopeKey]);
 
   const createMutation = useMutation({
@@ -71,17 +71,23 @@ export function MemoryQuickComposer({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
       event.preventDefault();
       handleSubmit();
     }
   };
 
   const placeholder = defaultScopeKey
-    ? `给 ${formatProjectName(defaultScopeKey)} 立一条规则或习惯…`
+    ? t("memory.composerPlaceholderProject", {
+        project: formatProjectName(defaultScopeKey),
+      })
     : isCore
-      ? "给 AI 立一条规则或习惯…"
-      : "记下一条偏好或认知…";
+      ? t("memory.composerPlaceholderCore")
+      : t("memory.composerPlaceholderPreference");
 
   return (
     <form
@@ -102,7 +108,7 @@ export function MemoryQuickComposer({
           if (!content.trim()) setIsFocused(false);
         }}
         placeholder={placeholder}
-        disabled={createMutation.isPending}
+        readOnly={createMutation.isPending}
         className="w-full resize-none bg-transparent px-3.5 pt-3 pb-2 text-sm placeholder:text-muted-foreground/60 focus:outline-hidden leading-relaxed"
       />
 
@@ -123,7 +129,7 @@ export function MemoryQuickComposer({
             {isCore ? (
               <>
                 <PinIcon className="size-3.5 fill-current" />
-                <span>铁律</span>
+                <span>{t("memory.coreShort")}</span>
               </>
             ) : (
               <>
