@@ -35,15 +35,11 @@ export { runScheduledMaintenance } from "./scheduled-tasks";
 import { accountApi } from "./routes/account-api";
 import { adminApi } from "./routes/admin-api";
 import { appApi } from "./routes/app-api";
-import { registerArticlePage } from "./routes/article-page";
 import { articlesApi } from "./routes/articles-api";
 import { authApi } from "./routes/auth-api";
 import { brandingApi } from "./routes/branding-api";
-import { captureApi } from "./routes/capture-api";
 import { emailSettingsApi } from "./routes/email-settings-api";
-import { mcpApi, mcpStreamableApi } from "./routes/mcp";
 import { memoryApi } from "./routes/memory-api";
-import { memoryMcpApi } from "./routes/memory-mcp";
 import { memosApi } from "./routes/memos-api";
 import { memosConnectApi } from "./routes/memos-connect";
 import { isLegacyWireRequest, memosCurrentApi } from "./routes/memos-current";
@@ -55,11 +51,10 @@ import { pluginsApi } from "./routes/plugins-api";
 import { pluginsStoreApi } from "./routes/plugins-store-api";
 import { projectsApi } from "./routes/projects-api";
 import { publicApi } from "./routes/public-api";
-import { registerSharePage } from "./routes/share-page";
 import { tasksApi } from "./routes/tasks-api";
-import { voiceSettingsApi } from "./routes/voice-settings-api";
 import { runScheduledMaintenance } from "./scheduled-tasks";
 import { isKnownFrontendPath } from "./spa-routes";
+import { mountLazyRoute, mountLazySsrPages } from "./lazy-routes";
 
 /**
  * Kernel assembly entry. Every call returns a fresh Hono instance so hosts
@@ -228,8 +223,16 @@ export function createFlareMoApp(
   });
   app.route("/api/app/branding", brandingApi);
   app.route("/api/app/plugins", pluginsApi);
-  app.route("/api/app/voice-settings", voiceSettingsApi);
-  app.route("/api/app/capture", captureApi);
+  // Voice settings + capture (ASR) are the heavy low-traffic tree: lazily
+  // imported so the isolate only pays the ASR module graph when voice is used.
+  mountLazyRoute(app, "/api/app/capture", async () => {
+    const { captureApi } = await import("./routes/capture-api");
+    return captureApi;
+  });
+  mountLazyRoute(app, "/api/app/voice-settings", async () => {
+    const { voiceSettingsApi } = await import("./routes/voice-settings-api");
+    return voiceSettingsApi;
+  });
   app.route("/api/app/account", accountApi);
   // Registered before adminApi so these owner settings routes win; paths
   // adminApi owns (/plugins GET/PUT) still fall through to it.
@@ -243,8 +246,10 @@ export function createFlareMoApp(
   app.route("/api/app/tasks", tasksApi);
   app.route("/api/app", appApi);
   app.route("/api/public", publicApi);
-  registerSharePage(app);
-  registerArticlePage(app);
+  // SSR public pages (share/article + sitemap/feed): the largest lazy win —
+  // marked/shiki-core/sitemap/feed/transliteration only parse when one of the
+  // five public page paths is actually requested.
+  mountLazySsrPages(app);
   app.get("/favicon.ico", async (c) => {
     // Only browsers without a <link rel="icon"> hit this; redirect to the
     // custom favicon when one is configured, else to the bundled asset.
@@ -262,14 +267,44 @@ export function createFlareMoApp(
     return c.redirect("/brand/flaremo-mark-light-300.png", 302);
   });
   app.route("/file", memosFileApi);
-  app.route("/mcp", mcpStreamableApi);
-  app.route("/memory/mcp", memoryMcpApi);
+  // MCP surfaces + memory MCP: low-traffic tooling endpoints; the route trees
+  // (and their module graphs) load on first MCP request instead of startup.
+  mountLazyRoute(app, "/mcp", async () => {
+    const { mcpStreamableApi } = await import("./routes/mcp");
+    return mcpStreamableApi;
+  });
+  mountLazyRoute(app, "/memory/mcp", async () => {
+    const { memoryMcpApi } = await import("./routes/memory-mcp");
+    return memoryMcpApi;
+  });
   app.route("/", memosConnectApi);
   app.route("/", memosSseApi);
   app.route("/api/v1", memosSocialApi);
   app.route("/api/v1", memosCurrentApi);
   app.route("/api/v1", memosApi);
-  app.route("/api/v1", mcpApi);
+  // The legacy JSON-RPC MCP is mcpApi.post("/mcp") mounted under /api/v1 in
+  // the static layout (public path /api/v1/mcp). Proxying the whole /api/v1
+  // prefix would shadow the later-registered /api/v1/openapi.json (Hono
+  // matches registration order for wildcard mounts), so the proxy targets
+  // exactly the one path the module serves. The path is re-based to /mcp —
+  // the sub-app's own route — and the execution context is passed through
+  // only when present (direct handler calls in tests omit it).
+  app.post("/api/v1/mcp", (c) => {
+    const url = new URL(c.req.url);
+    url.pathname = "/mcp";
+    const request = new Request(url, c.req.raw);
+    return import("./routes/mcp")
+      .then(({ mcpApi }) => {
+        let ctx: unknown;
+        try {
+          ctx = c.executionCtx;
+        } catch {
+          ctx = undefined;
+        }
+        return mcpApi.fetch(request, c.env, ctx as never);
+      })
+      .catch((error) => jsonError(c, error));
+  });
 
   app.get("/openapi.json", (c) =>
     c.json(
