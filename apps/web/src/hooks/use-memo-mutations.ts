@@ -49,11 +49,18 @@ export function useMemoMutations() {
     ]);
 
   const handleMutationError = (error: unknown) => {
-    if (
-      error instanceof ApiError &&
-      (error.status === 401 || error.status === 403)
-    ) {
+    if (error instanceof ApiError && error.status === 401) {
       toast.error(t("toast.accessRequired"));
+      return;
+    }
+    // A 403 is not an expired session: reads keep working while writes are
+    // refused. The common case is opening FlareMo from an address outside
+    // FLAREMO_PUBLIC_URL / FLAREMO_TRUSTED_ORIGINS, which fails the Worker's
+    // exact-Origin check on every cookie mutation.
+    if (error instanceof ApiError && isUntrustedOriginError(error)) {
+      toast.error(
+        t("toast.untrustedOrigin", { origin: window.location.origin }),
+      );
       return;
     }
     toast.error(errorMessage(error, t("toast.requestFailed")));
@@ -217,4 +224,9 @@ export function useMemoMutations() {
     trashMutation,
     updateMutation,
   };
+}
+
+/** Matches the Worker's `assertTrustedCookieMutation` / bearer-origin 403s. */
+export function isUntrustedOriginError(error: ApiError): boolean {
+  return error.status === 403 && /origin/i.test(error.message);
 }

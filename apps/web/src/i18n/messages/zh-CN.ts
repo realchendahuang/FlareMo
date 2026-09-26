@@ -412,6 +412,8 @@ const messages = {
   "detail.revokeShareDescription":
     "撤销后链接立即失效，已拿到链接的人将无法再访问。",
   "toast.accessRequired": "登录状态已失效，请重新登录",
+  "toast.untrustedOrigin":
+    "当前访问地址 {origin} 不是本站的可信地址，保存被拒绝。请用部署域名打开，或把该地址加入 FLAREMO_TRUSTED_ORIGINS",
   "toast.requestFailed": "操作失败，请重试",
   "auth.loginTitle": "登录 FlareMo",
   "auth.brandTitle": "给已知的一切，一个安静的家。",

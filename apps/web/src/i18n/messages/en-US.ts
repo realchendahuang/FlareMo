@@ -450,6 +450,8 @@ const messages = {
   "detail.revokeShareDescription":
     "The link stops working immediately for anyone who has it.",
   "toast.accessRequired": "Your sign-in has expired. Please sign in again.",
+  "toast.untrustedOrigin":
+    "{origin} is not a trusted address for this FlareMo, so the change was rejected. Open FlareMo at its deployed URL, or add this address to FLAREMO_TRUSTED_ORIGINS.",
   "toast.requestFailed": "Action failed. Please try again.",
   "auth.loginTitle": "Sign in to FlareMo",
   "auth.brandTitle": "A quiet home for everything you know.",

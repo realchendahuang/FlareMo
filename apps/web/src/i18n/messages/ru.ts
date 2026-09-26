@@ -454,6 +454,8 @@ const messages = {
   "detail.revokeShareDescription":
     "Ссылка перестанет работать сразу для всех, у кого она есть.",
   "toast.accessRequired": "Ваша сессия истекла. Войдите заново.",
+  "toast.untrustedOrigin":
+    "{origin} не является доверенным адресом этого FlareMo, поэтому изменение отклонено. Откройте FlareMo по адресу развёртывания или добавьте этот адрес в FLAREMO_TRUSTED_ORIGINS.",
   "toast.requestFailed": "Действие не удалось. Попробуйте снова.",
   "auth.loginTitle": "Вход в FlareMo",
   "auth.brandTitle": "Тихий дом для всего, что вы знаете.",
