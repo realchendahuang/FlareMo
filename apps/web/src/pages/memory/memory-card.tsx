@@ -3,12 +3,16 @@ import {
   ArchiveIcon,
   CheckIcon,
   CornerUpLeftIcon,
+  EyeIcon,
+  FolderIcon,
   HistoryIcon,
+  LinkIcon,
   MoreHorizontalIcon,
   NotebookPenIcon,
   PencilIcon,
   PinIcon,
   PinOffIcon,
+  SparklesIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
@@ -195,7 +199,8 @@ export function MemoryCard({
               className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer truncate max-w-[180px]"
               title={memory.scope_key}
             >
-              <span>📁 {formatProjectName(memory.scope_key)}</span>
+              <FolderIcon className="size-3 shrink-0" />
+              <span>{formatProjectName(memory.scope_key)}</span>
             </button>
           )}
 
@@ -213,15 +218,17 @@ export function MemoryCard({
               <span>{t("memory.pinned")}</span>
             </Badge>
           ) : memory.verification === "observed" ? (
-            <Badge variant="secondary" className="text-xs font-normal">
-              {t("memory.observedBadge")}
+            <Badge variant="secondary" className="gap-1 text-xs font-normal">
+              <EyeIcon className="size-3" />
+              <span>{t("memory.observedBadge")}</span>
             </Badge>
           ) : memory.needs_review || memory.verification === "inferred" ? (
             <Badge
               variant="outline"
-              className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-xs font-normal"
+              className="gap-1 border-amber-500/40 text-amber-600 dark:text-amber-400 text-xs font-normal"
             >
-              {t("memory.inferredBadge")}
+              <SparklesIcon className="size-3" />
+              <span>{t("memory.inferredBadge")}</span>
             </Badge>
           ) : null}
 
@@ -321,7 +328,8 @@ export function MemoryCard({
         )}
 
         {memory.evidence && memory.evidence.length > 0 && (
-          <div className="text-xs text-muted-foreground flex items-center gap-1 border-t border-border/30 pt-1.5 mt-0.5">
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5 border-t border-border/30 pt-1.5 mt-0.5">
+            <LinkIcon className="size-3 shrink-0 opacity-70" />
             <span>{t("memory.evidenceLabel")}:</span>
             <span className="truncate max-w-[400px]">
               {memory.evidence[0].excerpt ||

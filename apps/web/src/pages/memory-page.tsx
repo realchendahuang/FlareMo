@@ -1,11 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircleIcon, BrainIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  BrainIcon,
+  EyeIcon,
+  FolderIcon,
+  PinIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { listMemories, listMemoryReview } from "@/api";
 import { Button } from "@/components/ui/button";
+import { FilterPill } from "@/components/ui/filter-pill";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { useI18n } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { formatProjectName, groupMemories } from "./memory/memory-filters";
 import { MemoryLensDialog } from "./memory/memory-lens-dialog";
 import { MemoryList } from "./memory/memory-list";
@@ -135,6 +141,7 @@ export function MemoryPage() {
         {/* Quick Add Memory Box */}
         <MemoryQuickComposer
           defaultScopeKey={tab === "projects" ? selectedProject : null}
+          projects={projectCounts}
           onCreated={invalidate}
         />
 
@@ -154,6 +161,9 @@ export function MemoryPage() {
               active={tab === "core"}
               label={t("memory.filterCore")}
               count={groups.core.length}
+              icon={
+                <PinIcon className="size-3 text-brand-500 fill-brand-500/20" />
+              }
               onClick={() => {
                 setTab("core");
                 setSelectedProject(null);
@@ -164,6 +174,7 @@ export function MemoryPage() {
                 active={tab === "observed"}
                 label={t("memory.filterObserved")}
                 count={groups.observed.length}
+                icon={<EyeIcon className="size-3" />}
                 onClick={() => {
                   setTab("observed");
                   setSelectedProject(null);
@@ -175,6 +186,7 @@ export function MemoryPage() {
                 active={tab === "projects"}
                 label={t("memory.tab.projects")}
                 count={groups.projects.length}
+                icon={<FolderIcon className="size-3" />}
                 onClick={() => setTab("projects")}
               />
             )}
@@ -206,39 +218,23 @@ export function MemoryPage() {
           {/* Project Sub-pills (when projects tab is active) */}
           {tab === "projects" && projectCounts.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar text-xs">
-              <button
-                type="button"
+              <FilterPill
+                active={!selectedProject}
+                variant="sub"
+                label={t("memory.allProjects")}
+                count={groups.projects.length}
                 onClick={() => setSelectedProject(null)}
-                className={cn(
-                  "inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-medium border transition-colors shrink-0 cursor-pointer",
-                  !selectedProject
-                    ? "border-primary bg-primary text-primary-foreground shadow-2xs"
-                    : "border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <span>{t("memory.allProjects")}</span>
-                <span className="tabular-nums opacity-70">
-                  ({groups.projects.length})
-                </span>
-              </button>
+              />
 
               {projectCounts.map((p) => (
-                <button
+                <FilterPill
                   key={p.key}
-                  type="button"
+                  active={selectedProject === p.key}
+                  variant="sub"
+                  label={p.displayName}
+                  count={p.count}
                   onClick={() => setSelectedProject(p.key)}
-                  className={cn(
-                    "inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-medium border transition-colors shrink-0 cursor-pointer",
-                    selectedProject === p.key
-                      ? "border-primary bg-primary text-primary-foreground shadow-2xs"
-                      : "border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  <span className="truncate max-w-[140px]">
-                    {p.displayName}
-                  </span>
-                  <span className="tabular-nums opacity-70">({p.count})</span>
-                </button>
+                />
               ))}
             </div>
           )}
@@ -333,47 +329,5 @@ export function MemoryPage() {
 
       <MemoryLensDialog open={lensOpen} onOpenChange={setLensOpen} />
     </WorkspaceLayout>
-  );
-}
-
-function FilterPill({
-  active,
-  label,
-  count,
-  highlight = false,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  count?: number;
-  highlight?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium motion-safe:transition-all active:scale-[0.98]",
-        active
-          ? "bg-foreground text-background shadow-2xs"
-          : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
-        highlight &&
-          !active &&
-          "border border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10",
-      )}
-    >
-      <span>{label}</span>
-      {count !== undefined && count > 0 && (
-        <span
-          className={cn(
-            "text-[10px] tabular-nums",
-            active ? "text-background/80" : "text-muted-foreground",
-          )}
-        >
-          {count}
-        </span>
-      )}
-    </button>
   );
 }
