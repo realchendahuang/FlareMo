@@ -210,7 +210,7 @@ export function MemoryQuickComposer({
               {projects && projects.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[11px] text-muted-foreground px-2 py-1">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
                     {t("memory.composerPickProject")}
                   </DropdownMenuLabel>
                   {projects.slice(0, 10).map((p) => (

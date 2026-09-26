@@ -112,7 +112,7 @@ export function ProjectGroups({
                 </h2>
                 <Badge
                   variant="outline"
-                  className="text-[11px] font-normal tabular-nums"
+                  className="text-xs font-normal tabular-nums"
                 >
                   {t("memory.projectMemoryCount", {
                     count: activeProject.items.length,
@@ -121,7 +121,7 @@ export function ProjectGroups({
                 {activeProject.coreCount > 0 && (
                   <Badge
                     variant="default"
-                    className="text-[11px] font-normal gap-1"
+                    className="text-xs font-normal gap-1"
                   >
                     <PinIcon className="size-2.5 fill-current" />
                     <span>
@@ -220,7 +220,7 @@ export function ProjectGroups({
             </div>
           )}
 
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground/60 pt-0.5 border-t border-border/30">
+          <div className="flex items-center justify-between text-xs text-muted-foreground/60 pt-0.5 border-t border-border/30">
             <span>
               {t("memory.projectUpdated", {
                 time: formatMemoRelativeTime(project.lastUpdated, locale),

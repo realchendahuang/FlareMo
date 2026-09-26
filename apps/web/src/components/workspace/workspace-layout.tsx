@@ -32,6 +32,15 @@ const AccountSettingsDialog = lazy(() =>
 
 const SIDEBAR_COLLAPSED_KEY = "flaremo.sidebar.collapsed";
 
+const TIMELINE_SEARCH = {
+  view: undefined,
+  space: undefined,
+  q: undefined,
+  tag: undefined,
+  untagged: undefined,
+  compose: undefined,
+};
+
 const EMPTY_STATS: MemoStatsResponse = {
   counts: { normal: 0, archived: 0, trashed: 0, total: 0 },
   active_days: 0,
@@ -136,12 +145,15 @@ export function WorkspaceLayout({
     // click jumps there with the filter applied instead of doing nothing.
     onTagChange: (tag) => {
       setMobileSheetOpen(false);
-      void navigate({ to: "/", search: { tag } });
+      void navigate({ to: "/", search: { ...TIMELINE_SEARCH, tag } });
     },
     onToggleCollapsed: toggleSidebarCollapsed,
     onUntaggedChange: (next) => {
       setMobileSheetOpen(false);
-      void navigate({ to: "/", search: { untagged: next || undefined } });
+      void navigate({
+        to: "/",
+        search: { ...TIMELINE_SEARCH, untagged: next || undefined },
+      });
     },
   };
 
