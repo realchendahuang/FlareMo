@@ -56,6 +56,20 @@ export function MonthHorizonPureView({
     [hourlyData],
   );
 
+  // Aggregate daily totals from the month-scoped hourly query. This is the
+  // primary source because it's anchored to the exact month from/to via
+  // monthHourlyQuery, so historical months outside the shared stats' trailing
+  // 366-day window (which is anchored to "today" for streak/tags) still render
+  // correct heat colors. Fall back to notesCountMap only while the month
+  // query is still in flight.
+  const hourlyDailyTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const row of hourlyData ?? []) {
+      totals.set(row.date, (totals.get(row.date) ?? 0) + row.count);
+    }
+    return totals;
+  }, [hourlyData]);
+
   return (
     <div className="flex flex-col gap-1.5">
       {/* 7 Weekday Headers: Clear orientation for the 7 columns */}
@@ -90,7 +104,10 @@ export function MonthHorizonPureView({
             );
           }
 
-          const totalCount = notesCountMap.get(cell.key) ?? 0;
+          const totalCount =
+            hourlyDailyTotals.get(cell.key) ??
+            notesCountMap.get(cell.key) ??
+            0;
           const isToday = cell.key === today;
           const isSelected = cell.key === selectedDay;
           const dayNum = Number(cell.key.slice(8));
