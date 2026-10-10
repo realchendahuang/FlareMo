@@ -11,6 +11,7 @@ const connectedFrame = ": connected\n\n";
 const heartbeatFrame = ": heartbeat\n\n";
 const heartbeatIntervalMs = 30_000;
 const eventPollIntervalMs = 5_000;
+const maxStreamDurationMs = 60_000;
 const eventBatchSize = 64;
 
 /**
@@ -53,6 +54,7 @@ memosSseApi.get("/api/v1/sse", async (c) => {
       let polling = false;
       let heartbeat: ReturnType<typeof setInterval> | undefined;
       let pollTimer: ReturnType<typeof setInterval> | undefined;
+      let maxDurationTimer: ReturnType<typeof setTimeout> | undefined;
 
       const enqueue = (frame: string) => {
         if (closed) return;
@@ -111,6 +113,7 @@ memosSseApi.get("/api/v1/sse", async (c) => {
         closed = true;
         if (heartbeat) clearInterval(heartbeat);
         if (pollTimer) clearInterval(pollTimer);
+        if (maxDurationTimer) clearTimeout(maxDurationTimer);
         c.req.raw.signal.removeEventListener("abort", close);
         try {
           controller.close();
@@ -127,6 +130,7 @@ memosSseApi.get("/api/v1/sse", async (c) => {
         heartbeatIntervalMs,
       );
       pollTimer = setInterval(() => void poll(), eventPollIntervalMs);
+      maxDurationTimer = setTimeout(() => closeStream(), maxStreamDurationMs);
     },
     cancel() {
       closeStream();
