@@ -11,6 +11,8 @@
   // `pnpm deploy` does not create those resources. Create them yourself, or
   // run `pnpm provision:remote` (the GitHub deploy workflow does this too).
   "name": "flaremo",
+  "workers_dev": false,
+  "preview_urls": false,
   "main": "./apps/worker/src/index.ts",
   "compatibility_date": "2026-07-10",
   "compatibility_flags": ["nodejs_compat"],
