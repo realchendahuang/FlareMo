@@ -21,6 +21,7 @@ import {
   type MemoStatsResponse,
 } from "@/api";
 import {
+  SidebarToggle,
   WorkspaceSidebar,
   type WorkspaceSidebarContent,
 } from "@/components/workspace/workspace-sidebar";
@@ -401,7 +402,14 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             width={sidebarWidth}
             onResizeStart={startResize}
           />
-          <div className="flex h-full min-w-0 flex-1 flex-col">{children}</div>
+          <div className="relative flex h-full min-w-0 flex-1 flex-col">
+            <SidebarToggle
+              animate={ready && !resizing}
+              collapsed={sidebarCollapsed}
+              onToggle={toggleSidebarCollapsed}
+            />
+            {children}
+          </div>
         </div>
         <Suspense fallback={null}>
           {accountSettingsOpen && (

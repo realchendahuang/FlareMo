@@ -4,7 +4,7 @@ import { ScopeSwitcher } from "@/components/scope-switcher";
 import { SpotlightSearchTrigger } from "@/components/spotlight-search";
 import { usePageContentWidth } from "@/components/workspace/workspace-layout";
 import {
-  ShowSidebarButton,
+  SidebarToggleSlot,
   WorkspaceMobileSidebar,
   type WorkspaceSidebarContent,
 } from "@/components/workspace/workspace-sidebar";
@@ -18,7 +18,6 @@ export function WorkspaceHeader({
   activeQuery,
   explorer,
   sidebarCollapsed,
-  toggleSidebarCollapsed,
   isTimelineScrolled,
   mobileSheetOpen,
   setMobileSheetOpen,
@@ -43,7 +42,8 @@ export function WorkspaceHeader({
   sidebarCollapsed: boolean;
   space: MemoSpace;
   team: { id: string; name: string } | null;
-  toggleSidebarCollapsed: () => void;
+  /** The shell's toggle owns collapsing; kept for call-site parity. */
+  toggleSidebarCollapsed?: () => void;
   view: ExplorerView;
 }) {
   const contentWidth = usePageContentWidth();
@@ -62,10 +62,7 @@ export function WorkspaceHeader({
         className="mx-auto flex h-14 w-full items-center gap-1 px-5 md:ms-0 lg:px-2.5"
         style={{ maxWidth: contentWidth }}
       >
-        <ShowSidebarButton
-          collapsed={sidebarCollapsed}
-          onShow={toggleSidebarCollapsed}
-        />
+        <SidebarToggleSlot collapsed={sidebarCollapsed} />
         <WorkspaceMobileSidebar
           explorer={explorer}
           open={mobileSheetOpen}

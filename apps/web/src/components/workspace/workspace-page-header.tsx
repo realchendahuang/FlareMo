@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { usePageContentWidth } from "@/components/workspace/workspace-layout";
 import type { WorkspaceSidebarContent } from "@/components/workspace/workspace-sidebar";
 import {
-  ShowSidebarButton,
+  SidebarToggleSlot,
   WorkspaceMobileSidebar,
 } from "@/components/workspace/workspace-sidebar";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ export function WorkspacePageHeader({
   actions,
   explorer,
   sidebarCollapsed,
-  toggleSidebarCollapsed,
   mobileSheetOpen,
   setMobileSheetOpen,
   isScrolled = false,
@@ -25,7 +24,8 @@ export function WorkspacePageHeader({
   mobileSheetOpen: boolean;
   setMobileSheetOpen: (open: boolean) => void;
   sidebarCollapsed: boolean;
-  toggleSidebarCollapsed: () => void;
+  /** The shell's toggle owns collapsing; kept for call-site parity. */
+  toggleSidebarCollapsed?: () => void;
   isScrolled?: boolean;
 }) {
   const contentWidth = usePageContentWidth();
@@ -44,10 +44,7 @@ export function WorkspacePageHeader({
         className="mx-auto flex h-14 w-full items-center gap-1 px-5 md:ms-0 lg:px-2.5"
         style={{ maxWidth: contentWidth }}
       >
-        <ShowSidebarButton
-          collapsed={sidebarCollapsed}
-          onShow={toggleSidebarCollapsed}
-        />
+        <SidebarToggleSlot collapsed={sidebarCollapsed} />
         <WorkspaceMobileSidebar
           explorer={explorer}
           open={mobileSheetOpen}

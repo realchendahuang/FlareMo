@@ -1,5 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
-import { DownloadIcon, MenuIcon, UploadIcon } from "lucide-react";
+import {
+  DownloadIcon,
+  MenuIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  UploadIcon,
+} from "lucide-react";
 import {
   type PointerEvent as ReactPointerEvent,
   type UIEvent,
@@ -70,48 +76,86 @@ function sidebarShortcutLabel() {
   return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ \\" : "Ctrl \\";
 }
 
+/** Space the collapsed-state toggle takes at the start of the page header. */
+const TOGGLE_SLOT = 32;
+
 /**
- * flomo's "show sidebar" entry: while the desktop sidebar is hidden, a 28px
- * menu button sits at the start of the page header, right before the title.
- * Narrow screens use the drawer trigger in the same spot instead.
+ * The sidebar toggle: one button that travels with the sidebar's edge.
+ * Expanded, it sits in the sidebar header's trailing corner; collapsing
+ * slides it, together with the shrinking sidebar, to the start of the page
+ * header, where it waits as the expand button. It never disappears and never
+ * jumps, so it can be clicked again at any point, including mid-animation.
+ * It is positioned from the page column's leading edge, which is exactly the
+ * edge the sidebar collapses towards.
  */
-export function ShowSidebarButton({
+export function SidebarToggle({
+  animate,
   collapsed,
-  onShow,
+  onToggle,
 }: {
+  animate: boolean;
   collapsed: boolean;
-  onShow: () => void;
+  onToggle: () => void;
 }) {
   const { t } = useI18n();
-  if (!collapsed) return null;
-  const label = t("sidebar.expand");
+  const label = t(collapsed ? "sidebar.expand" : "sidebar.collapse");
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-keyshortcuts="Meta+Backslash Control+Backslash"
-            aria-label={label}
-            className="hidden text-muted-foreground hover:text-foreground md:inline-flex"
-            data-testid="sidebar-show"
-            size="icon-sm"
-            variant="ghost"
-            onClick={onShow}
-          />
-        }
-      >
-        <MenuIcon />
-      </TooltipTrigger>
-      <TooltipContent>
-        {label}
-        <kbd
-          className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
-          data-slot="kbd"
+    <div
+      className={cn(
+        "absolute top-3.5 z-30 hidden md:block",
+        animate &&
+          "motion-safe:transition-[inset-inline-start] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+      )}
+      // Expanded: 8px resize handle + the sidebar header's 16px padding +
+      // the 28px button to the left of the column. Collapsed: the page
+      // header's 10px padding.
+      style={{ insetInlineStart: collapsed ? 10 : -52 }}
+    >
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-keyshortcuts="Meta+Backslash Control+Backslash"
+              aria-label={label}
+              className="text-muted-foreground hover:text-foreground"
+              data-testid="sidebar-toggle"
+              size="icon-sm"
+              variant="ghost"
+              onClick={onToggle}
+            />
+          }
         >
-          {sidebarShortcutLabel()}
-        </kbd>
-      </TooltipContent>
-    </Tooltip>
+          {collapsed ? (
+            <PanelLeftOpenIcon className="rtl:-scale-x-100" />
+          ) : (
+            <PanelLeftCloseIcon className="rtl:-scale-x-100" />
+          )}
+        </TooltipTrigger>
+        <TooltipContent>
+          {label}
+          <kbd
+            className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
+            data-slot="kbd"
+          >
+            {sidebarShortcutLabel()}
+          </kbd>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+/**
+ * Keeps the page header's title clear of the toggle while the sidebar is
+ * collapsed; it opens and closes in step with the toggle's travel.
+ */
+export function SidebarToggleSlot({ collapsed }: { collapsed: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="hidden shrink-0 motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-in-out md:block"
+      style={{ width: collapsed ? TOGGLE_SLOT : 0 }}
+    />
   );
 }
 

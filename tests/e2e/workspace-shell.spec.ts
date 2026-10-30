@@ -78,7 +78,7 @@ test("centers sidebar and column as one group and keeps it across pages", async 
   expect(Math.abs(centers.account - centers.title)).toBeLessThanOrEqual(1);
 });
 
-test("hides with the shortcut, shows from the header menu button, and eases both ways", async ({
+test("hides with the shortcut, shows again from the toggle, and eases both ways", async ({
   page,
 }) => {
   await openTimeline(page);
@@ -95,7 +95,7 @@ test("hides with the shortcut, shows from the header menu button, and eases both
     const aside = document.querySelector("aside") as HTMLElement;
     const widths: number[] = [];
     (
-      document.querySelector('[data-testid="sidebar-show"]') as HTMLElement
+      document.querySelector('[data-testid="sidebar-toggle"]') as HTMLElement
     ).click();
     const start = performance.now();
     await new Promise<void>((resolve) => {
@@ -114,7 +114,50 @@ test("hides with the shortcut, shows from the header menu button, and eases both
   for (let index = 1; index < frames.length; index += 1) {
     expect(frames[index]).toBeGreaterThanOrEqual(frames[index - 1] ?? 0);
   }
-  await expect(show).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /collapse sidebar|收起侧栏/i }),
+  ).toBeVisible();
+});
+
+test("slides one toggle with the sidebar edge and reverses mid-animation", async ({
+  page,
+}) => {
+  await openTimeline(page);
+  const toggle = page.getByTestId("sidebar-toggle");
+  const start = await toggle.boundingBox();
+  const path = await page.evaluate(async () => {
+    const button = () =>
+      document.querySelector('[data-testid="sidebar-toggle"]') as HTMLElement;
+    const xs: number[] = [];
+    button().click();
+    const begin = performance.now();
+    let reversed = false;
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const elapsed = performance.now() - begin;
+        if (!reversed && elapsed > 150) {
+          reversed = true;
+          button().click();
+        }
+        xs.push(Math.round(button().getBoundingClientRect().x));
+        if (elapsed < 650) requestAnimationFrame(tick);
+        else resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+    return xs;
+  });
+  // Continuous travel: no frame-to-frame jump larger than a normal step.
+  for (let index = 1; index < path.length; index += 1) {
+    expect(Math.abs((path[index] ?? 0) - (path[index - 1] ?? 0))).toBeLessThan(
+      40,
+    );
+  }
+  // Reversed mid-way, so it ends back where it started, expanded.
+  expect(path.at(-1)).toBe(Math.round(start?.x ?? Number.NaN));
+  await expect(
+    page.getByRole("button", { name: /collapse sidebar|收起侧栏/i }),
+  ).toBeVisible();
 });
 
 test("resizes the sidebar between 216 and 312 px and remembers the width", async ({
