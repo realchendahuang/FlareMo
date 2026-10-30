@@ -311,6 +311,7 @@ export function FlareMoApp() {
             )}
           <MemoList
             attachmentsByMemo={attachmentsByMemo}
+            emptyIcon={view}
             emptyDescription={
               isSemanticSearch
                 ? t("search.semanticEmpty")

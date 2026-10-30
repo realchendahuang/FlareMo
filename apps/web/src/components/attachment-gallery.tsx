@@ -1,10 +1,19 @@
 import { CircleAlertIcon, DownloadIcon, FileIcon } from "lucide-react";
 import { useState } from "react";
 import type { Attachment } from "@/api";
-import { ImageLightbox } from "@/components/image-lightbox";
+import { ImageLightbox, type LightboxImage } from "@/components/image-lightbox";
 import { useI18n } from "@/i18n";
 import { attachmentImageDimensions } from "@/lib/attachment-refs";
 import { cn, formatBytes } from "@/lib/utils";
+
+function toLightboxImage(attachment: Attachment): LightboxImage {
+  return {
+    src: attachment.preview_url,
+    alt: attachment.filename,
+    downloadUrl: attachment.download_url,
+    filename: attachment.filename,
+  };
+}
 
 function GalleryItem({ attachment }: { attachment: Attachment }) {
   const { t } = useI18n();
@@ -52,12 +61,10 @@ function GalleryItem({ attachment }: { attachment: Attachment }) {
               />
             </button>
             <ImageLightbox
+              images={[toLightboxImage(attachment)]}
+              index={0}
               open={lightboxOpen}
               onOpenChange={setLightboxOpen}
-              src={attachment.preview_url}
-              alt={attachment.filename}
-              downloadUrl={attachment.download_url}
-              filename={attachment.filename}
             />
           </>
         ))}
@@ -91,13 +98,14 @@ function GalleryItem({ attachment }: { attachment: Attachment }) {
 function ImageTile({
   attachment,
   tiled,
+  onOpen,
 }: {
   attachment: Attachment;
   tiled: boolean;
+  onOpen: () => void;
 }) {
   const { t } = useI18n();
   const [failed, setFailed] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
   const dimensions = attachmentImageDimensions(attachment);
   if (failed) {
     return (
@@ -113,45 +121,35 @@ function ImageTile({
     );
   }
   return (
-    <>
-      <button
-        aria-label={attachment.filename}
-        className={cn(
-          "block cursor-zoom-in overflow-hidden rounded-lg border bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-          tiled ? "aspect-square w-full" : "w-fit max-w-full",
-        )}
-        type="button"
-        onClick={() => setLightboxOpen(true)}
-      >
-        <img
-          alt={attachment.filename}
-          className={cn(
-            "motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo motion-safe:hover:scale-[1.015]",
-            tiled
-              ? "size-full object-cover"
-              : "h-auto max-h-[28rem] w-auto max-w-full object-contain",
-          )}
-          height={dimensions?.height}
-          loading="lazy"
-          onError={() => setFailed(true)}
-          src={attachment.thumbnail_url ?? attachment.preview_url}
-          style={
-            !tiled && dimensions
-              ? { aspectRatio: `${dimensions.width} / ${dimensions.height}` }
-              : undefined
-          }
-          width={dimensions?.width}
-        />
-      </button>
-      <ImageLightbox
-        open={lightboxOpen}
-        onOpenChange={setLightboxOpen}
-        src={attachment.preview_url}
+    <button
+      aria-label={attachment.filename}
+      className={cn(
+        "block cursor-zoom-in overflow-hidden rounded-lg border bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        tiled ? "aspect-square w-full" : "w-fit max-w-full",
+      )}
+      type="button"
+      onClick={onOpen}
+    >
+      <img
         alt={attachment.filename}
-        downloadUrl={attachment.download_url}
-        filename={attachment.filename}
+        className={cn(
+          "motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo motion-safe:hover:scale-[1.015]",
+          tiled
+            ? "size-full object-cover"
+            : "h-auto max-h-[28rem] w-auto max-w-full object-contain",
+        )}
+        height={dimensions?.height}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        src={attachment.thumbnail_url ?? attachment.preview_url}
+        style={
+          !tiled && dimensions
+            ? { aspectRatio: `${dimensions.width} / ${dimensions.height}` }
+            : undefined
+        }
+        width={dimensions?.width}
       />
-    </>
+    </button>
   );
 }
 
@@ -164,6 +162,7 @@ export function AttachmentGallery({
 }: {
   attachments: Attachment[];
 }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
   if (attachments.length === 0) return null;
   const images = attachments.filter((item) =>
     item.content_type?.startsWith("image/"),
@@ -183,14 +182,26 @@ export function AttachmentGallery({
               (twoAcross ? "max-w-sm grid-cols-2" : "max-w-md grid-cols-3"),
           )}
         >
-          {images.map((attachment) => (
+          {images.map((attachment, index) => (
             <ImageTile
               attachment={attachment}
               key={attachment.name}
               tiled={tiled}
+              onOpen={() => setOpenIndex(index)}
             />
           ))}
         </div>
+      )}
+      {images.length > 0 && (
+        <ImageLightbox
+          images={images.map(toLightboxImage)}
+          index={Math.min(openIndex ?? 0, images.length - 1)}
+          open={openIndex !== null}
+          onIndexChange={setOpenIndex}
+          onOpenChange={(open) => {
+            if (!open) setOpenIndex(null);
+          }}
+        />
       )}
       {others.map((attachment) => (
         <GalleryItem attachment={attachment} key={attachment.name} />

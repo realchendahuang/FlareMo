@@ -1,5 +1,11 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CircleAlertIcon, InboxIcon, SearchIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  CircleAlertIcon,
+  InboxIcon,
+  SearchIcon,
+  Trash2Icon,
+} from "lucide-react";
 import {
   lazy,
   memo,
@@ -82,6 +88,8 @@ type MemoListProps = {
   focusedMemoId?: string | null;
   /** Overrides the generic empty-state copy (e.g. semantic search). */
   emptyDescription?: string;
+  /** Which list is empty: picks the icon (archive box, bin, inbox). */
+  emptyIcon?: "all" | "archived" | "trashed";
   emptyTitle?: string;
   onClearFilters?: () => void;
   onArchive: (id: string) => void;
@@ -327,6 +335,7 @@ export const MemoList = memo(function MemoList({
   searchQuery,
   focusedMemoId,
   emptyDescription,
+  emptyIcon,
   emptyTitle,
   onClearFilters,
   isUpdating = false,
@@ -441,7 +450,15 @@ export const MemoList = memo(function MemoList({
             className="bg-accent text-accent-foreground"
             variant="icon"
           >
-            {onClearFilters ? <SearchIcon /> : <InboxIcon />}
+            {onClearFilters ? (
+              <SearchIcon />
+            ) : emptyIcon === "archived" ? (
+              <ArchiveIcon />
+            ) : emptyIcon === "trashed" ? (
+              <Trash2Icon />
+            ) : (
+              <InboxIcon />
+            )}
           </EmptyMedia>
           <EmptyTitle>{emptyTitle ?? t("list.emptyTitle")}</EmptyTitle>
           <EmptyDescription>

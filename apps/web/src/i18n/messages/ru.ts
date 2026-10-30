@@ -399,6 +399,8 @@ const messages = {
   "imageViewer.zoomIn": "Увеличить",
   "imageViewer.zoomOut": "Уменьшить",
   "imageViewer.reset": "Сбросить масштаб",
+  "imageViewer.previous": "Предыдущее изображение",
+  "imageViewer.next": "Следующее изображение",
   "detail.unavailable": "Заметка недоступна",
   "detail.outgoing": "Ссылается на",
   "detail.backlinks": "На неё ссылаются",
@@ -948,7 +950,7 @@ const messages = {
   "projects.allTasks": "Все задачи",
   "projects.allTasksEmptyTitle": "Задач пока нет",
   "projects.allTasksEmptyDescription":
-    "Создайте задачу — она появится на доске ниже.",
+    "Введите задачу выше и нажмите Enter — она появится на доске по статусу.",
   "projects.fromMemo": "Из заметки",
   "projects.trashEmpty": "Корзина пуста",
   "projects.unassigned": "Без проекта",

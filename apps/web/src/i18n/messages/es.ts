@@ -403,6 +403,8 @@ const messages = {
   "imageViewer.zoomIn": "Acercar",
   "imageViewer.zoomOut": "Alejar",
   "imageViewer.reset": "Restablecer zoom",
+  "imageViewer.previous": "Imagen anterior",
+  "imageViewer.next": "Imagen siguiente",
   "detail.unavailable": "Nota no disponible",
   "detail.outgoing": "Referencias",
   "detail.backlinks": "Referenciada por",
@@ -955,7 +957,7 @@ const messages = {
   "projects.allTasks": "Todas las tareas",
   "projects.allTasksEmptyTitle": "Aún no hay tareas",
   "projects.allTasksEmptyDescription":
-    "Crea una tarea y aparecerá en el tablero de abajo.",
+    "Escribe una tarea arriba y pulsa Intro; aparecerá en el tablero según su estado.",
   "projects.fromMemo": "Desde una nota",
   "projects.trashEmpty": "La papelera está vacía",
   "projects.unassigned": "Sin proyecto",

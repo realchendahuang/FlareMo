@@ -396,6 +396,8 @@ const messages = {
   "imageViewer.zoomIn": "확대",
   "imageViewer.zoomOut": "축소",
   "imageViewer.reset": "확대 초기화",
+  "imageViewer.previous": "이전 이미지",
+  "imageViewer.next": "다음 이미지",
   "detail.unavailable": "노트를 사용할 수 없습니다",
   "detail.outgoing": "참조하는 노트",
   "detail.backlinks": "참조되는 노트",
@@ -937,7 +939,8 @@ const messages = {
   "projects.editTask": "작업 편집",
   "projects.allTasks": "모든 작업",
   "projects.allTasksEmptyTitle": "아직 할 일이 없습니다",
-  "projects.allTasksEmptyDescription": "할 일을 만들면 아래 보드에 표시됩니다.",
+  "projects.allTasksEmptyDescription":
+    "위 입력란에 할 일을 적고 Enter를 누르면 상태별 보드에 놓입니다.",
   "projects.fromMemo": "메모에서",
   "projects.trashEmpty": "휴지통이 비어 있습니다",
   "projects.unassigned": "미할당",

@@ -16,18 +16,17 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
+import { ListChecksIcon } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 import type { Project, Task, TaskStatus } from "@/api";
 import { reorderTasks, updateTask } from "@/api";
 import { QueryErrorState } from "@/components/query-error-state";
-import { Button } from "@/components/ui/button";
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +40,6 @@ import { SortableTaskCard, StatusIcon, TaskCard } from "./task-card";
 
 export function Board({
   hasError,
-  hasProjects,
   isRetrying,
   loading,
   onRetry,
@@ -49,12 +47,9 @@ export function Board({
   selectedProject,
   tasks,
   onMutated,
-  onCreateProject,
-  onCreateTask,
   emptyState,
 }: {
   hasError: boolean;
-  hasProjects: boolean;
   isRetrying: boolean;
   loading: boolean;
   onRetry: () => void;
@@ -62,8 +57,6 @@ export function Board({
   selectedProject: Project | null;
   tasks: Task[];
   onMutated: () => void;
-  onCreateProject: () => void;
-  onCreateTask: () => void;
   /** A smart view's own empty copy; the quick-add line above is its CTA. */
   emptyState?: { title: string; description: string };
 }) {
@@ -100,31 +93,19 @@ export function Board({
     );
   }
 
-  if (tasks.length === 0 && !hasProjects) {
-    return (
-      <Empty className="min-h-56 border">
-        <EmptyHeader>
-          <EmptyTitle>{t("projects.emptyTitle")}</EmptyTitle>
-          <EmptyDescription>{t("projects.emptyDescription")}</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent className="flex items-center gap-2">
-          <Button size="sm" onClick={onCreateProject}>
-            <PlusIcon data-icon="inline-start" />
-            {t("projects.newProject")}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onCreateTask}>
-            {t("projects.newTask")}
-          </Button>
-        </EmptyContent>
-      </Empty>
-    );
-  }
-
+  // The quick-add row sits right above the board, so empty states only
+  // explain; they do not repeat the create buttons.
   if (tasks.length === 0) {
     const inProject = Boolean(selectedProject);
     return (
       <Empty className="min-h-56 border">
         <EmptyHeader>
+          <EmptyMedia
+            className="bg-accent text-accent-foreground"
+            variant="icon"
+          >
+            <ListChecksIcon />
+          </EmptyMedia>
           <EmptyTitle>
             {inProject
               ? t("projects.tasksEmptyTitle")
@@ -136,12 +117,6 @@ export function Board({
               : t("projects.allTasksEmptyDescription")}
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent>
-          <Button size="sm" variant="outline" onClick={onCreateTask}>
-            <PlusIcon data-icon="inline-start" />
-            {t("projects.newTask")}
-          </Button>
-        </EmptyContent>
       </Empty>
     );
   }

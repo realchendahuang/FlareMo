@@ -198,6 +198,8 @@ export function UserMenu({
               </span>
             )}
           </DropdownMenuItem>
+          {/* Settings-ish rows, then data in and out, then sign out. */}
+          <DropdownMenuSeparator />
           {onExport && (
             <DropdownMenuItem onClick={() => void onExport()}>
               <DownloadIcon />

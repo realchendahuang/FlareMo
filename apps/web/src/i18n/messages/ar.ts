@@ -391,6 +391,8 @@ const messages = {
   "imageViewer.zoomIn": "تكبير",
   "imageViewer.zoomOut": "تصغير",
   "imageViewer.reset": "إعادة ضبط التكبير",
+  "imageViewer.previous": "الصورة السابقة",
+  "imageViewer.next": "الصورة التالية",
   "detail.unavailable": "الملاحظة غير متاحة",
   "detail.outgoing": "تشير إلى",
   "detail.backlinks": "تشار إليها",
@@ -916,7 +918,8 @@ const messages = {
   "projects.editTask": "تعديل المهمة",
   "projects.allTasks": "كل المهام",
   "projects.allTasksEmptyTitle": "لا توجد مهام بعد",
-  "projects.allTasksEmptyDescription": "أنشئ مهمة وستظهر في اللوحة أدناه.",
+  "projects.allTasksEmptyDescription":
+    "اكتب مهمة في الأعلى واضغط Enter، وستظهر في اللوحة حسب حالتها.",
   "projects.fromMemo": "من مذكرة",
   "projects.trashEmpty": "سلة المهملات فارغة",
   "projects.unassigned": "بدون مشروع",

@@ -404,6 +404,8 @@ const messages = {
   "imageViewer.zoomIn": "Agrandir",
   "imageViewer.zoomOut": "Réduire",
   "imageViewer.reset": "Réinitialiser le zoom",
+  "imageViewer.previous": "Image précédente",
+  "imageViewer.next": "Image suivante",
   "detail.unavailable": "Note indisponible",
   "detail.outgoing": "Références",
   "detail.backlinks": "Référencé par",
@@ -964,7 +966,7 @@ const messages = {
   "projects.allTasks": "Toutes les tâches",
   "projects.allTasksEmptyTitle": "Aucune tâche pour l'instant",
   "projects.allTasksEmptyDescription":
-    "Créez une tâche, elle apparaîtra dans le tableau ci-dessous.",
+    "Saisissez une tâche ci-dessus et appuyez sur Entrée ; elle rejoint le tableau selon son état.",
   "projects.fromMemo": "Depuis une note",
   "projects.trashEmpty": "La corbeille est vide",
   "projects.unassigned": "Sans projet",

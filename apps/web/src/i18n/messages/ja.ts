@@ -396,6 +396,8 @@ const messages = {
   "imageViewer.zoomIn": "拡大",
   "imageViewer.zoomOut": "縮小",
   "imageViewer.reset": "拡大をリセット",
+  "imageViewer.previous": "前の画像",
+  "imageViewer.next": "次の画像",
   "detail.unavailable": "ノートを利用できません",
   "detail.outgoing": "参照しているノート",
   "detail.backlinks": "参照されているノート",
@@ -942,7 +944,7 @@ const messages = {
   "projects.allTasks": "すべてのタスク",
   "projects.allTasksEmptyTitle": "まだタスクがありません",
   "projects.allTasksEmptyDescription":
-    "タスクを作ると下のボードに表示されます。",
+    "上の欄に入力して Enter で保存すると、状態ごとのボードに並びます。",
   "projects.fromMemo": "メモから",
   "projects.trashEmpty": "ゴミ箱は空です",
   "projects.unassigned": "未割り当て",

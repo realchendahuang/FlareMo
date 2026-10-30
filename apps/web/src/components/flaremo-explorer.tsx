@@ -214,23 +214,26 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         <h3 className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">
           {t("explorer.tags")}
         </h3>
-        <button
-          aria-pressed={untagged}
-          className={cn(
-            "flex h-7 items-center gap-2.5 rounded-md ps-2.5 pe-1 text-[13px] text-left motion-safe:transition-colors motion-safe:duration-150",
-            untagged
-              ? "bg-card font-medium text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted"
-              : "text-foreground/70 hover:bg-muted/70 hover:text-foreground",
-          )}
-          type="button"
-          onClick={() => {
-            onUntaggedChange(!untagged);
-            onNavigate?.();
-          }}
-        >
-          <HashIcon className="size-4 shrink-0 text-muted-foreground/70" />
-          <span className="truncate">{t("explorer.untagged")}</span>
-        </button>
+        {/* With no tags at all, "untagged" would just repeat "all memos". */}
+        {(hierarchyPending || hierarchy.length > 0 || untagged) && (
+          <button
+            aria-pressed={untagged}
+            className={cn(
+              "flex h-7 items-center gap-2.5 rounded-md ps-2.5 pe-1 text-[13px] text-left motion-safe:transition-colors motion-safe:duration-150",
+              untagged
+                ? "bg-card font-medium text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted"
+                : "text-foreground/70 hover:bg-muted/70 hover:text-foreground",
+            )}
+            type="button"
+            onClick={() => {
+              onUntaggedChange(!untagged);
+              onNavigate?.();
+            }}
+          >
+            <HashIcon className="size-4 shrink-0 text-muted-foreground/70" />
+            <span className="truncate">{t("explorer.untagged")}</span>
+          </button>
+        )}
         {hierarchyPending ? (
           // Loading state, not the empty state: flashing「无标签」before the
           // real tree expands reads as data loss. Hold a few ghost rows.
@@ -249,7 +252,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
             onNavigate={onNavigate}
           />
         ) : (
-          <div className="text-xs text-muted-foreground">
+          <div className="px-2.5 text-xs/relaxed text-muted-foreground">
             {t("explorer.noTags")}
           </div>
         )}
@@ -383,7 +386,7 @@ function TagTree({
           {/* Count and menu share the trailing slot, like project rows on the
               to-do page: the menu takes over on hover and stays on touch. */}
           {node.count > 0 && (
-            <span className="min-w-5 shrink-0 text-end text-xs tabular-nums text-muted-foreground/70 group-focus-within:invisible group-hover:invisible [@media(pointer:coarse)]:hidden">
+            <span className="min-w-5 shrink-0 text-end text-xs tabular-nums text-muted-foreground/70 group-focus-within:invisible group-hover:invisible [@media(pointer:coarse)]:invisible">
               {node.count}
             </span>
           )}

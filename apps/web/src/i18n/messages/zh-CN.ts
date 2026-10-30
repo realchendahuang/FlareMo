@@ -368,6 +368,8 @@ const messages = {
   "imageViewer.zoomIn": "放大",
   "imageViewer.zoomOut": "缩小",
   "imageViewer.reset": "重置缩放",
+  "imageViewer.previous": "上一张",
+  "imageViewer.next": "下一张",
   "detail.unavailable": "记录不可用",
   "detail.outgoing": "引用了谁",
   "detail.backlinks": "被谁引用",
@@ -873,7 +875,7 @@ const messages = {
   "projects.allTasks": "全部任务",
   "projects.allTasksEmptyTitle": "还没有任务",
   "projects.allTasksEmptyDescription":
-    "建一个任务试试，它会出现在下面的看板里。",
+    "在上方写一条待办，回车保存，它会按状态归入看板。",
   "projects.fromMemo": "来自记录",
   "projects.trashEmpty": "回收站是空的",
   "projects.unassigned": "未分配",

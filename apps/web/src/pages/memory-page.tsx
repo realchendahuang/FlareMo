@@ -9,6 +9,13 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { listMemories, listMemoryReview } from "@/api";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { FilterPill } from "@/components/ui/filter-pill";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { useI18n } from "@/i18n";
@@ -248,15 +255,20 @@ export function MemoryPage() {
         <div className="pt-1">
           {tab === "all" &&
             (memories.length === 0 && !listQuery.isLoading && !query ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 py-12 px-4 text-center motion-safe:animate-rise">
-                <BrainIcon className="size-8 text-muted-foreground/30" />
-                <p className="mt-3 font-medium text-sm text-foreground">
-                  {t("memory.emptyTitle")}
-                </p>
-                <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-                  {t("memory.emptyDescription")}
-                </p>
-              </div>
+              <Empty className="min-h-56 border motion-safe:animate-rise">
+                <EmptyHeader>
+                  <EmptyMedia
+                    className="bg-accent text-accent-foreground"
+                    variant="icon"
+                  >
+                    <BrainIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>{t("memory.emptyTitle")}</EmptyTitle>
+                  <EmptyDescription>
+                    {t("memory.emptyDescription")}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
               <MemoryList
                 hasError={listQuery.isError && !listQuery.data}

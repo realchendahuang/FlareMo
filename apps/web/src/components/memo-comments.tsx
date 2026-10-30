@@ -199,7 +199,9 @@ export function MemoComments({
             }}
           />
           <div className="flex items-center justify-end gap-2">
-            <span className="text-xs text-muted-foreground">{SUBMIT_HINT}</span>
+            <span className="text-xs text-muted-foreground [@media(pointer:coarse)]:hidden">
+              {SUBMIT_HINT}
+            </span>
             <Button
               disabled={!draft.trim() || createMutation.isPending}
               size="sm"

@@ -397,6 +397,8 @@ const messages = {
   "imageViewer.zoomIn": "Zoom in",
   "imageViewer.zoomOut": "Zoom out",
   "imageViewer.reset": "Reset zoom",
+  "imageViewer.previous": "Previous image",
+  "imageViewer.next": "Next image",
   "detail.unavailable": "Note unavailable",
   "detail.outgoing": "References",
   "detail.backlinks": "Referenced by",
@@ -934,7 +936,7 @@ const messages = {
   "projects.allTasks": "All tasks",
   "projects.allTasksEmptyTitle": "No tasks yet",
   "projects.allTasksEmptyDescription":
-    "Create a task and it will show up on the board below.",
+    "Type a to-do above and press Enter; it lands on the board by status.",
   "projects.fromMemo": "From note",
   "projects.trashEmpty": "Trash is empty",
   "projects.unassigned": "Unassigned",

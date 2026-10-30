@@ -226,6 +226,8 @@ export function ProjectsPage() {
                 {t("projects.newTask")}
               </Button>
               <Button
+                // Phones: the rail's own "New project" row is one swipe away.
+                className="max-sm:hidden"
                 size="sm"
                 variant="outline"
                 onClick={() => setCreatingProject(true)}
@@ -350,7 +352,6 @@ export function ProjectsPage() {
                       }
                 }
                 hasError={activeQuery.isError && !activeQuery.data}
-                hasProjects={projects.length > 0}
                 isRetrying={activeQuery.isRefetching}
                 loading={activeQuery.isLoading}
                 projectById={projectById}
@@ -358,8 +359,6 @@ export function ProjectsPage() {
                 tasks={tasks}
                 onRetry={() => void activeQuery.refetch()}
                 onMutated={invalidate}
-                onCreateProject={() => setCreatingProject(true)}
-                onCreateTask={() => setCreatingTask(true)}
               />
             )}
           </section>
