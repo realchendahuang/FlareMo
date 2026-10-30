@@ -22,6 +22,25 @@ import type { MemoTaskInteraction } from "./use-memo-card-actions";
 /** Bodies beyond this size collapse in the timeline. */
 const COLLAPSE_THRESHOLD = 600;
 
+/** Whether a body is long enough to collapse (timeline and review cards). */
+export function isCollapsibleMemoContent(content: string) {
+  return content.length > COLLAPSE_THRESHOLD || content.split("\n").length > 12;
+}
+
+/**
+ * The clip around a collapsible body. The fade is a mask on the text, not a
+ * card-colored overlay: the card's paper grain is a background image, and a
+ * solid `from-card` sheet over it showed as a flat, lighter band.
+ */
+export function memoBodyClipClass(collapsed: boolean) {
+  return cn(
+    "overflow-hidden motion-safe:transition-[max-height] motion-safe:duration-250 motion-safe:ease-signal",
+    collapsed
+      ? "max-h-52 [mask-image:linear-gradient(to_bottom,#000_calc(100%-4rem),transparent)]"
+      : "max-h-[1600px]",
+  );
+}
+
 type MemoCardBodyProps = {
   attachments: Attachment[];
   canManage: boolean;
@@ -79,9 +98,7 @@ export function MemoCardBody({
   // Long bodies (transcripts, articles) collapse so one memo cannot dominate
   // the timeline.
   const isCollapsible = useMemo(
-    () =>
-      memo.content.length > COLLAPSE_THRESHOLD ||
-      memo.content.split("\n").length > 12,
+    () => isCollapsibleMemoContent(memo.content),
     [memo.content],
   );
   const collapsed = isCollapsible && !expanded;
@@ -102,17 +119,7 @@ export function MemoCardBody({
     <>
       <div>
         <div>
-          {/* The fade is a mask on the text, not a card-colored overlay: the
-              card's paper grain is a background image, and a solid
-              `from-card` sheet over it showed as a flat, lighter band. */}
-          <div
-            className={cn(
-              "overflow-hidden motion-safe:transition-[max-height] motion-safe:duration-250 motion-safe:ease-signal",
-              collapsed
-                ? "max-h-52 [mask-image:linear-gradient(to_bottom,#000_calc(100%-4rem),transparent)]"
-                : "max-h-[1600px]",
-            )}
-          >
+          <div className={memoBodyClipClass(collapsed)}>
             <LazyMemoContent
               content={memo.content}
               interactiveTaskLists={canManage && taskCount > 0}

@@ -82,7 +82,7 @@ export function DailyReviewPage() {
         />
       )}
     >
-      <div className="flex flex-col gap-4 py-2">
+      <div className="flex flex-col gap-6 py-2">
         <TodayTasks />
         {isInitialLoading && (
           <div className="flex flex-col gap-3">
@@ -142,7 +142,7 @@ export function DailyReviewPage() {
           )}
         {groups.map((group) => (
           <section className="flex flex-col gap-3" key={group.key}>
-            <h2 className="px-1 text-sm font-medium text-muted-foreground">
+            <h2 className="px-1 text-xs font-medium text-muted-foreground">
               {group.title}
             </h2>
             {group.memos.map((memo) => (

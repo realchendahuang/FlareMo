@@ -210,6 +210,7 @@ export function RandomWalkPage() {
               <>
                 <MemoSnapshotCard
                   badge={viaLabel(step, t)}
+                  key={step.memo.name}
                   locale={locale}
                   memo={step.memo}
                 />
@@ -268,10 +269,12 @@ export function RandomWalkPage() {
                         <button
                           aria-current={index === cursor ? "step" : undefined}
                           className={cn(
+                            // A selector, like FilterPill: card face and
+                            // hairline at rest, solid ink when current.
                             "flex h-8 w-8 items-center justify-center rounded-lg border text-xs tabular-nums motion-safe:transition-colors motion-safe:duration-150",
                             index === cursor
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                              ? "border-foreground bg-foreground text-background"
+                              : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
                           )}
                           key={item.memo.name}
                           title={formatMemoTime(item.memo.create_time, locale)}
@@ -310,7 +313,7 @@ function WalkPostcard({
   return (
     <Card className="border-brand-300/40 ring-brand-400/20 dark:border-brand-400/25">
       <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-xs tracking-[0.3em] text-muted-foreground uppercase">
+        <p className="text-xs font-medium text-muted-foreground">
           {t("review.postcardTitle")}
         </p>
         <p className="font-heading text-2xl font-semibold">
