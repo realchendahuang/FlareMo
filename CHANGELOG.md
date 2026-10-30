@@ -63,7 +63,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ### 已知问题
 
-- 本机环境下 headless Chromium 的 `getUserMedia` 挂起，`capture-flow.spec.ts` 的 11 个用例未能在发版前跑通（与代码无关，其它 66 个 e2e 用例通过）。
+- 发版前本地全量 e2e 77 个用例：75 个一次通过；`memo-flow`「edits and shares a memo」与 `space-flow`「a private capture in the team space…」在整套连续运行中偶发超时，单独复跑通过，属既有的负载敏感用例。
 - `deepmerge` 的 low 级公告上游尚无修复版本。
 - 兼容面仍未覆盖完整 CEL、完整上游 webhook 事件/egress 语义、完整多用户 ACL、原生 JWT parity，第三方客户端 smoke test 仍未完成。
 
