@@ -124,7 +124,6 @@ export function CapturePage() {
         explorer,
       }) => (
         <WorkspacePageHeader
-          contentMaxWidth={672}
           explorer={explorer}
           icon={
             <Mic className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />

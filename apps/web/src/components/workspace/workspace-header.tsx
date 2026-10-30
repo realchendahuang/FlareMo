@@ -1,14 +1,13 @@
-import { PanelLeftOpenIcon } from "lucide-react";
 import type { MemoSpace } from "@/api";
 import type { ExplorerView } from "@/components/flaremo-explorer";
 import { ScopeSwitcher } from "@/components/scope-switcher";
 import { SpotlightSearchTrigger } from "@/components/spotlight-search";
-import { Button } from "@/components/ui/button";
+import { useWorkspaceShell } from "@/components/workspace/workspace-shell";
 import {
+  SidebarToggleButton,
   WorkspaceMobileSidebar,
   type WorkspaceSidebarContent,
 } from "@/components/workspace/workspace-sidebar";
-import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,7 +46,7 @@ export function WorkspaceHeader({
   toggleSidebarCollapsed: () => void;
   view: ExplorerView;
 }) {
-  const { t } = useI18n();
+  const { setPeekIntent } = useWorkspaceShell();
 
   return (
     <header
@@ -56,29 +55,24 @@ export function WorkspaceHeader({
         isTimelineScrolled ? "border-border shadow-xs" : "border-transparent",
       )}
     >
-      <div
-        className={cn(
-          "flex h-14 items-center gap-2 px-5 lg:px-3 motion-safe:transition-[max-width,padding] motion-safe:duration-250 motion-safe:ease-signal",
-          sidebarCollapsed && "mx-auto w-full max-w-[640px]",
-        )}
-      >
+      {/* The header spans the content column, which the shell keeps at the
+          page's width in both sidebar states; no re-centering here. */}
+      <div className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3">
         <div
           className={cn(
-            "hidden lg:flex items-center overflow-hidden motion-safe:transition-[width,opacity,margin] motion-safe:duration-250 motion-safe:ease-signal",
+            "hidden items-center overflow-hidden lg:flex motion-safe:transition-[width,opacity,margin] motion-safe:duration-300 motion-safe:ease-signal",
             sidebarCollapsed
               ? "w-8 opacity-100"
-              : "w-0 opacity-0 pointer-events-none -mr-2",
+              : "pointer-events-none -me-2 w-0 opacity-0",
           )}
+          inert={!sidebarCollapsed}
         >
-          <Button
-            aria-label={t("sidebar.expand")}
-            size="icon-sm"
-            title={t("sidebar.expand")}
-            variant="ghost"
+          <SidebarToggleButton
+            action="expand"
             onClick={toggleSidebarCollapsed}
-          >
-            <PanelLeftOpenIcon />
-          </Button>
+            onPointerEnter={() => setPeekIntent(true)}
+            onPointerLeave={() => setPeekIntent(false)}
+          />
         </div>
         <WorkspaceMobileSidebar
           explorer={explorer}

@@ -1267,6 +1267,7 @@ const messages = {
   "review.writeTodayMemo": "Escribir la nota de hoy",
   "review.writeFirstMemo": "Escribir la primera nota",
   "common.scrollToTop": "Volver arriba",
+  "shortcuts.sidebar": "Contraer o expandir la barra lateral",
   "voiceSettings.credentials": "Credenciales",
   "voiceSettings.testAction": "Probar",
   "composer.mention": "Mencionar a alguien",

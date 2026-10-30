@@ -61,6 +61,8 @@ type FlareMoExplorerProps = {
   header?: ReactNode;
   /** Top-right slot (e.g. the desktop collapse-sidebar button). */
   headerAction?: ReactNode;
+  /** The panel has scrolled: draw the header hairline, like the page header. */
+  headerScrolled?: boolean;
   hierarchy: TagHierarchyNode[];
   hierarchyPending?: boolean;
   stats: MemoStatsResponse;
@@ -95,6 +97,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   footer,
   header,
   headerAction,
+  headerScrolled = false,
   hierarchy,
   hierarchyPending = false,
   stats,
@@ -122,20 +125,24 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
   return (
-    <aside className="flex min-h-full flex-col px-3 py-4 text-sm">
-      {/* Sticky so the account menu stays reachable: the tag list routinely
-          runs past the viewport (1481px of content in a 960px column), and
-          scrolling to the bottom used to take the user's own entry point with
-          it. The hairline is what makes that legible — without an edge, a tag
-          clipped by the sticky row reads as a rendering fault rather than as
-          something scrolled underneath. `-mx-3 px-3` covers the column's
-          gutters so tags pass behind the row instead of beside it. */}
-      <header className="sticky top-0 z-10 -mx-3 mb-4 flex items-center justify-between gap-2 border-b border-border/50 bg-background px-4 py-2">
+    <aside className="flex min-h-full flex-col px-3 pb-4 text-sm">
+      {/* Sticky so the account menu stays reachable when the tag list runs
+          past the viewport. Same geometry as the page header beside it — 56px
+          row plus a 1px edge, content centered — so the account row and the
+          page title share one baseline, and the edge appears on scroll just
+          like the page header's does. `-mx-3 px-4` covers the column's
+          gutters so scrolled content passes behind the row. */}
+      <header
+        className={cn(
+          "sticky top-0 z-10 -mx-3 mb-1 box-content flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background/90 px-4 backdrop-blur-md motion-safe:transition-[border-color,box-shadow] motion-safe:duration-200",
+          headerScrolled ? "border-border shadow-xs" : "border-transparent",
+        )}
+      >
         {header}
         {headerAction}
       </header>
 
-      <section className="mb-3 px-1 motion-safe:animate-rise">
+      <section className="mb-3 px-1">
         <div className="paper grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-card py-3 shadow-xs">
           <StatCell label={t("explorer.records")} value={stats.counts.total} />
           <StatCell label={t("explorer.tags")} value={stats.tags.length} />
@@ -143,7 +150,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         </div>
       </section>
 
-      <section className="mb-2 px-1 motion-safe:animate-fade">
+      <section className="mb-2 px-1">
         <MiniCalendarReminders />
         <FlareMoTimeHorizon
           hoveredDate={hoveredDate}

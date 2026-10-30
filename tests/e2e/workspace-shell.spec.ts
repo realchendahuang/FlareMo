@@ -1,0 +1,116 @@
+import { expect, test } from "@playwright/test";
+
+// The workspace frame (sidebar + page column) is one persistent layout route.
+// These cases pin the three things its refactor fixed: the sidebar survives
+// navigation, its header shares the page header's baseline, and collapsing
+// keeps the content column's width while the sidebar stays reachable.
+
+test.use({ viewport: { width: 1280, height: 800 } });
+
+const collapseName = /collapse sidebar|收起侧栏/i;
+const expandName = /expand sidebar|展开侧栏/i;
+
+async function openTimelineExpanded(page: import("@playwright/test").Page) {
+  await page.addInitScript(() => {
+    // Start each case from the expanded state, once per test (not on the
+    // reloads inside a case, which must observe the persisted choice).
+    if (!sessionStorage.getItem("shell-e2e-init")) {
+      sessionStorage.setItem("shell-e2e-init", "1");
+      localStorage.setItem("flaremo.sidebar.collapsed", "0");
+    }
+  });
+  await page.goto("/");
+  await expect(page.locator("#flaremo-composer-input")).toBeVisible();
+}
+
+test("keeps one sidebar across navigation and aligns it with the page header", async ({
+  page,
+}) => {
+  await openTimelineExpanded(page);
+  const sidebar = page.locator("aside aside").first();
+  await sidebar.evaluate((element) => {
+    (window as unknown as { shellSidebar: Element }).shellSidebar = element;
+  });
+  await page
+    .getByRole("navigation", { name: /navigation|导航/i })
+    .getByRole("link", { name: /to-dos|待办/i })
+    .click();
+  await expect(page).toHaveURL(/\/projects/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // Same DOM node: the sidebar was not unmounted by the route change.
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { shellSidebar: Element }).shellSidebar ===
+        document.querySelector("aside aside"),
+    ),
+  ).toBe(true);
+
+  const centers = await page.evaluate(() => {
+    const center = (element: Element | null | undefined) => {
+      const box = element?.getBoundingClientRect();
+      return box ? box.y + box.height / 2 : Number.NaN;
+    };
+    const sidebarHeader = document.querySelector("aside aside > header");
+    const pageHeader = [...document.querySelectorAll("header")].find(
+      (header) => !header.closest("aside"),
+    );
+    return {
+      account: center(sidebarHeader?.firstElementChild),
+      title: center(pageHeader?.querySelector("h1")),
+    };
+  });
+  expect(Math.abs(centers.account - centers.title)).toBeLessThanOrEqual(1);
+});
+
+test("collapses without resizing the content column and restores with the shortcut", async ({
+  page,
+}) => {
+  await openTimelineExpanded(page);
+  const composer = page.locator("form").filter({
+    has: page.locator("#flaremo-composer-input"),
+  });
+  const widthBefore = await composer.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+
+  await page.getByRole("button", { name: collapseName }).click();
+  const expand = page.getByRole("button", { name: expandName });
+  await expect(expand).toBeVisible();
+  await expect(page.locator("aside").first()).toHaveAttribute("inert", "");
+  await expect
+    .poll(() =>
+      composer.evaluate((element) => element.getBoundingClientRect().width),
+    )
+    .toBe(widthBefore);
+
+  // The choice persists across a reload.
+  await page.reload();
+  await expect(page.getByRole("button", { name: expandName })).toBeVisible();
+
+  await page.locator("#flaremo-composer-input").blur();
+  await page.keyboard.press("ControlOrMeta+Backslash");
+  await expect(page.getByRole("button", { name: collapseName })).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("flaremo.sidebar.collapsed"),
+    ),
+  ).toBe("0");
+});
+
+test("peeks the collapsed sidebar from the window edge and closes after navigating", async ({
+  page,
+}) => {
+  await openTimelineExpanded(page);
+  await page.getByRole("button", { name: collapseName }).click();
+  const peek = page.getByTestId("sidebar-peek");
+  await expect(peek).toHaveAttribute("inert", "");
+
+  await page.mouse.move(640, 400);
+  await page.mouse.move(1, 400);
+  await expect(peek).not.toHaveAttribute("inert", "");
+  await peek.getByRole("link", { name: /articles|文章/i }).click();
+  await expect(page).toHaveURL(/\/articles/);
+  await page.mouse.move(900, 400);
+  await expect(peek).toHaveAttribute("inert", "");
+});

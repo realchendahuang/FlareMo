@@ -1242,6 +1242,7 @@ const messages = {
   "review.writeTodayMemo": "Write today's note",
   "review.writeFirstMemo": "Write your first note",
   "common.scrollToTop": "Scroll to top",
+  "shortcuts.sidebar": "Collapse or expand the sidebar",
   "voiceSettings.credentials": "Credentials",
   "voiceSettings.testAction": "Test",
   "composer.mention": "Mention someone",

@@ -120,7 +120,6 @@ export function ArticlesPage() {
         explorer,
       }) => (
         <WorkspacePageHeader
-          contentMaxWidth={896}
           actions={
             <Button
               disabled={createMutation.isPending}

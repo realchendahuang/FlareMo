@@ -118,7 +118,7 @@ export function ProjectsPage() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: "/projects" });
-  const search = useSearch({ from: "/projects" });
+  const search = useSearch({ from: "/workspace/projects" });
   const [creatingProject, setCreatingProject] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
 
@@ -212,7 +212,6 @@ export function ProjectsPage() {
         explorer,
       }) => (
         <WorkspacePageHeader
-          contentMaxWidth={1024}
           actions={
             <>
               <Button

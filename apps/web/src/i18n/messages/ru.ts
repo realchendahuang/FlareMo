@@ -1262,6 +1262,7 @@ const messages = {
   "review.writeTodayMemo": "Записать заметку за сегодня",
   "review.writeFirstMemo": "Создать первую заметку",
   "common.scrollToTop": "Наверх",
+  "shortcuts.sidebar": "Свернуть или развернуть боковую панель",
   "voiceSettings.credentials": "Учётные данные",
   "voiceSettings.testAction": "Проверить",
   "composer.mention": "Упомянуть участника",

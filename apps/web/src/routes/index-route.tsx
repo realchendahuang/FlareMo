@@ -2,9 +2,8 @@ import { createRoute } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import type { MemoSpace as Space } from "@/api";
 import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
-import { AuthenticatedRoute } from "@/routes/authenticated-route";
-import { rootRoute } from "@/routes/root-route";
 import { RouteLoading } from "@/routes/route-loading";
+import { workspaceRoute } from "@/routes/workspace-route";
 
 // The workspace component is injected by App.tsx through
 // `registerWorkspaceComponent` at module-eval time. This module must not
@@ -22,15 +21,12 @@ function WorkspaceRoutePage() {
   // Never reached in the app (App.tsx registers before first render); kept
   // so the route is honest if this module is ever mounted standalone.
   if (!Workspace) return <RouteLoading />;
-  return (
-    <AuthenticatedRoute>
-      <Workspace />
-    </AuthenticatedRoute>
-  );
+  // The auth guard and the persistent shell live on the parent route.
+  return <Workspace />;
 }
 
 export const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => workspaceRoute,
   path: "/",
   component: WorkspaceRoutePage,
   validateSearch: (search: Record<string, unknown>) => ({

@@ -1244,6 +1244,7 @@ const messages = {
   "review.writeTodayMemo": "오늘의 기록 작성",
   "review.writeFirstMemo": "첫 번째 기록 작성",
   "common.scrollToTop": "맨 위로 이동",
+  "shortcuts.sidebar": "사이드바 접기/펼치기",
   "voiceSettings.credentials": "자격 증명",
   "voiceSettings.testAction": "테스트",
   "composer.mention": "멤버 언급",

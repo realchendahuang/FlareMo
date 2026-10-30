@@ -6,7 +6,7 @@ import {
   EyeIcon,
   SparklesIcon,
 } from "lucide-react";
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { MemoVisibility, Share } from "@/api";
 import { MemoList } from "@/components/memo-list";
 import { PwaUpdatePrompt } from "@/components/pwa-update-prompt";
@@ -16,13 +16,9 @@ import { ShortcutsDialog } from "@/components/workspace/shortcuts-dialog";
 import { TaskSearchResults } from "@/components/workspace/task-search-results";
 import { WorkspaceFilterChips } from "@/components/workspace/workspace-filter-chips";
 import { WorkspaceHeader } from "@/components/workspace/workspace-header";
-import {
-  WorkspaceSidebar,
-  type WorkspaceSidebarContent,
-} from "@/components/workspace/workspace-sidebar";
+import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspaceComposer } from "@/components/workspace-composer";
 import { WorkspaceSearch } from "@/components/workspace-search";
-import { useDataTransfer } from "@/hooks/use-data-transfer";
 import { useMemoMutations } from "@/hooks/use-memo-mutations";
 import { useWorkspaceFilters } from "@/hooks/use-workspace-filters";
 import { useWorkspaceQueries } from "@/hooks/use-workspace-queries";
@@ -31,17 +27,6 @@ import { useI18n } from "@/i18n";
 import { focusComposerInput } from "@/lib/composer-focus";
 import { AppRoutes } from "@/router-tree";
 import { indexRoute, registerWorkspaceComponent } from "@/routes/index-route";
-
-// The settings modal is opened in place over the workspace; the chunk (and
-// its account-page dependency graph) only downloads on first open.
-const AccountSettingsDialog = lazy(() =>
-  import("@/pages/account-page").then((module) => ({
-    default: module.AccountSettingsDialog,
-  })),
-);
-
-// Persisted so a collapsed desktop sidebar stays collapsed across reloads.
-const SIDEBAR_COLLAPSED_KEY = "flaremo.sidebar.collapsed";
 
 // Breaks the App ↔ router-tree import cycle: the route tree renders the
 // workspace through this registry instead of importing `@/App`. Module-eval
@@ -73,29 +58,9 @@ export function FlareMoApp() {
   const mainRef = useRef<HTMLElement | null>(null);
   const [isTimelineScrolled, setIsTimelineScrolled] = useState(false);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
 
   const scrollToTop = useCallback(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const toggleSidebarCollapsed = useCallback(() => {
-    setSidebarCollapsed((collapsed) => {
-      const next = !collapsed;
-      try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
-      } catch {
-        // Persistence is best-effort; the in-memory choice still applies.
-      }
-      return next;
-    });
   }, []);
   const searchQuery = query.trim();
   const isSearching = Boolean(searchQuery);
@@ -117,7 +82,6 @@ export function FlareMoApp() {
     semanticResultsQuery,
     showOnThisDayBanner,
     stats,
-    tagHierarchyQuery,
     taskSearchQuery,
     teamExpired,
     toggleSemantic,
@@ -144,11 +108,7 @@ export function FlareMoApp() {
     spotlightOpen,
   } = useWorkspaceShortcuts();
   const {
-    deleteTagMutation,
-    handleMutationError,
     hardDeleteMutation,
-    invalidateWorkspace,
-    renameTagMutation,
     restoreMutation,
     revokeShareMutation,
     sharesByMemo,
@@ -156,11 +116,6 @@ export function FlareMoApp() {
     trashMutation,
     updateMutation,
   } = useMemoMutations();
-
-  const { handleExport, handleImportFile } = useDataTransfer({
-    handleMutationError,
-    invalidateWorkspace,
-  });
 
   const { mutate: updateMemo, mutateAsync: updateMemoAsync } = updateMutation;
   const { mutate: trashMemo } = trashMutation;
@@ -222,48 +177,6 @@ export function FlareMoApp() {
     : memosQuery.isFetching && !memosQuery.isFetchingNextPage;
   const hasFilters = Boolean(query.trim() || activeTag || untagged);
 
-  // The sidebar tree, the header and the memo list all take these props, and
-  // several of them are memoized on identity. Rebuilding the object — or the
-  // callbacks inside it — on every keystroke or fetch-state flip re-rendered
-  // the whole calendar/heatmap subtree with it.
-  const sidebarContent: WorkspaceSidebarContent = useMemo(
-    () => ({
-      activeTag,
-      hierarchy: tagHierarchyQuery.data?.tags ?? [],
-      hierarchyPending: tagHierarchyQuery.isPending,
-      space,
-      stats,
-      timeZone,
-      untagged,
-      user: currentUserQuery.data,
-      onDeleteTag: (tag) => deleteTagMutation.mutate(tag),
-      onExport: handleExport,
-      onImportFile: handleImportFile,
-      onOpenSettings: () => setAccountSettingsOpen(true),
-      onRenameTag: (from, to) => renameTagMutation.mutate({ from, to }),
-      onTagChange: setActiveTag,
-      onToggleCollapsed: toggleSidebarCollapsed,
-      onUntaggedChange: setUntagged,
-    }),
-    [
-      activeTag,
-      deleteTagMutation,
-      handleExport,
-      handleImportFile,
-      renameTagMutation,
-      setActiveTag,
-      setUntagged,
-      space,
-      stats,
-      tagHierarchyQuery.data?.tags,
-      tagHierarchyQuery.isPending,
-      timeZone,
-      toggleSidebarCollapsed,
-      untagged,
-      currentUserQuery.data,
-    ],
-  );
-
   // Stable identity: MemoList is memoized, and this callback sits on every
   // card, so an inline arrow here invalidated every card on each re-render.
   const handleRevokeShare = useCallback(
@@ -272,226 +185,212 @@ export function FlareMoApp() {
   );
 
   return (
-    <div className="h-svh overflow-hidden bg-background">
-      <div className="mx-auto flex h-full w-full max-w-[950px]">
-        <WorkspaceSidebar
-          collapsed={sidebarCollapsed}
-          explorer={sidebarContent}
-        />
-        <div className="flex h-full min-w-0 flex-1 flex-col">
+    <>
+      <WorkspaceLayout
+        contentMaxWidth={640}
+        header={(shell) => (
           <WorkspaceHeader
             activeQuery={dayFilter ? "" : query}
-            explorer={sidebarContent}
+            explorer={shell.explorer}
             isTimelineScrolled={isTimelineScrolled}
-            mobileSheetOpen={mobileSheetOpen}
-            setMobileSheetOpen={setMobileSheetOpen}
+            mobileSheetOpen={shell.mobileSheetOpen}
+            setMobileSheetOpen={shell.setMobileSheetOpen}
             setQuery={setQuery}
             setSpace={setSpace}
             setSpotlightOpen={setSpotlightOpen}
             setView={setView}
-            sidebarCollapsed={sidebarCollapsed}
+            sidebarCollapsed={shell.sidebarCollapsed}
             space={space}
             team={currentUserQuery.data?.team ?? null}
-            toggleSidebarCollapsed={toggleSidebarCollapsed}
+            toggleSidebarCollapsed={shell.toggleSidebarCollapsed}
             view={view}
           />
-          <main
-            ref={mainRef}
-            className="mx-auto min-h-0 w-full max-w-[640px] flex-1 overflow-y-auto px-5 pt-1 pb-8 lg:px-3"
-            onScroll={(event) => {
-              const top = event.currentTarget.scrollTop;
-              const scrolled = top > 4;
-              setIsTimelineScrolled((prev) =>
-                prev === scrolled ? prev : scrolled,
-              );
-              const showTop = top > 400;
-              setShowScrollToTop((prev) => (prev === showTop ? prev : showTop));
-            }}
-          >
-            <WorkspaceSearch
-              className="mb-3 md:hidden motion-safe:animate-rise"
-              inputRef={mobileSearchRef}
-              onToggleSemantic={semanticEnabled ? toggleSemantic : undefined}
-              query={dayFilter ? "" : query}
-              semanticMode={semanticMode}
-              semanticPending={vectorUsageQuery.isPending}
-              onQueryChange={setQuery}
-              isPending={isUpdating}
-            />
-            <div className="flex flex-col gap-3">
-              {teamExpired && (
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise">
-                  <EyeIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                  {t("space.expiredNotice")}
-                </div>
-              )}
-              {isReader && space === "team" && (
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise">
-                  <EyeIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                  {t("space.readonlyNotice")}
-                </div>
-              )}
-              <WorkspaceComposer
-                visible={view === "all" && !(isReader && space === "team")}
-                composeRequested={composeRequested}
-                space={space}
-                hasTeam={canPublishTeam}
-                tags={stats.tags}
-                captureAvailable={Boolean(captureStatusQuery.data?.available)}
-              />
-              {hasFilters && (
-                <WorkspaceFilterChips
-                  activeTag={activeTag}
-                  clearFilters={clearFilters}
-                  dayFilter={dayFilter}
-                  hasFilters={hasFilters}
-                  isSemanticSearch={isSemanticSearch}
-                  query={query}
-                  setActiveTag={setActiveTag}
-                  setQuery={setQuery}
-                  setUntagged={setUntagged}
-                  untagged={untagged}
-                />
-              )}
-              {isSemanticSearch && semanticResultsQuery.data?.degraded ? (
-                <p className="mb-3 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                  {t("search.semanticDegraded")}
-                </p>
-              ) : null}
-              {keywordSearch && matchingTasks.length > 0 && (
-                <TaskSearchResults tasks={matchingTasks} />
-              )}
-              {showOnThisDayBanner && (
-                <Link
-                  className="mb-3 flex items-center gap-2.5 rounded-xl border border-brand-300/40 bg-brand-50/50 px-3.5 py-2.5 text-sm text-foreground motion-safe:animate-rise motion-safe:transition-[background-color,border-color] motion-safe:duration-150 hover:bg-brand-50 dark:border-brand-400/25 dark:bg-brand-400/5 dark:hover:bg-brand-400/10"
-                  data-testid="on-this-day-banner"
-                  to="/review/daily"
-                >
-                  <CalendarDaysIcon className="shrink-0 text-brand-500 dark:text-brand-400" />
-                  <span className="min-w-0 flex-1 truncate">
-                    {t("review.onThisDayBanner", {
-                      count: onThisDayQuery.data?.memos.length ?? 0,
-                    })}
-                  </span>
-                  <ChevronRightIcon className="shrink-0 text-muted-foreground" />
-                </Link>
-              )}
-              {semanticEnabled &&
-                !isSemanticSearch &&
-                !dayFilter &&
-                searchQuery &&
-                displayedMemos.length === 0 &&
-                !memosQuery.isLoading &&
-                !memosQuery.isFetchingNextPage &&
-                !memosQuery.isError && (
-                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise">
-                    <SparklesIcon className="size-3.5 shrink-0" />
-                    <span className="min-w-0 flex-1">
-                      {t("search.noResultsHint")}
-                    </span>
-                    <Button
-                      className="h-7 px-2 text-xs"
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                      onClick={toggleSemantic}
-                    >
-                      {t("search.semanticToggle")}
-                    </Button>
-                  </div>
-                )}
-              <MemoList
-                attachmentsByMemo={attachmentsByMemo}
-                emptyDescription={
-                  isSemanticSearch
-                    ? t("search.semanticEmpty")
-                    : hasFilters
-                      ? t("list.filteredEmptyDescription")
-                      : view === "archived"
-                        ? t("list.archiveEmptyDescription")
-                        : view === "trashed"
-                          ? t("list.trashEmptyDescription")
-                          : undefined
-                }
-                hasError={
-                  isSemanticSearch
-                    ? semanticResultsQuery.isError
-                    : memosQuery.isError
-                }
-                hasNextPage={
-                  isSemanticSearch ? false : Boolean(memosQuery.hasNextPage)
-                }
-                isFetchingNextPage={
-                  isSemanticSearch ? false : memosQuery.isFetchingNextPage
-                }
-                isLoading={
-                  isSemanticSearch
-                    ? semanticResultsQuery.isLoading
-                    : memosQuery.isLoading
-                }
-                memos={displayedMemos}
-                focusedMemoId={
-                  focusedMemoIndex !== null
-                    ? displayedMemos[focusedMemoIndex]?.id ||
-                      displayedMemos[focusedMemoIndex]?.name
-                    : null
-                }
-                searchQuery={searchQuery || undefined}
-                sharesByMemo={sharesByMemo}
-                onArchive={handleArchive}
-                onHardDelete={handleHardDelete}
-                onLoadMore={handleLoadMore}
-                onPin={handlePin}
-                onRestore={restoreMemo}
-                onRetry={handleRetry}
-                onRevokeShare={handleRevokeShare}
-                onShare={shareMemo}
-                onTagClick={setActiveTag}
-                onTrash={trashMemo}
-                onUpdate={handleUpdate}
-                onClearFilters={hasFilters ? clearFilters : undefined}
-                isUpdating={isUpdating}
-                isPaginationError={!isSemanticSearch && isFetchNextPageError}
-                isRetrying={
-                  isSemanticSearch
-                    ? semanticResultsQuery.isFetching
-                    : memosQuery.isFetching
-                }
-                emptyTitle={
-                  hasFilters
-                    ? t("list.filteredEmptyTitle")
-                    : view === "all"
-                      ? t("list.emptyTitle")
-                      : view === "archived"
-                        ? t("list.archiveEmptyTitle")
-                        : t("list.trashEmptyTitle")
-                }
-              />
-              {showScrollToTop && (
-                <Button
-                  aria-label={t("common.scrollToTop")}
-                  className="fixed bottom-6 right-6 z-30 size-9 rounded-full border border-border/60 bg-background/85 p-0 text-muted-foreground shadow-sm backdrop-blur-md hover:bg-muted hover:text-foreground active:scale-95 motion-safe:animate-scale-in motion-safe:transition-all sm:right-8"
-                  size="icon"
-                  title={t("common.scrollToTop")}
-                  type="button"
-                  variant="outline"
-                  onClick={scrollToTop}
-                >
-                  <ArrowUpIcon className="size-4" />
-                </Button>
-              )}
-            </div>
-          </main>
-        </div>
-      </div>
-      <Suspense fallback={null}>
-        {accountSettingsOpen && (
-          <AccountSettingsDialog
-            open
-            onClose={() => setAccountSettingsOpen(false)}
-          />
         )}
-      </Suspense>
+        mainRef={mainRef}
+        onScroll={(event) => {
+          const top = event.currentTarget.scrollTop;
+          const scrolled = top > 4;
+          setIsTimelineScrolled((prev) =>
+            prev === scrolled ? prev : scrolled,
+          );
+          const showTop = top > 400;
+          setShowScrollToTop((prev) => (prev === showTop ? prev : showTop));
+        }}
+      >
+        <WorkspaceSearch
+          className="mb-3 md:hidden motion-safe:animate-rise"
+          inputRef={mobileSearchRef}
+          onToggleSemantic={semanticEnabled ? toggleSemantic : undefined}
+          query={dayFilter ? "" : query}
+          semanticMode={semanticMode}
+          semanticPending={vectorUsageQuery.isPending}
+          onQueryChange={setQuery}
+          isPending={isUpdating}
+        />
+        <div className="flex flex-col gap-3">
+          {teamExpired && (
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise">
+              <EyeIcon aria-hidden="true" className="size-3.5 shrink-0" />
+              {t("space.expiredNotice")}
+            </div>
+          )}
+          {isReader && space === "team" && (
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise">
+              <EyeIcon aria-hidden="true" className="size-3.5 shrink-0" />
+              {t("space.readonlyNotice")}
+            </div>
+          )}
+          <WorkspaceComposer
+            visible={view === "all" && !(isReader && space === "team")}
+            composeRequested={composeRequested}
+            space={space}
+            hasTeam={canPublishTeam}
+            tags={stats.tags}
+            captureAvailable={Boolean(captureStatusQuery.data?.available)}
+          />
+          {hasFilters && (
+            <WorkspaceFilterChips
+              activeTag={activeTag}
+              clearFilters={clearFilters}
+              dayFilter={dayFilter}
+              hasFilters={hasFilters}
+              isSemanticSearch={isSemanticSearch}
+              query={query}
+              setActiveTag={setActiveTag}
+              setQuery={setQuery}
+              setUntagged={setUntagged}
+              untagged={untagged}
+            />
+          )}
+          {isSemanticSearch && semanticResultsQuery.data?.degraded ? (
+            <p className="mb-3 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              {t("search.semanticDegraded")}
+            </p>
+          ) : null}
+          {keywordSearch && matchingTasks.length > 0 && (
+            <TaskSearchResults tasks={matchingTasks} />
+          )}
+          {showOnThisDayBanner && (
+            <Link
+              className="mb-3 flex items-center gap-2.5 rounded-xl border border-brand-300/40 bg-brand-50/50 px-3.5 py-2.5 text-sm text-foreground motion-safe:animate-rise motion-safe:transition-[background-color,border-color] motion-safe:duration-150 hover:bg-brand-50 dark:border-brand-400/25 dark:bg-brand-400/5 dark:hover:bg-brand-400/10"
+              data-testid="on-this-day-banner"
+              to="/review/daily"
+            >
+              <CalendarDaysIcon className="shrink-0 text-brand-500 dark:text-brand-400" />
+              <span className="min-w-0 flex-1 truncate">
+                {t("review.onThisDayBanner", {
+                  count: onThisDayQuery.data?.memos.length ?? 0,
+                })}
+              </span>
+              <ChevronRightIcon className="shrink-0 text-muted-foreground" />
+            </Link>
+          )}
+          {semanticEnabled &&
+            !isSemanticSearch &&
+            !dayFilter &&
+            searchQuery &&
+            displayedMemos.length === 0 &&
+            !memosQuery.isLoading &&
+            !memosQuery.isFetchingNextPage &&
+            !memosQuery.isError && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise">
+                <SparklesIcon className="size-3.5 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  {t("search.noResultsHint")}
+                </span>
+                <Button
+                  className="h-7 px-2 text-xs"
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                  onClick={toggleSemantic}
+                >
+                  {t("search.semanticToggle")}
+                </Button>
+              </div>
+            )}
+          <MemoList
+            attachmentsByMemo={attachmentsByMemo}
+            emptyDescription={
+              isSemanticSearch
+                ? t("search.semanticEmpty")
+                : hasFilters
+                  ? t("list.filteredEmptyDescription")
+                  : view === "archived"
+                    ? t("list.archiveEmptyDescription")
+                    : view === "trashed"
+                      ? t("list.trashEmptyDescription")
+                      : undefined
+            }
+            hasError={
+              isSemanticSearch
+                ? semanticResultsQuery.isError
+                : memosQuery.isError
+            }
+            hasNextPage={
+              isSemanticSearch ? false : Boolean(memosQuery.hasNextPage)
+            }
+            isFetchingNextPage={
+              isSemanticSearch ? false : memosQuery.isFetchingNextPage
+            }
+            isLoading={
+              isSemanticSearch
+                ? semanticResultsQuery.isLoading
+                : memosQuery.isLoading
+            }
+            memos={displayedMemos}
+            focusedMemoId={
+              focusedMemoIndex !== null
+                ? displayedMemos[focusedMemoIndex]?.id ||
+                  displayedMemos[focusedMemoIndex]?.name
+                : null
+            }
+            searchQuery={searchQuery || undefined}
+            sharesByMemo={sharesByMemo}
+            onArchive={handleArchive}
+            onHardDelete={handleHardDelete}
+            onLoadMore={handleLoadMore}
+            onPin={handlePin}
+            onRestore={restoreMemo}
+            onRetry={handleRetry}
+            onRevokeShare={handleRevokeShare}
+            onShare={shareMemo}
+            onTagClick={setActiveTag}
+            onTrash={trashMemo}
+            onUpdate={handleUpdate}
+            onClearFilters={hasFilters ? clearFilters : undefined}
+            isUpdating={isUpdating}
+            isPaginationError={!isSemanticSearch && isFetchNextPageError}
+            isRetrying={
+              isSemanticSearch
+                ? semanticResultsQuery.isFetching
+                : memosQuery.isFetching
+            }
+            emptyTitle={
+              hasFilters
+                ? t("list.filteredEmptyTitle")
+                : view === "all"
+                  ? t("list.emptyTitle")
+                  : view === "archived"
+                    ? t("list.archiveEmptyTitle")
+                    : t("list.trashEmptyTitle")
+            }
+          />
+          {showScrollToTop && (
+            <Button
+              aria-label={t("common.scrollToTop")}
+              className="fixed bottom-6 right-6 z-30 size-9 rounded-full border border-border/60 bg-background/85 p-0 text-muted-foreground shadow-sm backdrop-blur-md hover:bg-muted hover:text-foreground active:scale-95 motion-safe:animate-scale-in motion-safe:transition-all sm:right-8"
+              size="icon"
+              title={t("common.scrollToTop")}
+              type="button"
+              variant="outline"
+              onClick={scrollToTop}
+            >
+              <ArrowUpIcon className="size-4" />
+            </Button>
+          )}
+        </div>
+      </WorkspaceLayout>
       <SpotlightSearch
         open={spotlightOpen}
         onOpenChange={setSpotlightOpen}
@@ -509,7 +408,7 @@ export function FlareMoApp() {
         open={shortcutsOpen}
         onOpenChange={setShowShortcutsOpen}
       />
-    </div>
+    </>
   );
 }
 

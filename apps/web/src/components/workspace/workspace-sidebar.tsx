@@ -3,9 +3,10 @@ import {
   DownloadIcon,
   MenuIcon,
   PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   UploadIcon,
 } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { type UIEvent, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type {
   CurrentFlareMoUser,
@@ -23,6 +24,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { UserMenu } from "@/components/user-menu";
 import { useI18n } from "@/i18n";
 import { dayFilterQuery } from "@/lib/calendar-date";
@@ -53,9 +59,69 @@ export type WorkspaceSidebarContent = {
 type WorkspaceExplorerPanelProps = WorkspaceSidebarContent & {
   /** Id of this instance's hidden import input (desktop and sheet differ). */
   importInputId: string;
+  /** Draws the header hairline once the panel has scrolled. */
+  headerScrolled?: boolean;
   onNavigate?: () => void;
   showCollapse?: boolean;
 };
+
+/** Platform-aware label for the ⌘\ / Ctrl+\ sidebar shortcut. */
+function sidebarShortcutLabel() {
+  if (typeof navigator === "undefined") return "Ctrl \\";
+  return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ \\" : "Ctrl \\";
+}
+
+/**
+ * The one sidebar toggle: collapse inside the sidebar header, expand in the
+ * page header. Same size, icon family and tooltip (with its shortcut) in both
+ * places, so the control reads as one thing that moved, not two buttons.
+ */
+export function SidebarToggleButton({
+  action,
+  onClick,
+  onPointerEnter,
+  onPointerLeave,
+}: {
+  action: "collapse" | "expand";
+  onClick: () => void;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
+}) {
+  const { t } = useI18n();
+  const label = t(
+    action === "collapse" ? "sidebar.collapse" : "sidebar.expand",
+  );
+  const Icon = action === "collapse" ? PanelLeftCloseIcon : PanelLeftOpenIcon;
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-keyshortcuts="Meta+Backslash Control+Backslash"
+            aria-label={label}
+            className="text-muted-foreground hover:text-foreground rtl:-scale-x-100"
+            size="icon-sm"
+            variant="ghost"
+            onClick={onClick}
+            onPointerEnter={onPointerEnter}
+            onPointerLeave={onPointerLeave}
+          />
+        }
+      >
+        <Icon />
+      </TooltipTrigger>
+      <TooltipContent>
+        {label}
+        <kbd
+          className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
+          data-slot="kbd"
+        >
+          {sidebarShortcutLabel()}
+        </kbd>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * One mounted explorer sidebar. Desktop and mobile each render their own, as
@@ -63,6 +129,7 @@ type WorkspaceExplorerPanelProps = WorkspaceSidebarContent & {
  */
 function WorkspaceExplorerPanel({
   activeTag,
+  headerScrolled = false,
   hierarchy,
   hierarchyPending,
   importInputId,
@@ -119,17 +186,9 @@ function WorkspaceExplorerPanel({
   const headerAction = useMemo(
     () =>
       showCollapse ? (
-        <Button
-          aria-label={t("sidebar.collapse")}
-          size="icon-sm"
-          title={t("sidebar.collapse")}
-          variant="ghost"
-          onClick={onToggleCollapsed}
-        >
-          <PanelLeftCloseIcon />
-        </Button>
+        <SidebarToggleButton action="collapse" onClick={onToggleCollapsed} />
       ) : undefined,
-    [showCollapse, onToggleCollapsed, t],
+    [showCollapse, onToggleCollapsed],
   );
 
   const footer = useMemo(
@@ -185,6 +244,7 @@ function WorkspaceExplorerPanel({
       activeTag={activeTag}
       header={header}
       headerAction={headerAction}
+      headerScrolled={headerScrolled}
       footer={footer}
       space={space}
       stats={stats}
@@ -202,32 +262,115 @@ function WorkspaceExplorerPanel({
   );
 }
 
-/** The desktop sidebar column, collapsing to zero width with the header button. */
+/** Scroll state for a sidebar scroller, driving the header hairline. */
+function useScrolled() {
+  const [scrolled, setScrolled] = useState(false);
+  const onScroll = useCallback((event: UIEvent<HTMLElement>) => {
+    const next = event.currentTarget.scrollTop > 4;
+    setScrolled((prev) => (prev === next ? prev : next));
+  }, []);
+  return [scrolled, onScroll] as const;
+}
+
+/**
+ * The desktop sidebar column. Collapsing animates the column's width to zero
+ * while the panel inside stays 312px and is pinned to the column's inner edge
+ * (`justify-end`), so it slides out under the content instead of being cut
+ * off at its right side. The frame's max width shrinks in step (see
+ * WorkspaceShell), which keeps the content column's width constant.
+ */
 export function WorkspaceSidebar({
+  animating,
   collapsed,
   explorer,
 }: {
+  animating: boolean;
   collapsed: boolean;
   explorer: WorkspaceSidebarContent;
 }) {
+  const [scrolled, onScroll] = useScrolled();
   return (
     <aside
-      aria-hidden={collapsed}
+      aria-hidden={collapsed || undefined}
       className={cn(
-        "hidden lg:block h-full shrink-0 overflow-hidden motion-safe:transition-[width,opacity] motion-safe:duration-250 motion-safe:ease-signal",
-        collapsed
-          ? "w-0 opacity-0 pointer-events-none"
-          : "w-[312px] opacity-100",
+        "hidden h-full shrink-0 justify-end overflow-hidden lg:flex",
+        animating &&
+          "motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-signal",
       )}
+      inert={collapsed}
+      style={{ width: collapsed ? 0 : 312 }}
     >
-      <div className="no-scrollbar h-full w-[312px] overflow-y-auto border-r bg-background">
+      <div
+        className={cn(
+          "no-scrollbar h-full w-[312px] shrink-0 overflow-y-auto border-e bg-background",
+          animating &&
+            "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out",
+          collapsed ? "opacity-0" : "opacity-100",
+        )}
+        onScroll={onScroll}
+      >
         <WorkspaceExplorerPanel
           {...explorer}
+          headerScrolled={scrolled}
           importInputId="flaremo-import-file-desktop"
           showCollapse
         />
       </div>
     </aside>
+  );
+}
+
+/**
+ * The collapsed sidebar, on demand: hovering the window's leading edge (or
+ * the expand button) slides the full sidebar in as a floating panel, and
+ * leaving it slides it away. Pointer-only by design; keyboard users have the
+ * expand button and ⌘\. Mounted only while collapsed.
+ */
+export function WorkspaceSidebarPeek({
+  explorer,
+  open,
+  onIntent,
+}: {
+  explorer: WorkspaceSidebarContent;
+  open: boolean;
+  onIntent: (open: boolean) => void;
+}) {
+  const [scrolled, onScroll] = useScrolled();
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="fixed inset-y-0 start-0 z-30 hidden w-2 lg:block"
+        onPointerEnter={() => onIntent(true)}
+        onPointerLeave={() => onIntent(false)}
+      />
+      <div
+        aria-hidden={!open || undefined}
+        className={cn(
+          "fixed inset-y-3 start-3 z-40 hidden w-[312px] overflow-hidden rounded-2xl border bg-background shadow-xl lg:block",
+          "motion-safe:transition-[translate,opacity] motion-safe:duration-250 motion-safe:ease-signal",
+          open
+            ? "translate-x-0 opacity-100"
+            : "pointer-events-none opacity-0 ltr:-translate-x-[calc(100%+1rem)] rtl:translate-x-[calc(100%+1rem)]",
+        )}
+        data-testid="sidebar-peek"
+        inert={!open}
+        onPointerEnter={() => onIntent(true)}
+        onPointerLeave={() => onIntent(false)}
+      >
+        <div
+          className="no-scrollbar h-full overflow-y-auto overscroll-contain"
+          onScroll={onScroll}
+        >
+          <WorkspaceExplorerPanel
+            {...explorer}
+            headerScrolled={scrolled}
+            importInputId="flaremo-import-file-peek"
+            onNavigate={() => onIntent(false)}
+          />
+        </div>
+      </div>
+    </>
   );
 }
 

@@ -45,7 +45,6 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
         explorer,
       }) => (
         <WorkspacePageHeader
-          contentMaxWidth={768}
           actions={
             <Button
               className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"

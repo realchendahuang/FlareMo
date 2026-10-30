@@ -1219,6 +1219,7 @@ const messages = {
   "review.writeTodayMemo": "كتابة ملاحظة اليوم",
   "review.writeFirstMemo": "كتابة أول ملاحظة",
   "common.scrollToTop": "العودة إلى الأعلى",
+  "shortcuts.sidebar": "طي الشريط الجانبي أو توسيعه",
   "voiceSettings.credentials": "بيانات الاعتماد",
   "voiceSettings.testAction": "اختبار",
   "composer.mention": "اذكر عضوًا",

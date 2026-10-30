@@ -1,9 +1,10 @@
-import { PanelLeftOpenIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { useWorkspaceShell } from "@/components/workspace/workspace-shell";
 import type { WorkspaceSidebarContent } from "@/components/workspace/workspace-sidebar";
-import { WorkspaceMobileSidebar } from "@/components/workspace/workspace-sidebar";
-import { useI18n } from "@/i18n";
+import {
+  SidebarToggleButton,
+  WorkspaceMobileSidebar,
+} from "@/components/workspace/workspace-sidebar";
 import { cn } from "@/lib/utils";
 
 export function WorkspacePageHeader({
@@ -15,7 +16,6 @@ export function WorkspacePageHeader({
   setMobileSheetOpen,
   sidebarCollapsed,
   toggleSidebarCollapsed,
-  contentMaxWidth = 640,
   isScrolled = false,
 }: {
   icon?: ReactNode;
@@ -26,11 +26,9 @@ export function WorkspacePageHeader({
   setMobileSheetOpen: (open: boolean) => void;
   sidebarCollapsed: boolean;
   toggleSidebarCollapsed: () => void;
-  /** Mirrors WorkspaceLayout's content column so the two stay aligned. */
-  contentMaxWidth?: number;
   isScrolled?: boolean;
 }) {
-  const { t } = useI18n();
+  const { setPeekIntent } = useWorkspaceShell();
 
   return (
     <header
@@ -39,30 +37,24 @@ export function WorkspacePageHeader({
         isScrolled ? "border-border shadow-xs" : "border-transparent",
       )}
     >
-      <div
-        className={cn(
-          "flex h-14 items-center gap-2 px-5 lg:px-3 motion-safe:transition-[max-width,padding] motion-safe:duration-250 motion-safe:ease-signal",
-          sidebarCollapsed && "mx-auto w-full",
-        )}
-        style={sidebarCollapsed ? { maxWidth: contentMaxWidth } : undefined}
-      >
+      {/* The header spans the content column, which the shell keeps at the
+          page's width in both sidebar states; no re-centering here. */}
+      <div className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3">
         <div
           className={cn(
-            "hidden lg:flex items-center overflow-hidden motion-safe:transition-[width,opacity,margin] motion-safe:duration-250 motion-safe:ease-signal",
+            "hidden items-center overflow-hidden lg:flex motion-safe:transition-[width,opacity,margin] motion-safe:duration-300 motion-safe:ease-signal",
             sidebarCollapsed
               ? "w-8 opacity-100"
-              : "w-0 opacity-0 pointer-events-none -mr-2",
+              : "pointer-events-none -me-2 w-0 opacity-0",
           )}
+          inert={!sidebarCollapsed}
         >
-          <Button
-            aria-label={t("sidebar.expand")}
-            size="icon-sm"
-            title={t("sidebar.expand")}
-            variant="ghost"
+          <SidebarToggleButton
+            action="expand"
             onClick={toggleSidebarCollapsed}
-          >
-            <PanelLeftOpenIcon />
-          </Button>
+            onPointerEnter={() => setPeekIntent(true)}
+            onPointerLeave={() => setPeekIntent(false)}
+          />
         </div>
 
         <WorkspaceMobileSidebar
