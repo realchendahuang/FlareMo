@@ -1,5 +1,5 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { Loader2Icon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import type { PersonalAccessToken } from "@/api";
 import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { formatDateTime } from "@/lib/date-format";
 import { useCloseOnSuccess } from "./account-panel-presets";
@@ -189,12 +190,7 @@ export function AccountTokensSection({
                 {t("common.cancel")}
               </Button>
               <Button disabled={createTokenIsPending} type="submit">
-                {createTokenIsPending && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
-                )}
+                {createTokenIsPending && <Spinner data-icon="inline-start" />}
                 {createTokenIsPending
                   ? t("auth.creatingToken")
                   : t("auth.createToken")}
@@ -274,9 +270,7 @@ function PersonalAccessTokenRow({
             className="h-8 px-2 text-xs"
             onClick={() => setConfirmingRevoke(true)}
           >
-            {pending && (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            )}
+            {pending && <Spinner data-icon="inline-start" />}
             {t("auth.revokeToken")}
           </Button>
         )}
@@ -287,9 +281,7 @@ function PersonalAccessTokenRow({
           className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
           onClick={() => setConfirmingDelete(true)}
         >
-          {deleting && (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
-          )}
+          {deleting && <Spinner data-icon="inline-start" />}
           {t("common.delete")}
         </Button>
       </div>

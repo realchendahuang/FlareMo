@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, MicIcon } from "lucide-react";
+import { MicIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useI18n } from "@/i18n";
@@ -288,12 +289,7 @@ export function VoicePanel() {
                 )
               }
             >
-              {pendingAction === "test" && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
-              )}
+              {pendingAction === "test" && <Spinner data-icon="inline-start" />}
               {t("voiceSettings.testAction")}
             </Button>
           }
@@ -430,10 +426,7 @@ export function VoicePanel() {
               </Button>
               <Button disabled={editingDisabled} type="submit">
                 {pendingAction === "save" && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
+                  <Spinner data-icon="inline-start" />
                 )}
                 {t("common.save")}
               </Button>

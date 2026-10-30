@@ -1,5 +1,4 @@
 import type { Editor } from "@tiptap/react";
-import { Loader2Icon } from "lucide-react";
 import {
   type Dispatch,
   type RefObject,
@@ -10,6 +9,7 @@ import { toast } from "sonner";
 import { uploadAttachment } from "@/api";
 import { RichComposerEditor } from "@/components/rich-composer-editor-lazy";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { uploadAndInsertImages } from "@/lib/rich-editor-upload";
 
@@ -97,12 +97,7 @@ export function MemoCardEditor({
             size="sm"
             onClick={() => void onSave()}
           >
-            {isSaving && (
-              <Loader2Icon
-                className="motion-safe:animate-spin"
-                data-icon="inline-start"
-              />
-            )}
+            {isSaving && <Spinner data-icon="inline-start" />}
             {t("common.save")}
           </Button>
         </div>

@@ -3,7 +3,6 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   ExternalLinkIcon,
   FileTextIcon,
-  Loader2Icon,
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -38,6 +37,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
 import { useI18n } from "@/i18n";
@@ -129,7 +129,7 @@ export function ArticlesPage() {
               type="button"
             >
               {createMutation.isPending ? (
-                <Loader2Icon className="size-4 motion-safe:animate-spin" />
+                <Spinner className="size-4" />
               ) : (
                 <PlusIcon className="size-4" />
               )}

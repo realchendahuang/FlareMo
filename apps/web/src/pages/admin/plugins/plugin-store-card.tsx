@@ -1,6 +1,5 @@
 import {
   FileUpIcon,
-  Loader2Icon,
   PackageIcon,
   RefreshCwIcon,
   StoreIcon,
@@ -17,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { localized } from "./plugin-row";
 import type { PluginSettingsState } from "./use-plugin-settings";
@@ -67,7 +67,7 @@ export function PluginStoreCard({
       >
         {installMutation.isPending &&
         installMutation.variables?.id === entry.id ? (
-          <Loader2Icon className="animate-spin" data-icon="inline-start" />
+          <Spinner data-icon="inline-start" />
         ) : (
           <PackageIcon data-icon="inline-start" />
         )}
@@ -103,7 +103,7 @@ export function PluginStoreCard({
             onClick={() => uploadInputRef.current?.click()}
           >
             {uploadMutation.isPending ? (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
+              <Spinner data-icon="inline-start" />
             ) : (
               <FileUpIcon data-icon="inline-start" />
             )}
@@ -140,7 +140,7 @@ export function PluginStoreCard({
         </div>
         {storeQuery.isPending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2Icon className="size-4 animate-spin" />
+            <Spinner className="size-4" />
             {t("admin.plugins.loading")}
           </div>
         )}

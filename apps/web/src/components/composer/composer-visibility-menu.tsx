@@ -1,4 +1,4 @@
-import { Loader2Icon, LockIcon, SendIcon, UsersIcon } from "lucide-react";
+import { LockIcon, SendIcon, UsersIcon } from "lucide-react";
 import type { MemoVisibility } from "@/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -123,7 +124,7 @@ export function ComposerVisibilityMenu({
         variant="gradient"
       >
         {isPending ? (
-          <Loader2Icon className="motion-safe:animate-spin" />
+          <Spinner />
         ) : (
           <SendIcon
             className={cn(

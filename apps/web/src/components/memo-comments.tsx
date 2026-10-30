@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, MessageCircleIcon, Trash2Icon } from "lucide-react";
+import { MessageCircleIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -11,6 +11,7 @@ import {
 import { LazyMemoContent } from "@/components/lazy-memo-content";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
@@ -204,12 +205,7 @@ export function MemoComments({
               size="sm"
               type="submit"
             >
-              {createMutation.isPending && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
-              )}
+              {createMutation.isPending && <Spinner data-icon="inline-start" />}
               {t("comments.submit")}
             </Button>
           </div>

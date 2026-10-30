@@ -40,15 +40,17 @@ export function MemoryWorkspaceHeader({
               className="ml-2 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-hidden"
             />
             {query && (
-              <button
+              <Button
                 type="button"
                 aria-label={t("search.clear")}
                 onClick={() => onQueryChange("")}
-                className="ml-1 rounded p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                className="ml-1 size-5 text-muted-foreground"
+                size="icon-xs"
                 title={t("search.clear")}
+                variant="ghost"
               >
                 <XIcon className="size-3" />
-              </button>
+              </Button>
             )}
           </div>
 

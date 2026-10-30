@@ -1,4 +1,4 @@
-import { ArrowRightIcon, Loader2Icon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import type { MemoVisibility } from "@/api";
 import {
   type ComposerPublishType,
@@ -6,6 +6,7 @@ import {
 } from "@/components/composer/composer-type-menu";
 import { ComposerVisibilityMenu } from "@/components/composer/composer-visibility-menu";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 
 /**
@@ -61,7 +62,7 @@ export function ComposerCanvasActions({
           disabled={isPending || isUploadingImages || voiceActive}
         >
           {isPending ? (
-            <Loader2Icon className="size-3.5 motion-safe:animate-spin" />
+            <Spinner className="size-3.5" />
           ) : (
             <>
               <span>{t("composer.action.toArticleEditor")}</span>

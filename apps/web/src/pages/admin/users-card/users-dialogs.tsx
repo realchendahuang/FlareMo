@@ -1,4 +1,3 @@
-import { Loader2Icon } from "lucide-react";
 import type { AdminUser } from "@/api";
 import { InfoTip } from "@/components/info-tip";
 import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
@@ -22,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 
 /**
@@ -156,10 +156,7 @@ function CreateUserDialog({
             </Button>
             <Button disabled={createUserMutation.isPending} type="submit">
               {createUserMutation.isPending && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
+                <Spinner data-icon="inline-start" />
               )}
               {createUserMutation.isPending
                 ? t("admin.creatingUser")

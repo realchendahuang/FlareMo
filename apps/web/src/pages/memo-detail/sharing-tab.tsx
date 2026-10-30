@@ -1,9 +1,4 @@
-import {
-  ClipboardIcon,
-  Link2Icon,
-  Loader2Icon,
-  UnlinkIcon,
-} from "lucide-react";
+import { ClipboardIcon, Link2Icon, UnlinkIcon } from "lucide-react";
 import type { MemoContext } from "@/api";
 import {
   AlertDialog,
@@ -17,6 +12,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { TabsContent } from "@/components/ui/tabs";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useI18n } from "@/i18n";
@@ -44,7 +40,7 @@ export function SharingTab({
       <div>
         <Button disabled={sharePending} size="sm" onClick={onCreateShare}>
           {sharePending ? (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
+            <Spinner data-icon="inline-start" />
           ) : (
             <Link2Icon data-icon="inline-start" />
           )}

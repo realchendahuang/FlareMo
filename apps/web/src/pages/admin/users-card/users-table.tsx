@@ -114,13 +114,16 @@ export function UsersTable({
             onChange={(event) => setMemberSearch(event.target.value)}
           />
           {memberSearch && (
-            <button
+            <Button
               type="button"
+              aria-label={t("search.clear")}
               onClick={() => setMemberSearch("")}
-              className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+              className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground"
+              size="icon-xs"
+              variant="ghost"
             >
               <XIcon className="size-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       )}

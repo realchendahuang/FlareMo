@@ -1,5 +1,5 @@
-import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import type { CaptureSnapshot } from "@/lib/audio-capture/controller";
 
@@ -54,10 +54,7 @@ export function VoiceCaptureBar({
         </>
       ) : (
         <>
-          <Loader2Icon
-            aria-hidden="true"
-            className="size-4 shrink-0 text-muted-foreground motion-safe:animate-spin"
-          />
+          <Spinner className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             {capture.state === "requesting_permission"
               ? t("capture.requestingPermission")

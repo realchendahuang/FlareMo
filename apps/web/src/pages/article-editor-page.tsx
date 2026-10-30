@@ -13,7 +13,6 @@ import {
   ListIcon,
   ListOrderedIcon,
   ListTodoIcon,
-  Loader2Icon,
   MinusIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -53,6 +52,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { uploadAndInsertImages } from "@/lib/rich-editor-upload";
 
@@ -340,12 +340,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
           type="button"
           variant={isPublished ? "outline" : "default"}
         >
-          {isUploadingImages && (
-            <Loader2Icon
-              className="motion-safe:animate-spin"
-              data-icon="inline-start"
-            />
-          )}
+          {isUploadingImages && <Spinner data-icon="inline-start" />}
           {isPublished
             ? t("article.publishedBadge")
             : t("article.publishAction")}

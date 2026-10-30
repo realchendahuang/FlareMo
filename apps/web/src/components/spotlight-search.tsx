@@ -3,7 +3,6 @@ import {
   ArrowRightIcon,
   CheckSquareIcon,
   FileTextIcon,
-  Loader2Icon,
   PlusIcon,
   SearchIcon,
   SparklesIcon,
@@ -27,6 +26,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -267,7 +267,7 @@ export function SpotlightSearch({
           <InputGroup className="h-11 border-none bg-transparent shadow-none ring-0 focus-within:ring-0">
             <InputGroupAddon className="pl-1 text-muted-foreground">
               {isSearching || remoteMemosQuery.isFetching ? (
-                <Loader2Icon className="size-4.5 animate-spin text-primary" />
+                <Spinner className="size-4.5 text-primary" />
               ) : (
                 <SearchIcon className="size-4.5" />
               )}
@@ -315,7 +315,7 @@ export function SpotlightSearch({
                   title={t("search.semanticToggle")}
                 >
                   {semanticPending ? (
-                    <Loader2Icon className="size-3.5 animate-spin" />
+                    <Spinner className="size-3.5" />
                   ) : (
                     <SparklesIcon className="size-3.5" />
                   )}

@@ -1,4 +1,4 @@
-import { Loader2Icon, SearchIcon, SparklesIcon, XIcon } from "lucide-react";
+import { SearchIcon, SparklesIcon, XIcon } from "lucide-react";
 import { memo, type RefObject, useEffect, useState } from "react";
 import {
   InputGroup,
@@ -6,6 +6,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 
 export const WorkspaceSearch = memo(function WorkspaceSearch({
@@ -84,10 +85,7 @@ export const WorkspaceSearch = memo(function WorkspaceSearch({
         />
         <InputGroupAddon>
           {isPending || draft !== query ? (
-            <Loader2Icon
-              aria-hidden="true"
-              className="ml-1 size-4 shrink-0 text-muted-foreground motion-safe:animate-spin"
-            />
+            <Spinner className="ml-1 size-4 shrink-0 text-muted-foreground" />
           ) : (
             <SearchIcon
               aria-hidden="true"

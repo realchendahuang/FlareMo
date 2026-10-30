@@ -1,7 +1,7 @@
 import { resolveOptionValues } from "@flaremo/plugins";
 import { useQuery } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
-import { DownloadIcon, Loader2Icon } from "lucide-react";
+import { DownloadIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Memo } from "@/api";
@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import { type TranslationKey, useI18n } from "@/i18n";
 import { formatMemoTime } from "@/lib/memo";
 import {
@@ -374,10 +375,7 @@ export function ShareImageDialog({
             variant="brand"
           >
             {isExporting ? (
-              <Loader2Icon
-                className="motion-safe:animate-spin"
-                data-icon="inline-start"
-              />
+              <Spinner data-icon="inline-start" />
             ) : (
               <DownloadIcon data-icon="inline-start" />
             )}

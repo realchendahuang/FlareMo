@@ -1,5 +1,4 @@
 import { CAPTURE_MAX_TEXT } from "@flaremo/contracts/constants";
-import { Loader2Icon } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import {
   AlertDialog,
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import type { LocalCapture } from "@/lib/audio-capture/local-session";
@@ -129,9 +129,7 @@ export function CaptureReviewForm({
           disabled={saving || !local.text.trim()}
           onClick={() => void onSave()}
         >
-          {saving && (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
-          )}
+          {saving && <Spinner data-icon="inline-start" />}
           {t(
             saving
               ? "capture.saving"

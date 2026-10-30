@@ -1,6 +1,5 @@
 import {
   CameraIcon,
-  Loader2Icon,
   RefreshCcwIcon,
   RotateCcwIcon,
   UploadIcon,
@@ -19,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { formatDate } from "@/lib/date-format";
 import { prepareAvatarFile } from "@/lib/upload-compression";
@@ -200,7 +200,7 @@ export function AccountProfileSection({
                 onClick={() => avatarFileInputRef.current?.click()}
               >
                 {avatarIsPending ? (
-                  <Loader2Icon className="size-4 animate-spin" />
+                  <Spinner className="size-4" />
                 ) : (
                   <UploadIcon className="size-4" />
                 )}

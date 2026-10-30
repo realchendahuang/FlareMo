@@ -1,10 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  CircleAlertIcon,
-  InboxIcon,
-  Loader2Icon,
-  SearchIcon,
-} from "lucide-react";
+import { CircleAlertIcon, InboxIcon, SearchIcon } from "lucide-react";
 import {
   lazy,
   memo,
@@ -40,6 +35,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { getMemoResourceId } from "@/lib/memo";
 import { MemoCard } from "./memo-card";
@@ -429,12 +425,7 @@ export const MemoList = memo(function MemoList({
             variant="outline"
             onClick={onRetry}
           >
-            {isRetrying && (
-              <Loader2Icon
-                className="motion-safe:animate-spin"
-                data-icon="inline-start"
-              />
-            )}
+            {isRetrying && <Spinner data-icon="inline-start" />}
             {t("common.retry")}
           </Button>
         </EmptyContent>
@@ -479,12 +470,7 @@ export const MemoList = memo(function MemoList({
         variant="outline"
         onClick={onRetry}
       >
-        {isRetrying && (
-          <Loader2Icon
-            className="motion-safe:animate-spin"
-            data-icon="inline-start"
-          />
-        )}
+        {isRetrying && <Spinner data-icon="inline-start" />}
         {t("common.retry")}
       </Button>
     </Alert>
@@ -495,10 +481,7 @@ export const MemoList = memo(function MemoList({
       {!isPaginationError && retryNotice}
       {isUpdating && (
         <div role="status" className="sr-only">
-          <Loader2Icon
-            aria-hidden="true"
-            className="size-3.5 motion-safe:animate-spin"
-          />
+          <Spinner className="size-3.5" />
           {t("list.updating")}
         </div>
       )}
@@ -575,12 +558,7 @@ export const MemoList = memo(function MemoList({
             variant="outline"
             onClick={onLoadMore}
           >
-            {isFetchingNextPage && (
-              <Loader2Icon
-                className="motion-safe:animate-spin"
-                data-icon="inline-start"
-              />
-            )}
+            {isFetchingNextPage && <Spinner data-icon="inline-start" />}
             {isFetchingNextPage ? t("common.loading") : t("list.loadMore")}
           </Button>
         </div>

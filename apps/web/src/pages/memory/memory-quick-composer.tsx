@@ -4,7 +4,6 @@ import {
   ChevronDownIcon,
   FolderIcon,
   GlobeIcon,
-  Loader2Icon,
   PinIcon,
   PlusIcon,
   SendIcon,
@@ -22,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { cn } from "@/lib/utils";
@@ -264,7 +264,7 @@ export function MemoryQuickComposer({
           aria-label={t("composer.send")}
         >
           {createMutation.isPending ? (
-            <Loader2Icon className="size-3.5 motion-safe:animate-spin" />
+            <Spinner className="size-3.5" />
           ) : (
             <SendIcon className="size-3.5 motion-safe:animate-scale-in" />
           )}

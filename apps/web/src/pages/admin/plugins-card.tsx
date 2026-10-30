@@ -1,5 +1,5 @@
-import { Loader2Icon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { PluginCardsManager } from "./plugins/plugin-cards-manager";
 import { PluginListCard } from "./plugins/plugin-list-card";
@@ -30,7 +30,7 @@ export function PluginsCard() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2Icon className="size-4 animate-spin" />
+            <Spinner className="size-4" />
             {t("admin.plugins.loading")}
           </div>
         </CardContent>

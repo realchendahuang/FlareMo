@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, MailIcon, ShieldCheckIcon } from "lucide-react";
+import { MailIcon, ShieldCheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -36,6 +36,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
@@ -199,12 +200,7 @@ export function EmailSettingsCard() {
                 )
               }
             >
-              {pendingAction === "test" && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
-              )}
+              {pendingAction === "test" && <Spinner data-icon="inline-start" />}
               {t("admin.integrations.testEmail")}
             </Button>
           }
@@ -310,10 +306,7 @@ export function EmailSettingsCard() {
               </Button>
               <Button disabled={emailEditingDisabled} type="submit">
                 {pendingAction === "save" && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
+                  <Spinner data-icon="inline-start" />
                 )}
                 {t("common.save")}
               </Button>
@@ -649,12 +642,7 @@ export function OauthSettingsCard() {
                 {t("common.cancel")}
               </Button>
               <Button disabled={editingDisabled} type="submit">
-                {busy && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
-                )}
+                {busy && <Spinner data-icon="inline-start" />}
                 {t("common.save")}
               </Button>
             </DialogFooter>

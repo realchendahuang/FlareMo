@@ -1,10 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import {
-  FootprintsIcon,
-  Loader2Icon,
-  PlusIcon,
-  ShuffleIcon,
-} from "lucide-react";
+import { FootprintsIcon, PlusIcon, ShuffleIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRandomWalkMemo, getWalkNextMemo } from "@/api";
 import { MemoSnapshotCard } from "@/components/memo-snapshot-card";
@@ -20,6 +15,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
 import { type TranslationKey, useI18n } from "@/i18n";
@@ -223,10 +219,7 @@ export function RandomWalkPage() {
                     onClick={() => void walk()}
                   >
                     {pending ? (
-                      <Loader2Icon
-                        className="motion-safe:animate-spin"
-                        data-icon="inline-start"
-                      />
+                      <Spinner data-icon="inline-start" />
                     ) : (
                       <FootprintsIcon data-icon="inline-start" />
                     )}

@@ -1,4 +1,5 @@
-import { Loader2Icon, Mic, Pause, Play, Square } from "lucide-react";
+import { Mic, Pause, Play, Square } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 export type CaptureButtonState = "idle" | "connecting" | "recording" | "paused";
@@ -65,7 +66,7 @@ export function CaptureButton({
         />
       )}
       {busy ? (
-        <Loader2Icon aria-hidden className="size-7 animate-spin" />
+        <Spinner className="size-7" />
       ) : state === "idle" ? (
         <Mic aria-hidden className="size-7" strokeWidth={2.5} />
       ) : state === "paused" ? (

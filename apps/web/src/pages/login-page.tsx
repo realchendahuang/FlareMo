@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useSearch } from "@tanstack/react-router";
-import { Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getBootstrapStatus, getRegistrationStatus } from "@/api";
 import { getAuthProviders } from "@/api/integrations";
@@ -10,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 
@@ -278,10 +278,7 @@ export function LoginPage() {
                 }
               >
                 {socialPending === provider && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
+                  <Spinner data-icon="inline-start" />
                 )}
                 {provider === "google"
                   ? t("auth.continueWithGoogle")
