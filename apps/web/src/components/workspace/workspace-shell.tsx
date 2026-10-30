@@ -29,7 +29,6 @@ import { useMemoMutations } from "@/hooks/use-memo-mutations";
 import { queryKeys } from "@/lib/query-keys";
 import { ACTIVITY_WINDOW_DAYS } from "@/lib/time-horizon";
 import { TIMELINE_SEARCH } from "@/lib/timeline-search";
-import { cn } from "@/lib/utils";
 
 const AccountSettingsDialog = lazy(() =>
   import("@/pages/account-page").then((module) => ({
@@ -42,6 +41,7 @@ const SIDEBAR_COLLAPSED_KEY = "flaremo.sidebar.collapsed";
 
 /** Desktop sidebar width, and therefore the shell's gutter beside the content. */
 export const WORKSPACE_SIDEBAR_WIDTH = 312;
+/** Content column width of a page that does not ask for another. */
 export const DEFAULT_CONTENT_MAX_WIDTH = 640;
 /** Collapse/expand duration; the sidebar, the frame and the content share it. */
 const SIDEBAR_MOTION_MS = 300;
@@ -61,8 +61,6 @@ type WorkspaceShellValue = {
   mobileSheetOpen: boolean;
   setMobileSheetOpen: (open: boolean) => void;
   explorer: WorkspaceSidebarContent;
-  /** Pages report their content column width; the frame centers on it. */
-  setContentMaxWidth: (width: number) => void;
   /** Hover intent on the collapsed-state expand button opens the peek. */
   setPeekIntent: (open: boolean) => void;
 };
@@ -117,11 +115,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
-  const [contentMaxWidth, setContentMaxWidth] = useState(
-    DEFAULT_CONTENT_MAX_WIDTH,
-  );
-  // The frame only animates while the sidebar itself is moving; a page with a
-  // different content width must not slide the sidebar on navigation.
+  // Transitions only run while the sidebar itself is moving, so nothing
+  // animates on first paint or on navigation.
   const [animating, setAnimating] = useState(false);
   const animationTimer = useRef<number | undefined>(undefined);
   const [peekOpen, setPeekOpen] = useState(false);
@@ -305,7 +300,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     () => ({
       explorer,
       mobileSheetOpen,
-      setContentMaxWidth,
       setMobileSheetOpen,
       setPeekIntent,
       sidebarCollapsed,
@@ -323,22 +317,15 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   return (
     <WorkspaceShellContext.Provider value={value}>
       <div className="h-svh overflow-hidden bg-background">
-        {/* The frame is the content column plus the sidebar, centered. While
-            collapsing, its max width and the sidebar width shrink together,
-            so the content column keeps its width and glides to the center
-            in one motion instead of jumping. */}
+        {/* The sidebar is pinned to the window's leading edge and every page
+            centers its own column in the space beside it. The sidebar's
+            position therefore never depends on the page: switching between a
+            640px timeline and a 1024px board leaves it exactly where it is.
+            Collapsing animates only the sidebar's width; the page column,
+            centered in the growing area, glides with it at its own width. */}
         <div
-          className={cn(
-            "mx-auto flex h-full w-full",
-            animating &&
-              "motion-safe:transition-[max-width] motion-safe:duration-300 motion-safe:ease-signal",
-          )}
+          className="flex h-full w-full"
           data-sidebar-collapsed={sidebarCollapsed || undefined}
-          style={{
-            maxWidth:
-              contentMaxWidth +
-              (sidebarCollapsed ? 0 : WORKSPACE_SIDEBAR_WIDTH),
-          }}
         >
           <WorkspaceSidebar
             animating={animating}

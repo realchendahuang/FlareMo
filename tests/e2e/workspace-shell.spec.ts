@@ -31,6 +31,11 @@ test("keeps one sidebar across navigation and aligns it with the page header", a
   await sidebar.evaluate((element) => {
     (window as unknown as { shellSidebar: Element }).shellSidebar = element;
   });
+  const sidebarX = () =>
+    sidebar.evaluate((element) => element.getBoundingClientRect().x);
+  // Pinned to the leading edge: the timeline (640px column) and the to-do
+  // board (1024px column) must not move it.
+  const xOnTimeline = await sidebarX();
   await page
     .getByRole("navigation", { name: /navigation|导航/i })
     .getByRole("link", { name: /to-dos|待办/i })
@@ -45,6 +50,8 @@ test("keeps one sidebar across navigation and aligns it with the page header", a
         document.querySelector("aside aside"),
     ),
   ).toBe(true);
+  expect(await sidebarX()).toBe(xOnTimeline);
+  expect(xOnTimeline).toBe(0);
 
   const centers = await page.evaluate(() => {
     const center = (element: Element | null | undefined) => {

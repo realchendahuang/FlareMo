@@ -2,6 +2,7 @@ import type { MemoSpace } from "@/api";
 import type { ExplorerView } from "@/components/flaremo-explorer";
 import { ScopeSwitcher } from "@/components/scope-switcher";
 import { SpotlightSearchTrigger } from "@/components/spotlight-search";
+import { usePageContentWidth } from "@/components/workspace/workspace-layout";
 import { useWorkspaceShell } from "@/components/workspace/workspace-shell";
 import {
   SidebarToggleButton,
@@ -47,6 +48,7 @@ export function WorkspaceHeader({
   view: ExplorerView;
 }) {
   const { setPeekIntent } = useWorkspaceShell();
+  const contentWidth = usePageContentWidth();
 
   return (
     <header
@@ -55,9 +57,13 @@ export function WorkspaceHeader({
         isTimelineScrolled ? "border-border shadow-xs" : "border-transparent",
       )}
     >
-      {/* The header spans the content column, which the shell keeps at the
-          page's width in both sidebar states; no re-centering here. */}
-      <div className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3">
+      {/* The bar spans the whole area beside the sidebar (its hairline and
+          blur run edge to edge); its row is centered at the page's content
+          width so the title lines up with the column below it. */}
+      <div
+        className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3"
+        style={{ maxWidth: contentWidth }}
+      >
         <div
           className={cn(
             "hidden items-center overflow-hidden lg:flex motion-safe:transition-[width,opacity,margin] motion-safe:duration-300 motion-safe:ease-signal",
