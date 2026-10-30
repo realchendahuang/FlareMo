@@ -55,6 +55,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { uploadAndInsertImages } from "@/lib/rich-editor-upload";
+import { cn } from "@/lib/utils";
 
 const AUTOSAVE_DEBOUNCE_MS = 2000;
 
@@ -380,7 +381,14 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       <div className={`${containerClass} pt-3`}>
         <textarea
           aria-label={t("article.titleLabel")}
-          className="field-sizing-content mt-2 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-foreground/30"
+          className={cn(
+            "field-sizing-content mt-2 w-full resize-none bg-transparent leading-tight font-semibold tracking-tight outline-none placeholder:text-foreground/30",
+            // Preview sets the title the way the public page does: same
+            // serif, size and measure as the body below it.
+            previewMode
+              ? "article-paper mb-[0.6em] text-[1.85rem] leading-[1.3] tracking-[-0.01em]"
+              : "font-heading text-3xl",
+          )}
           rows={1}
           readOnly={previewMode}
           onChange={(event) => {
@@ -405,7 +413,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
         {previewMode ? (
           // The title line above already reads as the article's heading; the
           // preview renders only the body, aligned with the editing surface.
-          <div className="memo-markdown min-h-svh px-1 pt-2 text-[15px] leading-7">
+          <div className="article-paper min-h-svh pt-2 pb-16">
             <ArticleShikiBody content={content} />
           </div>
         ) : (

@@ -836,6 +836,144 @@ svg.lucide[stroke-width="2"] {
     @apply border px-3 py-2 text-left;
   }
 
+  /* Article preview: the typesetting of the public article page
+     (apps/worker/src/routes/paper-page-styles.ts, the `article …` rules),
+     on the app's own colors. Same serif, size, measure and block rhythm, so
+     line breaks and spacing match what a reader will see. Keep the two in
+     step when either changes. */
+  .article-paper {
+    @apply mx-auto w-full max-w-[31.5rem];
+    font-family:
+      "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Songti SC",
+      "STSong", "Noto Serif CJK SC", "Noto Serif SC", "Source Han Serif SC",
+      SimSun, serif;
+    font-kerning: normal;
+  }
+
+  .article-paper .memo-markdown {
+    font-size: 17px;
+    line-height: 1.9;
+    hanging-punctuation: first;
+  }
+
+  .article-paper .memo-markdown > * + *,
+  .article-paper .memo-markdown p + p {
+    margin-top: 0;
+  }
+
+  .article-paper .memo-markdown :is(p, ul, ol) {
+    margin-bottom: 1.05em;
+  }
+
+  .article-paper .memo-markdown :is(h1, h2, h3, h4, h5, h6) {
+    margin: 1.9em 0 0.7em;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  .article-paper .memo-markdown > :first-child {
+    margin-top: 0;
+  }
+
+  .article-paper .memo-markdown h1 {
+    font-size: 1.85rem;
+    margin-top: 0;
+  }
+
+  .article-paper .memo-markdown h2 {
+    font-size: 1.35rem;
+  }
+
+  .article-paper .memo-markdown h3 {
+    font-size: 1.12rem;
+  }
+
+  .article-paper .memo-markdown :is(h4, h5, h6) {
+    font-size: 1em;
+  }
+
+  .article-paper .memo-markdown strong {
+    font-weight: 650;
+  }
+
+  .article-paper .memo-markdown a {
+    @apply font-normal text-foreground decoration-primary decoration-1 underline-offset-[0.22em] hover:text-primary dark:text-foreground dark:hover:text-primary;
+  }
+
+  .article-paper .memo-markdown blockquote {
+    @apply my-[1.5em] border-s-2 border-primary py-[0.1em] ps-[1.2em] text-muted-foreground;
+  }
+
+  .article-paper .memo-markdown blockquote > :last-child {
+    margin-bottom: 0;
+  }
+
+  .article-paper .memo-markdown code {
+    @apply rounded-[3px] border-0 bg-muted px-[0.36em] py-[0.12em] text-[0.84em];
+  }
+
+  .article-paper .memo-markdown pre {
+    @apply my-[1.4em] rounded-[4px] border border-border/60 bg-muted px-[1.15em] py-[1em] text-[0.82rem] leading-[1.65];
+  }
+
+  .article-paper .memo-markdown pre code {
+    @apply bg-transparent p-0 text-[length:inherit] leading-[inherit];
+  }
+
+  .article-paper .memo-markdown table {
+    @apply my-[1.4em] text-[0.9rem];
+  }
+
+  .article-paper .memo-markdown :is(th, td) {
+    @apply border-0 border-b border-border px-[0.6em] py-[0.5em] text-start;
+  }
+
+  .article-paper .memo-markdown th {
+    @apply font-semibold border-muted-foreground/60;
+  }
+
+  .article-paper .memo-markdown hr {
+    @apply my-[2.4em] overflow-visible border-0 text-center;
+  }
+
+  .article-paper .memo-markdown hr::after {
+    @apply tracking-[0.6em] text-muted-foreground/70;
+    content: "· · ·";
+  }
+
+  .article-paper .memo-markdown :is(ul, ol) {
+    padding-inline-start: 1.5em;
+  }
+
+  .article-paper .memo-markdown ul ul {
+    list-style-type: circle;
+  }
+
+  .article-paper .memo-markdown li,
+  .article-paper .memo-markdown li + li {
+    margin: 0.25em 0;
+  }
+
+  .article-paper .memo-markdown li:has(> input[type="checkbox"]),
+  .article-paper .memo-markdown li:has(> p > input[type="checkbox"]) {
+    margin-inline-start: -1.5em;
+  }
+
+  .article-paper .memo-markdown input[type="checkbox"] {
+    @apply me-[0.4em] size-[0.95em] align-[-0.1em];
+  }
+
+  .article-paper .memo-markdown img {
+    @apply mx-auto my-[1.6em] block rounded-[2px] border-0 shadow-[0_1px_2px_rgb(60_40_10/0.12),0_10px_24px_-14px_rgb(60_40_10/0.35)];
+  }
+
+  /* Public pages render #tags as plain text. */
+  .article-paper .memo-markdown .memo-tag {
+    @apply inline bg-transparent p-0 text-[1em] leading-[inherit] text-inherit dark:bg-transparent;
+  }
+
   /* flomo-style idle composer: an unfocused empty box shrinks to one quiet
      line; focusing (or content) expands it back to the full editor. */
   form[data-compact="true"] .composer-editor-content {
