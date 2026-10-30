@@ -108,6 +108,12 @@ export function ArticlesPage() {
   });
 
   const articles = articlesQuery.data?.articles ?? [];
+  // The recycle bin sinks below the live list under its own label, so a
+  // just-deleted draft no longer sits on top of the work in progress.
+  const groups = [
+    { key: "live", items: articles.filter((article) => !article.deleted_at) },
+    { key: "trash", items: articles.filter((article) => article.deleted_at) },
+  ];
 
   return (
     <WorkspaceLayout
@@ -187,108 +193,113 @@ export function ArticlesPage() {
             </EmptyContent>
           </Empty>
         )}
-        {articlesQuery.data && articles.length > 0 && (
-          <div className="flex flex-col gap-3">
-            {articles.map((article) => {
-              const published = article.status === "published";
-              const trashed = Boolean(article.deleted_at);
-              return (
-                <Card
-                  className={
-                    "group relative gap-1.5 py-4 transition-colors " +
-                    (trashed ? "opacity-70" : "hover:bg-muted/30")
-                  }
-                  key={article.id}
-                >
-                  <CardHeader className="gap-1 pb-0">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <button
-                        className="min-w-0 flex-1 truncate text-left font-semibold after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
-                        disabled={trashed}
-                        onClick={() =>
-                          navigate({
-                            to: "/articles/$articleId/edit",
-                            params: { articleId: editorId(article.id) },
-                          })
-                        }
-                        type="button"
-                      >
-                        {article.title || t("article.untitled")}
-                      </button>
-                      <Badge variant={published ? "success" : "secondary"}>
-                        {published
-                          ? t("article.publishedBadge")
-                          : t("article.draftBadge")}
-                      </Badge>
-                    </CardTitle>
-                    {article.description && (
-                      <p className="line-clamp-2 text-sm text-muted-foreground">
-                        {article.description}
-                      </p>
-                    )}
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between gap-2 pt-0">
-                    <span className="text-xs text-muted-foreground">
-                      {trashed
-                        ? t("article.inRecycleBin")
-                        : published && article.published_at
+        {groups.map((group) =>
+          group.items.length === 0 ? null : (
+            <section className="flex flex-col gap-3" key={group.key}>
+              {group.key === "trash" && (
+                <h2 className="px-1 pt-2 text-xs font-medium text-muted-foreground">
+                  {t("view.trash")}
+                </h2>
+              )}
+              {group.items.map((article) => {
+                const published = article.status === "published";
+                const trashed = Boolean(article.deleted_at);
+                return (
+                  <Card
+                    className={
+                      "group relative gap-1.5 py-4 transition-colors " +
+                      (trashed ? "opacity-70" : "hover:bg-muted/30")
+                    }
+                    key={article.id}
+                  >
+                    <CardHeader className="gap-1 pb-0">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <button
+                          className="min-w-0 flex-1 truncate text-left font-semibold after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+                          disabled={trashed}
+                          onClick={() =>
+                            navigate({
+                              to: "/articles/$articleId/edit",
+                              params: { articleId: editorId(article.id) },
+                            })
+                          }
+                          type="button"
+                        >
+                          {article.title || t("article.untitled")}
+                        </button>
+                        {published && !trashed && (
+                          <Badge variant="success">
+                            {t("article.publishedBadge")}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      {article.description && (
+                        <p className="line-clamp-2 text-sm text-muted-foreground">
+                          {article.description}
+                        </p>
+                      )}
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-between gap-2 pt-0">
+                      <span className="text-xs text-muted-foreground">
+                        {published && article.published_at && !trashed
                           ? t("article.publishedOn", {
                               date: formatDate(article.published_at, locale),
                             })
                           : t("article.editedOn", {
                               date: formatDate(article.updated_at, locale),
                             })}
-                    </span>
-                    {/* Actions sit above the card-wide click target. */}
-                    <div className="relative z-10 flex items-center gap-1">
-                      {published && !trashed && (
-                        <Button
-                          onClick={() =>
-                            window.open(`/article/${article.slug}`, "_blank")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <ExternalLinkIcon data-icon="inline-start" />
-                          {t("article.viewPublic")}
-                        </Button>
-                      )}
-                      {trashed ? (
-                        <Button
-                          disabled={
-                            restoreMutation.isPending &&
-                            restoreMutation.variables === article.id
-                          }
-                          onClick={() => restoreMutation.mutate(article.id)}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          {t("article.restoreAction")}
-                        </Button>
-                      ) : (
-                        <Button
-                          aria-label={t("common.delete")}
-                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
-                          disabled={
-                            deleteMutation.isPending &&
-                            deleteMutation.variables === article.id
-                          }
-                          onClick={() => setConfirmDeleteId(article.id)}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2Icon />
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      </span>
+                      {/* Actions sit above the card-wide click target. */}
+                      <div className="relative z-10 flex items-center gap-1">
+                        {published && !trashed && (
+                          <Button
+                            onClick={() =>
+                              window.open(`/article/${article.slug}`, "_blank")
+                            }
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <ExternalLinkIcon data-icon="inline-start" />
+                            {t("article.viewPublic")}
+                          </Button>
+                        )}
+                        {trashed ? (
+                          <Button
+                            disabled={
+                              restoreMutation.isPending &&
+                              restoreMutation.variables === article.id
+                            }
+                            onClick={() => restoreMutation.mutate(article.id)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            {t("article.restoreAction")}
+                          </Button>
+                        ) : (
+                          <Button
+                            aria-label={t("common.delete")}
+                            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                            disabled={
+                              deleteMutation.isPending &&
+                              deleteMutation.variables === article.id
+                            }
+                            onClick={() => setConfirmDeleteId(article.id)}
+                            size="icon-sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trash2Icon />
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </section>
+          ),
         )}
       </div>
       <AlertDialog

@@ -798,20 +798,27 @@ svg.lucide[stroke-width="2"] {
     @apply my-0 min-h-7;
   }
 
-  .article-editor-content p + p {
+  /* Block rhythm mirrors .memo-markdown (the preview and public page), so a
+     heading no longer sits flush on the paragraph below it while editing.
+     `:not(:first-child)` outranks the element rules above and below. */
+  .article-editor-content > :not(:first-child) {
     @apply mt-3;
   }
 
+  .article-editor-content > :is(h1, h2, h3):not(:first-child) {
+    @apply mt-6;
+  }
+
   .article-editor-content h1 {
-    @apply mt-4 text-2xl font-semibold tracking-tight;
+    @apply text-2xl font-semibold tracking-tight;
   }
 
   .article-editor-content h2 {
-    @apply mt-4 text-xl font-semibold tracking-tight;
+    @apply text-xl font-semibold tracking-tight;
   }
 
   .article-editor-content h3 {
-    @apply mt-3 text-lg font-semibold;
+    @apply text-lg font-semibold;
   }
 
   .article-editor-content table {

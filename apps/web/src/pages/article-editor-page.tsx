@@ -21,7 +21,7 @@ import {
   TableIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   type Article,
@@ -276,8 +276,10 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   return (
     <div className={containerClass}>
       {/* One quiet bar for state and actions, the page itself for writing:
-          the title is the article's first line, not a form field. */}
-      <header className="flex items-center gap-1 pt-3">
+          the title is the article's first line, not a form field. The bar
+          stays pinned so save state and publish remain in reach on long
+          articles. */}
+      <header className="sticky top-0 z-20 -mx-4 flex h-14 items-center gap-1 bg-background/90 px-4 shadow-[0_0_0_100vmax_color-mix(in_oklab,var(--background)_90%,transparent)] backdrop-blur-sm [clip-path:inset(0_-100vmax)]">
         <Button
           aria-label={t("common.back")}
           onClick={() => navigate({ to: "/articles" })}
@@ -372,8 +374,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       </header>
       <textarea
         aria-label={t("article.titleLabel")}
-        className="field-sizing-content mt-4 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-foreground/30"
+        className="field-sizing-content mt-2 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-foreground/30"
         rows={1}
+        readOnly={previewMode}
         onChange={(event) => {
           // The refs — not React state — are what the debounced save reads
           // (state is stale inside the timer closure), so both must update
@@ -394,10 +397,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       />
 
       {previewMode ? (
-        <div className="memo-markdown min-h-svh px-2 text-[15px] leading-7">
-          <h1 className="mb-2 text-2xl font-semibold tracking-tight">
-            {title || t("article.titlePlaceholder")}
-          </h1>
+        // The title line above already reads as the article's heading; the
+        // preview renders only the body, aligned with the editing surface.
+        <div className="memo-markdown min-h-svh px-1 pt-2 text-[15px] leading-7">
           <ArticleShikiBody content={content} />
         </div>
       ) : (
@@ -555,20 +557,37 @@ function ArticleToolbar({
       }),
     },
   ];
+  // Grouped as headings · inline marks · lists · blocks; thin rules between
+  // groups keep twelve identical icon buttons scannable.
+  const groupEnds = new Set([
+    t("article.toolH3"),
+    t("article.toolCode"),
+    t("article.toolTaskList"),
+  ]);
   return (
-    <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 p-1">
+    // Pinned under the header so formatting stays a glance away on long
+    // articles; one scrollable line instead of wrapping into two on phones.
+    <div className="no-scrollbar sticky top-14 z-10 flex items-center gap-0.5 overflow-x-auto rounded-lg border border-border/60 bg-background/90 p-1 backdrop-blur-sm">
       {tools.map((tool) => (
-        <Button
-          aria-label={tool.label}
-          key={tool.label}
-          onClick={tool.run}
-          size="icon"
-          title={tool.label}
-          type="button"
-          variant="ghost"
-        >
-          {tool.icon}
-        </Button>
+        <Fragment key={tool.label}>
+          <Button
+            aria-label={tool.label}
+            className="shrink-0"
+            onClick={tool.run}
+            size="icon"
+            title={tool.label}
+            type="button"
+            variant="ghost"
+          >
+            {tool.icon}
+          </Button>
+          {groupEnds.has(tool.label) && (
+            <span
+              aria-hidden="true"
+              className="mx-1 h-5 w-px shrink-0 bg-border"
+            />
+          )}
+        </Fragment>
       ))}
     </div>
   );
