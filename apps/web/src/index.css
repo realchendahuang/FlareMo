@@ -1004,6 +1004,11 @@ svg.lucide[stroke-width="2"] {
     @apply inline-block rounded-md bg-muted px-1 align-baseline text-[0.92em] leading-[1.6] whitespace-nowrap text-foreground/75 no-underline decoration-transparent dark:bg-muted/80;
   }
 
+  /* An @mention: a name, not a filter. Brand-tinted ink, no chip. */
+  .memo-markdown .memo-mention {
+    @apply font-medium whitespace-nowrap text-brand-700 dark:text-brand-300;
+  }
+
   .memo-markdown button.memo-tag {
     @apply cursor-pointer motion-safe:transition-colors hover:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_8%)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
   }

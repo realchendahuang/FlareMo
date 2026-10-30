@@ -15,7 +15,7 @@ import remarkGfm from "remark-gfm";
 import { useI18n } from "@/i18n";
 import { createSlugger } from "@/lib/markdown-outline";
 import { memoTaskLines } from "@/lib/memo-tasks";
-import { remarkTags, tagFromHref } from "@/lib/remark-tags";
+import { mentionFromHref, remarkTags, tagFromHref } from "@/lib/remark-tags";
 import {
   isTimestampHref,
   parseTimestampHref,
@@ -177,6 +177,10 @@ export const MemoContent = memo(function MemoContent({
       <Markdown
         components={{
           a({ href, children, node: _node, ...props }) {
+            const mention = mentionFromHref(href);
+            if (mention !== null) {
+              return <span className="memo-mention">{children}</span>;
+            }
             const tag = tagFromHref(href);
             if (tag !== null) {
               return onTagClick ? (

@@ -595,6 +595,9 @@ export const appNotificationDtoSchema = z.object({
   status: z.enum(["unread", "archived"]),
   // Task-overdue rows have no memo anchor; memo_snippet carries the title.
   memo: z.string().nullable(),
+  // Parent memo for comment notifications (the thread to open).
+  related_memo: z.string().nullable().optional(),
+  sender_name: z.string().optional(),
   memo_snippet: z.string(),
   create_time: z.string(),
 });

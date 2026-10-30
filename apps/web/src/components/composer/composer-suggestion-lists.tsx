@@ -4,6 +4,7 @@ import type { Memo } from "@/api";
 import type { SuggestionAnchor } from "@/hooks/use-composer-suggestions";
 import { wikiLinkTitle } from "@/hooks/use-composer-suggestions";
 import { useI18n } from "@/i18n";
+import type { MentionCandidate } from "@/lib/mention-autocomplete";
 import type { TagSuggestion } from "@/lib/tag-autocomplete";
 import { cn } from "@/lib/utils";
 
@@ -178,6 +179,57 @@ export function ComposerWikiSuggestions({
           </span>
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
             {(memo.display_time ?? memo.create_time)?.slice(0, 10)}
+          </span>
+        </div>
+      ))}
+    </SuggestionListShell>
+  );
+}
+
+/** "@name" rows: display name with the username beside it. */
+export function ComposerMentionSuggestions({
+  visible,
+  suggestions,
+  activeIndex,
+  anchor,
+  onAccept,
+  onHighlight,
+}: {
+  visible: boolean;
+  suggestions: MentionCandidate[];
+  activeIndex: number;
+  anchor: SuggestionAnchor | null;
+  onAccept: (username: string) => void;
+  onHighlight: (index: number) => void;
+}) {
+  const { t } = useI18n();
+  if (!visible) return null;
+  return (
+    <SuggestionListShell
+      activeIndex={activeIndex}
+      anchor={anchor}
+      label={t("composer.mention")}
+      testId="composer-mention-suggestions"
+    >
+      {suggestions.map((person, index) => (
+        <div
+          aria-selected={index === activeIndex}
+          className={rowClassName(index === activeIndex)}
+          data-index={index}
+          key={person.username}
+          role="option"
+          tabIndex={-1}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            onAccept(person.username);
+          }}
+          onMouseMove={() => {
+            if (index !== activeIndex) onHighlight(index);
+          }}
+        >
+          <span className="truncate text-foreground">{person.displayName}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            @{person.username}
           </span>
         </div>
       ))}

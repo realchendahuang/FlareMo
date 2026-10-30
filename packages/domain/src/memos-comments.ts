@@ -149,8 +149,11 @@ export async function createMemoComment(
     id: commentId,
     userId: user.id,
     content: content.trim(),
-    // Memos comments inherit the visibility of the parent memo.
+    // Memos comments inherit the visibility of the parent memo, and with it
+    // the team: a protected row without a team id is readable by its author
+    // only, which hid every team comment from the rest of the team.
     visibility: parent.visibility,
+    teamId: parent.teamId,
     status: "normal" as const,
     pinned: false,
     source: effectiveInput.comment?.source ?? effectiveInput.source ?? "web",

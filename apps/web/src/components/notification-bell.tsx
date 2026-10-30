@@ -76,9 +76,15 @@ export function useNotifications() {
       return;
     }
     if (!notification.memo) return;
+    // A comment (or a mention inside one) opens the memo it answers, on
+    // its thread; `memo` is the comment itself.
+    const thread = notification.related_memo;
     void navigate({
       to: "/memo/$memoId",
-      params: { memoId: stripResourceName(notification.memo, "memos") },
+      params: {
+        memoId: stripResourceName(thread ?? notification.memo, "memos"),
+      },
+      hash: thread ? "comments" : undefined,
     });
   };
 
@@ -156,7 +162,16 @@ export function NotificationList({ onNavigate }: { onNavigate?: () => void }) {
                   unread ? "font-medium" : "text-muted-foreground",
                 )}
               >
-                {t(TYPE_LABELS[notification.type])}
+                <span className="min-w-0 truncate">
+                  {/* Comments and mentions say who; reminders come from the
+                      app itself, so they carry no name. */}
+                  {notification.sender_name &&
+                    (notification.type === "memo_comment" ||
+                      notification.type === "memo_mention") && (
+                      <span className="me-1">{notification.sender_name}</span>
+                    )}
+                  {t(TYPE_LABELS[notification.type])}
+                </span>
                 <span className="shrink-0 font-normal text-muted-foreground">
                   {formatMemoRelativeTime(notification.create_time, locale)}
                 </span>

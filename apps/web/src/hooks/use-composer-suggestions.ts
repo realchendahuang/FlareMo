@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Editor } from "@tiptap/react";
 import { type RefObject, useEffect, useState } from "react";
-import { listMemos, type Memo } from "@/api";
+import { listMemos, listMentionableUsers, type Memo } from "@/api";
 import { memoTitle } from "@/lib/memo";
+import {
+  filterMentionSuggestions,
+  type MentionCandidate,
+} from "@/lib/mention-autocomplete";
 import {
   filterTagSuggestions,
   type TagSuggestion,
@@ -29,6 +33,8 @@ type UseComposerSuggestionsOptions = {
   isPending: boolean;
   /** Known tags with usage counts, powering the "#" autocomplete. */
   tags?: TagSuggestion[];
+  /** Offer "@name" completion (only where a mention can reach someone). */
+  mentions?: boolean;
 };
 
 export type UseComposerSuggestionsResult = {
@@ -48,6 +54,10 @@ export type UseComposerSuggestionsResult = {
   wikiSuggestions: Memo[];
   showWikiSuggestions: boolean;
   acceptWikiSuggestion: (targetMemo: Memo) => void;
+  setActiveMentionToken: (token: { from: number; text: string } | null) => void;
+  mentionSuggestions: MentionCandidate[];
+  showMentionSuggestions: boolean;
+  acceptMentionSuggestion: (username: string) => void;
   /** Highlighted row of whichever list is open. */
   activeIndex: number;
   setActiveIndex: (index: number) => void;
@@ -118,7 +128,12 @@ export function useComposerSuggestions({
   containerRef,
   isPending,
   tags,
+  mentions = false,
 }: UseComposerSuggestionsOptions): UseComposerSuggestionsResult {
+  const [activeMentionToken, setActiveMentionToken] = useState<{
+    from: number;
+    text: string;
+  } | null>(null);
   const [activeTagToken, setActiveTagToken] = useState<{
     from: number;
     text: string;
@@ -147,6 +162,25 @@ export function useComposerSuggestions({
     staleTime: 5000,
   });
 
+  const peopleQuery = useQuery({
+    queryKey: ["mentionable-users"],
+    queryFn: listMentionableUsers,
+    enabled: mentions && Boolean(activeMentionToken),
+    staleTime: 5 * 60_000,
+  });
+  const mentionKey = activeMentionToken
+    ? `mention:${activeMentionToken.from}:${activeMentionToken.text}`
+    : null;
+  const mentionSuggestions =
+    mentions && activeMentionToken
+      ? filterMentionSuggestions(
+          peopleQuery.data?.members ?? [],
+          activeMentionToken.text,
+        )
+      : [];
+  const showMentionSuggestions =
+    mentionSuggestions.length > 0 && !isPending && mentionKey !== dismissedKey;
+
   const tagKey = activeTagToken
     ? `tag:${activeTagToken.from}:${activeTagToken.text}`
     : null;
@@ -171,14 +205,18 @@ export function useComposerSuggestions({
   // Wiki wins when both somehow match: "[[#" is a link query, not a tag.
   const openKey = showWikiSuggestions
     ? wikiKey
-    : showTagSuggestions
-      ? tagKey
-      : null;
+    : showMentionSuggestions
+      ? mentionKey
+      : showTagSuggestions
+        ? tagKey
+        : null;
   const openCount = showWikiSuggestions
     ? wikiSuggestions.length
-    : showTagSuggestions
-      ? tagSuggestions.length
-      : 0;
+    : showMentionSuggestions
+      ? mentionSuggestions.length
+      : showTagSuggestions
+        ? tagSuggestions.length
+        : 0;
   const activeIndex =
     openKey && highlight.key === openKey
       ? Math.min(highlight.index, openCount - 1)
@@ -189,9 +227,11 @@ export function useComposerSuggestions({
 
   const anchorFrom = showWikiSuggestions
     ? activeWikiToken?.from
-    : showTagSuggestions
-      ? activeTagToken?.from
-      : undefined;
+    : showMentionSuggestions
+      ? activeMentionToken?.from
+      : showTagSuggestions
+        ? activeTagToken?.from
+        : undefined;
 
   // Re-measure when the list opens or its token moves, and keep it glued to
   // the caret while the page or the editor's own scroll box moves.
@@ -226,6 +266,22 @@ export function useComposerSuggestions({
         { type: "text", text: `#${name} ` },
       )
       .run();
+  };
+
+  const acceptMentionSuggestion = (username: string) => {
+    if (!activeMentionToken) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    const caret = activeMentionToken.from + 1 + activeMentionToken.text.length;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        { from: activeMentionToken.from, to: caret },
+        { type: "text", text: `@${username} ` },
+      )
+      .run();
+    setActiveMentionToken(null);
   };
 
   const acceptWikiSuggestion = (targetMemo: Memo) => {
@@ -272,6 +328,9 @@ export function useComposerSuggestions({
         if (showWikiSuggestions) {
           const memo = wikiSuggestions[activeIndex];
           if (memo) acceptWikiSuggestion(memo);
+        } else if (showMentionSuggestions) {
+          const person = mentionSuggestions[activeIndex];
+          if (person) acceptMentionSuggestion(person.username);
         } else {
           const tag = tagSuggestions[activeIndex];
           if (tag) acceptTagSuggestion(tag.name);
@@ -291,7 +350,12 @@ export function useComposerSuggestions({
     setActiveWikiToken,
     handleSuggestionKeyDown,
     tagSuggestions,
-    showTagSuggestions: showTagSuggestions && !showWikiSuggestions,
+    showTagSuggestions:
+      showTagSuggestions && !showWikiSuggestions && !showMentionSuggestions,
+    setActiveMentionToken,
+    mentionSuggestions,
+    showMentionSuggestions: showMentionSuggestions && !showWikiSuggestions,
+    acceptMentionSuggestion,
     acceptTagSuggestion,
     wikiSuggestions,
     showWikiSuggestions,

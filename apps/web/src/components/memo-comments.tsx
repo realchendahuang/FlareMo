@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2Icon, MessageCircleIcon, Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   createMemoComment,
@@ -118,6 +118,16 @@ export function MemoComments({
   });
 
   const comments = commentsQuery.data?.comments ?? [];
+  // Arriving through "#comments" (a card's comment count, a notification)
+  // lands on the thread once it has loaded, not on the top of the memo.
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const scrolledRef = useRef(false);
+  useEffect(() => {
+    if (scrolledRef.current || !commentsQuery.data) return;
+    if (window.location.hash !== "#comments") return;
+    scrolledRef.current = true;
+    sectionRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [commentsQuery.data]);
   const submit = () => {
     const content = draft.trim();
     if (!content || createMutation.isPending) return;
@@ -128,6 +138,7 @@ export function MemoComments({
     <section
       className="flex flex-col gap-1 border-t border-border/60 pt-4"
       id="comments"
+      ref={sectionRef}
     >
       <h2 className="flex items-center gap-1.5 text-sm font-medium">
         <MessageCircleIcon className="size-4 text-muted-foreground" />

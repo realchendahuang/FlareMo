@@ -1268,6 +1268,7 @@ const messages = {
   "review.writeTodayMemo": "Escribir la nota de hoy",
   "review.writeFirstMemo": "Escribir la primera nota",
   "common.scrollToTop": "Volver arriba",
+  "composer.mention": "Mencionar a alguien",
   "common.more": "Más",
   "article.publishedOn": "Publicado el {date}",
   "article.editedOn": "Editado el {date}",

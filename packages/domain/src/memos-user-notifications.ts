@@ -1,4 +1,6 @@
 import {
+  authMembers,
+  authOrganizations,
   authUserLinks,
   authUsers,
   type FlareMoDb,
@@ -9,10 +11,16 @@ import {
   users,
 } from "@flaremo/db";
 import { and, desc, eq, inArray, lt, notInArray, or } from "drizzle-orm";
+import { isMembershipActive } from "./auth";
 import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
 import { parseUserChildResourceName } from "./memos-user-shared";
-import { canReadMemo } from "./team-permissions";
+import {
+  canReadMemo,
+  type TeamRole,
+  type TeamViewer,
+} from "./team-permissions";
+import { DEFAULT_TEAM_SLUG } from "./users";
 
 const MAX_NOTIFICATION_PAGE_SIZE = 1_000;
 
@@ -308,7 +316,7 @@ export async function findMentionedUsers(
   db: FlareMoDb,
   content: string,
   excludedUserIds: string[] = [],
-): Promise<UserRow[]> {
+): Promise<TeamViewer[]> {
   const usernames = [
     ...new Set(
       [
@@ -327,10 +335,30 @@ export async function findMentionedUsers(
   for (let offset = 0; offset < usernames.length; offset += 90) {
     rows.push(
       ...(await db
-        .select({ user: users, username: authUsers.username })
+        .select({
+          user: users,
+          username: authUsers.username,
+          role: authMembers.role,
+          expiresAt: authMembers.expiresAt,
+          organizationId: authOrganizations.id,
+        })
         .from(authUsers)
         .innerJoin(authUserLinks, eq(authUserLinks.authUserId, authUsers.id))
         .innerJoin(users, eq(users.id, authUserLinks.flaremoUserId))
+        // The team membership travels with the user: the caller checks read
+        // access on a team memo, and a bare user row reads as "not a member",
+        // which silently dropped every team mention.
+        .leftJoin(
+          authOrganizations,
+          eq(authOrganizations.slug, DEFAULT_TEAM_SLUG),
+        )
+        .leftJoin(
+          authMembers,
+          and(
+            eq(authMembers.userId, authUsers.id),
+            eq(authMembers.organizationId, authOrganizations.id),
+          ),
+        )
         .where(
           inArray(authUsers.username, usernames.slice(offset, offset + 90)),
         )),
@@ -342,7 +370,13 @@ export async function findMentionedUsers(
     if (!row.username || excludedUserIds.includes(row.user.id)) continue;
     if (seen.has(row.user.id)) continue;
     seen.add(row.user.id);
-    result.push(row.user);
+    const role = (row.role ?? null) as TeamRole | null;
+    const active = role && isMembershipActive(role, row.expiresAt ?? null);
+    result.push({
+      ...row.user,
+      teamRole: active ? role : null,
+      teamOrganizationId: active ? (row.organizationId ?? null) : null,
+    });
   }
   return result;
 }
@@ -599,4 +633,48 @@ function normalizeNotificationUpdateMask(value: string[] | undefined) {
       );
     return normalized;
   });
+}
+
+/**
+ * The people a team member can @mention: active members of the deployment
+ * team, as username and display name only (never emails). Empty for a
+ * viewer outside the team, since a mention can only reach someone who reads
+ * the same team space.
+ */
+export async function listMentionableTeamMembers(
+  db: FlareMoDb,
+  viewer: TeamViewer,
+): Promise<{ username: string; displayName: string }[]> {
+  if (!viewer.teamRole) return [];
+  const rows = await db
+    .select({
+      userId: users.id,
+      username: authUsers.username,
+      name: authUsers.name,
+      role: authMembers.role,
+      expiresAt: authMembers.expiresAt,
+    })
+    .from(authMembers)
+    .innerJoin(
+      authOrganizations,
+      and(
+        eq(authOrganizations.id, authMembers.organizationId),
+        eq(authOrganizations.slug, DEFAULT_TEAM_SLUG),
+      ),
+    )
+    .innerJoin(authUsers, eq(authUsers.id, authMembers.userId))
+    .innerJoin(authUserLinks, eq(authUserLinks.authUserId, authUsers.id))
+    .innerJoin(users, eq(users.id, authUserLinks.flaremoUserId));
+  return rows
+    .filter(
+      (row) =>
+        row.username &&
+        row.userId !== viewer.id &&
+        isMembershipActive(row.role as TeamRole, row.expiresAt ?? null),
+    )
+    .map((row) => ({
+      username: row.username as string,
+      displayName: row.name || (row.username as string),
+    }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }

@@ -1253,6 +1253,7 @@ const messages = {
   "review.writeTodayMemo": "今日の記録を書く",
   "review.writeFirstMemo": "最初の記録を書く",
   "common.scrollToTop": "トップに戻る",
+  "composer.mention": "メンバーをメンション",
   "common.more": "その他",
   "article.publishedOn": "{date} 公開",
   "article.editedOn": "{date} 編集",

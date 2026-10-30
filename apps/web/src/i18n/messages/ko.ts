@@ -1244,6 +1244,7 @@ const messages = {
   "review.writeTodayMemo": "오늘의 기록 작성",
   "review.writeFirstMemo": "첫 번째 기록 작성",
   "common.scrollToTop": "맨 위로 이동",
+  "composer.mention": "멤버 언급",
   "common.more": "더 보기",
   "article.publishedOn": "{date} 게시",
   "article.editedOn": "{date} 편집",

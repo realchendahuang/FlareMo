@@ -1166,6 +1166,7 @@ const messages = {
   "review.writeTodayMemo": "写下今日记录",
   "review.writeFirstMemo": "写下第一条记录",
   "common.scrollToTop": "回到顶部",
+  "composer.mention": "提到成员",
   "common.more": "更多",
   "article.publishedOn": "{date} 发布",
   "article.editedOn": "{date} 编辑",

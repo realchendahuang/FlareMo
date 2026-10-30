@@ -1283,6 +1283,7 @@ const messages = {
   "review.writeTodayMemo": "Écrire la note du jour",
   "review.writeFirstMemo": "Écrire votre première note",
   "common.scrollToTop": "Retour en haut",
+  "composer.mention": "Mentionner un membre",
   "common.more": "Plus",
   "article.publishedOn": "Publié le {date}",
   "article.editedOn": "Modifié le {date}",

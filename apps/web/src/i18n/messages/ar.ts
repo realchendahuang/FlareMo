@@ -1220,6 +1220,7 @@ const messages = {
   "review.writeTodayMemo": "كتابة ملاحظة اليوم",
   "review.writeFirstMemo": "كتابة أول ملاحظة",
   "common.scrollToTop": "العودة إلى الأعلى",
+  "composer.mention": "اذكر عضوًا",
   "common.more": "المزيد",
   "article.publishedOn": "نُشر {date}",
   "article.editedOn": "عُدّل {date}",

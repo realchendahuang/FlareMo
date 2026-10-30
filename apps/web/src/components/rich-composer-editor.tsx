@@ -11,6 +11,7 @@ import { TagHighlight } from "@/components/tag-highlight-extension";
 import { UploadPlaceholder } from "@/components/upload-placeholder-extension";
 import { focusEditorOnNextFrame } from "@/lib/editor-autofocus";
 import { extractImageFiles } from "@/lib/image-insert";
+import { extractActiveMentionToken } from "@/lib/mention-autocomplete";
 import { extractActiveTagToken } from "@/lib/tag-autocomplete";
 import { extractActiveWikiLinkToken } from "@/lib/wikilink-autocomplete";
 
@@ -57,6 +58,8 @@ export type RichComposerEditorProps = {
    * picked tag. Emitted once per token change (including → null).
    */
   onTagTokenChange?: (token: { from: number; text: string } | null) => void;
+  /** The in-progress "@name" under the caret, for the mention autocomplete. */
+  onMentionTokenChange?: (token: { from: number; text: string } | null) => void;
   /**
    * The in-progress "[[" under the caret, if any. `from` is the ProseMirror
    * position of the leading "[[".
@@ -116,6 +119,7 @@ export function RichComposerEditor({
   onImageFiles,
   onSubmitRequest,
   onTagTokenChange,
+  onMentionTokenChange,
   onWikiLinkTokenChange,
   onSuggestionKeyDown,
   onEscape,
@@ -143,6 +147,9 @@ export function RichComposerEditor({
   const onTagTokenChangeRef = useRef(onTagTokenChange);
   onTagTokenChangeRef.current = onTagTokenChange;
   const lastTagTokenRef = useRef<string | null>(null);
+  const onMentionTokenChangeRef = useRef(onMentionTokenChange);
+  onMentionTokenChangeRef.current = onMentionTokenChange;
+  const lastMentionTokenRef = useRef<string | null>(null);
   const onWikiLinkTokenChangeRef = useRef(onWikiLinkTokenChange);
   onWikiLinkTokenChangeRef.current = onWikiLinkTokenChange;
   const lastWikiTokenRef = useRef<string | null>(null);
@@ -255,6 +262,30 @@ export function RichComposerEditor({
         if (key !== lastTagTokenRef.current) {
           lastTagTokenRef.current = key;
           onTagTokenChangeRef.current(token);
+        }
+      }
+
+      if (onMentionTokenChangeRef.current) {
+        let mention: { from: number; text: string } | null = null;
+        if ($from.parent.inlineContent && $from.parentOffset > 0) {
+          const before = $from.parent.textBetween(
+            0,
+            $from.parentOffset,
+            undefined,
+            "\ufffc",
+          );
+          const active = extractActiveMentionToken(before, before.length);
+          if (active) {
+            mention = {
+              from: $from.start() + active.start,
+              text: active.token,
+            };
+          }
+        }
+        const key = mention ? `${mention.from}:${mention.text}` : null;
+        if (key !== lastMentionTokenRef.current) {
+          lastMentionTokenRef.current = key;
+          onMentionTokenChangeRef.current(mention);
         }
       }
 

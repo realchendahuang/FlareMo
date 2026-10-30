@@ -68,7 +68,8 @@ export const MemoryCard = memo(function MemoryCard({
     <article
       data-memory-id={memory.id}
       className={cn(
-        "group relative flex w-full flex-col gap-2 rounded-xl border border-border/50 bg-card/60 px-3.5 py-4 text-card-foreground [content-visibility:auto] motion-safe:animate-rise motion-safe:transition-[background-color,border-color,transform,box-shadow] motion-safe:duration-150 hover:border-border hover:bg-card hover:shadow-xs motion-safe:hover:-translate-y-px",
+        // Same paper as a memo card: a memory is a note the AI keeps for you.
+        "paper group relative flex w-full flex-col gap-2 rounded-xl border border-border/60 bg-card px-4 py-3.5 text-card-foreground shadow-xs [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:animate-rise motion-safe:transition-[border-color,box-shadow] motion-safe:duration-150 hover:border-border hover:shadow-sm sm:px-5 sm:py-4",
       )}
     >
       {/* Header row: Timestamp & scope on left, Status badges + ⋯ menu on right */}
@@ -89,7 +90,7 @@ export const MemoryCard = memo(function MemoryCard({
               onClick={() => {
                 if (memory.scope_key) onSelectProject?.(memory.scope_key);
               }}
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer truncate max-w-[180px]"
+              className="inline-flex max-w-[180px] cursor-pointer items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-xs text-muted-foreground motion-safe:transition-colors hover:bg-muted hover:text-foreground"
               title={memory.scope_key}
             >
               <FolderIcon className="size-3 shrink-0" />

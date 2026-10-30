@@ -1,7 +1,7 @@
 import type { CreateMemoInput, UpdateMemoInput } from "@flaremo/contracts";
 import type { FlareMoDb, MemoRow } from "@flaremo/db";
-import { memoRevisions, memos, memoTags } from "@flaremo/db";
-import { and, eq } from "drizzle-orm";
+import { memoRelations, memoRevisions, memos, memoTags } from "@flaremo/db";
+import { and, eq, inArray } from "drizzle-orm";
 import { insertEmbeddingTask } from "./embedding-outbox";
 import { ConflictError, ForbiddenError } from "./errors";
 import { createResourceId } from "./ids";
@@ -450,6 +450,29 @@ export async function updateMemo(
   }
 
   void pruneMemoRevisions(db, id).catch(() => undefined);
+
+  // A thread follows its memo: moving a memo between personal and team takes
+  // its comments with it, so they stay readable exactly where the memo is.
+  if (visibilityChanged) {
+    await db
+      .update(memos)
+      .set({ visibility: nextVisibility, teamId: nextTeamId, updatedAt: now })
+      .where(
+        inArray(
+          memos.id,
+          db
+            .select({ id: memoRelations.memoId })
+            .from(memoRelations)
+            .where(
+              and(
+                eq(memoRelations.relatedMemoId, existing.id),
+                eq(memoRelations.type, "comment"),
+              ),
+            ),
+        ),
+      )
+      .catch(() => undefined);
+  }
 
   // Ticking a to-do line in the memo moves the task scheduled from it. The
   // memo write already landed; a failed follow-up leaves the task as it was.

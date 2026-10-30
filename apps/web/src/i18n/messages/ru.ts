@@ -1262,6 +1262,7 @@ const messages = {
   "review.writeTodayMemo": "Записать заметку за сегодня",
   "review.writeFirstMemo": "Создать первую заметку",
   "common.scrollToTop": "Наверх",
+  "composer.mention": "Упомянуть участника",
   "common.more": "Ещё",
   "article.publishedOn": "Опубликовано {date}",
   "article.editedOn": "Изменено {date}",

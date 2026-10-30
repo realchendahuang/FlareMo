@@ -237,3 +237,10 @@ export async function createMemoComment(
     body: JSON.stringify(input),
   });
 }
+
+/** People who can be @mentioned: active team members, without emails. */
+export async function listMentionableUsers() {
+  return apiRequest<{
+    members: { username: string; displayName: string }[];
+  }>("/api/app/team/members");
+}

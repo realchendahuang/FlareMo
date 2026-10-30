@@ -6,6 +6,7 @@ import { ComposerFileChips } from "@/components/composer/composer-file-chips";
 import { ComposerFocusCanvas } from "@/components/composer/composer-focus-canvas-lazy";
 import { ComposerScheduleChip } from "@/components/composer/composer-schedule-menu";
 import {
+  ComposerMentionSuggestions,
   ComposerTagSuggestions,
   ComposerWikiSuggestions,
 } from "@/components/composer/composer-suggestion-lists";
@@ -151,11 +152,17 @@ export function MemoComposer({
     wikiSuggestions,
     showWikiSuggestions,
     acceptWikiSuggestion,
+    setActiveMentionToken,
+    mentionSuggestions,
+    showMentionSuggestions,
+    acceptMentionSuggestion,
   } = useComposerSuggestions({
     editorRef,
     containerRef: formRef,
     isPending,
     tags,
+    // Mentions only reach someone in a shared space.
+    mentions: showVisibility,
   });
 
   const { capture, captureController, voiceActive, now } = useComposerVoice({
@@ -214,6 +221,9 @@ export function MemoComposer({
           onImageFiles={enqueueInlineUploads}
           onTagTokenChange={tags ? setActiveTagToken : undefined}
           onWikiLinkTokenChange={setActiveWikiToken}
+          onMentionTokenChange={
+            showVisibility ? setActiveMentionToken : undefined
+          }
           onSuggestionKeyDown={handleSuggestionKeyDown}
           onTransaction={syncActiveFormats}
           formatMenu="note"
@@ -237,6 +247,14 @@ export function MemoComposer({
         activeIndex={suggestionIndex}
         anchor={suggestionAnchor}
         onAccept={acceptTagSuggestion}
+        onHighlight={setSuggestionIndex}
+      />
+      <ComposerMentionSuggestions
+        visible={showMentionSuggestions}
+        suggestions={mentionSuggestions}
+        activeIndex={suggestionIndex}
+        anchor={suggestionAnchor}
+        onAccept={acceptMentionSuggestion}
         onHighlight={setSuggestionIndex}
       />
       <ComposerWikiSuggestions

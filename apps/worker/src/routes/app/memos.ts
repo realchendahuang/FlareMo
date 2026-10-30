@@ -23,6 +23,7 @@ import {
   listAttachmentsForMemos,
   listMemoComments,
   listMemos,
+  listMentionableTeamMembers,
   listTagHierarchy,
   listUserNotifications,
   moveMemoToTrash,
@@ -47,6 +48,10 @@ function appNotificationToDto(notification: UserNotificationDto) {
     type: notification.type,
     status: notification.status,
     memo: notification.memo,
+    // The memo a comment or a comment mention belongs under.
+    related_memo: notification.relatedMemo ?? null,
+    // Who acted: the commenter or the person who mentioned you.
+    sender_name: notification.senderUser.name,
     memo_snippet: notification.memoSnippet,
     create_time: notification.createTime,
   };
@@ -125,6 +130,15 @@ export function registerMemoListRoutes(app: Hono<HonoBindings>) {
 }
 
 export function registerMemoCrudRoutes(app: Hono<HonoBindings>) {
+  // Who can be @mentioned: active team members, without emails.
+  app.get("/team/members", async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      return c.json({ members: await listMentionableTeamMembers(db, user) });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  });
   // Comments, oldest first: a thread reads top to bottom. Each comment is a
   // memo linked to its parent; the timeline never lists them on their own.
   app.get("/memos/:id/comments", async (c) => {

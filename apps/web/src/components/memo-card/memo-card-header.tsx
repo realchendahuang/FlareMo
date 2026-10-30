@@ -70,10 +70,19 @@ export function MemoCardHeader({
           params={{ memoId: memo.id }}
           to="/memo/$memoId"
         >
+          {/* In a shared space the author comes first, the way a post
+              reads ("Kim · 3 分钟前"); a personal note has no audience
+              besides its author, so the name is noise there. */}
+          {memo.visibility !== "private" && memo.creator_name && (
+            <span className="shrink-0 font-medium text-foreground/80">
+              {memo.creator_name}
+              <span className="ms-2 font-normal text-muted-foreground">·</span>
+            </span>
+          )}
           {/* flomo's header rule: identity only, no placeholders. The
               timestamp is the sole anchor; hovering swaps relative for the
               absolute instant, so both facts live in one pixel row. */}
-          <span className="inline-grid [grid-template-areas:'stack'] items-center truncate">
+          <span className="inline-grid [grid-template-areas:'stack'] items-center justify-items-start truncate">
             <span className="[grid-area:stack] transition-opacity duration-150 group-hover:opacity-0 pointer-events-none">
               {formatMemoRelativeTime(memo.display_time, locale)}
             </span>
@@ -81,11 +90,6 @@ export function MemoCardHeader({
               {formatMemoTime(memo.display_time, locale)}
             </span>
           </span>
-          {/* Author belongs to the shared spaces: a personal note has no
-              audience besides its author, so the name is noise there. */}
-          {memo.visibility !== "private" && memo.creator_name && (
-            <span>· {memo.creator_name}</span>
-          )}
         </Link>
         <div className="flex shrink-0 items-center gap-1">
           {memo.pinned && memo.state === "normal" && (

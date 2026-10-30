@@ -304,7 +304,10 @@ export async function getMembershipState(
  * role is open-ended. Shared by the single-query viewer resolution and the
  * standalone membership lookup so the two can never disagree.
  */
-function isMembershipActive(role: TeamRole, expiresAt: Date | null): boolean {
+export function isMembershipActive(
+  role: TeamRole,
+  expiresAt: Date | null,
+): boolean {
   if (role === "reader" && expiresAt) {
     return expiresAt.getTime() > Date.now();
   }
