@@ -430,6 +430,7 @@ export function CapturePage() {
                     {canManageVoiceService ? (
                       <Link
                         className="underline underline-offset-4 hover:text-foreground"
+                        search={{ section: "voice" }}
                         to="/account"
                       >
                         {t("capture.unavailableOwnerLink")}

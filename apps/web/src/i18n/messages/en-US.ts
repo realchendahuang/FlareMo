@@ -193,7 +193,7 @@ const messages = {
   "capture.unavailable":
     "Transcription is not configured or is temporarily unavailable. Try again later.",
   "capture.unavailableOwnerLink":
-    "Go to Account → Voice recognition settings to enable it.",
+    "Go to Settings → Voice service to enable it.",
   "capture.unavailableMember":
     "Please ask the instance owner to enable voice recognition from the account page.",
   "capture.wakeLockFailed":
@@ -1242,6 +1242,8 @@ const messages = {
   "review.writeTodayMemo": "Write today's note",
   "review.writeFirstMemo": "Write your first note",
   "common.scrollToTop": "Scroll to top",
+  "voiceSettings.credentials": "Credentials",
+  "voiceSettings.testAction": "Test",
   "composer.mention": "Mention someone",
   "common.more": "More",
   "article.publishedOn": "Published {date}",

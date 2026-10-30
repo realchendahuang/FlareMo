@@ -7,7 +7,7 @@
  * `account/use-account-settings-mutations`.
  */
 
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -31,9 +31,11 @@ import { useAccountPageState } from "./account/use-account-page-state";
 export function AccountSettingsDialog({
   open,
   onClose,
+  initialSection,
 }: {
   open: boolean;
   onClose: () => void;
+  initialSection?: string;
 }) {
   const {
     accountPanel,
@@ -54,7 +56,7 @@ export function AccountSettingsDialog({
     showVoiceSettings,
     t,
     vectorUsageQuery,
-  } = useAccountPageState({ open });
+  } = useAccountPageState({ open, initialSection });
   const popupRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -400,8 +402,10 @@ export function AccountSettingsDialog({
 
 export function AccountPage() {
   const navigate = useNavigate({ from: "/account" });
+  const { section } = useSearch({ from: "/account" });
   return (
     <AccountSettingsDialog
+      initialSection={section}
       open
       onClose={() =>
         void navigate({

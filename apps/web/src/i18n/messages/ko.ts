@@ -194,7 +194,7 @@ const messages = {
   "capture.unavailable":
     "전사 기능이 설정되지 않았거나 일시적으로 사용할 수 없습니다. 나중에 다시 시도해 주세요.",
   "capture.unavailableOwnerLink":
-    "「계정 → 음성 인식 설정」에서 활성화할 수 있습니다.",
+    "「설정 → 음성 서비스」에서 활성화할 수 있습니다.",
   "capture.unavailableMember":
     "인스턴스 소유자에게 음성 인식 활성화를 요청해 주세요.",
   "capture.wakeLockFailed":
@@ -1244,6 +1244,8 @@ const messages = {
   "review.writeTodayMemo": "오늘의 기록 작성",
   "review.writeFirstMemo": "첫 번째 기록 작성",
   "common.scrollToTop": "맨 위로 이동",
+  "voiceSettings.credentials": "자격 증명",
+  "voiceSettings.testAction": "테스트",
   "composer.mention": "멤버 언급",
   "common.more": "더 보기",
   "article.publishedOn": "{date} 게시",

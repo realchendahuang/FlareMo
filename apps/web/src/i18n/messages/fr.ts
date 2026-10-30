@@ -197,7 +197,7 @@ const messages = {
   "capture.unavailable":
     "La transcription n'est pas configurée ou momentanément indisponible. Réessayez plus tard.",
   "capture.unavailableOwnerLink":
-    "Activez-la dans « Compte → Paramètres de reconnaissance vocale ».",
+    "Activez-la dans « Réglages → Service vocal ».",
   "capture.unavailableMember":
     "Veuillez demander au propriétaire de l'instance d'activer la reconnaissance vocale.",
   "capture.wakeLockFailed":
@@ -1283,6 +1283,8 @@ const messages = {
   "review.writeTodayMemo": "Écrire la note du jour",
   "review.writeFirstMemo": "Écrire votre première note",
   "common.scrollToTop": "Retour en haut",
+  "voiceSettings.credentials": "Identifiants",
+  "voiceSettings.testAction": "Tester",
   "composer.mention": "Mentionner un membre",
   "common.more": "Plus",
   "article.publishedOn": "Publié le {date}",

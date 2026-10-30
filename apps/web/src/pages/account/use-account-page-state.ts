@@ -28,7 +28,13 @@ import { useAccountSettingsMutations } from "./use-account-settings-mutations";
  * assembled `accountPanel` prop bundle. `open` gates every query so a closed
  * dialog costs nothing.
  */
-export function useAccountPageState({ open }: { open: boolean }) {
+export function useAccountPageState({
+  open,
+  initialSection,
+}: {
+  open: boolean;
+  initialSection?: string;
+}) {
   const { locale, t } = useI18n();
   const queryClient = useQueryClient();
   const session = authClient.useSession();
@@ -249,6 +255,17 @@ export function useAccountPageState({ open }: { open: boolean }) {
   const allItems = navGroups.flatMap((group) => group.items);
   const activeSection = allItems.find((item) => item.id === section);
   const activeLabel = activeSection?.label ?? t("settings.group.account");
+
+  // A deep link's section applies once it is actually visible to this viewer
+  // (voice/admin entries appear only after `meQuery` resolves).
+  const initialSectionVisible = allItems.some(
+    (item) => item.id === initialSection,
+  );
+  useEffect(() => {
+    if (!open || !initialSection || !initialSectionVisible) return;
+    setSection(initialSection as SettingsSection);
+    setMobileView("detail");
+  }, [open, initialSection, initialSectionVisible]);
 
   const accountPanel: AccountPanelProps = {
     currentAvatarUrl:

@@ -256,7 +256,7 @@ export function VoicePanel() {
           }
         />
         <SettingsRow
-          label={t("voiceSettings.configured")}
+          label={t("voiceSettings.credentials")}
           value={
             envManaged
               ? t("settings.status.envManaged")
@@ -294,7 +294,7 @@ export function VoicePanel() {
                   data-icon="inline-start"
                 />
               )}
-              {t("voiceSettings.test")}
+              {t("voiceSettings.testAction")}
             </Button>
           }
         />

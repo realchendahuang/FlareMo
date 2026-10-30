@@ -176,7 +176,7 @@ const messages = {
   "capture.interrupted":
     "录音已中断并关闭麦克风。请检查已识别的文字，末尾可能不完整。",
   "capture.unavailable": "语音识别尚未配置或服务暂时不可用，请稍后重试。",
-  "capture.unavailableOwnerLink": "前往「账户 → 语音识别设置」开启",
+  "capture.unavailableOwnerLink": "前往「设置 → 语音服务」开启",
   "capture.unavailableMember": "请联系实例所有者在账户页开启语音识别。",
   "capture.wakeLockFailed": "屏幕保持唤醒失败，锁屏可能中断录音。",
   "capture.connectionFailed":
@@ -1166,6 +1166,8 @@ const messages = {
   "review.writeTodayMemo": "写下今日记录",
   "review.writeFirstMemo": "写下第一条记录",
   "common.scrollToTop": "回到顶部",
+  "voiceSettings.credentials": "凭据",
+  "voiceSettings.testAction": "测试",
   "composer.mention": "提到成员",
   "common.more": "更多",
   "article.publishedOn": "{date} 发布",

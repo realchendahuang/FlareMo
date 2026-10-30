@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { FlareMoLogo } from "@/components/flaremo-logo";
-import { InfoTip } from "@/components/info-tip";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import {
   Card,
@@ -56,9 +55,8 @@ export function AuthPageFrame({
               {title}
             </CardTitle>
             {description ? (
-              <CardDescription className="flex items-start gap-1.5">
-                <InfoTip text={description} />
-                <span className="sr-only">{description}</span>
+              <CardDescription className="text-sm leading-6 text-pretty">
+                {description}
               </CardDescription>
             ) : null}
           </CardHeader>

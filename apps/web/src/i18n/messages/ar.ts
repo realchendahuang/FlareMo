@@ -189,8 +189,7 @@ const messages = {
     "انقطع التسجيل وأُوقف الميكروفون. راجع النص الملتقط؛ قد يكون النهاية غير مكتملة.",
   "capture.unavailable":
     "التفريغ النصي غير مُهيأ أو غير متاح مؤقتًا. أعد المحاولة لاحقًا.",
-  "capture.unavailableOwnerLink":
-    "يمكن تفعيلها من «الحساب → إعدادات التعرف على الصوت».",
+  "capture.unavailableOwnerLink": "يمكن تفعيلها من «الإعدادات ← خدمة الصوت».",
   "capture.unavailableMember":
     "يرجى طلب تفعيل التعرف على الصوت من مالك المثيل.",
   "capture.wakeLockFailed":
@@ -1220,6 +1219,8 @@ const messages = {
   "review.writeTodayMemo": "كتابة ملاحظة اليوم",
   "review.writeFirstMemo": "كتابة أول ملاحظة",
   "common.scrollToTop": "العودة إلى الأعلى",
+  "voiceSettings.credentials": "بيانات الاعتماد",
+  "voiceSettings.testAction": "اختبار",
   "composer.mention": "اذكر عضوًا",
   "common.more": "المزيد",
   "article.publishedOn": "نُشر {date}",

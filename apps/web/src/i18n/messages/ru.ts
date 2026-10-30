@@ -195,7 +195,7 @@ const messages = {
   "capture.unavailable":
     "Распознавание не настроено или временно недоступно. Попробуйте позже.",
   "capture.unavailableOwnerLink":
-    "Включите её в разделе «Аккаунт → Настройки распознавания речи».",
+    "Включите её в разделе «Настройки → Голосовой сервис».",
   "capture.unavailableMember":
     "Попросите владельца экземпляра включить распознавание речи.",
   "capture.wakeLockFailed":
@@ -1262,6 +1262,8 @@ const messages = {
   "review.writeTodayMemo": "Записать заметку за сегодня",
   "review.writeFirstMemo": "Создать первую заметку",
   "common.scrollToTop": "Наверх",
+  "voiceSettings.credentials": "Учётные данные",
+  "voiceSettings.testAction": "Проверить",
   "composer.mention": "Упомянуть участника",
   "common.more": "Ещё",
   "article.publishedOn": "Опубликовано {date}",

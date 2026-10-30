@@ -131,6 +131,9 @@ describe("Article page (standalone SEO HTML)", () => {
     );
     // Title from the article's own field, not body truncation.
     expect(html).toContain("<title>我的第一篇中文文章</title>");
+    // The title field is the visible page heading too (the editor keeps it
+    // outside the body).
+    expect(html).toContain('<h1 class="article-title">我的第一篇中文文章</h1>');
     expect(html).toContain('content="index, follow"');
     expect(html).toContain('<meta property="og:type" content="article" />');
     expect(html).toContain(

@@ -330,6 +330,16 @@ export function renderArticleDocument(input: ArticleMetaInput): string {
     { async: false },
   );
   const galleryHtml = renderUnreferencedAttachments(data);
+  // The editor keeps the title in its own field; render it as the page
+  // heading unless the body already opens with that same `# Title`.
+  const title = article.title.trim();
+  const leadingHeading = /^\s*#\s+(.+?)\s*#*\s*$/m.exec(
+    content.trimStart().split("\n", 1)[0] ?? "",
+  )?.[1];
+  const titleHtml =
+    title && leadingHeading?.trim() !== title
+      ? `<h1 class="article-title">${escapeHtml(title)}</h1>`
+      : "";
   const publishedAt = article.publishedAt ?? article.createdAt;
   const publishedDate = utcDate(publishedAt);
   const modifiedDate = utcDate(article.updatedAt);
@@ -359,6 +369,7 @@ export function renderArticleDocument(input: ArticleMetaInput): string {
           <a href="${escapeHtml(origin)}/"><span class="seal" aria-hidden="true"></span>${escapeHtml(product)}</a>
           <time class="postmark" datetime="${escapeHtml(publishedAt)}">${escapeHtml(paperPostmark(publishedAt))}</time>
         </header>
+        ${titleHtml}
         <article data-flaremo-article>${bodyHtml}</article>
         ${galleryHtml ? `<section class="gallery">${galleryHtml}</section>` : ""}
         <footer lang="zh-CN">

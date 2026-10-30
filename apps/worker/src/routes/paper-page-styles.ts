@@ -136,6 +136,15 @@ article h1, article h2, article h3, article h4, article h5, article h6 {
   text-wrap: balance;
 }
 article h1 { font-size: 1.85rem; margin-top: 0; }
+.article-title {
+  font-size: 1.85rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  margin: 0 0 1.2em;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
 article h2 { font-size: 1.35rem; }
 article h3 { font-size: 1.12rem; }
 article p { margin: 0 0 1.05em; text-wrap: pretty; }

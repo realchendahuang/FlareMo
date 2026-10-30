@@ -191,8 +191,7 @@ const messages = {
     "録音が中断され、マイクをオフにしました。取り込めたテキストを確認してください。末尾が不完全な可能性があります。",
   "capture.unavailable":
     "文字起こしは未設定か、一時的に利用できません。しばらくしてから再試行してください。",
-  "capture.unavailableOwnerLink":
-    "「アカウント → 音声認識設定」で有効にできます。",
+  "capture.unavailableOwnerLink": "「設定 → 音声サービス」で有効にできます。",
   "capture.unavailableMember":
     "インスタンスのオーナーに音声認識の有効化を依頼してください。",
   "capture.wakeLockFailed":
@@ -1253,6 +1252,8 @@ const messages = {
   "review.writeTodayMemo": "今日の記録を書く",
   "review.writeFirstMemo": "最初の記録を書く",
   "common.scrollToTop": "トップに戻る",
+  "voiceSettings.credentials": "認証情報",
+  "voiceSettings.testAction": "テスト",
   "composer.mention": "メンバーをメンション",
   "common.more": "その他",
   "article.publishedOn": "{date} 公開",

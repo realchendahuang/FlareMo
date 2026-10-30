@@ -196,8 +196,7 @@ const messages = {
     "La grabación se interrumpió y el micrófono está apagado. Revisa el texto capturado; el final podría estar incompleto.",
   "capture.unavailable":
     "La transcripción no está configurada o no está disponible temporalmente. Inténtalo más tarde.",
-  "capture.unavailableOwnerLink":
-    "Actívala en «Cuenta → Ajustes de reconocimiento de voz».",
+  "capture.unavailableOwnerLink": "Actívala en «Ajustes → Servicio de voz».",
   "capture.unavailableMember":
     "Pide al propietario de la instancia que active el reconocimiento de voz.",
   "capture.wakeLockFailed":
@@ -1268,6 +1267,8 @@ const messages = {
   "review.writeTodayMemo": "Escribir la nota de hoy",
   "review.writeFirstMemo": "Escribir la primera nota",
   "common.scrollToTop": "Volver arriba",
+  "voiceSettings.credentials": "Credenciales",
+  "voiceSettings.testAction": "Probar",
   "composer.mention": "Mencionar a alguien",
   "common.more": "Más",
   "article.publishedOn": "Publicado el {date}",

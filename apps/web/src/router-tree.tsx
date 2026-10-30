@@ -330,6 +330,11 @@ const accountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/account",
   component: AccountRoutePage,
+  // Deep links (e.g. the capture page's "enable voice" hint) can open a
+  // specific settings section.
+  validateSearch: (search: Record<string, unknown>): { section?: string } => ({
+    section: typeof search.section === "string" ? search.section : undefined,
+  }),
 });
 
 function DailyReviewRoutePage() {
