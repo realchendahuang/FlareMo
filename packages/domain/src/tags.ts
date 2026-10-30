@@ -6,6 +6,7 @@ import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { insertEmbeddingTask } from "./embedding-outbox";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
+import { notComment } from "./memo-comment-filter";
 import { insertMemosSseEvent } from "./memos-sse";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
 import { scopedReadScope, type TeamViewer } from "./team-permissions";
@@ -122,10 +123,13 @@ export async function listTagHierarchy(
     ? and(
         scopedReadScope(user, options.space),
         inArray(memos.status, ["normal", "archived"]),
+        notComment(),
       )
     : and(
         eq(memoTags.userId, user.id),
         inArray(memos.status, ["normal", "archived"]),
+        // A tag inside a comment does not file the comment as a note.
+        notComment(),
       );
 
   // Leaf counts come from one aggregation: D1 reads the covering index

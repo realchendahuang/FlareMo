@@ -2,6 +2,7 @@ import type { CalendarView, HourlyActivityResponse } from "@flaremo/contracts";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { memos, tasks } from "@flaremo/db";
 import { and, asc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { notComment } from "./memo-comment-filter";
 import { nextDayKey, taskToDto } from "./tasks";
 
 // The calendar is a presentation of data that already has a home: notes keep
@@ -45,6 +46,7 @@ export async function getCalendarView(
           inArray(memos.status, ["normal", "archived"]),
           gte(memos.createdAt, startUtc.toISOString()),
           lt(memos.createdAt, endUtc.toISOString()),
+          notComment(),
         ),
       )
       .groupBy(
@@ -66,6 +68,7 @@ export async function getCalendarView(
           inArray(memos.status, ["normal", "archived"]),
           gte(memos.createdAt, startUtc.toISOString()),
           lt(memos.createdAt, endUtc.toISOString()),
+          notComment(),
           sql`(
             json_extract(${memos.payload}, '$.property.has_incomplete_tasks') = 1
             OR (
@@ -152,6 +155,7 @@ export async function getHourlyActivity(
         inArray(memos.status, ["normal", "archived"]),
         gte(memos.createdAt, startUtc.toISOString()),
         lt(memos.createdAt, endUtc.toISOString()),
+        notComment(),
       ),
     )
     .groupBy(

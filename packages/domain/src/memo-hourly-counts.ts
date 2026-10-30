@@ -17,6 +17,7 @@
  */
 import { type FlareMoDb, memoHourlyCounts, memos } from "@flaremo/db";
 import { and, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
+import { notComment } from "./memo-comment-filter";
 
 /**
  * Rows per bulk-insert statement in the recalibration.
@@ -378,10 +379,12 @@ async function rebuildHourlyCounts(
         ),
     })
     .from(memos)
+    // Comments live under their parent and are never counted (see
+    // createMemoComment); the rebuild must agree or it would re-add them.
     .where(
       scope
-        ? and(scope, isNotNull(memos.createdAt))
-        : isNotNull(memos.createdAt),
+        ? and(scope, isNotNull(memos.createdAt), notComment())
+        : and(isNotNull(memos.createdAt), notComment()),
     )
     .groupBy(memos.userId, sql`substr(${memos.createdAt}, 1, 13)`);
 

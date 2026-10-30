@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { insertEmbeddingTask } from "./embedding-outbox";
 import { ConflictError, ForbiddenError } from "./errors";
 import { createResourceId } from "./ids";
+import { isCommentMemo } from "./memo-comment-filter";
 import {
   adjustmentForMemoTransition,
   adjustmentForNewMemo,
@@ -269,6 +270,9 @@ export async function updateMemo(
           ? null
           : existing.deletedAt,
   };
+  // Comments never enter the activity counter (see createMemoComment), so
+  // their transitions must not move it either.
+  const existingIsComment = await isCommentMemo(db, existing.id);
   const webhookEventStatement = insertMemosWebhookEvent(db, {
     receiverId: existing.userId,
     activityType:
@@ -380,11 +384,13 @@ export async function updateMemo(
     // Empty unless the write actually moved a memo between status buckets,
     // authors, or UTC hours — a plain content edit produces no counter
     // statement at all, so the common case pays nothing and cannot drift.
-    ...hourlyCountStatements(
-      db,
-      adjustmentForMemoTransition(existing, nextMemo),
-      now,
-    ),
+    ...(existingIsComment
+      ? []
+      : hourlyCountStatements(
+          db,
+          adjustmentForMemoTransition(existing, nextMemo),
+          now,
+        )),
     ...notificationStatements,
   ];
   const runBatch = async (statements: unknown[]) => {

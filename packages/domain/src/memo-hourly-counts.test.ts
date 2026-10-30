@@ -5,10 +5,11 @@ import {
   memoHourlyCounts,
   memos,
 } from "@flaremo/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { importData } from "./import-export";
+import { notComment } from "./memo-comment-filter";
 import {
   adjustmentForMemoTransition,
   adjustmentForNewMemo,
@@ -85,7 +86,8 @@ async function liveTotals(userId: string) {
   const rows = await db
     .select({ status: memos.status, createdAt: memos.createdAt })
     .from(memos)
-    .where(eq(memos.userId, userId));
+    // The live oracle mirrors the product rule: comments are not records.
+    .where(and(eq(memos.userId, userId), notComment()));
   const result = {
     normal: 0,
     archived: 0,
@@ -312,15 +314,14 @@ describe("counter maintenance through the write paths", () => {
   });
 });
 
-describe("comments move the counter", () => {
-  // A comment is a `memos` row with no column of its own, so every query that
-  // counts memos counts comments too. The counter has to agree with that or
-  // the sidebar under-reports every comment until the nightly rebuild — and a
-  // comment that is then trashed or deleted debits a unit it was never
-  // credited, which the `max(0, …)` floor absorbs by eating a real memo's
-  // count instead. That failure is silent, so it is pinned here.
+describe("comments stay out of the counter", () => {
+  // A comment lives under its parent memo and is not a record of its own:
+  // the stats, heatmap and streak leave it out. Every path that could move
+  // the counter for a comment (create, trash, restore, hard delete, the
+  // nightly rebuild) must skip it, or a debit without a credit would let the
+  // `max(0, …)` floor eat a real memo's count.
 
-  it("credits a comment on creation", async () => {
+  it("does not credit a comment on creation", async () => {
     const parent = await createMemo(db, owner, {
       content: "parent",
       visibility: "private",
@@ -329,35 +330,16 @@ describe("comments move the counter", () => {
     const before = await readHourlyCountTotals(db, owner.id);
 
     await createMemoComment(db, owner, parent.id, { content: "a comment" });
-
-    const after = await readHourlyCountTotals(db, owner.id);
-    expect(after.normal).toBe(before.normal + 1);
-    expect(after).toEqual(await liveTotals(owner.id));
-  });
-
-  it("credits a comment that carries tags", async () => {
-    // The tagged branch of `createMemoComment` is a separate `db.batch`, so it
-    // can drift independently of the plain one.
-    const parent = await createMemo(db, owner, {
-      content: "parent",
-      visibility: "private",
-      source: "web",
-    });
-    const before = await readHourlyCountTotals(db, owner.id);
-
     await createMemoComment(db, owner, parent.id, {
       content: "tagged comment #insight",
     });
 
     const after = await readHourlyCountTotals(db, owner.id);
-    expect(after.normal).toBe(before.normal + 1);
+    expect(after).toEqual(before);
     expect(after).toEqual(await liveTotals(owner.id));
   });
 
-  it("keeps the parent memo's count when a comment is trashed", async () => {
-    // The regression this pins: the comment was never credited, so trashing it
-    // issued a debit against a counter that had no matching credit, and the
-    // floor silently zeroed the *parent's* count instead.
+  it("keeps the parent's count through a comment's trash and restore", async () => {
     const parent = await createMemo(db, owner, {
       content: "parent",
       visibility: "private",
@@ -368,29 +350,15 @@ describe("comments move the counter", () => {
     });
 
     await updateMemo(db, owner, comment.id, { status: "trashed" });
-
-    const totals = await readHourlyCountTotals(db, owner.id);
-    expect(totals).toEqual(await liveTotals(owner.id));
-    expect(totals.normal).toBe(1); // the parent, still there
-    expect(totals.trashed).toBe(1); // the comment
-  });
-
-  it("restores a trashed comment back into the normal count", async () => {
-    const parent = await createMemo(db, owner, {
-      content: "parent",
-      visibility: "private",
-      source: "web",
+    expect(await readHourlyCountTotals(db, owner.id)).toMatchObject({
+      normal: 1,
+      trashed: 0,
     });
-    const comment = await createMemoComment(db, owner, parent.id, {
-      content: "a comment",
-    });
-    await updateMemo(db, owner, comment.id, { status: "trashed" });
     await updateMemo(db, owner, comment.id, { status: "normal" });
 
     const totals = await readHourlyCountTotals(db, owner.id);
     expect(totals).toEqual(await liveTotals(owner.id));
-    expect(totals.normal).toBe(2);
-    expect(totals.trashed).toBe(0);
+    expect(totals).toMatchObject({ normal: 1, trashed: 0 });
   });
 
   it("removes a hard-deleted comment without disturbing the parent", async () => {
@@ -429,10 +397,10 @@ describe("comments move the counter", () => {
 
     const totals = await readHourlyCountTotals(db, owner.id);
     expect(totals).toEqual(await liveTotals(owner.id));
-    expect(totals).toMatchObject({ normal: 1, archived: 1, trashed: 1 });
+    expect(totals).toMatchObject({ normal: 1, archived: 1, trashed: 0 });
   });
 
-  it("reports the same total through getMemoStats as a live scan", async () => {
+  it("agrees with getMemoStats and with a rebuild", async () => {
     const parent = await createMemo(db, owner, {
       content: "parent",
       visibility: "private",
@@ -442,9 +410,14 @@ describe("comments move the counter", () => {
 
     const stats = await getMemoStats(db, owner, { time_zone: "UTC" });
     const live = await liveTotals(owner.id);
-    expect(stats.counts.normal).toBe(live.normal);
+    expect(stats.counts.normal).toBe(1);
     expect(stats.counts.total).toBe(live.normal + live.archived);
     expect(stats.active_days).toBe(live.activeDays);
+
+    await recalibrateAllHourlyCounts(db, new Date().toISOString());
+    expect(await readHourlyCountTotals(db, owner.id)).toMatchObject({
+      normal: 1,
+    });
   });
 });
 

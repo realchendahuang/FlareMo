@@ -2,6 +2,7 @@ import type { FlareMoDb, MemoRow } from "@flaremo/db";
 import { attachments, memos } from "@flaremo/db";
 import { and, eq, lt } from "drizzle-orm";
 import { insertEmbeddingTask } from "./embedding-outbox";
+import { isCommentMemo } from "./memo-comment-filter";
 import {
   adjustmentForMemoTransition,
   hourlyCountStatements,
@@ -44,6 +45,7 @@ export async function hardDeleteMemo(
 ): Promise<void> {
   const existing = await getMemoById(db, user, id, { includeDeleted: true });
   assertCanDeleteMemo(user, existing);
+  const existingIsComment = await isCommentMemo(db, existing.id);
   const now = new Date().toISOString();
   const eventStatement = insertMemosSseEvent(db, {
     type: "memo.deleted",
@@ -83,15 +85,18 @@ export async function hardDeleteMemo(
     // stop being counted, and `existing` is the only record of which UTC hour
     // and status bucket it occupied. The "deleted" state is terminal and has
     // no counter column, so this debits without crediting a new bucket.
-    ...hourlyCountStatements(
-      db,
-      adjustmentForMemoTransition(existing, {
-        userId: existing.userId,
-        createdAt: existing.createdAt,
-        status: "deleted",
-      }),
-      now,
-    ),
+    // Comments were never counted (see createMemoComment).
+    ...(existingIsComment
+      ? []
+      : hourlyCountStatements(
+          db,
+          adjustmentForMemoTransition(existing, {
+            userId: existing.userId,
+            createdAt: existing.createdAt,
+            status: "deleted",
+          }),
+          now,
+        )),
     db
       .delete(memos)
       .where(and(eq(memos.id, id), eq(memos.userId, existing.userId))),

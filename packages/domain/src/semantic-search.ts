@@ -3,6 +3,7 @@ import { memos } from "@flaremo/db";
 import { and, inArray } from "drizzle-orm";
 import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import type { EmbeddingProvider, VectorIndex } from "./embedding";
+import { notComment } from "./memo-comment-filter";
 import { memoReadScope } from "./team-permissions";
 
 export type SemanticSearchDeps = {
@@ -85,6 +86,9 @@ export async function semanticSearchMemos(
           memoReadScope(user),
           inArray(memos.id, idChunk),
           inArray(memos.status, ["normal", "archived"]),
+          // Comments live under their parent; filtered before the top-N cut
+          // so they never take a result slot.
+          notComment(),
         ),
       );
     for (const row of rows) allowed.add(row.id);
@@ -129,6 +133,9 @@ export async function getSemanticSearchMemos(
           memoReadScope(user),
           inArray(memos.id, idChunk),
           inArray(memos.status, ["normal", "archived"]),
+          // Comments live under their parent; filtered before the top-N cut
+          // so they never take a result slot.
+          notComment(),
         ),
       );
     for (const row of rows) byId.set(row.id, row);

@@ -16,6 +16,7 @@ import {
 import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { ValidationError } from "./errors";
 import { parseResourceName } from "./ids";
+import { notComment } from "./memo-comment-filter";
 import { getMemoById } from "./memos";
 import { insertMemoNotification } from "./memos-user";
 import { nextDayKey } from "./tasks";
@@ -52,6 +53,7 @@ export async function listDailyReviewMemos(
       and(
         eq(memos.userId, user.id),
         eq(memos.status, "normal"),
+        notComment(),
         sql`substr(datetime(${memos.createdAt}, printf('%+d minutes', ${tzOffset})), 6, 5) = ${monthDay}`,
         sql`substr(datetime(${memos.createdAt}, printf('%+d minutes', ${tzOffset})), 1, 10) != ${date}`,
       ),
@@ -83,6 +85,7 @@ export async function createDailyReviewNotifications(
     .where(
       and(
         eq(memos.status, "normal"),
+        notComment(),
         sql`substr(${memos.createdAt}, 6, 5) = ${monthDay}`,
         sql`substr(${memos.createdAt}, 1, 10) != ${date}`,
       ),
@@ -153,7 +156,9 @@ export async function getRandomMemo(
   const sampled = await db
     .select({ id: memos.id })
     .from(memos)
-    .where(and(eq(memos.userId, user.id), eq(memos.status, "normal")))
+    .where(
+      and(eq(memos.userId, user.id), eq(memos.status, "normal"), notComment()),
+    )
     .orderBy(sql`random()`)
     .limit(RANDOM_SAMPLE_WINDOW);
   const pickedId = sampled.find((row) => !excluded.has(row.id))?.id;
@@ -162,7 +167,13 @@ export async function getRandomMemo(
     const rows = await db
       .select({ id: memos.id })
       .from(memos)
-      .where(and(eq(memos.userId, user.id), eq(memos.status, "normal")));
+      .where(
+        and(
+          eq(memos.userId, user.id),
+          eq(memos.status, "normal"),
+          notComment(),
+        ),
+      );
     const candidates = rows.filter((row) => !excluded.has(row.id));
     if (candidates.length === 0) return null;
     return (
@@ -215,6 +226,7 @@ export async function getWalkNextMemo(
             eq(memoTags.userId, user.id),
             inArray(memoTags.tag, sourceTags),
             eq(memos.status, "normal"),
+            notComment(),
           ),
         )
         .orderBy(sql`random()`)
@@ -238,9 +250,13 @@ export async function getWalkNextMemo(
     })
     .from(memoRelations)
     .where(
-      or(
-        eq(memoRelations.memoId, normalizedMemoId),
-        eq(memoRelations.relatedMemoId, normalizedMemoId),
+      and(
+        // Walk along links, not into a memo's comment thread.
+        eq(memoRelations.type, "reference"),
+        or(
+          eq(memoRelations.memoId, normalizedMemoId),
+          eq(memoRelations.relatedMemoId, normalizedMemoId),
+        ),
       ),
     );
   const relatedIds = [
@@ -385,7 +401,7 @@ export async function listRelatedMemos(
             eq(memos.userId, user.id),
             eq(memos.status, "normal"),
             inArray(memos.id, idChunk),
-            sql`NOT EXISTS (SELECT 1 FROM ${memoRelations} WHERE ${memoRelations.memoId} = ${memos.id} AND ${memoRelations.type} = 'comment')`,
+            notComment(),
           ),
         )),
     );

@@ -15,6 +15,7 @@ import {
   type VectorIndex,
 } from "./embedding";
 import type { EmbeddingDispatchDeps } from "./embedding-outbox";
+import { isCommentMemo } from "./memo-comment-filter";
 import { estimateTokenCount } from "./quotas";
 import { incrementUsageCounter } from "./usage";
 
@@ -99,9 +100,12 @@ async function processMemoEmbeddingTask(
   // complete so it does not accumulate. FTS5 keyword search is unaffected.
   if (!provider || !index) return;
 
+  // Comments are read under their parent, never retrieved on their own, so
+  // they hold no vectors; an edit to one clears any it had.
   const indexing =
     memo !== undefined &&
-    (memo.status === "normal" || memo.status === "archived");
+    (memo.status === "normal" || memo.status === "archived") &&
+    !(await isCommentMemo(db, memo.id));
 
   if (!indexing || !memo) {
     await index.deleteByIds(chunkIdsForMemo(task.resourceId));

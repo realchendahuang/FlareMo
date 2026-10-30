@@ -10,6 +10,7 @@ import {
   type VectorIndex,
 } from "./embedding";
 import { recordEmbeddingUsage } from "./embedding-processors";
+import { notComment } from "./memo-comment-filter";
 
 // ---------------------------------------------------------------------------
 // Full rebuild
@@ -120,6 +121,8 @@ async function* paginateMemos(db: FlareMoDb) {
   do {
     const filters = [
       inArray(memos.status, ["normal", "archived"]),
+      // Comments hold no vectors; see processMemoEmbeddingTask.
+      notComment(),
       ...(afterId ? [gt(memos.id, afterId)] : []),
     ];
     const page = await db

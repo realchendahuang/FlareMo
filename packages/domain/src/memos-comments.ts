@@ -10,10 +10,6 @@ import {
 } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
 import {
-  adjustmentForNewMemo,
-  hourlyCountStatements,
-} from "./memo-hourly-counts";
-import {
   assertMemoContentSize,
   getMemoById,
   getMemoByIdForViewer,
@@ -221,18 +217,11 @@ export async function createMemoComment(
     }
   }
 
-  // A comment is a memo row, so it moves the same activity counter the
-  // timeline counts it in. Without this the counter under-reports every
-  // comment until the nightly recalibration, and a comment that is then
-  // trashed or hard-deleted debits a unit it was never credited — the
-  // `max(0, …)` floor absorbs the debit and silently eats a real memo's
-  // count instead. Same-batch, same reasoning as `createMemo`.
-  const counterStatements = hourlyCountStatements(
-    db,
-    adjustmentForNewMemo(row),
-    now,
-  );
-
+  // Comments stay out of the activity counter: they live under their parent
+  // and are not records of their own in the stats, heatmap or streak. Every
+  // later transition (trash, restore, hard delete) skips the counter for
+  // comments too, and the nightly recalibration leaves them out, so nothing
+  // is ever debited that was not credited.
   try {
     if (tags.length > 0) {
       await db.batch([
@@ -248,7 +237,6 @@ export async function createMemoComment(
         db.insert(memoRelations).values(relation),
         eventStatement,
         webhookEventStatement,
-        ...counterStatements,
         ...notificationStatements,
       ]);
     } else {
@@ -257,7 +245,6 @@ export async function createMemoComment(
         db.insert(memoRelations).values(relation),
         eventStatement,
         webhookEventStatement,
-        ...counterStatements,
         ...notificationStatements,
       ]);
     }

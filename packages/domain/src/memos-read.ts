@@ -6,10 +6,11 @@ import {
   parseMemoSearchQuery,
 } from "@flaremo/contracts";
 import type { FlareMoDb, MemoRow } from "@flaremo/db";
-import { attachments, memoRelations, memos, memoTags } from "@flaremo/db";
+import { attachments, memos, memoTags } from "@flaremo/db";
 import { and, asc, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
+import { notComment } from "./memo-comment-filter";
 import { compileMemoFilter } from "./memo-filter";
 import {
   hourRangeForLocalWindow,
@@ -86,9 +87,7 @@ export async function listMemosForViewer(
   // Comments live under their parent memo, never as timeline entries, the
   // same as upstream Memos (ListMemos skips rows with a COMMENT parent).
   // They are read through the comment endpoints instead.
-  filters.push(
-    sql`NOT EXISTS (SELECT 1 FROM ${memoRelations} WHERE ${memoRelations.memoId} = ${memos.id} AND ${memoRelations.type} = 'comment')`,
-  );
+  filters.push(notComment());
 
   // The established `state` query parameter wins over a search scope so that
   // Memos-compatible clients retain their existing filtering semantics.
@@ -283,6 +282,7 @@ export async function listMemoTotalsByUser(db: FlareMoDb) {
           ),
       })
       .from(memos)
+      .where(notComment())
       .groupBy(memos.userId),
     db
       .select({
@@ -292,7 +292,7 @@ export async function listMemoTotalsByUser(db: FlareMoDb) {
       })
       .from(memoTags)
       .innerJoin(memos, eq(memoTags.memoId, memos.id))
-      .where(inArray(memos.status, ["normal", "archived"]))
+      .where(and(inArray(memos.status, ["normal", "archived"]), notComment()))
       .groupBy(memos.userId, memoTags.tag),
   ]);
   const totals = new Map<
@@ -345,6 +345,7 @@ async function readOwnCorpusTagCounts(db: FlareMoDb, userId: string) {
       and(
         eq(memoTags.userId, userId),
         inArray(memos.status, ["normal", "archived"]),
+        notComment(),
       ),
     )
     .groupBy(memoTags.tag)
@@ -444,7 +445,8 @@ export async function getMemoStats(
     });
   }
 
-  const corpus = scopedReadScope(user, options.space);
+  // Comments sit under their parent and are not records of their own.
+  const corpus = and(scopedReadScope(user, options.space), notComment());
   const normalOrArchived = inArray(memos.status, ["normal", "archived"]);
   // A local-day window can start up to 15 hours before its first UTC day, so
   // the raw-row cutoff is padded to match `hourRangeForLocalWindow` (+1 day
@@ -512,13 +514,21 @@ export async function getMemoStats(
           .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
           .from(memos)
           .where(
-            and(scopedReadScope(user, "personal"), eq(memos.status, "normal")),
+            and(
+              scopedReadScope(user, "personal"),
+              eq(memos.status, "normal"),
+              notComment(),
+            ),
           ),
         db
           .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
           .from(memos)
           .where(
-            and(scopedReadScope(user, "team"), eq(memos.status, "normal")),
+            and(
+              scopedReadScope(user, "team"),
+              eq(memos.status, "normal"),
+              notComment(),
+            ),
           ),
       ]),
     ]);
