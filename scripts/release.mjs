@@ -16,7 +16,7 @@ if (!version || !/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
 const bareVersion = version.slice(1);
 const rootPackage = JSON.parse(readFileSync("package.json", "utf8"));
 const apiVersion = readFileSync(
-  "packages/contracts/src/openapi.ts",
+  "packages/contracts/src/constants.ts",
   "utf8",
 ).match(/FLAREMO_API_VERSION = "([^"]+)"/)?.[1];
 const mismatches = [];
@@ -25,7 +25,7 @@ if (rootPackage.version !== bareVersion) {
 }
 if (apiVersion !== bareVersion) {
   mismatches.push(
-    `packages/contracts/src/openapi.ts FLAREMO_API_VERSION: ${apiVersion}`,
+    `packages/contracts/src/constants.ts FLAREMO_API_VERSION: ${apiVersion}`,
   );
 }
 const workspaceDirs = [
