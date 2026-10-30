@@ -74,7 +74,10 @@ export const MemoryCard = memo(function MemoryCard({
     >
       {/* Header row: Timestamp & scope on left, Status badges + ⋯ menu on right */}
       <div className="flex w-full items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+        {/* The timestamp stands alone on the left: its hover swap reserves
+            the absolute time's width, so anything placed after it floated a
+            column away from "1 分钟前". Scope and source sit on the right. */}
+        <div className="flex min-w-0 items-center text-xs text-muted-foreground">
           <span className="inline-grid [grid-template-areas:'stack'] items-center truncate">
             <span className="[grid-area:stack] transition-opacity duration-150 group-hover:opacity-0 pointer-events-none">
               {formatMemoRelativeTime(memory.created_at, locale)}
@@ -83,6 +86,14 @@ export const MemoryCard = memo(function MemoryCard({
               {formatMemoTime(memory.created_at, locale)}
             </span>
           </span>
+        </div>
+
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+          {showSource && memory.source_agent && (
+            <span className="max-w-[120px] truncate text-xs text-muted-foreground">
+              {memory.source_agent}
+            </span>
+          )}
 
           {memory.scope_type === "project" && memory.scope_key && (
             <button
@@ -94,22 +105,21 @@ export const MemoryCard = memo(function MemoryCard({
               title={memory.scope_key}
             >
               <FolderIcon className="size-3 shrink-0" />
-              <span>{formatProjectName(memory.scope_key)}</span>
+              <span className="truncate">
+                {formatProjectName(memory.scope_key)}
+              </span>
             </button>
           )}
 
-          {showSource && memory.source_agent && (
-            <span className="truncate max-w-[120px]">
-              · {memory.source_agent}
-            </span>
-          )}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
+          {/* Same name and tint as the 铁律 filter and composer toggle: one
+              concept, one label, no solid brand block on every core card. */}
           {memory.tier === "core" || memory.verification === "locked" ? (
-            <Badge variant="default" className="gap-1 text-xs font-normal">
+            <Badge
+              variant="outline"
+              className="gap-1 border-brand-500/30 bg-brand-500/10 text-xs font-normal text-brand-600 dark:text-brand-400"
+            >
               <PinIcon className="size-3 fill-current" />
-              <span>{t("memory.pinned")}</span>
+              <span>{t("memory.coreShort")}</span>
             </Badge>
           ) : memory.verification === "observed" ? (
             <Badge variant="secondary" className="gap-1 text-xs font-normal">

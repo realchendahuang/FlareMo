@@ -889,7 +889,6 @@ const messages = {
   "memory.coreShort": "Правило",
   "memory.projectMemoryCount": "Воспоминаний: {count}",
   "memory.projectCoreCount": "Правил: {count}",
-  "memory.projectRuleLabel": "Правило",
   "memory.projectUpdated": "Обновлено {time}",
   "memory.projectViewAll": "Показать все воспоминания",
   "memory.composerPlaceholderProject":
@@ -968,7 +967,6 @@ const messages = {
   "memory.status.deleted": "Удалена",
   "memory.evidenceFrom": "Источник:",
   "memory.rejectReasonUser": "Отклонено в очереди проверки",
-  "memory.pinned": "Моё решение",
   "memory.confirmedBadge": "Подтверждено",
   "memory.observedBadge": "ИИ обнаружил",
   "memory.inferredBadge": "Догадка ИИ",

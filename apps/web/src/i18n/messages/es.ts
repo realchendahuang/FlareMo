@@ -897,7 +897,6 @@ const messages = {
   "memory.coreShort": "Regla de oro",
   "memory.projectMemoryCount": "{count} recuerdos",
   "memory.projectCoreCount": "{count} reglas de oro",
-  "memory.projectRuleLabel": "Regla",
   "memory.projectUpdated": "Actualizado {time}",
   "memory.projectViewAll": "Ver todos los recuerdos",
   "memory.composerPlaceholderProject":
@@ -974,7 +973,6 @@ const messages = {
   "memory.status.deleted": "Eliminada",
   "memory.evidenceFrom": "De",
   "memory.rejectReasonUser": "Rechazado en la bandeja de revisión",
-  "memory.pinned": "Mi decisión",
   "memory.confirmedBadge": "Confirmado",
   "memory.observedBadge": "La IA lo detectó",
   "memory.inferredBadge": "Suposición de la IA",

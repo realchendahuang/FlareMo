@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
+import { formatMemoRelativeTime, memoExcerpt } from "@/lib/memo";
 import { cn } from "@/lib/utils";
 
 export type SpotlightSearchProps = {
@@ -61,7 +62,7 @@ export function SpotlightSearch({
   semanticPending = false,
   isSearching = false,
 }: SpotlightSearchProps) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { theme, setTheme } = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(query);
@@ -166,12 +167,19 @@ export function SpotlightSearch({
 
       // Memos
       for (const memo of matchingMemos) {
-        const preview = memo.content.replace(/\s+/g, " ").slice(0, 70);
+        // Plain prose, not raw markdown: `- [ ]`, `**` and fences read as
+        // noise on one truncated line.
+        const preview =
+          memoExcerpt(memo.content, 70) ||
+          memo.content.replace(/\s+/g, " ").slice(0, 70);
+        const time = memo.display_time ?? memo.create_time;
         items.push({
           id: `memo-${memo.id}`,
           type: "memo",
           title: preview,
-          subtitle: (memo.display_time ?? memo.create_time)?.slice(0, 10),
+          // The local day, like the timeline: an ISO slice is the UTC date
+          // and named the wrong day for a late-evening note east of UTC.
+          subtitle: time ? formatMemoRelativeTime(time, locale) : undefined,
           icon: FileTextIcon,
           onExecute: () => {
             onOpenChange(false);
@@ -226,6 +234,7 @@ export function SpotlightSearch({
     onSelectMemo,
     onNewMemo,
     t,
+    locale,
     theme,
     setTheme,
   ]);
@@ -258,13 +267,18 @@ export function SpotlightSearch({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="top-[20%] translate-y-0 w-full max-w-lg overflow-hidden rounded-xl border border-border/60 bg-popover/95 p-0 shadow-lg backdrop-blur-xl sm:max-w-xl"
+        // gap-0: the dialog's own gap-4 stacked 16px of dead air above and
+        // below the result list.
+        className="top-[20%] translate-y-0 w-full max-w-lg gap-0 overflow-hidden rounded-xl border border-border/60 bg-popover/95 p-0 shadow-lg backdrop-blur-xl sm:max-w-xl"
       >
         <DialogTitle className="sr-only">{t("common.search")}</DialogTitle>
 
         {/* Search Input Bar */}
         <div className="border-b border-border/60 p-2.5">
-          <InputGroup className="h-11 border-none bg-transparent shadow-none ring-0 focus-within:ring-0">
+          {/* The palette itself is the field: InputGroup's focus ring is
+              keyed on `has-[control:focus-visible]`, so it has to be zeroed
+              under that same variant or a pink box draws inside the dialog. */}
+          <InputGroup className="h-11 border-none bg-transparent shadow-none ring-0 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0 dark:bg-transparent">
             <InputGroupAddon className="pl-1 text-muted-foreground">
               {isSearching || remoteMemosQuery.isFetching ? (
                 <Spinner className="size-4.5 text-primary" />
@@ -360,7 +374,7 @@ export function SpotlightSearch({
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium leading-tight">
+                      <p className="truncate text-sm font-medium leading-snug">
                         {item.title}
                       </p>
                       {item.subtitle && (

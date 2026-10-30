@@ -51,9 +51,12 @@ export function ProjectGroups({
         const observedCount = items.filter(
           (m) => m.verification === "observed",
         ).length;
-        const latestRule =
-          items.find((m) => m.tier === "core" || m.verification === "locked") ||
-          items[0];
+        const latestRule = items.find(
+          (m) => m.tier === "core" || m.verification === "locked",
+        );
+        // A project without a 铁律 still previews its newest memory, but
+        // unlabelled: calling a plain lesson a "rule" misfiled it.
+        const preview = latestRule ?? items[0];
         const lastUpdated = items.reduce(
           (max, m) => (m.created_at > max ? m.created_at : max),
           items[0]?.created_at || "",
@@ -66,6 +69,7 @@ export function ProjectGroups({
           coreCount,
           observedCount,
           latestRule,
+          preview,
           lastUpdated,
         };
       })
@@ -94,6 +98,7 @@ export function ProjectGroups({
       coreCount: 0,
       observedCount: 0,
       latestRule: undefined,
+      preview: undefined,
       lastUpdated: "",
     };
 
@@ -120,8 +125,8 @@ export function ProjectGroups({
                 </Badge>
                 {activeProject.coreCount > 0 && (
                   <Badge
-                    variant="default"
-                    className="text-xs font-normal gap-1"
+                    variant="outline"
+                    className="gap-1 border-brand-500/30 bg-brand-500/10 text-xs font-normal text-brand-600 dark:text-brand-400"
                   >
                     <PinIcon className="size-2.5 fill-current" />
                     <span>
@@ -191,7 +196,10 @@ export function ProjectGroups({
 
             <div className="flex items-center gap-1.5 shrink-0">
               {project.coreCount > 0 && (
-                <Badge variant="default" className="text-xs font-normal gap-1">
+                <Badge
+                  variant="outline"
+                  className="gap-1 border-brand-500/30 bg-brand-500/10 text-xs font-normal text-brand-600 dark:text-brand-400"
+                >
                   <PinIcon className="size-2.5 fill-current" />
                   <span>
                     {t("memory.projectCoreCount", {
@@ -210,13 +218,15 @@ export function ProjectGroups({
             </p>
           )}
 
-          {project.latestRule && (
+          {project.preview && (
             <div className="rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground leading-relaxed border border-border/40">
-              <span className="inline-flex items-center gap-1 font-medium text-foreground/80 mr-1.5">
-                <PinIcon className="size-3 fill-current text-brand-500 shrink-0" />
-                <span>{t("memory.projectRuleLabel")}:</span>
-              </span>
-              <span className="line-clamp-2">{project.latestRule.content}</span>
+              {project.latestRule && (
+                <span className="inline-flex items-center gap-1 font-medium text-foreground/80 mr-1.5">
+                  <PinIcon className="size-3 fill-current text-brand-500 shrink-0" />
+                  <span>{t("memory.coreShort")}</span>
+                </span>
+              )}
+              <span className="line-clamp-2">{project.preview.content}</span>
             </div>
           )}
 
