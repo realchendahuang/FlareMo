@@ -46,7 +46,9 @@ export function ComposerTypeMenu({
         ) : (
           <MessageSquareIcon data-icon="inline-start" className="size-3.5" />
         )}
-        <span>
+        {/* Icon-only on phones so the formatting tools keep the bar;
+            the trigger's aria-label still names it. */}
+        <span className="hidden sm:inline">
           {type === "article"
             ? t("composer.type.article")
             : t("composer.type.memo")}

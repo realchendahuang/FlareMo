@@ -1,6 +1,6 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { Editor } from "@tiptap/react";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import type { MemoVisibility } from "@/api";
 import { buildArticleExtensions } from "@/components/article-editor";
 import { ComposerCanvasActions } from "@/components/composer/composer-canvas-actions";
@@ -83,8 +83,12 @@ export function ComposerFocusCanvas({
     taskList: false,
   });
 
+  // Every transaction (selection moves included) reports the marks under the
+  // caret. Bail out when nothing changed: a fresh object per transaction
+  // re-renders the canvas, which re-runs the editor's option sync, which
+  // fires another transaction, a render loop React aborts after 50 rounds.
   const handleTransaction = (editor: Editor) => {
-    setActiveFormats({
+    const next: CanvasActiveFormats = {
       h2: editor.isActive("heading", { level: 2 }),
       h3: editor.isActive("heading", { level: 3 }),
       bold: editor.isActive("bold"),
@@ -95,8 +99,21 @@ export function ComposerFocusCanvas({
       bulletList: editor.isActive("bulletList"),
       orderedList: editor.isActive("orderedList"),
       taskList: editor.isActive("taskList"),
-    });
+    };
+    setActiveFormats((prev) =>
+      (Object.keys(next) as (keyof CanvasActiveFormats)[]).every(
+        (key) => prev[key] === next[key],
+      )
+        ? prev
+        : next,
+    );
   };
+
+  const placeholder = t("composer.placeholder");
+  const extensions = useMemo(
+    () => buildArticleExtensions(placeholder),
+    [placeholder],
+  );
 
   // Option A (自适应信纸法):
   // If title is entered, automatically treated as article unless user manually set type.
@@ -247,7 +264,7 @@ export function ComposerFocusCanvas({
                       }
                     }
                   }}
-                  placeholder={t("composer.fullscreen.articleTitlePlaceholder")}
+                  placeholder={t("article.titlePlaceholder")}
                   disabled={isPending}
                   className="w-full border-b border-border/40 bg-transparent px-0 pb-3 text-xl font-bold tracking-tight text-foreground placeholder:text-muted-foreground/30 focus-visible:outline-none sm:text-2xl"
                 />
@@ -277,9 +294,7 @@ export function ComposerFocusCanvas({
                     content={draft.content}
                     disabled={isPending}
                     editorRef={canvasEditorRef}
-                    extensions={buildArticleExtensions(
-                      t("composer.placeholder"),
-                    )}
+                    extensions={extensions}
                     inputId="flaremo-fullscreen-composer-input"
                     onContentChange={updateContent}
                     onImageFiles={enqueueInlineUploads}
@@ -328,7 +343,10 @@ export function ComposerFocusCanvas({
                   onAccept={acceptWikiSuggestion}
                   onHighlight={setSuggestionIndex}
                 />
+                {/* Pending attachments sit at the foot of the paper, a tray
+                    above the toolbar, aligned with the text column. */}
                 <ComposerFileChips
+                  className="mt-auto px-1 pt-3"
                   files={draft.files}
                   isPending={isPending}
                   onRemoveFile={(file) =>
