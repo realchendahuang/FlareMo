@@ -38,7 +38,7 @@
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
-    "better-auth": "1.6.25",
+    "better-auth": "1.7.14",
     "boring-avatars": "^2.0.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -62,9 +62,9 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
     "react-grab": "^0.2.0",
-    "shadcn": "^4.12.0",
+    "shadcn": "^4.23.0",
     "typescript": "^5.9.3",
     "unified": "^11.0.5",
-    "vite": "^8"
+    "vite": "^8.3.5"
   }
 }

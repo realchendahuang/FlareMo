@@ -85,7 +85,7 @@
     "@biomejs/biome": "^2.3.8",
     "@cloudflare/workers-types": "5.20260708.1",
     "@playwright/test": "^1.61.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.8",
     "esbuild": "0.28.2",
@@ -95,7 +95,7 @@
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
     "cf": "1.0.0-beta.14",
-    "vitest": "^4.1.11",
+    "vitest": "^4.1.12",
     "wrangler": "^4.114.0",
     "ws": "^8.21.0"
   }

@@ -3,6 +3,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import {
   authAccounts,
   authApiKeys,
+  authInvitations,
   authMembers,
   authOrganizations,
   authSessions,
@@ -41,6 +42,9 @@ const authSchema = {
   apikey: authApiKeys,
   organization: authOrganizations,
   member: authMembers,
+  // Better Auth 1.7 validates every organization-plugin model up front;
+  // FlareMo never issues invitations, but the table must be mapped.
+  invitation: authInvitations,
 };
 
 /**

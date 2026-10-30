@@ -14,8 +14,8 @@
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests"
   },
   "dependencies": {
-    "@better-auth/api-key": "1.6.25",
-    "@better-auth/drizzle-adapter": "1.6.25",
+    "@better-auth/api-key": "1.7.14",
+    "@better-auth/drizzle-adapter": "1.7.14",
     "@bufbuild/protobuf": "2.12.0",
     "@flaremo/contracts": "workspace:*",
     "@flaremo/db": "workspace:*",
@@ -23,15 +23,15 @@
     "@flaremo/memos": "workspace:*",
     "@flaremo/plugins": "workspace:*",
     "@hono/zod-validator": "^0.7.6",
-    "better-auth": "1.6.25",
+    "better-auth": "1.7.14",
     "drizzle-orm": "^0.45.1",
     "feed": "^6.0.0",
-    "hono": "^4.13.13",
+    "hono": "^4.13.14",
     "marked": "^17.0.6",
     "marked-gfm-heading-id": "^4.1.4",
     "shiki": "^4.4.3",
     "sitemap": "^9.0.1",
-    "zod": "^4.1.12"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260708.1",
@@ -39,7 +39,7 @@
     "@connectrpc/connect-web": "2.1.1",
     "schema-dts": "^2.0.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11",
+    "vitest": "^4.1.12",
     "wrangler": "^4.114.0"
   }
 }
