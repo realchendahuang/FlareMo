@@ -2,14 +2,17 @@ import {
   BellIcon,
   CheckIcon,
   ChevronDownIcon,
+  DownloadIcon,
   LogOutIcon,
   MonitorIcon,
   MoonIcon,
   RefreshCwIcon,
   SettingsIcon,
   SunIcon,
+  UploadIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import type { CurrentFlareMoUser } from "@/api";
 import {
   NotificationList,
@@ -47,12 +50,18 @@ import { useI18n } from "@/i18n";
 // sign-out all live inside this menu. No logo, no avatars, no icon row.
 export function UserMenu({
   user,
+  onExport,
+  onImportFile,
   onOpenSettings,
 }: {
   user?: CurrentFlareMoUser | null;
+  /** Data transfer lives here, with the account, not as bare icons. */
+  onExport?: () => Promise<void>;
+  onImportFile?: (bundle: unknown) => Promise<void>;
   onOpenSettings: () => void;
 }) {
   const { t } = useI18n();
+  const importInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
   const [updateOpen, setUpdateOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -189,6 +198,18 @@ export function UserMenu({
               </span>
             )}
           </DropdownMenuItem>
+          {onExport && (
+            <DropdownMenuItem onClick={() => void onExport()}>
+              <DownloadIcon />
+              {t("common.export")}
+            </DropdownMenuItem>
+          )}
+          {onImportFile && (
+            <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
+              <UploadIcon />
+              {t("common.import")}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => setUpdateOpen(true)}>
             <RefreshCwIcon />
             <span className="min-w-0 flex-1 truncate">
@@ -224,6 +245,27 @@ export function UserMenu({
       </Dialog>
 
       <UpdateStatusDialog onOpenChange={setUpdateOpen} open={updateOpen} />
+      {onImportFile && (
+        <input
+          accept="application/json"
+          aria-hidden="true"
+          className="hidden"
+          ref={importInputRef}
+          tabIndex={-1}
+          type="file"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            try {
+              const text = await file.text();
+              void onImportFile(JSON.parse(text) as unknown);
+            } catch {
+              toast.error(t("toast.invalidImport"));
+            }
+          }}
+        />
+      )}
     </>
   );
 }

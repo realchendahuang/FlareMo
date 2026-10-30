@@ -681,7 +681,23 @@ test("keeps the mobile navigation usable", async ({ page }) => {
   await scroller.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
+  // The language switch stays reachable at the bottom; export and import
+  // moved into the account menu at the top.
   await expect(
-    page.getByRole("dialog").getByRole("button", { name: /export|导出/i }),
+    page
+      .getByRole("dialog")
+      .getByText(/English|简体中文/)
+      .last(),
+  ).toBeInViewport();
+  await scroller.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /E2E Owner|Kim/i })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("menuitem", { name: /export|导出/i }),
   ).toBeVisible();
 });

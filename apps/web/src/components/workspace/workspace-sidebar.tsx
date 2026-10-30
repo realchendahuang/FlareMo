@@ -1,11 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import {
-  DownloadIcon,
-  MenuIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
-  UploadIcon,
-} from "lucide-react";
+import { MenuIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import {
   type PointerEvent as ReactPointerEvent,
   type UIEvent,
@@ -13,7 +7,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { toast } from "sonner";
 import type {
   CurrentFlareMoUser,
   MemoSpace,
@@ -23,7 +16,6 @@ import type {
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -63,8 +55,6 @@ export type WorkspaceSidebarContent = {
 };
 
 type WorkspaceExplorerPanelProps = WorkspaceSidebarContent & {
-  /** Id of this instance's hidden import input (desktop and sheet differ). */
-  importInputId: string;
   /** Draws the header hairline once the panel has scrolled. */
   headerScrolled?: boolean;
   onNavigate?: () => void;
@@ -168,7 +158,6 @@ function WorkspaceExplorerPanel({
   headerScrolled = false,
   hierarchy,
   hierarchyPending,
-  importInputId,
   onDeleteTag,
   onExport,
   onImportFile,
@@ -183,7 +172,6 @@ function WorkspaceExplorerPanel({
   untagged,
   user,
 }: WorkspaceExplorerPanelProps) {
-  const { t } = useI18n();
   const navigate = useNavigate({ from: "/" });
 
   // FlareMoExplorer is memoized but its slots are ReactNodes, so identity is
@@ -213,56 +201,26 @@ function WorkspaceExplorerPanel({
   );
 
   const header = useMemo(
-    () => <UserMenu onOpenSettings={handleOpenSettings} user={user} />,
-    [handleOpenSettings, user],
+    () => (
+      <UserMenu
+        onExport={onExport}
+        onImportFile={onImportFile}
+        onOpenSettings={handleOpenSettings}
+        user={user}
+      />
+    ),
+    [handleOpenSettings, onExport, onImportFile, user],
   );
 
+  // Only the language stays at the bottom; export and import moved into the
+  // account menu, where they are labelled instead of two bare arrows.
   const footer = useMemo(
     () => (
-      <div className="flex items-center gap-1 text-muted-foreground">
+      <div className="flex items-center text-muted-foreground">
         <LocaleSwitcher />
-        <Button
-          aria-label={t("common.export")}
-          size="icon-sm"
-          title={t("common.export")}
-          variant="ghost"
-          onClick={() => void onExport()}
-        >
-          <DownloadIcon />
-        </Button>
-        <Button
-          render={
-            <label
-              aria-label={t("common.import")}
-              htmlFor={importInputId}
-              title={t("common.import")}
-            />
-          }
-          size="icon-sm"
-          variant="ghost"
-        >
-          <UploadIcon />
-          <Input
-            accept="application/json"
-            className="hidden"
-            id={importInputId}
-            type="file"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              if (!file) return;
-              try {
-                const text = await file.text();
-                void onImportFile(JSON.parse(text) as unknown);
-              } catch {
-                toast.error(t("toast.invalidImport"));
-              }
-            }}
-          />
-        </Button>
       </div>
     ),
-    [importInputId, onExport, onImportFile, t],
+    [],
   );
 
   return (
@@ -340,11 +298,7 @@ export function WorkspaceSidebar({
           style={{ width }}
           onScroll={onScroll}
         >
-          <WorkspaceExplorerPanel
-            {...explorer}
-            headerScrolled={scrolled}
-            importInputId="flaremo-import-file-desktop"
-          />
+          <WorkspaceExplorerPanel {...explorer} headerScrolled={scrolled} />
         </div>
       </aside>
       <div
@@ -405,7 +359,6 @@ export function WorkspaceMobileSidebar({
         >
           <WorkspaceExplorerPanel
             {...explorer}
-            importInputId="flaremo-import-file-mobile"
             onNavigate={() => onOpenChange(false)}
           />
         </div>

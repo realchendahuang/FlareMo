@@ -323,8 +323,17 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
         >
           <ChevronLeftIcon />
         </Button>
-        <span className="text-xs font-semibold text-foreground">
-          {rangeTitle}
+        {/* Hovering a day or month replaces the title with its detail, so the
+            card needs no reserved tip row underneath. */}
+        <span
+          className={cn(
+            "min-w-0 truncate px-1 text-center text-xs",
+            hoveredTip
+              ? "font-normal text-muted-foreground"
+              : "font-semibold text-foreground",
+          )}
+        >
+          {hoveredTip ?? rangeTitle}
         </span>
         <Button
           aria-label={t("explorer.nextPeriod")}
@@ -340,7 +349,7 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
 
       {/* ── Unified High-Impact Canvas Container (~240px Tall) ─────────────── */}
       <div
-        className="paper relative flex min-h-[238px] flex-col justify-center overflow-hidden rounded-xl border border-border/60 bg-card p-2.5 shadow-xs"
+        className="paper relative flex flex-col justify-center overflow-hidden rounded-xl border border-border/60 bg-card p-2 shadow-xs"
         data-testid="activity-heatmap"
       >
         <div
@@ -417,11 +426,6 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
             />
           )}
         </div>
-      </div>
-
-      {/* ── Bottom Single-Line Micro Tooltip (Hover Details Only) ────────── */}
-      <div className="flex h-4 items-center justify-between px-1 text-xs text-muted-foreground select-none">
-        <span className="truncate">{hoveredTip ?? ""}</span>
       </div>
     </div>
   );

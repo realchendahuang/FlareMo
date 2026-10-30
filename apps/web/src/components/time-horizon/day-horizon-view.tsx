@@ -177,7 +177,7 @@ export function DayHorizonPureView({
   const minuteRad = (minuteDeg * Math.PI) / 180;
 
   return (
-    <div className="flex h-full min-h-[210px] items-center justify-center px-1 py-1 select-none">
+    <div className="flex h-full min-h-[180px] items-center justify-center px-1 py-1 select-none">
       <button
         type="button"
         className="relative flex items-center justify-center p-1 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"

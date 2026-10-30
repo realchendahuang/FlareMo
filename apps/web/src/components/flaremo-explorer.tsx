@@ -143,7 +143,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
       </header>
 
       <section className="mb-3 px-1">
-        <div className="paper grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-card py-3 shadow-xs">
+        <div className="paper grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-card py-2.5 shadow-xs">
           <StatCell label={t("explorer.records")} value={stats.counts.total} />
           <StatCell label={t("explorer.tags")} value={stats.tags.length} />
           <StatCell label={t("explorer.streak")} value={streak} />
@@ -166,7 +166,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
 
       <nav
         aria-label={t("sidebar.navigation")}
-        className="mt-3 flex flex-col gap-0.5 border-t border-border/60 pt-3"
+        className="mt-3 flex flex-col gap-0.5"
       >
         <Link
           activeOptions={{ exact: true }}
@@ -239,17 +239,17 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         </Link>
       </nav>
 
-      <section className="mt-5 flex flex-col gap-1.5 px-1">
-        <h3 className="px-2 pb-0.5 text-xs font-medium text-muted-foreground">
+      <section className="mt-4 flex flex-col gap-0.5">
+        <h3 className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">
           {t("explorer.tags")}
         </h3>
         <button
           aria-pressed={untagged}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-left motion-safe:transition-colors motion-safe:duration-150",
+            "flex h-7 items-center gap-2.5 rounded-md ps-2.5 pe-1 text-[13px] text-left motion-safe:transition-colors motion-safe:duration-150",
             untagged
               ? "bg-card font-medium text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted"
-              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              : "text-foreground/70 hover:bg-muted/70 hover:text-foreground",
           )}
           type="button"
           onClick={() => {
@@ -257,7 +257,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
             onNavigate?.();
           }}
         >
-          <HashIcon className="size-3.5 shrink-0 opacity-60" />
+          <HashIcon className="size-4 shrink-0 text-muted-foreground/70" />
           <span className="truncate">{t("explorer.untagged")}</span>
         </button>
         {hierarchyPending ? (
@@ -357,8 +357,25 @@ function TagTree({
               ? "bg-card font-medium text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted"
               : "text-foreground/70 hover:bg-muted/70 hover:text-foreground",
           )}
-          style={{ paddingLeft: `${depth * 0.75}rem` }}
+          style={{ paddingInlineStart: `${0.625 + depth * 0.875}rem` }}
         >
+          <button
+            aria-pressed={isActive}
+            className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+            type="button"
+            onClick={() => {
+              onTagChange(isActive ? undefined : name);
+              onNavigate?.();
+            }}
+          >
+            <HashIcon className="size-4 shrink-0 text-muted-foreground/70" />
+            <span className="truncate">{label}</span>
+            {node.count > 1 && (
+              <span className="ms-auto ps-1 text-xs tabular-nums text-muted-foreground/70">
+                {node.count}
+              </span>
+            )}
+          </button>
           <button
             aria-label={
               hasChildren
@@ -369,34 +386,17 @@ function TagTree({
             }
             className={cn(
               "flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:text-foreground",
-              !hasChildren && "invisible",
+              !hasChildren && "hidden",
             )}
             type="button"
             onClick={() => toggle(name)}
           >
             <ChevronRightIcon
               className={cn(
-                "h-3.5 w-3.5 motion-safe:transition-transform motion-safe:duration-150",
+                "h-3.5 w-3.5 motion-safe:transition-transform motion-safe:duration-150 rtl:-scale-x-100",
                 !isCollapsed && "rotate-90",
               )}
             />
-          </button>
-          <button
-            aria-pressed={isActive}
-            className="flex min-w-0 flex-1 items-center gap-1 text-left"
-            type="button"
-            onClick={() => {
-              onTagChange(isActive ? undefined : name);
-              onNavigate?.();
-            }}
-          >
-            <HashIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
-            <span className="truncate">{label}</span>
-            {node.count > 1 && (
-              <span className="ms-auto ps-1 text-xs tabular-nums text-muted-foreground/70">
-                {node.count}
-              </span>
-            )}
           </button>
           <div className="flex shrink-0 items-center gap-0.5 opacity-0 motion-safe:transition-opacity motion-safe:duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
             <Button
@@ -499,7 +499,7 @@ function TagRenameInput({
   return (
     <form
       className="flex flex-col gap-1 px-1"
-      style={{ paddingLeft: "1.5rem" }}
+      style={{ paddingInlineStart: "0.625rem" }}
       onSubmit={(event) => {
         event.preventDefault();
         const to = value.trim();
@@ -529,11 +529,13 @@ function TagRenameInput({
 
 function StatCell({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col items-center justify-center px-1 text-center">
+    <div className="flex min-w-0 flex-col items-center justify-center px-1 text-center">
       <div className="text-lg leading-none font-semibold tabular-nums tracking-tight text-foreground">
         {value}
       </div>
-      <div className="mt-1.5 text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1.5 max-w-full truncate text-xs text-muted-foreground">
+        {label}
+      </div>
     </div>
   );
 }
