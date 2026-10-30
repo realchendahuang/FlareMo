@@ -377,7 +377,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       </header>
       <textarea
         aria-label={t("article.titleLabel")}
-        className="field-sizing-content mt-4 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-muted-foreground/60"
+        className="field-sizing-content mt-4 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-foreground/30"
         rows={1}
         onChange={(event) => {
           // The refs — not React state — are what the debounced save reads
