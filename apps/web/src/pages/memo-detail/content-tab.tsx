@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TabsContent } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
+import { memoExcerpt } from "@/lib/memo";
 import { stripResourceName } from "@/lib/utils";
 
 /**
@@ -108,7 +109,9 @@ export function ContentTab({
               params={{ memoId: memo.id }}
               to="/memo/$memoId"
             >
-              <div className="line-clamp-2">{memo.content}</div>
+              <div className="line-clamp-2">
+                {memoExcerpt(memo.content) || memo.content}
+              </div>
               <div className="mt-1 text-xs text-muted-foreground">
                 {[
                   memo.via_relation ? t("detail.relatedViaRelation") : null,

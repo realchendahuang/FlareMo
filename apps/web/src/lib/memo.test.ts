@@ -3,6 +3,7 @@ import {
   extractTags,
   formatMemoRelativeTime,
   formatMemoTime,
+  memoExcerpt,
   memoTitle,
 } from "./memo";
 
@@ -144,5 +145,22 @@ describe("memoTitle inline markup", () => {
     expect(memoTitle("参考 [设计稿](https://example.com/a) 的第三节")).toBe(
       "参考 设计稿 的第三节",
     );
+  });
+});
+
+describe("memoExcerpt", () => {
+  it("joins every prose line without markdown syntax", () => {
+    expect(
+      memoExcerpt(
+        "周末计划\n- [ ] 买菜\n- [x] 洗衣服\n\n```\ncode\n```\n#生活",
+      ),
+    ).toBe("周末计划 买菜 洗衣服");
+  });
+
+  it("truncates and returns an empty string without prose", () => {
+    expect(memoExcerpt(`${"长".repeat(20)}\n${"长".repeat(20)}`, 10)).toBe(
+      `${"长".repeat(10)}…`,
+    );
+    expect(memoExcerpt("#a #b")).toBe("");
   });
 });

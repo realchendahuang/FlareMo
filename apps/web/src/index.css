@@ -715,8 +715,10 @@ svg.lucide[stroke-width="2"] {
     @apply overflow-x-auto rounded-xl border border-border/60 bg-muted p-4;
   }
 
+  /* Fenced code sits in its own block: none of the inline chip (border,
+     radius, shrunk size) carries over, or every line wears a box. */
   .memo-markdown pre code {
-    @apply bg-transparent p-0;
+    @apply rounded-none border-0 bg-transparent p-0 text-[13px] leading-6;
   }
 
   .memo-markdown table {
@@ -776,6 +778,13 @@ svg.lucide[stroke-width="2"] {
      anchors, image frames). The box grows with content up to a cap. */
   .composer-editor-content {
     @apply min-h-32 max-h-80 overflow-y-auto px-4 pt-4 pb-2 text-[15px] leading-7 outline-none motion-safe:transition-[min-height,max-height,padding] motion-safe:duration-200 motion-safe:ease-signal;
+  }
+
+  /* Inline edit in a timeline card: the text stays exactly where the read
+     view drew it. The card already pads; the composer's own inset and its
+     128px floor would shove a one-line note right and down on entering edit. */
+  .composer-editor-content.memo-card-editor-content {
+    @apply min-h-7 px-0 pt-0 pb-0;
   }
 
   /* Article editor body: same typography as the reading surface, but
@@ -877,7 +886,7 @@ svg.lucide[stroke-width="2"] {
 
   .composer-editor-content pre code,
   .article-editor-content pre code {
-    @apply bg-transparent p-0;
+    @apply rounded-none border-0 bg-transparent p-0 text-[13px] leading-6;
   }
 
   .composer-editor-content img,

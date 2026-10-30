@@ -145,6 +145,33 @@ export function formatMemoTime(value: string, locale?: string) {
  * timestamp instead of rendering an empty heading.
  */
 export function memoTitle(content: string, maxLength = 80) {
+  for (const prose of memoProseLines(content)) {
+    return truncateProse(prose, maxLength);
+  }
+  return "";
+}
+
+/**
+ * A memo's prose as one plain-text run, for previews that show more than the
+ * first line (related notes on the detail page). Same stripping as
+ * `memoTitle`, so a preview never shows `- [ ]`, `**` or a code fence.
+ */
+export function memoExcerpt(content: string, maxLength = 160) {
+  let text = "";
+  for (const prose of memoProseLines(content)) {
+    text = text ? `${text} ${prose}` : prose;
+    if (text.length > maxLength) break;
+  }
+  return truncateProse(text, maxLength);
+}
+
+function truncateProse(prose: string, maxLength: number) {
+  return prose.length > maxLength
+    ? `${prose.slice(0, maxLength).trimEnd()}…`
+    : prose;
+}
+
+function* memoProseLines(content: string) {
   const lines = content.split("\n");
   const isTagLine = (line: string) =>
     /^\s*(#[^\s#]+[\s,，、]*)+$/.test(line) && !/^\s*#\s/.test(line);
@@ -182,11 +209,8 @@ export function memoTitle(content: string, maxLength = 80) {
       .replace(/\s{2,}/g, " ")
       .trim();
     if (!prose) continue;
-    return prose.length > maxLength
-      ? `${prose.slice(0, maxLength).trimEnd()}…`
-      : prose;
+    yield prose;
   }
-  return "";
 }
 
 /**

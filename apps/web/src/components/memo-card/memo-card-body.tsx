@@ -101,11 +101,16 @@ export function MemoCardBody({
   return (
     <>
       <div>
-        <div className="relative">
+        <div>
+          {/* The fade is a mask on the text, not a card-colored overlay: the
+              card's paper grain is a background image, and a solid
+              `from-card` sheet over it showed as a flat, lighter band. */}
           <div
             className={cn(
               "overflow-hidden motion-safe:transition-[max-height] motion-safe:duration-250 motion-safe:ease-signal",
-              collapsed ? "max-h-52" : "max-h-[1600px]",
+              collapsed
+                ? "max-h-52 [mask-image:linear-gradient(to_bottom,#000_calc(100%-4rem),transparent)]"
+                : "max-h-[1600px]",
             )}
           >
             <LazyMemoContent
@@ -117,17 +122,12 @@ export function MemoCardBody({
               onTagClick={handleTagClick}
             />
           </div>
-          <div
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card to-transparent motion-safe:transition-opacity motion-safe:duration-200",
-              collapsed ? "opacity-100" : "opacity-0",
-            )}
-          />
         </div>
         {isCollapsible && (
+          // Pulled back by the ghost button's own inset so the label lines
+          // up with the text column above it.
           <Button
-            className="mt-1.5"
+            className="mt-1.5 -ms-2.5"
             onClick={onToggleExpanded}
             size="sm"
             variant="ghost"

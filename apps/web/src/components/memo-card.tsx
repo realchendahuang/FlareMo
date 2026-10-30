@@ -92,13 +92,18 @@ export const MemoCard = memo(function MemoCard({
   // editor is open that would throw away the draft, so every write to
   // `isEditing` — including the one inside useMemoCardActions' save path —
   // goes through this wrapper, which reports the state to the list.
+  // The report happens beside the state write, not inside an updater:
+  // updaters run during render, and setting the list's state from there is
+  // React's "cannot update a component while rendering another" error.
+  const editingRef = useRef(false);
   const setEditing = useCallback<Dispatch<SetStateAction<boolean>>>(
     (value) => {
-      setIsEditing((previous) => {
-        const next = typeof value === "function" ? value(previous) : value;
-        if (next !== previous) onEditingChange?.(memo.name, next);
-        return next;
-      });
+      const previous = editingRef.current;
+      const next = typeof value === "function" ? value(previous) : value;
+      if (next === previous) return;
+      editingRef.current = next;
+      setIsEditing(next);
+      onEditingChange?.(memo.name, next);
     },
     [memo.name, onEditingChange],
   );

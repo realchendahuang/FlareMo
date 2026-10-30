@@ -60,9 +60,7 @@ export function MemoCardEditor({
 
   return (
     <div className="flex flex-col gap-3 motion-safe:animate-fade">
-      <Suspense
-        fallback={<div className="min-h-32 bg-muted/30" aria-hidden="true" />}
-      >
+      <Suspense fallback={<div className="min-h-7" aria-hidden="true" />}>
         <RichComposerEditor
           ariaLabel={t("common.edit")}
           autoFocus
@@ -73,6 +71,7 @@ export function MemoCardEditor({
           onEscape={onCancel}
           onImageFiles={insertInlineImages}
           inputId="flaremo-card-editor-input"
+          contentClassName="composer-editor-content memo-card-editor-content"
           onSubmitRequest={() => {
             if (!isUploadingInline) void onSave();
           }}
