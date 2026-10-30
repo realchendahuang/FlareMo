@@ -11,6 +11,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { archiveProject, deleteProject, type Project } from "@/api";
 import {
+  NAV_ACTIVE_CLASS,
+  NAV_COUNT_CLASS,
+  NAV_ITEM_CLASS,
+} from "@/components/nav-item-styles";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -20,7 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,7 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
-import { stripResourceName } from "@/lib/utils";
+import { cn, stripResourceName } from "@/lib/utils";
 import { MORE_BUTTON_CLASS } from "./constants";
 import { ProjectFormDialog } from "./project-form-dialog";
 
@@ -85,16 +89,15 @@ export function ProjectRow({
   return (
     <>
       <div
-        className={
-          "group flex h-9 shrink-0 items-center gap-3 rounded-lg px-3 text-sm " +
-          (selected
-            ? "bg-muted text-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground")
-        }
+        className={cn(
+          NAV_ITEM_CLASS,
+          "group relative shrink-0 whitespace-nowrap",
+          selected && NAV_ACTIVE_CLASS,
+        )}
       >
-        <FolderIcon aria-hidden="true" className="size-4 shrink-0" />
+        <FolderIcon aria-hidden="true" />
         <button
-          className="min-w-0 flex-1 truncate text-left"
+          className="min-w-0 flex-1 truncate text-left outline-none after:absolute after:inset-0 after:rounded-lg"
           type="button"
           onClick={() => onSelect(project.id)}
         >
@@ -106,14 +109,28 @@ export function ProjectRow({
             {project.name}
           </span>
         </button>
+        {/* The count and the menu share the trailing slot, so project counts
+            line up with the view counts above; the menu takes over on hover
+            and is always shown on touch screens. */}
         {project.task_count_open > 0 && (
-          <Badge variant="secondary">{project.task_count_open}</Badge>
+          <span
+            className={cn(
+              NAV_COUNT_CLASS,
+              "group-focus-within:invisible group-hover:invisible [@media(pointer:coarse)]:hidden",
+            )}
+          >
+            {project.task_count_open}
+          </span>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
-                className={MORE_BUTTON_CLASS}
+                aria-label={t("common.more")}
+                className={cn(
+                  MORE_BUTTON_CLASS,
+                  "absolute end-1 top-1/2 z-10 size-6 -translate-y-1/2 data-[popup-open]:opacity-100",
+                )}
                 size="icon-sm"
                 variant="ghost"
               >

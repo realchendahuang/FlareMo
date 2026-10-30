@@ -30,6 +30,7 @@ import {
 import { authClient } from "@/auth-client";
 import { MiniCalendarReminders } from "@/components/flaremo-mini-calendar-panel";
 import { FlareMoTimeHorizon } from "@/components/flaremo-time-horizon";
+import { NAV_ACTIVE_CLASS, NAV_ITEM_CLASS } from "@/components/nav-item-styles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,17 +81,8 @@ type FlareMoExplorerProps = {
   onNavigate?: () => void;
 };
 
-/*
- * Ember 2 sidebar item. Inactive rows are quiet ink; the active row is a
- * raised paper chip (card surface + hairline ring + xs shadow) with the icon
- * in ember, so "where am I" reads without washing the row in brand color.
- */
-const NAV_ITEM =
-  "flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] text-foreground/70 outline-none transition-[background-color,color,box-shadow] duration-150 hover:bg-muted/70 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/25 [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground [&>svg]:transition-colors";
-const NAV_ACTIVE = {
-  className:
-    "!bg-card !text-foreground font-medium shadow-xs ring-1 ring-border/70 dark:!bg-muted dark:ring-border [&>svg]:!text-primary",
-};
+const NAV_ITEM = NAV_ITEM_CLASS;
+const NAV_ACTIVE = { className: NAV_ACTIVE_CLASS };
 
 export const FlareMoExplorer = memo(function FlareMoExplorer({
   activeTag,

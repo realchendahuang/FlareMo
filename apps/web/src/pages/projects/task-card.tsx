@@ -157,6 +157,8 @@ export function TaskCard({
   const sourceMemoId = task.source_memo_id
     ? stripResourceName(task.source_memo_id, "memos")
     : null;
+  const showUnassigned = !projectName && !task.project_id;
+  const hasMeta = Boolean(projectName || showUnassigned || sourceMemoId);
 
   return (
     <>
@@ -165,45 +167,38 @@ export function TaskCard({
           "group",
           interactive && "cursor-grab active:cursor-grabbing",
         )}
+        size="sm"
       >
-        <CardContent className="flex flex-col gap-2 p-3">
-          <div className="flex items-center gap-1.5">
-            {projectName && (
-              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                {projectName}
-              </span>
-            )}
-            {!projectName && !task.project_id && (
-              <Badge className="text-xs" variant="outline">
-                {t("projects.unassigned")}
-              </Badge>
-            )}
-            {sourceMemoId && (
-              <Badge
-                className="text-xs"
-                render={
-                  <Link
-                    params={{ memoId: sourceMemoId }}
-                    title={t("projects.fromMemo")}
-                    to="/memo/$memoId"
-                  />
-                }
-                variant="outline"
-              >
-                <NotebookTextIcon />
-                {t("projects.fromMemo")}
-              </Badge>
-            )}
-            {interactive && (
-              <GripVerticalIcon
-                aria-hidden="true"
-                className={cn(
-                  "ml-auto size-3.5 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100",
-                  COARSE_VISIBLE,
-                )}
-              />
-            )}
-          </div>
+        <CardContent className="flex flex-col gap-2">
+          {/* Only when there is something to say: an empty meta row left a
+              blank band above the title on every project board card. */}
+          {hasMeta && (
+            <div className="flex items-center gap-1.5">
+              {projectName && (
+                <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                  {projectName}
+                </span>
+              )}
+              {showUnassigned && (
+                <Badge variant="outline">{t("projects.unassigned")}</Badge>
+              )}
+              {sourceMemoId && (
+                <Badge
+                  render={
+                    <Link
+                      params={{ memoId: sourceMemoId }}
+                      title={t("projects.fromMemo")}
+                      to="/memo/$memoId"
+                    />
+                  }
+                  variant="outline"
+                >
+                  <NotebookTextIcon />
+                  {t("projects.fromMemo")}
+                </Badge>
+              )}
+            </div>
+          )}
           <div className="flex items-start gap-2">
             <button
               aria-label={t(ADVANCE_KEY[task.status])}
@@ -224,11 +219,20 @@ export function TaskCard({
             >
               {task.title}
             </span>
+            {interactive && (
+              <GripVerticalIcon
+                aria-hidden="true"
+                className={cn(
+                  "mt-1 size-3.5 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100",
+                  COARSE_VISIBLE,
+                )}
+              />
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
-                    className={MORE_BUTTON_CLASS}
+                    className={cn(MORE_BUTTON_CLASS, "-my-1 -me-1")}
                     size="icon-sm"
                     variant="ghost"
                   >

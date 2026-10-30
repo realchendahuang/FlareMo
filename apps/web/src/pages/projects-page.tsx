@@ -9,7 +9,11 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { listAllTasks, listProjects } from "@/api";
-import { Badge } from "@/components/ui/badge";
+import {
+  NAV_ACTIVE_CLASS,
+  NAV_COUNT_CLASS,
+  NAV_ITEM_CLASS,
+} from "@/components/nav-item-styles";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
@@ -84,24 +88,23 @@ function SideRow({
     <button
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-9 shrink-0 items-center gap-3 rounded-lg px-3 text-sm [&_svg]:size-4 [&_svg]:shrink-0",
-        active
-          ? "bg-muted text-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        NAV_ITEM_CLASS,
+        "shrink-0 whitespace-nowrap",
+        active && NAV_ACTIVE_CLASS,
       )}
       type="button"
       onClick={onClick}
     >
       {icon}
       <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-      {count > 0 && <Badge variant="secondary">{count}</Badge>}
+      {count > 0 && <span className={NAV_COUNT_CLASS}>{count}</span>}
     </button>
   );
 }
 
 function SideHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="hidden px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground lg:block">
+    <p className="hidden px-2.5 pt-3 pb-1 text-xs font-medium text-muted-foreground lg:block">
       {children}
     </p>
   );
@@ -264,14 +267,14 @@ export function ProjectsPage() {
 
             <SideHeading>{t("projects.section.projects")}</SideHeading>
             {projectsQuery.isLoading && (
-              <div className="flex flex-col gap-2 px-3 py-2">
+              <div className="flex flex-col gap-2 px-2.5 py-2">
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
               </div>
             )}
 
             {projectsQuery.isError && !projectsQuery.data && (
-              <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
                 <span className="min-w-0 flex-1">
                   {t("list.errorDescription")}
                 </span>
@@ -289,11 +292,11 @@ export function ProjectsPage() {
 
             {projectsQuery.data && projects.length === 0 && (
               <button
-                className="flex h-9 shrink-0 items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={cn(NAV_ITEM_CLASS, "shrink-0 whitespace-nowrap")}
                 type="button"
                 onClick={() => setCreatingProject(true)}
               >
-                <PlusIcon className="size-4" />
+                <PlusIcon />
                 {t("projects.newProject")}
               </button>
             )}
