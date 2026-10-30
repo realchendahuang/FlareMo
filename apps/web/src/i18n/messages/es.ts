@@ -165,27 +165,11 @@ const messages = {
   "nav.randomWalk": "Paseo por la memoria",
   "nav.memory": "Memoria",
   "nav.projects": "Pendientes",
-  "nav.capture": "Captura de voz",
   "capture.title": "Captura de voz",
   "capture.requestingPermission": "Esperando permiso del micrófono…",
   "capture.connecting":
     "Micrófono activo · conectando la transcripción. Podrás hablar enseguida…",
   "capture.stopping": "Micrófono apagado · recibiendo la última frase…",
-  "capture.foreground":
-    "Mantén esta página en primer plano. Cambiar de pestaña o bloquear la pantalla detiene la grabación. El audio original se guarda por defecto; puedes desactivarlo al guardar.",
-  "capture.keepAudio": "Guardar el audio original",
-  "capture.audioNotSaved":
-    "Se guardó la transcripción, pero no se pudo subir el audio original.",
-  "capture.leaveTitle": "¿Salir de la captura de voz?",
-  "capture.leaveRecording":
-    "Hay una grabación en curso. Si la detienes y sales, el texto sin guardar queda en un borrador local de este dispositivo.",
-  "capture.leaveUnsaved":
-    "Esta captura de voz no está guardada. Podrás restaurarla en este dispositivo después de salir.",
-  "capture.continueRecording": "Seguir grabando",
-  "capture.stopAndLeave": "Detener y salir",
-  "capture.leavePage": "Salir de la página",
-  "capture.draftUnavailable":
-    "Los borradores locales no están disponibles. Copia tu texto o guarda la nota cuanto antes.",
   "capture.permissionDenied":
     "Se denegó el acceso al micrófono. Permítelo en la configuración del sitio de tu navegador y reintenta.",
   "capture.noMicrophone":
@@ -196,63 +180,18 @@ const messages = {
     "La grabación se interrumpió y el micrófono está apagado. Revisa el texto capturado; el final podría estar incompleto.",
   "capture.unavailable":
     "La transcripción no está configurada o no está disponible temporalmente. Inténtalo más tarde.",
-  "capture.unavailableOwnerLink": "Actívala en «Ajustes → Servicio de voz».",
-  "capture.unavailableMember":
-    "Pide al propietario de la instancia que active el reconocimiento de voz.",
-  "capture.wakeLockFailed":
-    "No se pudo mantener la pantalla encendida; bloquearla puede interrumpir la grabación.",
   "capture.connectionFailed":
     "No se pudo conectar la transcripción; el micrófono está apagado. El texto capturado sigue siendo editable y se puede guardar.",
   "capture.finishFailed":
     "No se pudo confirmar la última frase. El micrófono está apagado. Revisa el final de la transcripción.",
   "capture.limitReached":
     "Esta captura alcanzó su límite de duración o de texto. Guárdala antes de empezar una nueva.",
-  "capture.gap":
-    "El habla durante una interrupción de conexión puede faltar. Revisa la transcripción.",
-  "capture.recovery": "Captura de voz sin guardar encontrada",
-  "capture.restore": "Restaurar el texto",
-  "capture.discard": "Descartar la captura",
-  "capture.discardConfirm":
-    "Descartarla elimina este borrador local y no se puede deshacer.",
-  "capture.recordedAt": "Grabado a las",
-  "capture.duration": "Duración",
-  "capture.transcript": "Transcripción",
-  "capture.tags": "Etiquetas (separadas por comas; voice siempre se incluye)",
-  "capture.visibility": "Visibilidad",
-  "capture.private": "Privado",
-  "capture.public": "Público",
-  "capture.saveFailed":
-    "No se pudo guardar. Tu texto sigue ahí. Revisa la conexión y reintenta.",
-  "capture.cleanupFailed":
-    "La nota se guardó en FlareMo, pero no se pudo eliminar la copia local de recuperación. Reintenta la limpieza.",
-  "capture.retryCleanup": "Reintentar la limpieza local",
-  "capture.saving": "Guardando…",
-  "capture.recentSentences":
-    "Aquí se muestran las últimas 100 frases. La transcripción completa estará disponible al detener.",
-  "capture.empty": "El habla reconocida aparecerá aquí al empezar.",
-  "capture.description":
-    "Al empezar, FlareMo usará tu micrófono para transcribir en tiempo real.",
-  "capture.start": "Empezar a grabar",
-  "capture.stop": "Detener la grabación",
   "capture.recording": "Ya puedes hablar · Grabando",
-  "capture.reconnecting": "Micrófono activo · reconectando la transcripción…",
-  "capture.review": "Revisar la captura de voz",
-  "capture.save": "Guardar en FlareMo",
-  "capture.error":
-    "No se puede usar el micrófono ni el servicio de transcripción.",
-  "capture.nearLimit": "Quedan unos 5 minutos antes del límite de grabación.",
-  "capture.charsUsed": "{count} / {max} caracteres",
-  "capture.saveSucceeded": "Guardado.",
   "capture.transcribing": "Transcribiendo…",
   "capture.transcribingCount": "Transcribiendo el fragmento {done} de {total}…",
   "capture.transcribeFailed":
     "La transcripción falló. No se pudo generar el texto reconocido; edita el borrador a mano o descártalo.",
-  "capture.cancelTranscribing": "Cancelar transcripción",
-  "capture.retryTranscription": "Reintentar la transcripción",
-  "capture.pause": "Pausar la grabación",
-  "capture.resume": "Reanudar la grabación",
   "capture.paused": "En pausa · el cronómetro sigue en marcha",
-  "capture.waveform": "Onda del micrófono en vivo",
   "review.onThisDayBanner": "Un día como hoy · {count} notas de años pasados",
   "review.oneYearAgoToday": "Hace un año, este día",
   "review.yearsAgoToday": "Hace {count} años, este día",
@@ -319,7 +258,6 @@ const messages = {
   "shortcuts.send": "Enviar el texto actual",
   "shortcuts.linebreak": "Insertar un salto de línea mientras escribes",
   "shortcuts.saveEdit": "Guardar la nota en edición",
-  "shortcuts.capture": "Iniciar o detener la grabación de voz (en /capture)",
   "composer.removeFile": "Quitar {filename}",
   "composer.imageUploadFailed": "Falló la subida de la imagen. Reintenta.",
   "attachment.unavailable":

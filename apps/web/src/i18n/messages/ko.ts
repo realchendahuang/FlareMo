@@ -162,27 +162,11 @@ const messages = {
   "nav.randomWalk": "기억의 산책",
   "nav.memory": "메모리",
   "nav.projects": "할 일",
-  "nav.capture": "음성 기록",
   "capture.title": "음성 기록",
   "capture.requestingPermission": "마이크 권한을 기다리는 중…",
   "capture.connecting":
     "마이크 켜짐 · 전사 서비스에 연결하는 중입니다. 조금 뒤 말씀해 주세요…",
   "capture.stopping": "마이크 꺼짐 · 마지막 문장을 받는 중…",
-  "capture.foreground":
-    "이 페이지를 화면 앞에 두세요. 탭을 바꾸거나 화면을 잠그면 녹음이 중지됩니다. 원본 오디오는 기본으로 저장되며 저장 시 끌 수 있습니다.",
-  "capture.keepAudio": "원본 오디오 저장",
-  "capture.audioNotSaved":
-    "전사 내용은 저장했지만 원본 오디오를 업로드하지 못했습니다.",
-  "capture.leaveTitle": "음성 기록을 그만두시겠어요?",
-  "capture.leaveRecording":
-    "녹음 중입니다. 중지하고 나가면 저장하지 않은 텍스트가 이 기기의 로컬 임시본에 남습니다.",
-  "capture.leaveUnsaved":
-    "이 음성 기록은 저장되지 않았습니다. 나간 뒤에도 이 기기에서 복원할 수 있습니다.",
-  "capture.continueRecording": "계속 녹음",
-  "capture.stopAndLeave": "중지하고 나가기",
-  "capture.leavePage": "페이지 나가기",
-  "capture.draftUnavailable":
-    "로컬 임시본을 사용할 수 없습니다. 텍스트를 복사하거나 빠르게 저장해 주세요.",
   "capture.permissionDenied":
     "마이크 접근이 거부되었습니다. 브라우저 사이트 설정에서 마이크를 허용한 뒤 다시 시도하세요.",
   "capture.noMicrophone":
@@ -193,63 +177,18 @@ const messages = {
     "녹음이 중단되어 마이크를 껐습니다. 받아온 텍스트를 확인하세요. 끝부분이 불완전할 수 있습니다.",
   "capture.unavailable":
     "전사 기능이 설정되지 않았거나 일시적으로 사용할 수 없습니다. 나중에 다시 시도해 주세요.",
-  "capture.unavailableOwnerLink":
-    "「설정 → 음성 서비스」에서 활성화할 수 있습니다.",
-  "capture.unavailableMember":
-    "인스턴스 소유자에게 음성 인식 활성화를 요청해 주세요.",
-  "capture.wakeLockFailed":
-    "화면 켜짐 유지에 실패했습니다. 화면이 잠기면 녹음이 중단될 수 있습니다.",
   "capture.connectionFailed":
     "전사 서비스에 연결할 수 없어 마이크를 껐습니다. 받아온 텍스트는 그대로 편집하고 저장할 수 있습니다.",
   "capture.finishFailed":
     "마지막 문장이 온전히 도착했는지 확인하지 못했습니다. 마이크를 껐습니다. 전사본 끝부분을 확인해 주세요.",
   "capture.limitReached":
     "이 세션은 시간 또는 글자 수 한도에 도달했습니다. 저장한 뒤 새 기록을 시작해 주세요.",
-  "capture.gap":
-    "연결이 끊긴 동안의 음성이 누락되었을 수 있습니다. 전사본을 확인해 주세요.",
-  "capture.recovery": "저장하지 않은 음성 기록 발견",
-  "capture.restore": "텍스트 복원",
-  "capture.discard": "기록 버리기",
-  "capture.discardConfirm":
-    "버리면 이 로컬 임시본이 삭제되며 복구할 수 없습니다.",
-  "capture.recordedAt": "기록 시각",
-  "capture.duration": "길이",
-  "capture.transcript": "전사본",
-  "capture.tags": "태그(쉼표로 구분, voice는 항상 포함)",
-  "capture.visibility": "공개 범위",
-  "capture.private": "비공개",
-  "capture.public": "공개",
-  "capture.saveFailed":
-    "저장에 실패했습니다. 텍스트는 그대로 있습니다. 연결을 확인하고 다시 시도해 주세요.",
-  "capture.cleanupFailed":
-    "노트는 FlareMo에 저장되었지만 기기의 복구용 복사본을 지우지 못했습니다. 정리를 다시 시도해 주세요.",
-  "capture.retryCleanup": "로컬 복사본 정리 재시도",
-  "capture.saving": "저장 중…",
-  "capture.recentSentences":
-    "최근 100문장이 여기 표시됩니다. 전체 전사본은 중지 후 제공됩니다.",
-  "capture.empty": "시작하면 인식된 음성이 여기에 나타납니다.",
-  "capture.description":
-    "시작하면 FlareMo가 마이크로 실시간 전사를 생성합니다.",
-  "capture.start": "녹음 시작",
-  "capture.stop": "녹음 중지",
   "capture.recording": "말할 수 있습니다 · 녹음 중",
-  "capture.reconnecting": "마이크 켜짐 · 전사 서비스에 재연결 중…",
-  "capture.review": "음성 기록 확인",
-  "capture.save": "FlareMo에 저장",
-  "capture.error": "마이크 또는 전사 서비스를 사용할 수 없습니다.",
-  "capture.nearLimit": "녹음 한도까지 약 5분 남았습니다.",
-  "capture.charsUsed": "{count} / {max}자",
-  "capture.saveSucceeded": "저장했습니다.",
   "capture.transcribing": "전사 중…",
   "capture.transcribingCount": "전사 중… {done} / {total} 구간",
   "capture.transcribeFailed":
     "전사에 실패했습니다. 인식 텍스트를 생성하지 못했으니 초안을 직접 편집하거나 버리세요.",
-  "capture.cancelTranscribing": "전사 취소",
-  "capture.retryTranscription": "전사 다시 시도",
-  "capture.pause": "녹음 일시정지",
-  "capture.resume": "녹음 계속",
   "capture.paused": "일시정지 · 기록은 계속됩니다",
-  "capture.waveform": "실시간 마이크 파형",
   "review.onThisDayBanner": "그날의 기억 · 지난해까지 {count}개",
   "review.oneYearAgoToday": "1년 전 오늘",
   "review.yearsAgoToday": "{count}년 전 오늘",
@@ -314,7 +253,6 @@ const messages = {
   "shortcuts.send": "현재 입력 전송",
   "shortcuts.linebreak": "입력 중 줄바꿈 삽입",
   "shortcuts.saveEdit": "편집 중인 노트 저장",
-  "shortcuts.capture": "음성 기록 시작/중지 (/capture 페이지)",
   "composer.removeFile": "{filename} 제거",
   "composer.imageUploadFailed": "이미지 업로드 실패. 다시 시도해 주세요",
   "attachment.unavailable":

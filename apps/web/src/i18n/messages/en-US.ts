@@ -161,27 +161,11 @@ const messages = {
   "nav.randomWalk": "Wander",
   "nav.memory": "Memory",
   "nav.projects": "To-dos",
-  "nav.capture": "Voice capture",
   "capture.title": "Voice capture",
   "capture.requestingPermission": "Waiting for microphone permission…",
   "capture.connecting":
     "Microphone active · connecting transcription. Please wait to speak…",
   "capture.stopping": "Microphone off · receiving the last sentence…",
-  "capture.foreground":
-    "Keep this page in the foreground. Switching tabs or locking the screen stops recording. Original audio is kept by default; you can turn that off when saving.",
-  "capture.keepAudio": "Save original audio",
-  "capture.audioNotSaved":
-    "Saved the transcript, but the original audio could not be uploaded.",
-  "capture.leaveTitle": "Leave voice capture?",
-  "capture.leaveRecording":
-    "Recording is active. Stopping and leaving keeps unsaved text in a local draft on this device.",
-  "capture.leaveUnsaved":
-    "This voice capture is not saved. You can restore it on this device after leaving.",
-  "capture.continueRecording": "Continue recording",
-  "capture.stopAndLeave": "Stop and leave",
-  "capture.leavePage": "Leave page",
-  "capture.draftUnavailable":
-    "Local drafts are unavailable. Copy your text or save the note promptly.",
   "capture.permissionDenied":
     "Microphone access was denied. Allow it in your browser’s site settings, then retry.",
   "capture.noMicrophone":
@@ -192,63 +176,18 @@ const messages = {
     "Recording was interrupted and the microphone is off. Review the captured text; the ending may be incomplete.",
   "capture.unavailable":
     "Transcription is not configured or is temporarily unavailable. Try again later.",
-  "capture.unavailableOwnerLink":
-    "Go to Settings → Voice service to enable it.",
-  "capture.unavailableMember":
-    "Please ask the instance owner to enable voice recognition from the account page.",
-  "capture.wakeLockFailed":
-    "Failed to keep the screen awake; locking the screen may interrupt the recording.",
   "capture.connectionFailed":
     "Transcription could not connect. The microphone is off; captured text can still be edited and saved.",
   "capture.finishFailed":
     "The final sentence could not be confirmed. The microphone is off. Check the end of the transcript.",
   "capture.limitReached":
     "This capture reached its duration or text limit. Save it before starting a new one.",
-  "capture.gap":
-    "Speech during a connection interruption may be missing. Review the transcript.",
-  "capture.recovery": "Unsaved voice capture found",
-  "capture.restore": "Restore text",
-  "capture.discard": "Discard capture",
-  "capture.discardConfirm":
-    "Discarding deletes this local draft and cannot be undone.",
-  "capture.recordedAt": "Recorded at",
-  "capture.duration": "Duration",
-  "capture.transcript": "Transcript",
-  "capture.tags": "Tags (comma separated; voice is always included)",
-  "capture.visibility": "Visibility",
-  "capture.private": "Private",
-  "capture.public": "Public",
-  "capture.saveFailed":
-    "Save failed. Your text is retained. Check the connection and retry.",
-  "capture.cleanupFailed":
-    "The memo is saved in FlareMo, but its local recovery copy could not be removed. Retry cleanup.",
-  "capture.retryCleanup": "Retry local cleanup",
-  "capture.saving": "Saving…",
-  "capture.recentSentences":
-    "Showing the latest 100 sentences. The full transcript is available after stopping.",
-  "capture.empty": "Recognized speech will appear here after you start.",
-  "capture.description":
-    "FlareMo will use your microphone to transcribe after you start.",
-  "capture.start": "Start recording",
-  "capture.stop": "Stop recording",
   "capture.recording": "You can speak · Recording",
-  "capture.reconnecting": "Microphone active · reconnecting transcription…",
-  "capture.review": "Review voice capture",
-  "capture.save": "Save to FlareMo",
-  "capture.error": "Unable to use the microphone or transcription service.",
-  "capture.nearLimit": "About 5 minutes left before the recording limit.",
-  "capture.charsUsed": "{count} / {max} characters",
-  "capture.saveSucceeded": "Saved.",
   "capture.transcribing": "Transcribing…",
   "capture.transcribingCount": "Transcribing chunk {done} of {total}…",
   "capture.transcribeFailed":
     "Transcription failed. The recognized text could not be produced; edit the draft manually or discard it.",
-  "capture.cancelTranscribing": "Cancel transcription",
-  "capture.retryTranscription": "Retry transcription",
-  "capture.pause": "Pause recording",
-  "capture.resume": "Resume recording",
   "capture.paused": "Paused · the clock keeps running",
-  "capture.waveform": "Live microphone waveform",
   "review.onThisDayBanner": "On this day · {count} notes from past years",
   "review.oneYearAgoToday": "1 year ago today",
   "review.yearsAgoToday": "{count} years ago today",
@@ -314,7 +253,6 @@ const messages = {
   "shortcuts.send": "Send the current draft",
   "shortcuts.linebreak": "Insert a line break while composing",
   "shortcuts.saveEdit": "Save the note being edited",
-  "shortcuts.capture": "Start or stop voice recording (on /capture)",
   "composer.removeFile": "Remove {filename}",
   "composer.imageUploadFailed": "Image upload failed. Try again.",
   "attachment.unavailable":

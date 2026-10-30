@@ -56,11 +56,10 @@ export async function clearTimelineSearch(page: Page) {
 /**
  * Start the page with an empty local draft store.
  *
- * The composer and the voice-capture page both persist drafts in the same
- * IndexedDB database under the shared browser profile. Because the suite runs
- * serially in one profile, a draft left behind by an earlier test makes the
- * next one open on a restored draft (the composer's Send stays disabled on
- * empty text; /capture opens its recovery screen). Call this at the top of a
+ * The composer persists drafts in IndexedDB under the shared browser profile.
+ * Because the suite runs serially in one profile, a draft left behind by an
+ * earlier test makes the next one open on a restored draft (the composer's
+ * Send stays disabled on empty text). Call this at the top of a
  * test that needs the composer to start blank; tests that exercise draft
  * recovery must NOT call it.
  */
@@ -72,9 +71,8 @@ export async function clearTimelineSearch(page: Page) {
  * order they run in. Two real examples, both of which only reproduce in a full
  * run:
  *
- * - Composer/capture drafts live in IndexedDB. A leftover draft makes the
- *   composer restore it (Send stays disabled on the text the test just typed)
- *   or /capture open its recovery screen (no record button).
+ * - Composer drafts live in IndexedDB. A leftover draft makes the
+ *   composer restore it (Send stays disabled on the text the test just typed).
  * - The composer's send target is remembered per space in localStorage
  *   (`flaremo.composer.visibility`). A previously-remembered `private` for the
  *   personal space overrides the team space's `protected` default, so a memo

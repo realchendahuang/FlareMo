@@ -36,7 +36,6 @@ export function ShortcutsDialog({
               ["shortcuts.theme", "D"],
               ["shortcuts.cancel", "Esc"],
               ["shortcuts.help", "?"],
-              ["shortcuts.capture", "Enter (on /capture)"],
             ] as const
           ).map(([key, combo]) => (
             <div

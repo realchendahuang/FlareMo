@@ -109,11 +109,6 @@ const ProjectsPage = lazy(() =>
     default: module.ProjectsPage,
   })),
 );
-const CapturePage = lazy(() =>
-  import("@/pages/capture-page").then((module) => ({
-    default: module.CapturePage,
-  })),
-);
 const ArticlesPage = lazy(() =>
   import("@/pages/articles-page").then((module) => ({
     default: module.ArticlesPage,
@@ -411,16 +406,6 @@ const projectsRoute = createRoute({
   },
 });
 
-function CaptureRoutePage() {
-  return <CapturePage />;
-}
-
-const captureRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: "/capture",
-  component: CaptureRoutePage,
-});
-
 function ArticlesRoutePage() {
   return <ArticlesPage />;
 }
@@ -471,7 +456,6 @@ const router = createRouter({
       randomWalkRoute,
       memoryRoute,
       projectsRoute,
-      captureRoute,
       articlesRoute,
     ]),
     shareRoute,

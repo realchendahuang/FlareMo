@@ -90,7 +90,7 @@ FlareMo 回答了一个更简单的问题：**仅凭一个免费的 Cloudflare �
 ### 6. 离线优先与 PWA 体验
 - **可安装 PWA**：一键安装到 macOS、Windows、iOS 或 Android 主屏幕，原生 App 级体验。
 - **可靠的离线同步**：草稿即刻本地保存。离线提交与上传进入待同步队列，恢复网络后自动重放。
-- **实时语音捕捉**：访问 `/capture` 即可获得实时流式语音转文字（ASR）。
+- **实时语音输入**：点输入框的麦克风按钮，边说边把语音实时转成文字（ASR）写进草稿。
 
 ### 7. 坚固的 Better Auth 应用安全
 - **Better Auth 驱动**：浏览器使用 HttpOnly、`SameSite=Lax` Cookie 会话；脚本、CLI 与 MCP 使用可撤销的 `memos_pat_` 个人访问令牌。

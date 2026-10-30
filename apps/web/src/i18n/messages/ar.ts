@@ -159,26 +159,11 @@ const messages = {
   "nav.randomWalk": "تجوال في الذاكرة",
   "nav.memory": "الذاكرة",
   "nav.projects": "المهام",
-  "nav.capture": "التسجيل الصوتي",
   "capture.title": "التسجيل الصوتي",
   "capture.requestingPermission": "في انتظار إذن الميكروفون…",
   "capture.connecting":
     "الميكروفون يعمل · جارٍ الاتصال بخدمة التفريغ. تحدث بعد قليل…",
   "capture.stopping": "الميكروفون متوقف · جارٍ استلام الجملة الأخيرة…",
-  "capture.foreground":
-    "أبقِ هذه الصفحة في المقدمة. تبديل التبويبات أو قفل الشاشة يوقف التسجيل. يُحفظ الصوت الأصلي افتراضيًا ويمكنك إيقاف ذلك عند الحفظ.",
-  "capture.keepAudio": "حفظ الصوت الأصلي",
-  "capture.audioNotSaved": "تم حفظ النص، لكن تعذّر رفع الصوت الأصلي.",
-  "capture.leaveTitle": "مغادرة التسجيل الصوتي؟",
-  "capture.leaveRecording":
-    "التسجيل جارٍ. إذا أوقفته وغادرت، يبقى النص غير المحفوظ في مسودة محلية على هذا الجهاز.",
-  "capture.leaveUnsaved":
-    "هذا التسجيل الصوتي غير محفوظ. يمكنك استعادته على هذا الجهاز بعد المغادرة.",
-  "capture.continueRecording": "متابعة التسجيل",
-  "capture.stopAndLeave": "توقف وغادر",
-  "capture.leavePage": "غادر الصفحة",
-  "capture.draftUnavailable":
-    "المسودات المحلية غير متاحة. انسخ نصك أو احفظ الملاحظة فورًا.",
   "capture.permissionDenied":
     "رُفض الوصول إلى الميكروفون. اسمح به من إعدادات الموقع في المتصفح ثم أعد المحاولة.",
   "capture.noMicrophone":
@@ -189,61 +174,18 @@ const messages = {
     "انقطع التسجيل وأُوقف الميكروفون. راجع النص الملتقط؛ قد يكون النهاية غير مكتملة.",
   "capture.unavailable":
     "التفريغ النصي غير مُهيأ أو غير متاح مؤقتًا. أعد المحاولة لاحقًا.",
-  "capture.unavailableOwnerLink": "يمكن تفعيلها من «الإعدادات ← خدمة الصوت».",
-  "capture.unavailableMember":
-    "يرجى طلب تفعيل التعرف على الصوت من مالك المثيل.",
-  "capture.wakeLockFailed":
-    "فشل إبقاء الشاشة مضاءة؛ قد يقفل الشاشة مقاطعة التسجيل.",
   "capture.connectionFailed":
     "تعذر الاتصال بخدمة التفريغ وأُوقف الميكروفون. ما التُقط من نص يبقى قابلًا للتعديل والحفظ.",
   "capture.finishFailed":
     "لم نتمكن من تأكيد وصول الجملة الأخيرة كاملة، وأُوقف الميكروفون. راجع نهاية التفريغ.",
   "capture.limitReached":
     "بلغت هذه الجلسة حد المدة أو النص. احفظها ثم ابدأ جلسة جديدة.",
-  "capture.gap": "قد ينقص الكلام أثناء انقطاع الاتصال. راجع التفريغ النصي.",
-  "capture.recovery": "وجدنا تسجيلًا صوتيًا غير محفوظ",
-  "capture.restore": "استعادة النص",
-  "capture.discard": "التخلص من التسجيل",
-  "capture.discardConfirm":
-    "التخلص يحذف هذه المسودة المحلية ولا يمكن التراجع عنه.",
-  "capture.recordedAt": "وقت التسجيل",
-  "capture.duration": "المدة",
-  "capture.transcript": "التفريغ النصي",
-  "capture.tags": "الوسوم (مفصولة بفواصل؛ يُضمَّن وسم voice دائمًا)",
-  "capture.visibility": "الظهور",
-  "capture.private": "خاص",
-  "capture.public": "عام",
-  "capture.saveFailed":
-    "فشل الحفظ، نصك ما زال محفوظًا محليًا. تحقق من الاتصال وأعد المحاولة.",
-  "capture.cleanupFailed":
-    "حُفظت الملاحظة في FlareMo، لكن لم يتمكن الجهاز من إزالة نسخة الاستعادة المحلية. أعد المحاولة.",
-  "capture.retryCleanup": "أعد محاولة تنظيف النسخة المحلية",
-  "capture.saving": "جارٍ الحفظ…",
-  "capture.recentSentences":
-    "تظهر هنا آخر 100 جملة، والتفريغ الكامل يتوفر بعد التوقف.",
-  "capture.empty": "سيظهر الكلام المُتعرف عليه هنا بعد البدء.",
-  "capture.description":
-    "بعد البدء، سيستخدم FlareMo الميكروفون للتفريغ النصي الفوري.",
-  "capture.start": "بدء التسجيل",
-  "capture.stop": "إيقاف التسجيل",
   "capture.recording": "تحدث الآن · جارٍ التسجيل",
-  "capture.reconnecting": "الميكروفون يعمل · جارٍ إعادة الاتصال بخدمة التفريغ…",
-  "capture.review": "راجع التسجيل الصوتي",
-  "capture.save": "احفظ في FlareMo",
-  "capture.error": "تعذّر استخدام الميكروفون أو خدمة التفريغ.",
-  "capture.nearLimit": "يتبقى حوالي 5 دقائق قبل الوصول إلى حد التسجيل.",
-  "capture.charsUsed": "{count} / {max} حروف",
-  "capture.saveSucceeded": "تم الحفظ.",
   "capture.transcribing": "جارٍ التفريغ النصي…",
   "capture.transcribingCount": "جارٍ تفريغ المقطع {done} من {total}…",
   "capture.transcribeFailed":
     "فشل التفريغ النصي. تعذّر إنتاج النص المُتعرَّف عليه؛ حرّر المسودة يدويًا أو تخلَّ عنها.",
-  "capture.cancelTranscribing": "إلغاء التفريغ النصي",
-  "capture.retryTranscription": "إعادة محاولة التفريغ النصي",
-  "capture.pause": "إيقاف التسجيل مؤقتًا",
-  "capture.resume": "متابعة التسجيل",
   "capture.paused": "متوقف مؤقتًا · يستمر العداد",
-  "capture.waveform": "موجة الميكروفون الحية",
   "review.onThisDayBanner":
     "في مثل هذا اليوم · {count} ملاحظات من السنوات الماضية",
   "review.oneYearAgoToday": "قبل سنة، في مثل هذا اليوم",
@@ -309,7 +251,6 @@ const messages = {
   "shortcuts.send": "إرسال النص الحالي",
   "shortcuts.linebreak": "إدراج سطر جديد أثناء الكتابة",
   "shortcuts.saveEdit": "حفظ الملاحظة قيد التعديل",
-  "shortcuts.capture": "بدء تسجيل الصوت أو إيقافه (في /capture)",
   "composer.removeFile": "إزالة {filename}",
   "composer.imageUploadFailed": "فشل رفع الصورة. أعد المحاولة.",
   "attachment.unavailable": "تعذر تحميل الملف؛ ربما حُذف.",

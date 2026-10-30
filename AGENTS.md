@@ -26,7 +26,7 @@ pnpm build
 pnpm backup:drill
 ```
 
-`pnpm verify`（13 步全量门禁）只在维护者明确要求时运行，见下方「敏捷开发节奏」。
+`pnpm verify`（12 步全量门禁）只在维护者明确要求时运行，见下方「敏捷开发节奏」。
 
 本地开发：
 
@@ -57,7 +57,7 @@ pnpm deploy:dry-run
 pnpm deploy
 ```
 
-`pnpm verify` 是 13 步全量门禁（含 e2e），**只在维护者明确要求时执行**（发版也不需要）。
+`pnpm verify` 是 12 步全量门禁（含 e2e），**只在维护者明确要求时执行**（发版也不需要）。
 
 只验证 Cloudflare 配置和打包：
 

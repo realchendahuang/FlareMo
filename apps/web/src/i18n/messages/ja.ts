@@ -160,27 +160,11 @@ const messages = {
   "nav.randomWalk": "記憶の旅",
   "nav.memory": "メモリー",
   "nav.projects": "ToDo",
-  "nav.capture": "音声メモ",
   "capture.title": "音声メモ",
   "capture.requestingPermission": "マイクの権限を待っています…",
   "capture.connecting":
     "マイク有効 · 文字起こしサービスに接続中です。そのままお話しください…",
   "capture.stopping": "マイク停止 · 最後の一文を受信しています…",
-  "capture.foreground":
-    "このページを前面に保ってください。タブを切り替えたり画面をロックすると録音が止まります。元の音声は既定で保存され、保存時にオフにできます。",
-  "capture.keepAudio": "元の音声を保存",
-  "capture.audioNotSaved":
-    "文字起こしは保存しましたが、元の音声をアップロードできませんでした。",
-  "capture.leaveTitle": "音声メモを中断しますか？",
-  "capture.leaveRecording":
-    "録音中です。停止して離れると、未保存のテキストはこの端末のローカル下書きに残ります。",
-  "capture.leaveUnsaved":
-    "この音声メモは未保存です。離れた後もこの端末で復元できます。",
-  "capture.continueRecording": "録音を続ける",
-  "capture.stopAndLeave": "停止して離れる",
-  "capture.leavePage": "ページを離れる",
-  "capture.draftUnavailable":
-    "ローカル下書きを利用できません。テキストをコピーするか、すぐに保存してください。",
   "capture.permissionDenied":
     "マイクへのアクセスが拒否されました。ブラウザーのサイト設定でマイクを許可してから再試行してください。",
   "capture.noMicrophone":
@@ -191,62 +175,18 @@ const messages = {
     "録音が中断され、マイクをオフにしました。取り込めたテキストを確認してください。末尾が不完全な可能性があります。",
   "capture.unavailable":
     "文字起こしは未設定か、一時的に利用できません。しばらくしてから再試行してください。",
-  "capture.unavailableOwnerLink": "「設定 → 音声サービス」で有効にできます。",
-  "capture.unavailableMember":
-    "インスタンスのオーナーに音声認識の有効化を依頼してください。",
-  "capture.wakeLockFailed":
-    "画面のスリープ防止に失敗しました。ロックすると録音が中断される場合があります。",
   "capture.connectionFailed":
     "文字起こしサービスに接続できず、マイクをオフにしました。取り込めたテキストはそのまま編集・保存できます。",
   "capture.finishFailed":
     "最後の一文が完全に返されたか確認できませんでした。マイクをオフにしました。文字起こしの末尾を確認してください。",
   "capture.limitReached":
     "このセッションは時間または文字数の上限に達しました。保存してから新しい記録を開始してください。",
-  "capture.gap":
-    "接続が中断した間の音声が欠落している可能性があります。文字起こしを確認してください。",
-  "capture.recovery": "未保存の音声メモがあります",
-  "capture.restore": "テキストを復元",
-  "capture.discard": "破棄する",
-  "capture.discardConfirm":
-    "破棄するとこのローカル下書きは削除され、元に戻せません。",
-  "capture.recordedAt": "録音日時",
-  "capture.duration": "長さ",
-  "capture.transcript": "文字起こし",
-  "capture.tags": "タグ（カンマ区切り。voice は常に含まれます）",
-  "capture.visibility": "公開範囲",
-  "capture.private": "非公開",
-  "capture.public": "公開",
-  "capture.saveFailed":
-    "保存に失敗しました。テキストは失われていません。接続を確認して再試行してください。",
-  "capture.cleanupFailed":
-    "ノートは FlareMo に保存されましたが、端末内の復元用コピーを削除できませんでした。クリーンアップを再試行してください。",
-  "capture.retryCleanup": "ローカルコピーのクリーンアップを再試行",
-  "capture.saving": "保存中…",
-  "capture.recentSentences":
-    "最新の 100 文を表示しています。完全な文字起こしは停止後に利用できます。",
-  "capture.empty": "開始すると、認識された音声がここに表示されます。",
-  "capture.description":
-    "開始すると、FlareMo がマイクを使ってリアルタイムに文字起こしします。",
-  "capture.start": "録音を開始",
-  "capture.stop": "録音を停止",
   "capture.recording": "話せます · 録音中",
-  "capture.reconnecting": "マイク有効 · 文字起こしサービスに再接続中…",
-  "capture.review": "音声メモを確認",
-  "capture.save": "FlareMo に保存",
-  "capture.error": "マイクまたは文字起こしサービスを利用できません。",
-  "capture.nearLimit": "録音上限まで約5分です。",
-  "capture.charsUsed": "{count} / {max} 文字",
-  "capture.saveSucceeded": "保存しました。",
   "capture.transcribing": "文字起こし中…",
   "capture.transcribingCount": "文字起こし中… {done} / {total} 段落目",
   "capture.transcribeFailed":
     "文字起こしに失敗しました。認識テキストを生成できなかったため、下書きを手動で編集するか破棄してください。",
-  "capture.cancelTranscribing": "文字起こしをキャンセル",
-  "capture.retryTranscription": "文字起こしを再試行",
-  "capture.pause": "録音を一時停止",
-  "capture.resume": "録音を再開",
   "capture.paused": "一時停止中 · タイマーは継続中",
-  "capture.waveform": "マイクのライブ波形",
   "review.onThisDayBanner": "あの日の記録 · 過去 {count} 件",
   "review.oneYearAgoToday": "1 年前の今日",
   "review.yearsAgoToday": "{count} 年前の今日",
@@ -313,7 +253,6 @@ const messages = {
   "shortcuts.send": "現在の入力を送信",
   "shortcuts.linebreak": "入力欄内で改行",
   "shortcuts.saveEdit": "編集中のノートを保存",
-  "shortcuts.capture": "音声記録の開始/停止（/capture ページ）",
   "composer.removeFile": "{filename} を削除",
   "composer.imageUploadFailed":
     "画像のアップロードに失敗しました。再試行してください",

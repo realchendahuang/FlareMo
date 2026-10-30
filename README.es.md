@@ -90,7 +90,7 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 ### 6. Sin conexión primero y experiencia PWA
 - **PWA instalable**: Instala FlareMo en la pantalla de inicio de macOS, Windows, iOS o Android con tacto de app nativa.
 - **Sincronización offline fiable**: Los borradores se guardan al instante en local; los envíos y las subidas sin conexión se ponen en cola y se reproducen automáticamente al recuperar la red.
-- **Captura de voz en vivo**: Accede a `/capture` para transcripción de voz a texto en streaming en tiempo real (ASR).
+- **Dictado por voz en vivo**: El botón de micrófono del editor transcribe la voz en tiempo real (ASR) directamente en el borrador.
 
 ### 7. Seguridad robusta con Better Auth
 - **Impulsado por Better Auth**: Sesiones por cookie de navegador `HttpOnly` y `SameSite=Lax`; tokens de acceso personal `memos_pat_` revocables para scripts, CLI y MCP.

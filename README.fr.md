@@ -90,7 +90,7 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 ### 6. Mode hors-ligne & Expérience PWA
 - **PWA installable** : Installez FlareMo sur l'écran d'accueil de macOS, Windows, iOS ou Android, avec une sensation d'application native.
 - **Synchronisation hors-ligne fiable** : Les brouillons s'enregistrent localement instantanément. Les soumissions et envois hors-ligne sont mis en file d'attente et rejoués automatiquement dès le retour de la connexion.
-- **Dictée vocale en direct** : Page `/capture` avec transcription vocale continue en temps réel (ASR).
+- **Dictée vocale en direct** : Le bouton micro de l'éditeur transcrit la parole en temps réel (ASR) directement dans le brouillon.
 
 ### 7. Sécurité applicative Better Auth
 - **Propulsé par Better Auth** : Sessions par cookies `HttpOnly` et `SameSite=Lax` pour le navigateur ; jetons d'accès personnels révocables (`memos_pat_`) pour les scripts, le CLI et MCP.

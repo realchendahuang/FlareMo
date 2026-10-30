@@ -60,18 +60,6 @@
       ]
     },
     {
-      "name": "语音记录",
-      "short_name": "语音",
-      "url": "/capture",
-      "icons": [
-        {
-          "src": "/brand/flaremo-app-icon-maskable-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
       "name": "记忆",
       "short_name": "记忆",
       "url": "/memory",

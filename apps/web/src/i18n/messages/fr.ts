@@ -165,27 +165,11 @@ const messages = {
   "nav.randomWalk": "Balade",
   "nav.memory": "Mémoire",
   "nav.projects": "Tâches",
-  "nav.capture": "Capture vocale",
   "capture.title": "Capture vocale",
   "capture.requestingPermission": "En attente de l'autorisation micro…",
   "capture.connecting":
     "Micro actif · connexion à la transcription. Vous pourrez parler dans un instant…",
   "capture.stopping": "Micro coupé · réception de la dernière phrase…",
-  "capture.foreground":
-    "Gardez cette page au premier plan. Changer d'onglet ou verrouiller l'écran interrompt l'enregistrement. L'audio brut est conservé par défaut ; vous pouvez le désactiver à l'enregistrement.",
-  "capture.keepAudio": "Conserver l'audio brut",
-  "capture.audioNotSaved":
-    "La transcription est enregistrée, mais l'audio brut n'a pas pu être importé.",
-  "capture.leaveTitle": "Quitter la capture vocale ?",
-  "capture.leaveRecording":
-    "L'enregistrement est en cours. En l'arrêtant puis en partant, le texte non enregistré reste dans un brouillon local sur cet appareil.",
-  "capture.leaveUnsaved":
-    "Cette capture vocale n'est pas enregistrée. Vous pourrez la restaurer sur cet appareil après votre départ.",
-  "capture.continueRecording": "Continuer l'enregistrement",
-  "capture.stopAndLeave": "Arrêter et quitter",
-  "capture.leavePage": "Quitter la page",
-  "capture.draftUnavailable":
-    "Les brouillons locaux sont indisponibles. Copiez votre texte ou enregistrez la note sans tarder.",
   "capture.permissionDenied":
     "L'accès au micro a été refusé. Autorisez-le dans les réglages du site de votre navigateur, puis réessayez.",
   "capture.noMicrophone":
@@ -196,65 +180,18 @@ const messages = {
     "L'enregistrement a été interrompu et le micro est coupé. Relisez le texte capturé ; la fin peut être incomplète.",
   "capture.unavailable":
     "La transcription n'est pas configurée ou momentanément indisponible. Réessayez plus tard.",
-  "capture.unavailableOwnerLink":
-    "Activez-la dans « Réglages → Service vocal ».",
-  "capture.unavailableMember":
-    "Veuillez demander au propriétaire de l'instance d'activer la reconnaissance vocale.",
-  "capture.wakeLockFailed":
-    "Impossible de maintenir l'écran allumé ; le verrouillage pourrait interrompre l'enregistrement.",
   "capture.connectionFailed":
     "Connexion à la transcription impossible, le micro est coupé. Le texte capturé reste modifiable et enregistrable.",
   "capture.finishFailed":
     "La complétude de la dernière phrase n'a pas pu être confirmée. Le micro est coupé. Vérifiez la fin de la transcription.",
   "capture.limitReached":
     "Cette capture a atteint sa limite de durée ou de texte. Enregistrez-la avant d'en commencer une nouvelle.",
-  "capture.gap":
-    "La parole pendant une coupure de connexion peut manquer. Relisez la transcription.",
-  "capture.recovery": "Capture vocale non enregistrée trouvée",
-  "capture.restore": "Restaurer le texte",
-  "capture.discard": "Abandonner la capture",
-  "capture.discardConfirm":
-    "Abandonner supprime ce brouillon local, sans possibilité d'annulation.",
-  "capture.recordedAt": "Enregistré le",
-  "capture.duration": "Durée",
-  "capture.transcript": "Transcription",
-  "capture.tags": "Tags (séparés par des virgules ; voice est toujours inclus)",
-  "capture.visibility": "Visibilité",
-  "capture.private": "Privé",
-  "capture.public": "Public",
-  "capture.saveFailed":
-    "Échec de l'enregistrement. Votre texte est conservé. Vérifiez la connexion et réessayez.",
-  "capture.cleanupFailed":
-    "La note est enregistrée dans FlareMo, mais la copie locale de récupération n'a pas pu être supprimée. Relancez le nettoyage.",
-  "capture.retryCleanup": "Relancer le nettoyage local",
-  "capture.saving": "Enregistrement…",
-  "capture.recentSentences":
-    "Les 100 dernières phrases s'affichent ici. La transcription complète est disponible à l'arrêt.",
-  "capture.empty": "La parole reconnue apparaîtra ici une fois lancé.",
-  "capture.description":
-    "Une fois lancé, FlareMo utilisera votre micro pour transcrire en direct.",
-  "capture.start": "Démarrer l'enregistrement",
-  "capture.stop": "Arrêter l'enregistrement",
   "capture.recording": "Vous pouvez parler · Enregistrement en cours",
-  "capture.reconnecting": "Micro actif · reconnexion à la transcription…",
-  "capture.review": "Relire la capture vocale",
-  "capture.save": "Enregistrer dans FlareMo",
-  "capture.error":
-    "Impossible d'utiliser le micro ou le service de transcription.",
-  "capture.nearLimit":
-    "Environ 5 minutes restantes avant la limite d'enregistrement.",
-  "capture.charsUsed": "{count} / {max} caractères",
-  "capture.saveSucceeded": "Enregistré.",
   "capture.transcribing": "Transcription…",
   "capture.transcribingCount": "Transcription du segment {done} sur {total}…",
   "capture.transcribeFailed":
     "La transcription a échoué. Le texte reconnu n'a pas pu être produit ; modifiez le brouillon à la main ou abandonnez-le.",
-  "capture.cancelTranscribing": "Annuler la transcription",
-  "capture.retryTranscription": "Réessayer la transcription",
-  "capture.pause": "Mettre l'enregistrement en pause",
-  "capture.resume": "Reprendre l'enregistrement",
   "capture.paused": "En pause · le chronomètre continue",
-  "capture.waveform": "Onde du microphone en direct",
   "review.onThisDayBanner": "Ce jour-là · {count} notes des années passées",
   "review.oneYearAgoToday": "Il y a un an, jour pour jour",
   "review.yearsAgoToday": "Il y a {count} ans, jour pour jour",
@@ -321,8 +258,6 @@ const messages = {
   "shortcuts.send": "Envoyer le texte en cours",
   "shortcuts.linebreak": "Insérer un saut de ligne pendant la saisie",
   "shortcuts.saveEdit": "Enregistrer la note en cours de modification",
-  "shortcuts.capture":
-    "Démarrer ou arrêter l'enregistrement vocal (sur /capture)",
   "composer.removeFile": "Retirer {filename}",
   "composer.imageUploadFailed": "Échec de l'envoi de l'image. Réessayez.",
   "attachment.unavailable":

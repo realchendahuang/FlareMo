@@ -90,7 +90,7 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 ### 6. Offline First & PWA Experience
 - **Installable PWA**: Install to macOS, Windows, iOS, or Android home screen with native feel.
 - **Reliable offline sync**: Drafts save locally instantly. Offline submissions and uploads queue up and replay automatically when connectivity is restored.
-- **Live voice capture**: Access `/capture` for real-time streaming speech-to-text (ASR) transcription.
+- **Live voice input**: The composer's microphone button streams speech-to-text (ASR) into the draft as you speak.
 
 ### 7. Secure Better Auth Application Security
 - **Better Auth powered**: HttpOnly, `SameSite=Lax` browser cookie sessions; revocable `memos_pat_` Personal Access Tokens for scripts, CLI, and MCP.

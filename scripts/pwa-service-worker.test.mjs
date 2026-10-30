@@ -13,7 +13,7 @@ test("the PWA caches the Capture app shell and serves it offline", async () => {
     ok: true,
     redirected: false,
     type: "basic",
-    url: "https://flaremo.test/capture",
+    url: "https://flaremo.test/memory",
     async text() {
       // The v2 shell cache only stores documents that carry the app marker,
       // so an access wall or error page can never masquerade as the shell.
@@ -81,7 +81,7 @@ test("the PWA caches the Capture app shell and serves it offline", async () => {
       request: {
         method: "GET",
         mode: "navigate",
-        url: "https://flaremo.test/capture",
+        url: "https://flaremo.test/memory",
         headers: new Headers(),
       },
       respondWith(value) {

@@ -2,6 +2,13 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
 
+## Unreleased
+
+**无 migration，无 Cloudflare 资源变化，Memos 兼容面不变。**
+
+- **删除独立的语音速记页 `/capture`**：语音输入只保留输入框（及长文画布）里的麦克风按钮，录完的文字进草稿，照常编辑发送。浏览器标签页里的长时间录音在锁屏或切走时就会中断，不是可靠的功能，短语音已由输入框覆盖。侧栏入口、PWA 快捷方式「语音记录」、`/capture` 路由（现返回 404）、专属 e2e（`capture-flow`、`capture-webkit`）和手机验收脚本（`capture:dev`、`capture:phone`、`capture:live-smoke`、`capture:gate:test`、`test:capture:webkit`）一并删除；`pnpm verify` 由 13 步变为 12 步。Worker 的语音 WebSocket、服务商适配、语音服务设置与 `capture:production:check` 保持不变。
+- **打磨**：往年今日与漫游的卡片与时间线一致（长笔记折叠、正文已内嵌的图片不再重复）；漫游步骤块改为墨色选中；待办页侧栏与主侧栏同一套导航样式，项目计数对齐，看板卡片去掉双重内边距与空头部行。
+
 ## v0.23.0
 
 产品定位收口版本：FlareMo 是带团队空间的个人笔记软件，团队空间只做分享，不做协作。本版把便签与长文分成两种体裁，把「日期」改成与待办、项目双向同步的「安排」，评论挂回原帖下面，并删除团队项目工作台；同时整页走查打磨记录、回顾、文章、团队、记忆、设置与认证页，修复未知路径返回 200、依赖安全告警和 D1 绑定参数超限。**有 5 个 migration（4 个只加索引，1 个回填评论的团队归属），无新增 Cloudflare 资源；assets 建议改用 `not_found_handling: "none"`（见升级步骤）；Better Auth 升至 1.7.14，认证表结构不变。**

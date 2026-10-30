@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   BrainIcon,
@@ -9,7 +8,6 @@ import {
   HashIcon,
   LayoutGridIcon,
   ListChecksIcon,
-  MicIcon,
   PencilIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -21,13 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  getCaptureStatus,
-  type MemoSpace,
-  type MemoStatsResponse,
-  type TagHierarchyNode,
-} from "@/api";
-import { authClient } from "@/auth-client";
+import type { MemoSpace, MemoStatsResponse, TagHierarchyNode } from "@/api";
 import { MiniCalendarReminders } from "@/components/flaremo-mini-calendar-panel";
 import { FlareMoTimeHorizon } from "@/components/flaremo-time-horizon";
 import { NAV_ACTIVE_CLASS, NAV_ITEM_CLASS } from "@/components/nav-item-styles";
@@ -46,7 +38,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { currentStreak } from "@/lib/activity";
-import { queryKeys } from "@/lib/query-keys";
 import { TIMELINE_SEARCH } from "@/lib/timeline-search";
 import { cn } from "@/lib/utils";
 
@@ -104,14 +95,6 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   onNavigate,
 }: FlareMoExplorerProps) {
   const { t } = useI18n();
-  const session = authClient.useSession();
-  const captureStatus = useQuery({
-    queryKey: queryKeys.captureStatus.forUser(session.data?.user.id),
-    queryFn: getCaptureStatus,
-    enabled: Boolean(session.data?.user),
-    staleTime: 30_000,
-    retry: false,
-  });
   const streak = useMemo(() => currentStreak(stats.activity), [stats.activity]);
 
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
@@ -191,17 +174,6 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
           <FootprintsIcon />
           <span className="min-w-0 flex-1 truncate">{t("nav.randomWalk")}</span>
         </Link>
-        {captureStatus.data?.available && (
-          <Link
-            activeProps={NAV_ACTIVE}
-            className={NAV_ITEM}
-            onClick={onNavigate}
-            to="/capture"
-          >
-            <MicIcon />
-            <span className="min-w-0 flex-1 truncate">{t("nav.capture")}</span>
-          </Link>
-        )}
         <Link
           activeProps={NAV_ACTIVE}
           className={NAV_ITEM}
