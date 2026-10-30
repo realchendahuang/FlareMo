@@ -100,6 +100,17 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [previewMode, setPreviewMode] = useState(false);
+  const [activeTools, setActiveTools] = useState<Partial<ArticleActiveTools>>(
+    {},
+  );
+  // Runs on every transaction; keep the old object when nothing changed so
+  // a caret move does not re-render the page.
+  const syncActiveTools = (editor: Editor) => {
+    const next = readArticleActiveTools(editor);
+    setActiveTools((prev) =>
+      ARTICLE_TOOL_STATES.every((key) => prev[key] === next[key]) ? prev : next,
+    );
+  };
   const [publishOpen, setPublishOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [savedArticle, setSavedArticle] = useState<Article | null>(null);
@@ -418,7 +429,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <ArticleToolbar editorRef={editorRef} />
+            <ArticleToolbar active={activeTools} editorRef={editorRef} />
             <ArticleEditor
               content={content}
               disabled={false}
@@ -429,6 +440,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
                 scheduleSave();
               }}
               onImageFiles={enqueueInlineUploads}
+              onTransaction={syncActiveTools}
               placeholder={t("article.contentPlaceholder")}
             />
           </div>
@@ -472,20 +484,59 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   );
 }
 
+/** Marks and blocks the toolbar lights up when the caret sits inside them. */
+const ARTICLE_TOOL_STATES = [
+  "h2",
+  "h3",
+  "bold",
+  "italic",
+  "strike",
+  "code",
+  "bulletList",
+  "orderedList",
+  "taskList",
+  "blockquote",
+] as const;
+type ArticleToolState = (typeof ARTICLE_TOOL_STATES)[number];
+type ArticleActiveTools = Record<ArticleToolState, boolean>;
+
+function readArticleActiveTools(editor: Editor): ArticleActiveTools {
+  return {
+    h2: editor.isActive("heading", { level: 2 }),
+    h3: editor.isActive("heading", { level: 3 }),
+    bold: editor.isActive("bold"),
+    italic: editor.isActive("italic"),
+    strike: editor.isActive("strike"),
+    code: editor.isActive("code"),
+    bulletList: editor.isActive("bulletList"),
+    orderedList: editor.isActive("orderedList"),
+    taskList: editor.isActive("taskList"),
+    blockquote: editor.isActive("blockquote"),
+  };
+}
+
 function ArticleToolbar({
   editorRef,
+  active,
 }: {
   editorRef: React.RefObject<Editor | null>;
+  active: Partial<ArticleActiveTools>;
 }) {
   const { t } = useI18n();
   const run = (action: (editor: Editor) => void) => () => {
     const editor = editorRef.current;
     if (editor) action(editor);
   };
-  const tools = [
+  const tools: {
+    icon: React.ReactNode;
+    label: string;
+    state?: ArticleToolState;
+    run: () => void;
+  }[] = [
     {
       icon: <Heading2Icon className="size-4" />,
       label: t("article.toolH2"),
+      state: "h2" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleHeading({ level: 2 }).run();
       }),
@@ -493,6 +544,7 @@ function ArticleToolbar({
     {
       icon: <Heading3Icon className="size-4" />,
       label: t("article.toolH3"),
+      state: "h3" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleHeading({ level: 3 }).run();
       }),
@@ -500,6 +552,7 @@ function ArticleToolbar({
     {
       icon: <BoldIcon className="size-4" />,
       label: t("article.toolBold"),
+      state: "bold" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleBold().run();
       }),
@@ -507,6 +560,7 @@ function ArticleToolbar({
     {
       icon: <ItalicIcon className="size-4" />,
       label: t("article.toolItalic"),
+      state: "italic" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleItalic().run();
       }),
@@ -514,6 +568,7 @@ function ArticleToolbar({
     {
       icon: <StrikethroughIcon className="size-4" />,
       label: t("article.toolStrike"),
+      state: "strike" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleStrike().run();
       }),
@@ -521,6 +576,7 @@ function ArticleToolbar({
     {
       icon: <CodeIcon className="size-4" />,
       label: t("article.toolCode"),
+      state: "code" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleCode().run();
       }),
@@ -528,6 +584,7 @@ function ArticleToolbar({
     {
       icon: <ListIcon className="size-4" />,
       label: t("article.toolBulletList"),
+      state: "bulletList" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleBulletList().run();
       }),
@@ -535,6 +592,7 @@ function ArticleToolbar({
     {
       icon: <ListOrderedIcon className="size-4" />,
       label: t("article.toolOrderedList"),
+      state: "orderedList" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleOrderedList().run();
       }),
@@ -542,6 +600,7 @@ function ArticleToolbar({
     {
       icon: <ListTodoIcon className="size-4" />,
       label: t("article.toolTaskList"),
+      state: "taskList" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleTaskList().run();
       }),
@@ -549,6 +608,7 @@ function ArticleToolbar({
     {
       icon: <QuoteIcon className="size-4" />,
       label: t("article.toolQuote"),
+      state: "blockquote" as ArticleToolState,
       run: run((editor) => {
         editor.chain().focus().toggleBlockquote().run();
       }),
@@ -587,7 +647,11 @@ function ArticleToolbar({
         <Fragment key={tool.label}>
           <Button
             aria-label={tool.label}
-            className="shrink-0"
+            aria-pressed={tool.state ? Boolean(active[tool.state]) : undefined}
+            className="shrink-0 aria-pressed:bg-muted aria-pressed:text-foreground"
+            // Keep the editor's selection: a toolbar click must not blur it
+            // first, or the pressed state flickers off before the toggle.
+            onMouseDown={(event) => event.preventDefault()}
             onClick={tool.run}
             size="icon"
             title={tool.label}

@@ -13,6 +13,25 @@ import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 
+/**
+ * Better Auth answers a wrong account or password with an English message
+ * (`INVALID_EMAIL_OR_PASSWORD`, `INVALID_USERNAME_OR_PASSWORD`, 401). Show the
+ * localized sentence instead; other failures keep their own text.
+ */
+function loginErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object") {
+    const code = "code" in error ? error.code : undefined;
+    const status = "status" in error ? error.status : undefined;
+    if (
+      status === 401 ||
+      (typeof code === "string" && /^INVALID_\w*PASSWORD$/.test(code))
+    ) {
+      return fallback;
+    }
+  }
+  return errorMessage(error, fallback);
+}
+
 // How long the login page waits for the client session to confirm a
 // successful sign-in before falling back to a full document navigation. The
 // sign-in response has already stored the session cookie, so a reload reads
@@ -118,7 +137,7 @@ export function LoginPage() {
       setSocialPending(null);
     } catch (error) {
       setSocialPending(null);
-      setFormError(errorMessage(error, t("auth.loginFailed")));
+      setFormError(loginErrorMessage(error, t("auth.loginFailed")));
     }
   };
 
@@ -185,7 +204,7 @@ export function LoginPage() {
       // above) owns navigation from here.
       setPostSignIn(true);
     } catch (error) {
-      setFormError(errorMessage(error, t("auth.loginFailed")));
+      setFormError(loginErrorMessage(error, t("auth.loginFailed")));
       setIsSubmitting(false);
     }
   };
@@ -305,10 +324,13 @@ export function LoginPage() {
             </Link>
           </p>
         )}
-        {/* Always-present trailing slot: the register link appears here once
-            the public status lands, and the row keeps its height so the
-            buttons above never shift. */}
-        <div aria-hidden="true" className="min-h-6" />
+        {/* Holds the register link's row while the public status loads, so
+            the buttons above never shift when it lands. Once registration
+            is known to be closed the slot goes, instead of leaving an empty
+            band at the foot of the card. */}
+        {registrationQuery.isPending && (
+          <div aria-hidden="true" className="min-h-5" />
+        )}
       </form>
     </AuthPageFrame>
   );

@@ -66,7 +66,12 @@ export function VerifyTokenPage({
       )}
       {result === "error" && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm leading-6 text-destructive">{t(invalid)}</p>
+          {/* An expired link is a dead end to explain, not an alarm: muted
+              like the success copy, so the one link below stays the only
+              colored thing on the card. */}
+          <p className="text-sm leading-6 text-muted-foreground">
+            {t(invalid)}
+          </p>
           <Link
             className="text-sm font-medium text-brand-600 underline-offset-4 hover:underline"
             to="/login"
