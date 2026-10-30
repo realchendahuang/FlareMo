@@ -793,6 +793,10 @@ const messages = {
   "toast.copyFailed": "Falló la copia; copia el enlace a mano.",
   "toast.invalidImport": "El archivo de importación no es JSON válido",
   "toast.draftRestored": "Restauramos tu borrador incompleto",
+  "composer.offlineNotice":
+    "Estás sin conexión. Las notas nuevas se guardan en este dispositivo.",
+  "composer.offlinePending":
+    "{count} nota(s) pendientes de sincronizar; se guardarán al reconectarte.",
   "toast.queuedForSync":
     "Estás sin conexión. Esta nota se guardará automáticamente al reconectarte.",
   "toast.queueSynced": "Nota sin conexión guardada",

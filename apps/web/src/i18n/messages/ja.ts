@@ -785,6 +785,10 @@ const messages = {
     "コピーに失敗しました。リンクを手動でコピーしてください。",
   "toast.invalidImport": "インポートファイルは有効な JSON ではありません",
   "toast.draftRestored": "未完成の下書きを復元しました",
+  "composer.offlineNotice":
+    "オフラインです。新しいノートはこの端末に保存されます",
+  "composer.offlinePending":
+    "{count} 件のノートが同期待ちです。接続後に自動保存されます",
   "toast.queuedForSync": "オフラインです。このノートは接続後に自動保存されます",
   "toast.queueSynced": "オフラインのノートを保存しました",
   "toast.queueNeedsAttention":

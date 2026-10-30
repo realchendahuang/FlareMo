@@ -802,6 +802,10 @@ const messages = {
   "toast.copyFailed": "Copie impossible ; copiez le lien à la main.",
   "toast.invalidImport": "Le fichier d'import n'est pas un JSON valide",
   "toast.draftRestored": "Brouillon inachevé restauré",
+  "composer.offlineNotice":
+    "Vous êtes hors ligne. Les nouvelles notes restent sur cet appareil.",
+  "composer.offlinePending":
+    "{count} note(s) en attente de synchronisation ; enregistrement automatique une fois reconnecté.",
   "toast.queuedForSync":
     "Vous êtes hors ligne. La note s'enregistrera automatiquement une fois reconnecté.",
   "toast.queueSynced": "Note hors ligne enregistrée",

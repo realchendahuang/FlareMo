@@ -22,7 +22,7 @@ export function HistoryTab({
   return (
     <TabsContent className="flex flex-col gap-2 pt-4" value="history">
       {context.revisions.length === 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
           {t("detail.noRevisions")}
         </p>
       )}

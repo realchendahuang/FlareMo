@@ -762,6 +762,10 @@ const messages = {
   "toast.copyFailed": "فشل النسخ؛ انسخ الرابط يدويًا.",
   "toast.invalidImport": "ملف الاستيراد ليس JSON صالحًا",
   "toast.draftRestored": "استُعادت مسودتك غير المكتملة",
+  "composer.offlineNotice":
+    "أنت دون اتصال. تُحفظ الملاحظات الجديدة على هذا الجهاز.",
+  "composer.offlinePending":
+    "{count} ملاحظات بانتظار المزامنة؛ ستُحفظ تلقائيًا عند عودة الاتصال.",
   "toast.queuedForSync": "أنت دون اتصال. ستُحفظ الملاحظة تلقائيًا عند العودة.",
   "toast.queueSynced": "حُفظت ملاحظة دون الاتصال",
   "toast.queueNeedsAttention":

@@ -723,6 +723,8 @@ const messages = {
   "toast.copyFailed": "复制失败，请手动复制链接。",
   "toast.invalidImport": "导入文件不是有效的 JSON",
   "toast.draftRestored": "已恢复未完成的草稿",
+  "composer.offlineNotice": "当前离线，新记录会先存在本机",
+  "composer.offlinePending": "{count} 条记录待同步，联网后自动保存",
   "toast.queuedForSync": "当前离线，记录会在联网后自动保存",
   "toast.queueSynced": "离线记录已保存",
   "toast.queueNeedsAttention":

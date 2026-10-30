@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeftIcon, BrainIcon, FileTextIcon } from "lucide-react";
+import { ArrowLeftIcon, BrainIcon, FileTextIcon, PinIcon } from "lucide-react";
 import type { Memo, MemoContext, RelatedMemo } from "@/api";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Badge } from "@/components/ui/badge";
@@ -248,8 +248,13 @@ function MemoDetail({
             {context.memo.creator_name ? ` · ${context.memo.creator_name}` : ""}
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            {context.memo.pinned && <Badge>{t("memo.pinnedBadge")}</Badge>}
-            <Badge variant="outline">
+            {context.memo.pinned && (
+              <Badge variant="brand">
+                <PinIcon data-icon="inline-start" />
+                {t("memo.pinnedBadge")}
+              </Badge>
+            )}
+            <Badge className="text-muted-foreground" variant="outline">
               {t(`visibility.${context.memo.visibility}`)}
             </Badge>
             <Button

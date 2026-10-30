@@ -779,6 +779,10 @@ const messages = {
   "toast.copyFailed": "복사에 실패했습니다. 링크를 직접 복사해 주세요.",
   "toast.invalidImport": "가져온 파일이 유효한 JSON이 아닙니다",
   "toast.draftRestored": "완성하지 못한 임시본을 복원했습니다",
+  "composer.offlineNotice":
+    "오프라인 상태입니다. 새 노트는 이 기기에 보관됩니다",
+  "composer.offlinePending":
+    "{count}개 노트가 동기화를 기다리고 있습니다. 연결되면 자동 저장됩니다",
   "toast.queuedForSync":
     "오프라인 상태입니다. 이 노트는 연결되면 자동 저장됩니다",
   "toast.queueSynced": "오프라인 노트를 저장했습니다",

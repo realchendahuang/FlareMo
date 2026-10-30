@@ -776,6 +776,10 @@ const messages = {
   "toast.copyFailed": "Copy failed; copy the link manually.",
   "toast.invalidImport": "The import file is not valid JSON",
   "toast.draftRestored": "Restored your unfinished draft",
+  "composer.offlineNotice":
+    "You are offline. New notes are kept on this device.",
+  "composer.offlinePending":
+    "{count} note(s) waiting to sync; they save automatically when connected.",
   "toast.queuedForSync":
     "You are offline. This note will save automatically when connected.",
   "toast.queueSynced": "Offline note saved",

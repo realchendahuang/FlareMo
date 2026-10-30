@@ -158,6 +158,27 @@ export function RegisterPage() {
     );
   }
 
+  // Closed or not-yet-bootstrapped: a form that can only fail is noise, so
+  // show the reason and the way back instead.
+  const unavailable =
+    registrationClosed || bootstrapQuery.data?.initialized === false;
+  if (unavailable) {
+    return (
+      <AuthPageFrame title={t("auth.registerTitle")}>
+        <div className="flex flex-col gap-4" role="status">
+          <p className="text-sm leading-6 text-muted-foreground">
+            {registrationClosed
+              ? t("auth.registrationClosed")
+              : t("auth.registrationUnavailable")}
+          </p>
+          <Button render={<Link to="/login" />} variant="outline">
+            {t("auth.signIn")}
+          </Button>
+        </div>
+      </AuthPageFrame>
+    );
+  }
+
   return (
     <AuthPageFrame title={t("auth.registerTitle")}>
       {bootstrapQuery.data?.initialized === false && (

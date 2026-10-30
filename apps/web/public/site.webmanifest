@@ -72,8 +72,8 @@
       ]
     }
   ],
-  "theme_color": "#17191d",
-  "background_color": "#17191d",
+  "theme_color": "#faf9f7",
+  "background_color": "#faf9f7",
   "display": "standalone",
   "prefer_related_applications": false
 }
