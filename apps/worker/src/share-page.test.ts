@@ -264,6 +264,49 @@ describe("Unknown-path status semantics (P0-5)", () => {
     expect(trailingSlash.status).toBe(200);
   });
 
+  it('serves the shell itself under not_found_handling "none"', async () => {
+    // The production binding answers 404 for any path that is not a file;
+    // only "/" maps to index.html.
+    const noneEnv = {
+      ...env,
+      ASSETS: {
+        fetch: async (input: RequestInfo | URL) => {
+          const url = new URL(input instanceof Request ? input.url : input);
+          if (url.pathname === "/") {
+            return new Response("<!doctype html><title>FlareMo</title>", {
+              status: 200,
+              headers: { "content-type": "text/html; charset=utf-8" },
+            });
+          }
+          return new Response(null, { status: 404 });
+        },
+      } as Fetcher,
+    } as Env;
+    const known = await app.fetch(
+      new Request("https://flaremo.example/memo/abc", {
+        headers: { "if-none-match": '"stale"' },
+      }),
+      noneEnv,
+    );
+    expect(known.status).toBe(200);
+    expect(await known.text()).toContain("<title>FlareMo</title>");
+
+    const unknown = await app.fetch(
+      new Request("https://flaremo.example/no-such-page"),
+      noneEnv,
+    );
+    expect(unknown.status).toBe(404);
+    expect(await unknown.text()).toContain("<title>FlareMo</title>");
+
+    // A missing file stays a bare 404, never an HTML shell.
+    const missingAsset = await app.fetch(
+      new Request("https://flaremo.example/assets/missing-abcdef12.js"),
+      noneEnv,
+    );
+    expect(missingAsset.status).toBe(404);
+    expect(await missingAsset.text()).toBe("");
+  });
+
   it("stays in sync with the web router table", () => {
     const routerSource = readFileSync(
       new URL("../../web/src/router-tree.tsx", import.meta.url),

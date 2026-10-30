@@ -76,7 +76,7 @@ async function run() {
         assetConfig: {
           compatibility_date: compatibilityDate,
           compatibility_flags: compatibilityFlags,
-          not_found_handling: "single-page-application",
+          not_found_handling: "none",
         },
         binding: "ASSETS",
         directory: resolve("apps/web/dist"),

@@ -11,7 +11,7 @@
   "assets": {
     "directory": "./apps/web/dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
+    "not_found_handling": "none",
     "run_worker_first": [
       "/api/*",
       "/article/*",

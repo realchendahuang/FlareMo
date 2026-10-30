@@ -364,7 +364,36 @@ export function createFlareMoApp(
     if (c.req.path.startsWith("/api/")) {
       return c.json({ error: { message: "Not found" } }, 404);
     }
-    return c.env.ASSETS.fetch(c.req.raw).then((response) => {
+    return c.env.ASSETS.fetch(c.req.raw).then(async (response) => {
+      // `not_found_handling: "none"` (the default config since v0.23):
+      // navigations that match no asset file reach this handler and the
+      // ASSETS binding answers 404 with no body. Serve the SPA shell here —
+      // 200 for known frontend routes, 404 for everything else — so unknown
+      // URLs stop being soft-404s. Configs still on
+      // "single-page-application" never get here for navigations and keep
+      // the old behavior. Paths with a file extension stay plain 404s: a
+      // missing script or image must not come back as HTML.
+      if (
+        response.status === 404 &&
+        (c.req.method === "GET" || c.req.method === "HEAD") &&
+        !/\.[A-Za-z0-9]+$/.test(c.req.path)
+      ) {
+        // Conditional headers would let ASSETS answer 304 for the shell,
+        // which cannot carry the 404 status this path needs.
+        const headers = new Headers(c.req.raw.headers);
+        headers.delete("if-none-match");
+        headers.delete("if-modified-since");
+        const shell = await c.env.ASSETS.fetch(
+          new Request(new URL("/", c.req.url), { headers }),
+        );
+        if (shell.ok) {
+          return new Response(shell.body, {
+            status: isKnownFrontendPath(c.req.path) ? 200 : 404,
+            statusText: isKnownFrontendPath(c.req.path) ? "OK" : "Not Found",
+            headers: shell.headers,
+          });
+        }
+      }
       // Vite asset filenames contain a content hash. They are safe to cache
       // for a year; HTML and application routes remain revalidated normally.
       if (/^\/assets\/[A-Za-z0-9._-]+-[A-Za-z0-9]{8,}\./.test(c.req.path)) {

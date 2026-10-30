@@ -117,7 +117,7 @@ async function run({
         assetConfig: {
           compatibility_date: "2026-07-10",
           compatibility_flags: ["nodejs_compat"],
-          not_found_handling: "single-page-application",
+          not_found_handling: "none",
         },
         binding: "ASSETS",
         directory: resolve("apps/web/dist"),
