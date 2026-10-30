@@ -8,6 +8,7 @@ import {
   HashIcon,
   LayoutGridIcon,
   ListChecksIcon,
+  MoreHorizontalIcon,
   PencilIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -34,6 +35,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
@@ -312,11 +319,32 @@ function TagTree({
     const isActive = activeTag === name;
     const label = name.split("/").at(-1) ?? name;
 
+    if (editing === name) {
+      return (
+        <div className="flex flex-col" key={name}>
+          <TagRenameInput
+            depth={depth}
+            from={name}
+            onCancel={() => setEditing(null)}
+            onSave={(to) => {
+              onRenameTag(name, to);
+              setEditing(null);
+            }}
+          />
+          {hasChildren && !isCollapsed && (
+            <div className="flex flex-col">
+              {node.children.map((child) => renderNode(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col" key={name}>
         <div
           className={cn(
-            "group flex h-7 items-center gap-1 rounded-md pe-1 text-[13px] motion-safe:transition-colors motion-safe:duration-150",
+            "group relative flex h-7 items-center gap-1 rounded-md pe-1 text-[13px] motion-safe:transition-colors motion-safe:duration-150",
             isActive
               ? "bg-card font-medium text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted"
               : "text-foreground/70 hover:bg-muted/70 hover:text-foreground",
@@ -325,7 +353,7 @@ function TagTree({
         >
           <button
             aria-pressed={isActive}
-            className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+            className="flex min-w-0 flex-1 items-center gap-2.5 text-left outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:ring-3 focus-visible:after:ring-ring/25"
             type="button"
             onClick={() => {
               onTagChange(isActive ? undefined : name);
@@ -334,69 +362,60 @@ function TagTree({
           >
             <HashIcon className="size-4 shrink-0 text-muted-foreground/70" />
             <span className="truncate">{label}</span>
-            {node.count > 1 && (
-              <span className="ms-auto ps-1 text-xs tabular-nums text-muted-foreground/70">
-                {node.count}
-              </span>
-            )}
           </button>
-          <button
-            aria-label={
-              hasChildren
-                ? isCollapsed
-                  ? t("explorer.expand")
-                  : t("explorer.collapse")
-                : undefined
-            }
-            className={cn(
-              "flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:text-foreground",
-              !hasChildren && "hidden",
-            )}
-            type="button"
-            onClick={() => toggle(name)}
-          >
-            <ChevronRightIcon
-              className={cn(
-                "h-3.5 w-3.5 motion-safe:transition-transform motion-safe:duration-150 rtl:-scale-x-100",
-                !isCollapsed && "rotate-90",
-              )}
+          {hasChildren && (
+            <button
+              aria-label={
+                isCollapsed ? t("explorer.expand") : t("explorer.collapse")
+              }
+              className="relative z-10 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:text-foreground"
+              type="button"
+              onClick={() => toggle(name)}
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "size-3.5 motion-safe:transition-transform motion-safe:duration-150 rtl:-scale-x-100",
+                  !isCollapsed && "rotate-90",
+                )}
+              />
+            </button>
+          )}
+          {/* Count and menu share the trailing slot, like project rows on the
+              to-do page: the menu takes over on hover and stays on touch. */}
+          {node.count > 0 && (
+            <span className="min-w-5 shrink-0 text-end text-xs tabular-nums text-muted-foreground/70 group-focus-within:invisible group-hover:invisible [@media(pointer:coarse)]:hidden">
+              {node.count}
+            </span>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={t("common.more")}
+                  className="absolute end-1 top-1/2 z-10 size-5 -translate-y-1/2 text-muted-foreground opacity-0 hover:text-foreground focus:opacity-100 group-hover:opacity-100 data-[popup-open]:opacity-100 [@media(pointer:coarse)]:opacity-100"
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  <MoreHorizontalIcon className="size-3.5" />
+                </Button>
+              }
             />
-          </button>
-          <div className="flex shrink-0 items-center gap-0.5 opacity-0 motion-safe:transition-opacity motion-safe:duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-            <Button
-              aria-label={t("explorer.renameTag")}
-              className="size-5 text-muted-foreground hover:text-foreground"
-              onClick={() => setEditing(name)}
-              size="icon-xs"
-              title={t("explorer.renameTag")}
-              type="button"
-              variant="ghost"
-            >
-              <PencilIcon className="size-3" />
-            </Button>
-            <Button
-              aria-label={t("explorer.deleteTag")}
-              className="size-5 text-muted-foreground hover:text-destructive"
-              onClick={() => setDeleteTarget(name)}
-              size="icon-xs"
-              title={t("explorer.deleteTag")}
-              type="button"
-              variant="ghost"
-            >
-              <Trash2Icon className="size-3" />
-            </Button>
-          </div>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditing(name)}>
+                <PencilIcon data-icon="inline-start" />
+                {t("explorer.renameTag")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setDeleteTarget(name)}
+              >
+                <Trash2Icon data-icon="inline-start" />
+                {t("explorer.deleteTag")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        {editing === name && (
-          <TagRenameInput
-            from={name}
-            onCancel={() => setEditing(null)}
-            onSave={(to) => {
-              onRenameTag(name, to);
-              setEditing(null);
-            }}
-          />
-        )}
         {hasChildren && !isCollapsed && (
           <div className="flex flex-col motion-safe:animate-fade">
             {node.children.map((child) => renderNode(child, depth + 1))}
@@ -444,10 +463,12 @@ function TagTree({
 }
 
 function TagRenameInput({
+  depth,
   from,
   onCancel,
   onSave,
 }: {
+  depth: number;
   from: string;
   onCancel: () => void;
   onSave: (to: string) => void;
@@ -457,13 +478,15 @@ function TagRenameInput({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    inputRef.current?.select();
   }, []);
 
+  // Renaming rewrites every memo carrying the tag, so only Enter commits;
+  // Escape or clicking away leaves the tag as it was.
   return (
     <form
-      className="flex flex-col gap-1 px-1"
-      style={{ paddingInlineStart: "0.625rem" }}
+      className="flex h-7 items-center"
+      style={{ paddingInlineStart: `${0.25 + depth * 0.875}rem` }}
       onSubmit={(event) => {
         event.preventDefault();
         const to = value.trim();
@@ -473,20 +496,21 @@ function TagRenameInput({
     >
       <Input
         aria-label={t("explorer.renameTagLabel")}
-        className="h-7 text-xs md:text-xs"
+        className="h-7 px-2 text-[13px] md:text-[13px]"
+        onBlur={onCancel}
         onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onCancel();
+          }
+        }}
         placeholder={t("explorer.renameTagPlaceholder")}
         ref={inputRef}
+        title={t("explorer.renameTagLabel")}
         value={value}
       />
-      <div className="flex gap-1">
-        <Button size="xs" type="submit">
-          {t("common.save")}
-        </Button>
-        <Button onClick={onCancel} size="xs" type="button" variant="ghost">
-          {t("common.cancel")}
-        </Button>
-      </div>
     </form>
   );
 }

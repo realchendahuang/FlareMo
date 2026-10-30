@@ -31,33 +31,36 @@ export function WorkspaceFilterChips({
   untagged: boolean;
 }) {
   const { locale, t } = useI18n();
+  // Each chip clears itself; "clear all" only earns its place once two or
+  // more filters are stacked.
+  const stacked =
+    [dayFilter, activeTag, untagged, query.trim() && !dayFilter].filter(Boolean)
+      .length > 1;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground motion-safe:animate-rise">
+    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground motion-safe:animate-rise">
       {query.trim() && !dayFilter && !isSemanticSearch && (
-        <span className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1">
+        <span className="flex h-7 items-center gap-1.5 rounded-md bg-muted px-2">
           {t("search.globalScope")}
           <InfoTip text={t("search.syntaxHint")} />
         </span>
       )}
       {dayFilter && (
-        <span className="flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+        <button
+          aria-label={t("filter.clearDate")}
+          className={CHIP_CLASS}
+          type="button"
+          onClick={() => setQuery("")}
+        >
           <CalendarIcon aria-hidden="true" className="size-3 shrink-0" />
           {formatDayTitle(dayFilter, locale)}
-          <button
-            aria-label={t("filter.clearDate")}
-            className="-mr-1 rounded p-0.5 hover:text-foreground"
-            type="button"
-            onClick={() => setQuery("")}
-          >
-            <XIcon className="size-3.5" />
-          </button>
-        </span>
+          <XIcon aria-hidden="true" className="size-3.5" />
+        </button>
       )}
       {activeTag && (
         <button
           aria-label={t("filter.clearTag", { tag: activeTag })}
-          className="flex min-h-8 items-center gap-1 rounded-md bg-muted px-2 py-1 motion-safe:transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className={CHIP_CLASS}
           type="button"
           onClick={() => setActiveTag(undefined)}
         >
@@ -67,8 +70,8 @@ export function WorkspaceFilterChips({
       )}
       {untagged && (
         <button
-          className="flex min-h-8 items-center gap-1 rounded-md bg-muted px-2 py-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           aria-label={t("filter.clearUntagged")}
+          className={CHIP_CLASS}
           type="button"
           onClick={() => setUntagged(false)}
         >
@@ -76,9 +79,9 @@ export function WorkspaceFilterChips({
           <XIcon aria-hidden="true" className="size-3.5" />
         </button>
       )}
-      {hasFilters && (
+      {hasFilters && stacked && (
         <button
-          className="rounded-md px-2 py-1 motion-safe:transition-colors hover:bg-muted hover:text-foreground"
+          className="h-7 rounded-md px-2 motion-safe:transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           type="button"
           onClick={clearFilters}
         >
@@ -88,3 +91,6 @@ export function WorkspaceFilterChips({
     </div>
   );
 }
+
+const CHIP_CLASS =
+  "flex h-7 items-center gap-1 rounded-md bg-muted ps-2 pe-1.5 text-foreground/80 motion-safe:transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&>svg:last-child]:text-muted-foreground";
