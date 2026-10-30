@@ -1,11 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
+import { DownloadIcon, MenuIcon, UploadIcon } from "lucide-react";
 import {
-  DownloadIcon,
-  MenuIcon,
-  PanelLeftIcon,
-  UploadIcon,
-} from "lucide-react";
-import { type UIEvent, useCallback, useMemo, useState } from "react";
+  type PointerEvent as ReactPointerEvent,
+  type UIEvent,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import type {
   CurrentFlareMoUser,
@@ -61,8 +62,6 @@ type WorkspaceExplorerPanelProps = WorkspaceSidebarContent & {
   /** Draws the header hairline once the panel has scrolled. */
   headerScrolled?: boolean;
   onNavigate?: () => void;
-  /** Leave room at the header's start for the fixed sidebar toggle. */
-  reserveToggle?: boolean;
 };
 
 /** Platform-aware label for the ⌘\ / Ctrl+\ sidebar shortcut. */
@@ -72,57 +71,47 @@ function sidebarShortcutLabel() {
 }
 
 /**
- * The one sidebar toggle. It is fixed to the same spot on screen (top leading
- * corner, inside the sidebar header's row) in both states, so the pointer
- * never has to follow it: click, click again, and the sidebar slides out and
- * back from under a button that does not move. Clicks during the animation
- * reverse it from wherever it is.
+ * flomo's "show sidebar" entry: while the desktop sidebar is hidden, a 28px
+ * menu button sits at the start of the page header, right before the title.
+ * Narrow screens use the drawer trigger in the same spot instead.
  */
-export function SidebarToggle({
+export function ShowSidebarButton({
   collapsed,
-  onToggle,
-  onPointerEnter,
-  onPointerLeave,
+  onShow,
 }: {
   collapsed: boolean;
-  onToggle: () => void;
-  onPointerEnter?: () => void;
-  onPointerLeave?: () => void;
+  onShow: () => void;
 }) {
   const { t } = useI18n();
-  const label = t(collapsed ? "sidebar.expand" : "sidebar.collapse");
+  if (!collapsed) return null;
+  const label = t("sidebar.expand");
   return (
-    <div className="fixed start-3 top-3.5 z-50 hidden lg:block">
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              aria-expanded={!collapsed}
-              aria-keyshortcuts="Meta+Backslash Control+Backslash"
-              aria-label={label}
-              className="text-muted-foreground hover:text-foreground"
-              data-testid="sidebar-toggle"
-              size="icon-sm"
-              variant="ghost"
-              onClick={onToggle}
-              onPointerEnter={onPointerEnter}
-              onPointerLeave={onPointerLeave}
-            />
-          }
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-keyshortcuts="Meta+Backslash Control+Backslash"
+            aria-label={label}
+            className="hidden text-muted-foreground hover:text-foreground md:inline-flex"
+            data-testid="sidebar-show"
+            size="icon-sm"
+            variant="ghost"
+            onClick={onShow}
+          />
+        }
+      >
+        <MenuIcon />
+      </TooltipTrigger>
+      <TooltipContent>
+        {label}
+        <kbd
+          className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
+          data-slot="kbd"
         >
-          <PanelLeftIcon className="rtl:-scale-x-100" />
-        </TooltipTrigger>
-        <TooltipContent>
-          {label}
-          <kbd
-            className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
-            data-slot="kbd"
-          >
-            {sidebarShortcutLabel()}
-          </kbd>
-        </TooltipContent>
-      </Tooltip>
-    </div>
+          {sidebarShortcutLabel()}
+        </kbd>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -144,7 +133,6 @@ function WorkspaceExplorerPanel({
   onRenameTag,
   onTagChange,
   onUntaggedChange,
-  reserveToggle = false,
   space,
   stats,
   timeZone,
@@ -238,7 +226,6 @@ function WorkspaceExplorerPanel({
       activeTag={activeTag}
       header={header}
       headerScrolled={headerScrolled}
-      reserveToggle={reserveToggle}
       footer={footer}
       space={space}
       stats={stats}
@@ -267,118 +254,75 @@ function useScrolled() {
 }
 
 /**
- * The desktop sidebar column. Collapsing animates the column's width to zero
- * while the panel inside stays 312px and is pinned to the column's inner edge
- * (`justify-end`), so it slides out under the content instead of being cut
- * off at its right side. The frame's max width shrinks in step (see
- * WorkspaceShell), which keeps the content column's width constant.
+ * The desktop sidebar column plus its resize handle (flomo's rails). Hiding
+ * eases the column's width to zero; the panel inside keeps its width and is
+ * pinned to the column's inner edge, so it slides away under the page rather
+ * than being squeezed. The 8px handle after it resizes the column between
+ * 216px and 312px and shows a hairline while hovered or dragged.
  */
 export function WorkspaceSidebar({
-  animating,
+  animate,
   collapsed,
   explorer,
-  widthAnimating,
+  resizing,
+  width,
+  onResizeStart,
 }: {
-  /** Fade the panel in/out (off while a pinned peek covers the column). */
-  animating: boolean;
+  /** Ease width changes (off on first paint and while dragging). */
+  animate: boolean;
   collapsed: boolean;
   explorer: WorkspaceSidebarContent;
-  /** Animate the column width, which moves the page column beside it. */
-  widthAnimating: boolean;
+  resizing: boolean;
+  width: number;
+  onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
-  const [scrolled, onScroll] = useScrolled();
-  return (
-    <aside
-      aria-hidden={collapsed || undefined}
-      className={cn(
-        "hidden h-full shrink-0 justify-end overflow-hidden lg:flex",
-        widthAnimating &&
-          "motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-signal",
-      )}
-      inert={collapsed}
-      style={{ width: collapsed ? 0 : 312 }}
-    >
-      <div
-        className={cn(
-          "no-scrollbar h-full w-[312px] shrink-0 overflow-y-auto border-e bg-background",
-          animating &&
-            "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out",
-          collapsed ? "opacity-0" : "opacity-100",
-        )}
-        onScroll={onScroll}
-      >
-        <WorkspaceExplorerPanel
-          {...explorer}
-          headerScrolled={scrolled}
-          importInputId="flaremo-import-file-desktop"
-          reserveToggle
-        />
-      </div>
-    </aside>
-  );
-}
-
-/**
- * The collapsed sidebar, on demand: hovering the window's leading edge (or
- * the expand button) slides the full sidebar in as a floating panel, and
- * leaving it slides it away. Pointer-only by design; keyboard users have the
- * expand button and ⌘\. Mounted only while collapsed.
- */
-export function WorkspaceSidebarPeek({
-  explorer,
-  open,
-  pinned = false,
-  onIntent,
-}: {
-  explorer: WorkspaceSidebarContent;
-  open: boolean;
-  /** Being promoted to the docked sidebar: hold still, ignore the pointer. */
-  pinned?: boolean;
-  onIntent: (open: boolean) => void;
-}) {
+  const { t } = useI18n();
   const [scrolled, onScroll] = useScrolled();
   return (
     <>
-      <div
-        aria-hidden="true"
-        className="fixed inset-y-0 start-0 z-30 hidden w-2 lg:block"
-        onPointerEnter={() => onIntent(true)}
-        onPointerLeave={() => onIntent(false)}
-      />
-      {/* Same box as the docked sidebar (full height, flush with the edge,
-          312px), so expanding from a peek is a hand-off, not a second
-          entrance. Only the shadow says it floats. */}
-      <div
-        aria-hidden={!open || pinned || undefined}
+      <aside
+        aria-hidden={collapsed || undefined}
         className={cn(
-          "fixed inset-y-0 start-0 z-40 hidden w-[312px] overflow-hidden border-e bg-background lg:block",
-          // While pinning only the shadow eases away, so the panel settles
-          // into the page instead of losing its lift in one frame.
-          pinned
-            ? "motion-safe:transition-[box-shadow] motion-safe:duration-300 motion-safe:ease-signal"
-            : "motion-safe:transition-[translate,opacity,box-shadow] motion-safe:duration-250 motion-safe:ease-signal",
-          pinned ? "pointer-events-none shadow-none" : "shadow-xl",
-          open
-            ? "translate-x-0 opacity-100"
-            : "pointer-events-none opacity-0 ltr:-translate-x-full rtl:translate-x-full",
+          "hidden h-full shrink-0 justify-end overflow-hidden md:flex",
+          animate &&
+            "motion-safe:transition-[width,opacity] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+          collapsed && "opacity-0",
         )}
-        data-testid="sidebar-peek"
-        inert={!open || pinned}
-        onPointerEnter={() => onIntent(true)}
-        onPointerLeave={() => onIntent(false)}
+        inert={collapsed}
+        style={{ width: collapsed ? 0 : width }}
       >
         <div
-          className="no-scrollbar h-full overflow-y-auto overscroll-contain"
+          className="no-scrollbar h-full shrink-0 overflow-y-auto bg-background"
+          style={{ width }}
           onScroll={onScroll}
         >
           <WorkspaceExplorerPanel
             {...explorer}
             headerScrolled={scrolled}
-            importInputId="flaremo-import-file-peek"
-            reserveToggle
-            onNavigate={() => onIntent(false)}
+            importInputId="flaremo-import-file-desktop"
           />
         </div>
+      </aside>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-only resize affordance; the sidebar width has sensible bounds without it */}
+      <div
+        aria-hidden="true"
+        className={cn(
+          "group/resizer relative hidden h-full shrink-0 cursor-col-resize md:block",
+          animate &&
+            "motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+          collapsed ? "pointer-events-none w-0" : "w-2",
+        )}
+        data-testid="sidebar-resizer"
+        title={t("sidebar.resize")}
+        onDoubleClick={() => explorer.onToggleCollapsed()}
+        onPointerDown={onResizeStart}
+      >
+        <span
+          className={cn(
+            "absolute inset-y-0 start-1/2 w-px -translate-x-1/2 bg-border opacity-0 motion-safe:transition-opacity motion-safe:duration-150 group-hover/resizer:opacity-100",
+            resizing && "opacity-100",
+          )}
+        />
       </div>
     </>
   );
@@ -402,7 +346,7 @@ export function WorkspaceMobileSidebar({
         render={
           <Button
             aria-label={t("sidebar.toggle")}
-            className="lg:hidden"
+            className="text-muted-foreground hover:text-foreground md:hidden"
             size="icon-sm"
             variant="ghost"
           >
@@ -410,7 +354,7 @@ export function WorkspaceMobileSidebar({
           </Button>
         }
       />
-      <SheetContent className="w-[312px] overflow-hidden p-0" side="left">
+      <SheetContent className="w-[300px] overflow-hidden p-0" side="left">
         <SheetTitle className="sr-only">{t("sidebar.title")}</SheetTitle>
         <div
           className="no-scrollbar h-full overflow-y-auto overscroll-contain"

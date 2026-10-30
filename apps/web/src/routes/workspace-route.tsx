@@ -13,7 +13,7 @@ function WorkspaceContentLoading() {
   return (
     <div
       aria-hidden="true"
-      className="mx-auto flex w-full max-w-[640px] flex-col px-5 lg:px-3 motion-safe:animate-fade"
+      className="mx-auto flex w-full max-w-[640px] flex-col px-5 md:ms-0 lg:px-2.5 motion-safe:animate-fade"
     >
       <div className="flex h-14 items-center">
         <Skeleton className="h-5 w-24 rounded-md" />

@@ -4,6 +4,7 @@ import { ScopeSwitcher } from "@/components/scope-switcher";
 import { SpotlightSearchTrigger } from "@/components/spotlight-search";
 import { usePageContentWidth } from "@/components/workspace/workspace-layout";
 import {
+  ShowSidebarButton,
   WorkspaceMobileSidebar,
   type WorkspaceSidebarContent,
 } from "@/components/workspace/workspace-sidebar";
@@ -16,6 +17,8 @@ import { cn } from "@/lib/utils";
 export function WorkspaceHeader({
   activeQuery,
   explorer,
+  sidebarCollapsed,
+  toggleSidebarCollapsed,
   isTimelineScrolled,
   mobileSheetOpen,
   setMobileSheetOpen,
@@ -37,11 +40,10 @@ export function WorkspaceHeader({
   setSpace: (space: MemoSpace) => void;
   setSpotlightOpen: (open: boolean) => void;
   setView: (view: ExplorerView) => void;
-  /** Owned by the shell's fixed toggle now; accepted for call-site parity. */
-  sidebarCollapsed?: boolean;
+  sidebarCollapsed: boolean;
   space: MemoSpace;
   team: { id: string; name: string } | null;
-  toggleSidebarCollapsed?: () => void;
+  toggleSidebarCollapsed: () => void;
   view: ExplorerView;
 }) {
   const contentWidth = usePageContentWidth();
@@ -54,12 +56,16 @@ export function WorkspaceHeader({
       )}
     >
       {/* The bar spans the whole area beside the sidebar (its hairline and
-          blur run edge to edge); its row is centered at the page's content
-          width so the title lines up with the column below it. */}
+          blur run edge to edge); its row has the page's content width and
+          starts where the column below starts, so the title lines up. */}
       <div
-        className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3"
+        className="mx-auto flex h-14 w-full items-center gap-1 px-5 md:ms-0 lg:px-2.5"
         style={{ maxWidth: contentWidth }}
       >
+        <ShowSidebarButton
+          collapsed={sidebarCollapsed}
+          onShow={toggleSidebarCollapsed}
+        />
         <WorkspaceMobileSidebar
           explorer={explorer}
           open={mobileSheetOpen}

@@ -1283,6 +1283,8 @@ const messages = {
   "review.writeTodayMemo": "Écrire la note du jour",
   "review.writeFirstMemo": "Écrire votre première note",
   "common.scrollToTop": "Retour en haut",
+  "sidebar.resize":
+    "Faites glisser pour redimensionner, double-cliquez pour masquer",
   "shortcuts.sidebar": "Replier ou déplier la barre latérale",
   "voiceSettings.credentials": "Identifiants",
   "voiceSettings.testAction": "Tester",

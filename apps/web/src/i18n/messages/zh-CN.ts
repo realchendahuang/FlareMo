@@ -1166,6 +1166,7 @@ const messages = {
   "review.writeTodayMemo": "写下今日记录",
   "review.writeFirstMemo": "写下第一条记录",
   "common.scrollToTop": "回到顶部",
+  "sidebar.resize": "拖动调整宽度，双击隐藏",
   "shortcuts.sidebar": "收起或展开侧栏",
   "voiceSettings.credentials": "凭据",
   "voiceSettings.testAction": "测试",

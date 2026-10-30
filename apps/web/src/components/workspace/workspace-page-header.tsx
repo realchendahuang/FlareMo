@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import { usePageContentWidth } from "@/components/workspace/workspace-layout";
 import type { WorkspaceSidebarContent } from "@/components/workspace/workspace-sidebar";
-import { WorkspaceMobileSidebar } from "@/components/workspace/workspace-sidebar";
+import {
+  ShowSidebarButton,
+  WorkspaceMobileSidebar,
+} from "@/components/workspace/workspace-sidebar";
 import { cn } from "@/lib/utils";
 
 export function WorkspacePageHeader({
@@ -9,6 +12,8 @@ export function WorkspacePageHeader({
   title,
   actions,
   explorer,
+  sidebarCollapsed,
+  toggleSidebarCollapsed,
   mobileSheetOpen,
   setMobileSheetOpen,
   isScrolled = false,
@@ -19,9 +24,8 @@ export function WorkspacePageHeader({
   explorer: WorkspaceSidebarContent;
   mobileSheetOpen: boolean;
   setMobileSheetOpen: (open: boolean) => void;
-  /** Owned by the shell's fixed toggle now; accepted for call-site parity. */
-  sidebarCollapsed?: boolean;
-  toggleSidebarCollapsed?: () => void;
+  sidebarCollapsed: boolean;
+  toggleSidebarCollapsed: () => void;
   isScrolled?: boolean;
 }) {
   const contentWidth = usePageContentWidth();
@@ -34,12 +38,16 @@ export function WorkspacePageHeader({
       )}
     >
       {/* The bar spans the whole area beside the sidebar (its hairline and
-          blur run edge to edge); its row is centered at the page's content
-          width so the title lines up with the column below it. */}
+          blur run edge to edge); its row has the page's content width and
+          starts where the column below starts, so the title lines up. */}
       <div
-        className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3"
+        className="mx-auto flex h-14 w-full items-center gap-1 px-5 md:ms-0 lg:px-2.5"
         style={{ maxWidth: contentWidth }}
       >
+        <ShowSidebarButton
+          collapsed={sidebarCollapsed}
+          onShow={toggleSidebarCollapsed}
+        />
         <WorkspaceMobileSidebar
           explorer={explorer}
           open={mobileSheetOpen}

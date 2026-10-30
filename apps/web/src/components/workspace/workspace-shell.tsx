@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
+  type CSSProperties,
   createContext,
   lazy,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   Suspense,
   useCallback,
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -20,10 +21,8 @@ import {
   type MemoStatsResponse,
 } from "@/api";
 import {
-  SidebarToggle,
   WorkspaceSidebar,
   type WorkspaceSidebarContent,
-  WorkspaceSidebarPeek,
 } from "@/components/workspace/workspace-sidebar";
 import { useDataTransfer } from "@/hooks/use-data-transfer";
 import { useMemoMutations } from "@/hooks/use-memo-mutations";
@@ -38,17 +37,40 @@ const AccountSettingsDialog = lazy(() =>
   })),
 );
 
-// Persisted so a collapsed desktop sidebar stays collapsed across reloads.
+// Persisted so the desktop sidebar keeps its visibility and width on reload.
 const SIDEBAR_COLLAPSED_KEY = "flaremo.sidebar.collapsed";
+const SIDEBAR_WIDTH_KEY = "flaremo.sidebar.width";
 
-/** Desktop sidebar width, and therefore the shell's gutter beside the content. */
+/** Widest the sidebar gets, and its default (flomo's sidebar rail). */
 export const WORKSPACE_SIDEBAR_WIDTH = 312;
+/** Narrowest the resize handle allows. */
+export const WORKSPACE_SIDEBAR_MIN_WIDTH = 216;
+/** The hit area between the sidebar and the page that resizes the sidebar. */
+const RESIZER_WIDTH = 8;
+/** Gutter on each side of the frame. */
+const FRAME_GUTTER = 10;
 /** Content column width of a page that does not ask for another. */
 export const DEFAULT_CONTENT_MAX_WIDTH = 640;
-/** Collapse/expand duration; the sidebar, the frame and the content share it. */
-const SIDEBAR_MOTION_MS = 300;
-/** Matches Tailwind's `lg` breakpoint, where the desktop sidebar appears. */
-const DESKTOP_QUERY = "(min-width: 1024px)";
+/** Matches Tailwind's `md`: from here up the sidebar is a column, below a drawer. */
+const DESKTOP_QUERY = "(min-width: 768px)";
+/** Dragging the handle this far in hides the sidebar on release. */
+const COLLAPSE_DRAG_THRESHOLD = 120;
+
+function clampSidebarWidth(width: number) {
+  return Math.min(
+    WORKSPACE_SIDEBAR_WIDTH,
+    Math.max(WORKSPACE_SIDEBAR_MIN_WIDTH, Math.round(width)),
+  );
+}
+
+function readSidebarWidth() {
+  try {
+    const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    return stored ? clampSidebarWidth(stored) : WORKSPACE_SIDEBAR_WIDTH;
+  } catch {
+    return WORKSPACE_SIDEBAR_WIDTH;
+  }
+}
 
 const EMPTY_STATS: MemoStatsResponse = {
   counts: { normal: 0, archived: 0, trashed: 0, total: 0 },
@@ -63,8 +85,6 @@ type WorkspaceShellValue = {
   mobileSheetOpen: boolean;
   setMobileSheetOpen: (open: boolean) => void;
   explorer: WorkspaceSidebarContent;
-  /** Hover intent on the collapsed-state expand button opens the peek. */
-  setPeekIntent: (open: boolean) => void;
 };
 
 const WorkspaceShellContext = createContext<WorkspaceShellValue | null>(null);
@@ -117,32 +137,25 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
-  // Transitions only run while the sidebar itself is moving, so nothing
-  // animates on first paint or on navigation.
-  const [animating, setAnimating] = useState(false);
-  const animationTimer = useRef<number | undefined>(undefined);
-  const [peekOpen, setPeekOpen] = useState(false);
-  const peekTimer = useRef<number | undefined>(undefined);
-  const peekOpenRef = useRef(false);
-  peekOpenRef.current = peekOpen;
-  // Expanding while the peek is showing "pins" it: the floating panel already
-  // sits exactly where the docked sidebar ends up, so it stays on screen while
-  // the docked column grows underneath it and is then removed without any
-  // motion. Without this the peek vanished and the docked sidebar slid in a
-  // second time — the same panel appearing twice.
-  const [pinning, setPinning] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
+  // Width and frame offset ease on show/hide, never while dragging (the
+  // sidebar must track the pointer) and never on the first paint.
+  const [resizing, setResizing] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
+  const setCollapsed = useCallback((next: boolean) => {
+    setSidebarCollapsed(next);
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      // Persistence is best-effort; the in-memory choice still applies.
+    }
+  }, []);
   const toggleSidebarCollapsed = useCallback(() => {
-    window.clearTimeout(animationTimer.current);
-    window.clearTimeout(peekTimer.current);
-    const pinPeek = peekOpenRef.current;
-    setAnimating(true);
-    setPinning(pinPeek);
-    animationTimer.current = window.setTimeout(() => {
-      setAnimating(false);
-      setPinning(false);
-    }, SIDEBAR_MOTION_MS + 50);
-    setPeekOpen(false);
     setSidebarCollapsed((collapsed) => {
       const next = !collapsed;
       try {
@@ -154,32 +167,44 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Hover intent with a short grace period both ways: a cursor that merely
-  // grazes the edge must not flash the panel, and moving from the trigger
-  // onto the panel must not close it in between.
-  const setPeekIntent = useCallback((open: boolean) => {
-    window.clearTimeout(peekTimer.current);
-    peekTimer.current = window.setTimeout(
-      () => setPeekOpen(open),
-      open ? 120 : 260,
-    );
-  }, []);
-
-  // Over the fixed toggle, an open peek stays open (the toggle floats above
-  // it); a closed peek is not opened by the toggle — clicking it expands.
-  const holdPeek = useCallback(
-    (hover: boolean) => {
-      if (peekOpenRef.current) setPeekIntent(hover);
+  // Drag the handle between the sidebar and the page: the sidebar follows the
+  // pointer between 216px and 312px; letting go after dragging it nearly shut
+  // hides it.
+  const startResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = sidebarWidth;
+      const direction = document.dir === "rtl" ? -1 : 1;
+      let raw = startWidth;
+      setResizing(true);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      const onMove = (move: PointerEvent) => {
+        raw = startWidth + (move.clientX - startX) * direction;
+        setSidebarWidth(clampSidebarWidth(raw));
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        setResizing(false);
+        const width = clampSidebarWidth(raw);
+        try {
+          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width));
+        } catch {
+          // Best-effort.
+        }
+        if (raw < COLLAPSE_DRAG_THRESHOLD) setCollapsed(true);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
     },
-    [setPeekIntent],
-  );
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(animationTimer.current);
-      window.clearTimeout(peekTimer.current);
-    },
-    [],
+    [setCollapsed, sidebarWidth],
   );
 
   // ⌘\ / Ctrl+\ toggles the sidebar: the desktop column, or the drawer on
@@ -323,65 +348,61 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       explorer,
       mobileSheetOpen,
       setMobileSheetOpen,
-      setPeekIntent,
       sidebarCollapsed,
       toggleSidebarCollapsed,
     }),
-    [
-      explorer,
-      mobileSheetOpen,
-      setPeekIntent,
-      sidebarCollapsed,
-      toggleSidebarCollapsed,
-    ],
+    [explorer, mobileSheetOpen, sidebarCollapsed, toggleSidebarCollapsed],
   );
 
   return (
     <WorkspaceShellContext.Provider value={value}>
       <div className="h-svh overflow-hidden bg-background">
-        {/* The sidebar is pinned to the window's leading edge and every page
-            centers its own column in the space beside it. The sidebar's
-            position therefore never depends on the page: switching between a
-            640px timeline and a 1024px board leaves it exactly where it is.
-            Collapsing animates only the sidebar's width; the page column,
-            centered in the growing area, glides with it at its own width. */}
+        {/* flomo's frame: [gutter | sidebar | resize handle | 640px column |
+            gutter], centered as one group. The group's offset is computed
+            from the 640px column on every page, so a wider page (the to-do
+            board, articles) grows to the right from the same left edge and
+            the sidebar never moves on navigation. Showing or hiding the
+            sidebar eases its width and the group's offset together. */}
         <div
-          className="flex h-full w-full"
+          className={cn(
+            "flex h-full md:ms-(--frame-offset)",
+            ready &&
+              !resizing &&
+              "motion-safe:transition-[margin] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+          )}
           data-sidebar-collapsed={sidebarCollapsed || undefined}
+          style={
+            {
+              "--frame-offset": `max(0px, calc((100vw - ${
+                (sidebarCollapsed
+                  ? 0
+                  : FRAME_GUTTER + sidebarWidth + RESIZER_WIDTH) +
+                DEFAULT_CONTENT_MAX_WIDTH
+              }px) / 2))`,
+            } as CSSProperties
+          }
         >
+          {/* The sidebar's leading gutter; it goes with the sidebar. */}
+          <div
+            aria-hidden="true"
+            className={cn(
+              "hidden shrink-0 md:block",
+              ready &&
+                !resizing &&
+                "motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+            )}
+            style={{ width: sidebarCollapsed ? 0 : FRAME_GUTTER }}
+          />
           <WorkspaceSidebar
-            animating={animating && !pinning}
+            animate={ready && !resizing}
             collapsed={sidebarCollapsed}
             explorer={explorer}
-            widthAnimating={animating}
+            resizing={resizing}
+            width={sidebarWidth}
+            onResizeStart={startResize}
           />
-          {/* Collapsed, the page area keeps the toggle's corner clear; the
-              inset eases in step with the sidebar so nothing jumps. */}
-          <div
-            className={cn(
-              "flex h-full min-w-0 flex-1 flex-col",
-              sidebarCollapsed && "lg:ps-14",
-              animating &&
-                "motion-safe:transition-[padding] motion-safe:duration-300 motion-safe:ease-signal",
-            )}
-          >
-            {children}
-          </div>
+          <div className="flex h-full min-w-0 flex-1 flex-col">{children}</div>
         </div>
-        {(sidebarCollapsed || pinning) && (
-          <WorkspaceSidebarPeek
-            explorer={explorer}
-            open={peekOpen || pinning}
-            pinned={pinning}
-            onIntent={setPeekIntent}
-          />
-        )}
-        <SidebarToggle
-          collapsed={sidebarCollapsed}
-          onPointerEnter={() => holdPeek(true)}
-          onPointerLeave={() => holdPeek(false)}
-          onToggle={toggleSidebarCollapsed}
-        />
         <Suspense fallback={null}>
           {accountSettingsOpen && (
             <AccountSettingsDialog

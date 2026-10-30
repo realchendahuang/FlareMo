@@ -1252,6 +1252,7 @@ const messages = {
   "review.writeTodayMemo": "今日の記録を書く",
   "review.writeFirstMemo": "最初の記録を書く",
   "common.scrollToTop": "トップに戻る",
+  "sidebar.resize": "ドラッグで幅を調整、ダブルクリックで非表示",
   "shortcuts.sidebar": "サイドバーを折りたたむ／開く",
   "voiceSettings.credentials": "認証情報",
   "voiceSettings.testAction": "テスト",

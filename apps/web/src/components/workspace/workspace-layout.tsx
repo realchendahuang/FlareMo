@@ -76,7 +76,9 @@ export function WorkspaceLayout({
       <main
         ref={mainRef}
         className={cn(
-          "mx-auto min-h-0 w-full flex-1 overflow-y-auto px-5 pt-1 pb-8 lg:px-3",
+          // Centered on narrow screens; on desktop the shell centers the
+          // frame, and the column starts at the frame's content edge.
+          "mx-auto min-h-0 w-full flex-1 overflow-y-auto px-5 pt-1 pb-8 md:ms-0 lg:px-2.5",
           mainClassName,
         )}
         onScroll={onScroll}
