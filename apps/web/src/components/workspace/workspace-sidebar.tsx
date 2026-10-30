@@ -283,10 +283,14 @@ export function WorkspaceSidebar({
   animating,
   collapsed,
   explorer,
+  widthAnimating,
 }: {
+  /** Fade the panel in/out (off while a pinned peek covers the column). */
   animating: boolean;
   collapsed: boolean;
   explorer: WorkspaceSidebarContent;
+  /** Animate the column width, which moves the page column beside it. */
+  widthAnimating: boolean;
 }) {
   const [scrolled, onScroll] = useScrolled();
   return (
@@ -294,7 +298,7 @@ export function WorkspaceSidebar({
       aria-hidden={collapsed || undefined}
       className={cn(
         "hidden h-full shrink-0 justify-end overflow-hidden lg:flex",
-        animating &&
+        widthAnimating &&
           "motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-signal",
       )}
       inert={collapsed}
@@ -329,10 +333,13 @@ export function WorkspaceSidebar({
 export function WorkspaceSidebarPeek({
   explorer,
   open,
+  pinned = false,
   onIntent,
 }: {
   explorer: WorkspaceSidebarContent;
   open: boolean;
+  /** Being promoted to the docked sidebar: hold still, ignore the pointer. */
+  pinned?: boolean;
   onIntent: (open: boolean) => void;
 }) {
   const [scrolled, onScroll] = useScrolled();
@@ -344,17 +351,25 @@ export function WorkspaceSidebarPeek({
         onPointerEnter={() => onIntent(true)}
         onPointerLeave={() => onIntent(false)}
       />
+      {/* Same box as the docked sidebar (full height, flush with the edge,
+          312px), so expanding from a peek is a hand-off, not a second
+          entrance. Only the shadow says it floats. */}
       <div
-        aria-hidden={!open || undefined}
+        aria-hidden={!open || pinned || undefined}
         className={cn(
-          "fixed inset-y-3 start-3 z-40 hidden w-[312px] overflow-hidden rounded-2xl border bg-background shadow-xl lg:block",
-          "motion-safe:transition-[translate,opacity] motion-safe:duration-250 motion-safe:ease-signal",
+          "fixed inset-y-0 start-0 z-40 hidden w-[312px] overflow-hidden border-e bg-background lg:block",
+          // While pinning only the shadow eases away, so the panel settles
+          // into the page instead of losing its lift in one frame.
+          pinned
+            ? "motion-safe:transition-[box-shadow] motion-safe:duration-300 motion-safe:ease-signal"
+            : "motion-safe:transition-[translate,opacity,box-shadow] motion-safe:duration-250 motion-safe:ease-signal",
+          pinned ? "pointer-events-none shadow-none" : "shadow-xl",
           open
             ? "translate-x-0 opacity-100"
-            : "pointer-events-none opacity-0 ltr:-translate-x-[calc(100%+1rem)] rtl:translate-x-[calc(100%+1rem)]",
+            : "pointer-events-none opacity-0 ltr:-translate-x-full rtl:translate-x-full",
         )}
         data-testid="sidebar-peek"
-        inert={!open}
+        inert={!open || pinned}
         onPointerEnter={() => onIntent(true)}
         onPointerLeave={() => onIntent(false)}
       >

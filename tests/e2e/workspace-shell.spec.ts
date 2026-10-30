@@ -121,3 +121,56 @@ test("peeks the collapsed sidebar from the window edge and closes after navigati
   await page.mouse.move(900, 400);
   await expect(peek).toHaveAttribute("inert", "");
 });
+
+test("expanding from an open peek hands it off without a second entrance", async ({
+  page,
+}) => {
+  await openTimelineExpanded(page);
+  await page.getByRole("button", { name: collapseName }).click();
+  const expand = page.getByRole("button", { name: expandName });
+  await expand.hover();
+  const peek = page.getByTestId("sidebar-peek");
+  await expect(peek).not.toHaveAttribute("inert", "");
+  await page.waitForTimeout(300);
+
+  // Every frame of the expansion must show a fully opaque sidebar at the
+  // leading edge: the pinned peek covers the docked column until it is in
+  // place, then disappears without moving.
+  const frames = await page.evaluate(async () => {
+    const out: { x: number; opacity: number }[] = [];
+    (
+      document.querySelector(
+        '[aria-label="展开侧栏"], [aria-label="Expand sidebar"]',
+      ) as HTMLElement
+    ).click();
+    const start = performance.now();
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const peekPanel = document.querySelector(
+          '[data-testid="sidebar-peek"]',
+        );
+        const docked = document.querySelector("aside > div");
+        const visible =
+          peekPanel && getComputedStyle(peekPanel).opacity !== "0"
+            ? peekPanel
+            : docked;
+        if (visible) {
+          out.push({
+            x: Math.round(visible.getBoundingClientRect().x),
+            opacity: Number(getComputedStyle(visible).opacity),
+          });
+        }
+        if (performance.now() - start < 500) requestAnimationFrame(tick);
+        else resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+    return out;
+  });
+  expect(frames.length).toBeGreaterThan(5);
+  for (const frame of frames) {
+    expect(frame).toEqual({ x: 0, opacity: 1 });
+  }
+  await expect(peek).toHaveCount(0);
+  await expect(page.getByRole("button", { name: collapseName })).toBeVisible();
+});

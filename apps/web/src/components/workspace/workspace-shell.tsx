@@ -121,14 +121,25 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const animationTimer = useRef<number | undefined>(undefined);
   const [peekOpen, setPeekOpen] = useState(false);
   const peekTimer = useRef<number | undefined>(undefined);
+  const peekOpenRef = useRef(false);
+  peekOpenRef.current = peekOpen;
+  // Expanding while the peek is showing "pins" it: the floating panel already
+  // sits exactly where the docked sidebar ends up, so it stays on screen while
+  // the docked column grows underneath it and is then removed without any
+  // motion. Without this the peek vanished and the docked sidebar slid in a
+  // second time — the same panel appearing twice.
+  const [pinning, setPinning] = useState(false);
 
   const toggleSidebarCollapsed = useCallback(() => {
     window.clearTimeout(animationTimer.current);
+    window.clearTimeout(peekTimer.current);
+    const pinPeek = peekOpenRef.current;
     setAnimating(true);
-    animationTimer.current = window.setTimeout(
-      () => setAnimating(false),
-      SIDEBAR_MOTION_MS + 50,
-    );
+    setPinning(pinPeek);
+    animationTimer.current = window.setTimeout(() => {
+      setAnimating(false);
+      setPinning(false);
+    }, SIDEBAR_MOTION_MS + 50);
     setPeekOpen(false);
     setSidebarCollapsed((collapsed) => {
       const next = !collapsed;
@@ -328,16 +339,18 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           data-sidebar-collapsed={sidebarCollapsed || undefined}
         >
           <WorkspaceSidebar
-            animating={animating}
+            animating={animating && !pinning}
             collapsed={sidebarCollapsed}
             explorer={explorer}
+            widthAnimating={animating}
           />
           <div className="flex h-full min-w-0 flex-1 flex-col">{children}</div>
         </div>
-        {sidebarCollapsed && (
+        {(sidebarCollapsed || pinning) && (
           <WorkspaceSidebarPeek
             explorer={explorer}
-            open={peekOpen}
+            open={peekOpen || pinning}
+            pinned={pinning}
             onIntent={setPeekIntent}
           />
         )}
