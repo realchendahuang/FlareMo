@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Zero Servers · Zero Upkeep · 24/7 Global Edge Uptime · Absolute Data Ownership</b><br>
-  For individuals: a quiet, focused thought capture space and second brain. For teams: a shared knowledge base with fine-grained roles.
+  For individuals: a quiet, focused thought capture space and second brain. For teams: a shared space to publish notes to each other, with fine-grained roles.
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 - **Truly Serverless**: Both code and static assets run on Cloudflare Workers edge nodes near you with millisecond latency.
 - **Enterprise-grade durability out of the box**: Cloudflare D1 handles notes and metadata; Cloudflare R2 stores media attachments with multi-region replication.
 - **AI-Native Second Brain**: Agent Memory hub ships a CLI and a cross-agent skill so AI agents (Claude, Cursor, Codex, ChatGPT, ZCode) can read and update your long-term preferences and memory scopes; MCP endpoints are also available.
-- **Quiet for one, powerful for many**: Default is an encrypted, private single-user sanctuary. Enable team mode, and it instantly transforms into a collaborative workspace with roles and three-tier visibility.
+- **Quiet for one, powerful for many**: Default is an encrypted, private single-user sanctuary. Enable team mode to add a shared team space with roles and three-tier visibility — for sharing notes, not for running projects together.
 - **Minimal, not simplistic**: The interface stays quiet and every control earns its place — nothing decorative shouting for attention, nothing useful missing.
 
 ---
@@ -55,6 +55,8 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 
 ### 1. Instant Capture & Inspiring Review
 - **Capture in milliseconds**: Card-style timeline, tags, Markdown/GFM, and previews for image and audio attachments.
+- **Notes and long-form**: The composer stays a quick note (tags, up to 9 images, bold, lists, to-dos); "Write long-form" opens a full-screen canvas for articles.
+- **Comments under the note**: Comment on any note, in your personal space or the team space, Weibo-style. Comments live under the original note and stay out of the timeline, search, stats, tags, and review.
 - **Lightning-fast search**: SQLite FTS5 full-text indexing with query operators (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Semantic "Find" (Vector Search)**: Workers AI embeddings paired with Vectorize derived vector indexes for contextual recall; re-verifies permissions against D1 and seamlessly falls back to FTS5.
 - **Thought activation**: Built-in **Daily Review** (on this day), **Random Walk** (wandering through tag and backlink graphs with postcard summaries), and related note recommendations.
@@ -65,16 +67,18 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 - **Human in the loop**: Review, verify, lock, or correct AI-recorded memories at `/memory`.
 - **Open ecosystem**: CLI + Skills are the recommended path; `/memory/mcp` (Streamable HTTP MCP) and `/mcp` endpoints are available for existing MCP clients.
 
-### 3. Projects & Tasks
-- **Group work under projects**: Organize notes and to-dos into projects, with a kanban board (drag between status columns), priorities, manual sort order, and due dates.
+### 3. To-dos & Projects
+- **Schedule a note**: Pick a day and a project for a note; each unchecked to-do in it becomes a task. Checking it off in the note or on the to-do page stays in sync both ways.
+- **One to-do page**: `/projects` shows **Today**, **Next 7 days**, and **All tasks** as day-grouped lists, plus your projects as kanban boards (drag between status columns, priorities, manual order). Every list has a quick-add row.
 - **Personal by design, reversible deletion**: Tasks belong to a single owner; deleting moves them to a recycle bin until restored or automatically purged.
 
-### 4. Task Management & Reminders
-- **Tasks live in Projects**: The `/projects` board (drag between status columns), priorities, manual sort order, and due dates make project pages the single home for scheduling work.
+### 4. Reminders & Time Horizons
+- **Badges where you read**: Scheduled notes show "to-dos n/m · date · project" on the card, and Daily Review opens with today's to-dos.
 - **Time horizons at a glance**: The explorer home view pairs a mini month calendar with overdue/today reminders, so what's due never hides behind the board.
-- **Overdue reminders**: Overdue tasks raise in-app notifications, with optional browser Web Push.
+- **Due and overdue reminders**: A daily job raises "due today" and overdue notifications in the app, with optional browser Web Push. Schedules are day-level; there are no clock-time alarms.
 
-### 5. Team Collaboration & 3-Tier Visibility
+### 5. Team Space & 3-Tier Visibility
+- **Sharing, not collaboration**: The team space is where members publish notes to each other and comment on them. `@username` mentions autocomplete in the team composer and notify the person mentioned; notifications open the original note at its comments.
 - **Role governance**: `owner`, `admin`, and `member` roles. Admins invite members via one-time activation links (members choose their own passwords; admins never handle plaintext credentials).
 - **3-tier visibility**:
   - 🔒 **Private**: Only author can view.

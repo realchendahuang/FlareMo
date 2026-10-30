@@ -50,7 +50,7 @@ export const KO_SHOWCASE: ShowcaseContent = {
     randomWalk: "랜덤 워크",
     memory: "기억",
     calendarView: "일정",
-    projects: "프로젝트",
+    projects: "할 일",
     tagIndex: "태그 색인",
     searchPlaceholder: "기록 검색...",
     composerPlaceholder: "지금 어떤 생각을 하고 계신가요?...",

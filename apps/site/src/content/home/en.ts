@@ -38,9 +38,9 @@ export const EN_HOME: HomeContent = {
         "Built-in Model Context Protocol (MCP) endpoint allows AI agents (Claude, Cursor, Codex) to read and update your preferences and memory scopes with full human auditability.",
     },
     {
-      title: "Team Collaboration & Roles",
+      title: "A Team Space for Sharing",
       description:
-        "Owner, Admin, and Member roles with 3-tier visibility (private, team-visible, public). Safe offboarding deletes private data cleanly.",
+        "Publish notes to your team, comment under them, and @mention each other — sharing, not project management. Owner, Admin, and Member roles with 3-tier visibility (private, team, public); safe offboarding deletes private data cleanly.",
     },
     {
       title: "Memos Compatible & Import/Export",
@@ -48,9 +48,9 @@ export const EN_HOME: HomeContent = {
         "Full compatibility with Memos /api/v1 endpoints and OpenAPI. Direct integration with existing third-party clients like Moe Memos, plus one-click import and export.",
     },
     {
-      title: "Projects, Tasks & Calendar",
+      title: "Notes, To-dos & Projects",
       description:
-        "Organize notes and to-dos into projects with a kanban board, priorities, and due dates. The month calendar keeps tasks as the schedule's source of truth, with overdue reminders and optional Web Push.",
+        "Quick notes stay quick; long-form gets a full-screen canvas. Schedule a note for a day and its to-dos become tasks, synced both ways. See Today, Next 7 days, or a project board, with due-day reminders and optional Web Push.",
     },
   ],
   comparisonBadge: "Side-by-Side",

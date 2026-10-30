@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Cero Servidores · Cero Costes de Mantenimiento · Disponibilidad Global 24/7 en el Edge · Control Absoluto de tus Datos</b><br>
-  Para personas: un espacio íntimo de captura de ideas y segundo cerebro con IA. Para equipos: una base de conocimiento compartida con roles detallados.
+  Para personas: un espacio íntimo de captura de ideas y segundo cerebro con IA. Para equipos: un espacio compartido para publicarse notas entre sí, con roles detallados.
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 - **Auténtico serverless**: El código y los archivos estáticos se ejecutan en los nodos perimetrales (edge) de Cloudflare Workers más cercanos a ti, con latencia de milisegundos.
 - **Durabilidad de nivel empresarial desde el primer minuto**: Cloudflare D1 almacena notas y metadatos; Cloudflare R2 guarda los archivos adjuntos con replicación multirregional.
 - **Segundo cerebro nativo de IA**: El centro «Agent Memory» incluye un CLI y un skill multiagente para que los agentes de IA (Claude, Cursor, Codex, ChatGPT, ZCode) lean y actualicen tus preferencias y ámbitos de memoria a largo plazo; también hay endpoints MCP disponibles.
-- **Silencioso para uno, potente para muchos**: Por defecto es un santuario privado y cifrado de usuario único. Activa el modo de equipo y se transforma al instante en un espacio de trabajo colaborativo con roles y tres niveles de visibilidad.
+- **Silencioso para uno, potente para muchos**: Por defecto es un santuario privado y cifrado de usuario único. Activa el modo de equipo para añadir un espacio de equipo compartido con roles y tres niveles de visibilidad — pensado para compartir notas, no para gestionar proyectos en conjunto.
 - **Mínimo, no simplificado**: La interfaz serena y cada control se gana su lugar — nada de decoración estridente, ninguna función útil ausente.
 
 ---
@@ -55,6 +55,8 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 
 ### 1. Captura instantánea y revisión que inspira
 - **Captura en milisegundos**: Línea de tiempo en tarjetas, etiquetas, Markdown/GFM y vista previa de imágenes y audios adjuntos.
+- **Notas y textos largos**: El editor sigue siendo una nota rápida (etiquetas, hasta 9 imágenes, negrita, listas, pendientes); «Escribir texto largo» abre un lienzo a pantalla completa para artículos.
+- **Comentarios bajo la nota**: Comenta cualquier nota, en tu espacio personal o en el del equipo, como en Weibo. Los comentarios viven bajo la nota original y quedan fuera de la línea de tiempo, la búsqueda, las estadísticas, las etiquetas y la revisión.
 - **Búsqueda ultrarrápida**: Indexación de texto completo SQLite FTS5 con operadores de consulta (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Búsqueda semántica («Find» vectorial)**: Embeddings de Workers AI combinados con índices vectoriales derivados de Vectorize para recordar por contexto; revalida permisos contra D1 y degrada con elegancia a FTS5.
 - **Reactivación de ideas**: **Revisión diaria** (un día como hoy), **Paseo aleatorio** (deambular por los grafos de etiquetas y enlaces con resúmenes tipo postal) y sugerencias de notas relacionadas.
@@ -65,16 +67,18 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 - **Humano en el bucle**: En `/memory` puedes revisar, verificar, fijar o corregir las memorias registradas por la IA.
 - **Ecosistema abierto**: La vía recomendada es CLI + Skills; los endpoints `/memory/mcp` (MCP por HTTP en streaming) y `/mcp` siguen disponibles para clientes MCP existentes.
 
-### 3. Proyectos y tareas
-- **Agrupa el trabajo por proyectos**: Organiza notas y pendientes en proyectos, con tablero kanban (arrastrar entre columnas de estado), prioridades, orden manual y fechas límite.
+### 3. Pendientes y proyectos
+- **Programa una nota**: Elige un día y un proyecto para una nota; cada pendiente sin marcar se convierte en una tarea. Marcarlo en la nota o en la página de pendientes se sincroniza en ambos sentidos.
+- **Una sola página de pendientes**: `/projects` muestra **Hoy**, **Próximos 7 días** y **Todas las tareas** como listas agrupadas por día, además de tus proyectos como tableros kanban (arrastrar entre columnas de estado, prioridades, orden manual). Cada lista tiene una fila para añadir rápidamente.
 - **Privado por diseño, borrado reversible**: Las tareas pertenecen a un solo propietario; al eliminarlas van a la papelera hasta que se restauren o se purguen automáticamente.
 
-### 4. Gestión de tareas y recordatorios
-- **Las tareas viven en los proyectos**: El tablero de `/projects` (arrastrar entre columnas de estado), las prioridades, el orden manual y las fechas límite convierten las páginas de proyecto en el único hogar para planificar el trabajo.
+### 4. Recordatorios y horizontes temporales
+- **Indicadores donde lees**: Las notas programadas muestran «pendientes n/m · fecha · proyecto» en la tarjeta, y la Revisión diaria se abre con los pendientes de hoy.
 - **Horizontes temporales de un vistazo**: La vista de inicio del explorador combina un mini calendario mensual con recordatorios de vencidos y de hoy, para que lo que vence nunca se esconda tras el tablero.
-- **Recordatorios de vencidos**: Las tareas atrasadas generan notificaciones dentro de la app, con Web Push opcional en el navegador.
+- **Recordatorios de vencimiento y atraso**: Un proceso diario genera notificaciones de «vence hoy» y de vencidos dentro de la app, con Web Push opcional en el navegador. Las programaciones son por día; no hay alarmas a una hora concreta.
 
-### 5. Colaboración en equipo y visibilidad en 3 niveles
+### 5. Espacio de equipo y visibilidad en 3 niveles
+- **Compartir, no colaborar**: El espacio de equipo es donde los miembros se publican notas entre sí y las comentan. Las menciones `@username` se autocompletan en el editor del equipo y notifican a la persona mencionada; las notificaciones abren la nota original en sus comentarios.
 - **Gobernanza por roles**: Roles `owner`, `admin` y `member`. Los administradores invitan a los miembros mediante enlaces de activación de un solo uso (cada miembro elige su propia contraseña; los administradores nunca manejan credenciales en texto plano).
 - **3 niveles de visibilidad**:
   - 🔒 **Privado**: Solo visible para el autor.

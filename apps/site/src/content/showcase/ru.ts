@@ -52,7 +52,7 @@ export const RU_SHOWCASE: ShowcaseContent = {
     randomWalk: "Случайная",
     memory: "Память",
     calendarView: "Расписание",
-    projects: "Проекты",
+    projects: "Дела",
     tagIndex: "Индекс тегов",
     searchPlaceholder: "Поиск заметок...",
     composerPlaceholder: "О чем думаете прямо сейчас?...",

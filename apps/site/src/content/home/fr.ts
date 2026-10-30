@@ -38,9 +38,9 @@ export const FR_HOME: HomeContent = {
         "Grâce au point d'accès /memory/mcp, vos agents IA (Claude, Cursor) lisent et enrichissent votre mémoire persistante en toute sécurité.",
     },
     {
-      title: "Collaboration d'équipe & Rôles",
+      title: "Un espace d'équipe pour partager",
       description:
-        "Rôles Propriétaire, Admin et Membre avec 3 niveaux de visibilité (privé, équipe, public). Suppression propre des données privées lors d'un départ.",
+        "Publiez vos notes auprès de l'équipe, commentez-les et mentionnez-vous avec @ : un lieu de partage, pas un outil de gestion de projet. Rôles Propriétaire, Admin et Membre avec 3 niveaux de visibilité (privé, équipe, public) ; suppression propre des données privées lors d'un départ.",
     },
     {
       title: "Compatibilité Memos totale",
@@ -48,9 +48,9 @@ export const FR_HOME: HomeContent = {
         "Compatible avec l'API Memos /api/v1 et OpenAPI. Connexion directe aux clients mobiles existants et import/export sans friction.",
     },
     {
-      title: "Projets, tâches et calendrier",
+      title: "Notes, to-dos et projets",
       description:
-        "Regroupez notes et à-dos en projets : kanban, priorités et échéances. Le calendrier mensuel fait des tâches la source de vérité du planning, avec rappels des retards et Web Push optionnel.",
+        "Les notes rapides restent rapides ; les textes longs disposent d'un canevas plein écran. Planifiez une note pour un jour et ses to-dos deviennent des tâches, synchronisées dans les deux sens. Consultez Aujourd'hui, les 7 prochains jours ou un tableau de projet, avec rappels le jour de l'échéance et Web Push optionnel.",
     },
   ],
   comparisonBadge: "Comparatif",

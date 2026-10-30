@@ -49,7 +49,7 @@ export const ZH_SHOWCASE: ShowcaseContent = {
     randomWalk: "随机漫步",
     memory: "记忆",
     calendarView: "日程",
-    projects: "项目",
+    projects: "待办",
     tagIndex: "标签索引",
     searchPlaceholder: "搜索记录...",
     composerPlaceholder: "此刻在想什么？记下来...",

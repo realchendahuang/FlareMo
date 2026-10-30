@@ -52,7 +52,7 @@ export const ES_SHOWCASE: ShowcaseContent = {
     randomWalk: "Paseo aleatorio",
     memory: "Memoria",
     calendarView: "Agenda",
-    projects: "Proyectos",
+    projects: "Pendientes",
     tagIndex: "Etiquetas",
     searchPlaceholder: "Buscar notas...",
     composerPlaceholder: "¿En qué piensas ahora?...",

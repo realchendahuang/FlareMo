@@ -39,9 +39,9 @@ export const ES_HOME: HomeContent = {
         "Mediante /memory/mcp, agentes de IA (Claude, Cursor) leen y actualizan tu contexto y preferencias persistentes de forma auditada.",
     },
     {
-      title: "Colaboración de equipo y roles",
+      title: "Un espacio de equipo para compartir",
       description:
-        "Roles de Propietario, Administrador y Miembro con 3 niveles de visibilidad (privado, equipo, público) y borrado seguro de datos.",
+        "Publica notas para tu equipo, comenta debajo de ellas y menciónense con @: para compartir, no para gestionar proyectos. Roles de Propietario, Administrador y Miembro con 3 niveles de visibilidad (privado, equipo, público); al salir un miembro, sus datos privados se borran de forma segura.",
     },
     {
       title: "Compatibilidad con Memos",
@@ -49,9 +49,9 @@ export const ES_HOME: HomeContent = {
         "Compatibilidad total con la API /api/v1 de Memos y OpenAPI. Conexión directa con clientes como Moe Memos e importación/exportación.",
     },
     {
-      title: "Proyectos, tareas y calendario",
+      title: "Notas, pendientes y proyectos",
       description:
-        "Organiza notas y pendientes en proyectos con tablero kanban, prioridades y fechas límite. El calendario mensual convierte las tareas en la fuente del calendario, con recordatorios de vencidos y Web Push opcional.",
+        "Las notas rápidas siguen siendo rápidas; los textos largos tienen un lienzo a pantalla completa. Programa una nota para un día y sus pendientes se convierten en tareas, sincronizadas en ambos sentidos. Consulta Hoy, Próximos 7 días o el tablero de un proyecto, con recordatorios el día del vencimiento y Web Push opcional.",
     },
   ],
   comparisonBadge: "Comparativa",

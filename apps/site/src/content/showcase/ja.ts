@@ -49,7 +49,7 @@ export const JA_SHOWCASE: ShowcaseContent = {
     randomWalk: "散歩",
     memory: "記憶",
     calendarView: "予定",
-    projects: "プロジェクト",
+    projects: "TODO",
     tagIndex: "タグ一覧",
     searchPlaceholder: "記録を検索...",
     composerPlaceholder: "今何を考えていますか？書き留めよう...",

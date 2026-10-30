@@ -49,7 +49,7 @@ export const AR_SHOWCASE: ShowcaseContent = {
     randomWalk: "جولة عشوائية",
     memory: "الذاكرة",
     calendarView: "الجدول",
-    projects: "المشاريع",
+    projects: "المهام",
     tagIndex: "فهرس الوسوم",
     searchPlaceholder: "بحث في المذكرات...",
     composerPlaceholder: "ما الذي يدور في ذهنك الآن؟ دوّنه...",

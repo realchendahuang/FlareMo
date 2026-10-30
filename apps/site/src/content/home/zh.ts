@@ -37,9 +37,9 @@ export const ZH_HOME: HomeContent = {
         "内置标准化 MCP（Model Context Protocol）端点，Claude Desktop、Cursor、Codex 等 AI 助手可将知识库作为长期记忆安全读写。",
     },
     {
-      title: "团队协作，三级精细权限",
+      title: "团队空间，只做分享",
       description:
-        "支持 Owner / Admin / Member 多角色协同，提供私密、团队可见、公开三档可见性，离职成员私密数据支持深度彻底清理。",
+        "把便签发到团队，在原帖下评论、@ 彼此——用来分享，不做项目协作。Owner / Admin / Member 三种角色，私密、团队可见、公开三档可见性，成员离开时私密数据彻底清理。",
     },
     {
       title: "全面兼容 Memos 与 flomo",
@@ -47,9 +47,9 @@ export const ZH_HOME: HomeContent = {
         "完整实现 Memos /api/v1 核心接口与 OpenAPI 规范，支持第三方客户端直接连接，Memos/flomo 数据一键无损导入导出。",
     },
     {
-      title: "项目、任务与日历",
+      title: "便签、长文与待办",
       description:
-        "按项目归拢记录与待办：看板、优先级、截止日一应俱全。月历以任务为日程的事实源，逾期自动提醒，支持可选的浏览器推送。",
+        "便签随手记，长文进全屏画布。给便签安排一个日子，其中的待办自动成为任务并双向同步；按「今天 / 接下来 7 天」或项目看板查看，到期当天提醒，支持可选的浏览器推送。",
     },
   ],
   comparisonBadge: "横向对比",

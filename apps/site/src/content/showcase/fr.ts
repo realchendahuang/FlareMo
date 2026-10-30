@@ -52,7 +52,7 @@ export const FR_SHOWCASE: ShowcaseContent = {
     randomWalk: "Exploration",
     memory: "Mémoire",
     calendarView: "Agenda",
-    projects: "Projets",
+    projects: "Tâches",
     tagIndex: "Index des tags",
     searchPlaceholder: "Rechercher...",
     composerPlaceholder: "À quoi pensez-vous en ce moment ?...",

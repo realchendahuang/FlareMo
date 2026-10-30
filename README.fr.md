@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Zéro serveur · Aucun coût de maintenance · Haute disponibilité globale 24/7 · Maîtrise totale de vos données</b><br>
-  Pour les particuliers : un espace de prise de notes intime et second cerveau IA. Pour les équipes : une base de connaissances partagée avec gestion fine des rôles.
+  Pour les particuliers : un espace de prise de notes intime et second cerveau IA. Pour les équipes : un espace partagé pour se publier des notes les uns aux autres, avec gestion fine des rôles.
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 - **Véritablement Serverless** : Le code et les fichiers statiques s'exécutent sur les nœuds edge Cloudflare les plus proches de vous, avec une latence en millisecondes.
 - **Durabilité de classe entreprise dès l'installation** : Cloudflare D1 gère les notes et les métadonnées ; Cloudflare R2 stocke les pièces jointes avec réplication multi-régions.
 - **Second cerveau pensé pour l'IA** : le hub « Agent Memory » embarque un CLI et un skill multi-agents permettant à vos agents IA (Claude, Cursor, Codex, ChatGPT, ZCode) de lire et mettre à jour vos préférences et votre mémoire à long terme ; des endpoints MCP restent également disponibles.
-- **Discret pour un seul, puissant pour une équipe** : Par défaut, un sanctuaire personnel chiffré et privé. Activez le mode équipe, et il se transforme instantanément en espace de travail collaboratif avec rôles et visibilité à trois niveaux.
+- **Discret pour un seul, puissant pour une équipe** : Par défaut, un sanctuaire personnel chiffré et privé. Activez le mode équipe pour ajouter un espace d'équipe partagé avec rôles et visibilité à trois niveaux — pour partager des notes, pas pour mener des projets ensemble.
 - **Minimal, pas simplifié** : L'interface reste silencieuse et chaque commande mérite sa place — rien de décoratif qui crie, rien d'utile qui manque.
 
 ---
@@ -55,6 +55,8 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 
 ### 1. Capture instantanée & Revue stimulante
 - **Prise de note immédiate** : Flux chronologique sous forme de cartes, multi-étiquettes, Markdown/GFM, prévisualisation des pièces jointes image et audio.
+- **Notes et textes longs** : L'éditeur reste une note rapide (étiquettes, jusqu'à 9 images, gras, listes, tâches) ; « Écrire un texte long » ouvre un canevas plein écran pour les articles.
+- **Commentaires sous la note** : Commentez n'importe quelle note, dans votre espace personnel ou l'espace d'équipe, comme sur Weibo. Les commentaires restent sous la note d'origine et n'apparaissent ni dans le flux, ni dans la recherche, les statistiques, les étiquettes ou la revue.
 - **Recherche plein texte ultra-rapide** : Indexation SQLite FTS5 avec opérateurs de requête (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Recherche sémantique vectorielle** : Embeddings Workers AI couplés aux index vectoriels dérivés de Vectorize pour un rappel contextuel ; re-vérification des permissions contre D1 et repli transparent sur FTS5.
 - **Activation de la pensée** : **Revue quotidienne** (ce jour-là dans l'histoire), **Balade aléatoire** (dérive dans les graphes d'étiquettes et de liens retour, avec résumés en carte postale) et suggestions de notes connexes.
@@ -65,16 +67,18 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 - **Contrôle humain** : Consultez, vérifiez, verrouillez ou corrigez les souvenirs enregistrés par l'IA sur la page `/memory`.
 - **Écosystème ouvert** : La voie recommandée est CLI + Skills ; les endpoints `/memory/mcp` (Streamable HTTP MCP) et `/mcp` restent disponibles pour les clients MCP existants.
 
-### 3. Projets et tâches
-- **Rassemblez le travail par projet** : Notes et tâches organisées en projets, avec tableau kanban (glisser entre les colonnes de statut), priorités, tri manuel et échéances.
+### 3. Tâches et projets
+- **Planifiez une note** : Choisissez un jour et un projet pour une note ; chaque case à cocher non cochée qu'elle contient devient une tâche. La cocher dans la note ou sur la page des tâches reste synchronisé dans les deux sens.
+- **Une seule page de tâches** : `/projects` affiche **Aujourd'hui**, **7 prochains jours** et **Toutes les tâches** sous forme de listes groupées par jour, ainsi que vos projets en tableaux kanban (glisser entre les colonnes de statut, priorités, tri manuel). Chaque liste dispose d'une ligne d'ajout rapide.
 - **Privé par conception, suppression réversible** : Les tâches appartiennent à un seul propriétaire ; la suppression les déplace vers une corbeille jusqu'à restauration ou purge automatique.
 
-### 4. Gestion des tâches et rappels
-- **Les tâches vivent dans les projets** : Le tableau `/projects` (glisser entre les colonnes de statut), les priorités, le tri manuel et les échéances font des pages projet l'endroit unique où planifier le travail.
+### 4. Rappels et horizons temporels
+- **Des badges là où vous lisez** : Les notes planifiées affichent « tâches n/m · date · projet » sur la carte, et la Revue quotidienne s'ouvre sur les tâches du jour.
 - **Le temps en un coup d'œil** : La vue d'accueil de l'explorateur associe un mini-calendrier mensuel aux rappels des tâches en retard et du jour, pour qu'aucune échéance ne se cache derrière le tableau.
-- **Rappels des retards** : Les tâches en retard déclenchent des notifications dans l'application, avec Web Push navigateur en option.
+- **Rappels d'échéance et de retard** : Une tâche quotidienne déclenche dans l'application des notifications « à faire aujourd'hui » et de retard, avec Web Push navigateur en option. La planification se fait au jour près ; il n'y a pas d'alarme à heure fixe.
 
-### 5. Collaboration d'équipe & Visibilité à 3 niveaux
+### 5. Espace d'équipe & Visibilité à 3 niveaux
+- **Partager, pas collaborer** : L'espace d'équipe est l'endroit où les membres se publient des notes et les commentent. Les mentions `@username` se complètent automatiquement dans l'éditeur d'équipe et notifient la personne mentionnée ; les notifications ouvrent la note d'origine au niveau de ses commentaires.
 - **Gouvernance par rôles** : Rôles `owner`, `admin` et `member`. Les administrateurs invitent les membres via des liens d'activation à usage unique (les membres choisissent leur propre mot de passe ; les administrateurs ne manipulent jamais d'identifiants en clair).
 - **Visibilité à 3 niveaux** :
   - 🔒 **Privé** : Visible uniquement par l'auteur.
