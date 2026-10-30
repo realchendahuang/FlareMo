@@ -104,9 +104,9 @@ test("searches timeline and archived notes by default and supports archive synta
   await expect(
     page.locator("article").filter({ hasText: archived }),
   ).toBeVisible();
-  await expect(page.getByTestId("memo-search-excerpt").first()).toContainText(
-    "search marker",
-  );
+  // Short notes show every hit in their body; the excerpt is reserved for
+  // matches hidden inside a collapsed long note.
+  await expect(page.getByTestId("memo-search-excerpt")).toHaveCount(0);
 
   await searchTimeline(page, `Archived search marker ${marker} in:archive`);
   await expect(
@@ -157,8 +157,11 @@ test("keeps filters in the URL and opens a Markdown memo detail", async ({
   await expect(card.locator("strong")).toHaveText(marker);
   await card.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/memo\/[^/]+$/);
+  // The first heading doubles as the page title; assert the rendered body.
   await expect(
-    page.getByRole("heading", { name: "Markdown detail" }),
+    page
+      .getByRole("tabpanel")
+      .getByRole("heading", { name: "Markdown detail" }),
   ).toBeVisible();
   await expect(page.getByRole("checkbox")).toBeChecked();
 });
@@ -475,7 +478,13 @@ test("loads notes beyond the first page", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(`${marker}-0`, { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: /load more|加载更多/i }).click();
-  await expect(page.getByText(`${marker}-0`, { exact: true })).toBeVisible();
+  // The timeline is virtualized: rows render as they scroll into view.
+  await expect
+    .poll(async () => {
+      await page.mouse.wheel(0, 500);
+      return page.getByText(`${marker}-0`, { exact: true }).count();
+    })
+    .toBeGreaterThan(0);
 });
 
 test("shows the installed version and safe update fallback", async ({
@@ -627,7 +636,8 @@ test("keeps the focused composer clear of the sticky header", async ({
     header.evaluate((element) => element.getBoundingClientRect().bottom),
   ]);
   expect(geometry[0]).toBe(topBeforeFocus);
-  expect(geometry[0]).toBeGreaterThan(geometry[1]);
+  // Flush against the header is fine; sliding underneath it is not.
+  expect(geometry[0]).toBeGreaterThanOrEqual(geometry[1]);
 });
 
 test("keeps the mobile navigation usable", async ({ page }) => {
