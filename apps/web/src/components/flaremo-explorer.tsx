@@ -63,6 +63,8 @@ type FlareMoExplorerProps = {
   headerAction?: ReactNode;
   /** The panel has scrolled: draw the header hairline, like the page header. */
   headerScrolled?: boolean;
+  /** Leave room at the header's start for the fixed sidebar toggle. */
+  reserveToggle?: boolean;
   hierarchy: TagHierarchyNode[];
   hierarchyPending?: boolean;
   stats: MemoStatsResponse;
@@ -98,6 +100,7 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   header,
   headerAction,
   headerScrolled = false,
+  reserveToggle = false,
   hierarchy,
   hierarchyPending = false,
   stats,
@@ -136,6 +139,8 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         className={cn(
           "sticky top-0 z-10 -mx-3 mb-1 box-content flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background/90 px-4 backdrop-blur-md motion-safe:transition-[border-color,box-shadow] motion-safe:duration-200",
           headerScrolled ? "border-border shadow-xs" : "border-transparent",
+          // The fixed toggle sits at 12px; the account menu starts after it.
+          reserveToggle && "ps-12",
         )}
       >
         {header}

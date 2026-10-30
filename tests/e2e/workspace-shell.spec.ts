@@ -127,8 +127,8 @@ test("expanding from an open peek hands it off without a second entrance", async
 }) => {
   await openTimelineExpanded(page);
   await page.getByRole("button", { name: collapseName }).click();
-  const expand = page.getByRole("button", { name: expandName });
-  await expand.hover();
+  await page.mouse.move(640, 400);
+  await page.mouse.move(1, 400);
   const peek = page.getByTestId("sidebar-peek");
   await expect(peek).not.toHaveAttribute("inert", "");
   await page.waitForTimeout(300);
@@ -173,4 +173,47 @@ test("expanding from an open peek hands it off without a second entrance", async
   }
   await expect(peek).toHaveCount(0);
   await expect(page.getByRole("button", { name: collapseName })).toBeVisible();
+});
+
+test("keeps the toggle in one place and follows rapid repeated clicks", async ({
+  page,
+}) => {
+  await openTimelineExpanded(page);
+  const toggle = page.getByTestId("sidebar-toggle");
+  const box = async () => {
+    const rect = await toggle.boundingBox();
+    return rect && { x: Math.round(rect.x), y: Math.round(rect.y) };
+  };
+  const expanded = await box();
+  await toggle.click();
+  await expect(page.getByRole("button", { name: expandName })).toBeVisible();
+  expect(await box()).toEqual(expanded);
+
+  // Click four times in a row without waiting for the animation: the button
+  // never moves and the final state is the parity of the clicks.
+  const positions = await page.evaluate(async () => {
+    const button = document.querySelector(
+      '[data-testid="sidebar-toggle"]',
+    ) as HTMLElement;
+    const seen = new Set<string>();
+    for (let index = 0; index < 4; index += 1) {
+      button.click();
+      for (let frame = 0; frame < 4; frame += 1) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const rect = button.getBoundingClientRect();
+        seen.add(`${Math.round(rect.x)},${Math.round(rect.y)}`);
+      }
+    }
+    return [...seen];
+  });
+  expect(positions).toEqual([`${expanded?.x},${expanded?.y}`]);
+  await expect(page.getByRole("button", { name: expandName })).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator("aside")
+        .first()
+        .evaluate((element) => element.getBoundingClientRect().width),
+    )
+    .toBe(0);
 });

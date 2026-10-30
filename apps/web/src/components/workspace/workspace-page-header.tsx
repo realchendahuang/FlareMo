@@ -1,11 +1,7 @@
 import type { ReactNode } from "react";
 import { usePageContentWidth } from "@/components/workspace/workspace-layout";
-import { useWorkspaceShell } from "@/components/workspace/workspace-shell";
 import type { WorkspaceSidebarContent } from "@/components/workspace/workspace-sidebar";
-import {
-  SidebarToggleButton,
-  WorkspaceMobileSidebar,
-} from "@/components/workspace/workspace-sidebar";
+import { WorkspaceMobileSidebar } from "@/components/workspace/workspace-sidebar";
 import { cn } from "@/lib/utils";
 
 export function WorkspacePageHeader({
@@ -15,8 +11,6 @@ export function WorkspacePageHeader({
   explorer,
   mobileSheetOpen,
   setMobileSheetOpen,
-  sidebarCollapsed,
-  toggleSidebarCollapsed,
   isScrolled = false,
 }: {
   icon?: ReactNode;
@@ -25,11 +19,11 @@ export function WorkspacePageHeader({
   explorer: WorkspaceSidebarContent;
   mobileSheetOpen: boolean;
   setMobileSheetOpen: (open: boolean) => void;
-  sidebarCollapsed: boolean;
-  toggleSidebarCollapsed: () => void;
+  /** Owned by the shell's fixed toggle now; accepted for call-site parity. */
+  sidebarCollapsed?: boolean;
+  toggleSidebarCollapsed?: () => void;
   isScrolled?: boolean;
 }) {
-  const { setPeekIntent } = useWorkspaceShell();
   const contentWidth = usePageContentWidth();
 
   return (
@@ -46,23 +40,6 @@ export function WorkspacePageHeader({
         className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3"
         style={{ maxWidth: contentWidth }}
       >
-        <div
-          className={cn(
-            "hidden items-center overflow-hidden lg:flex motion-safe:transition-[width,opacity,margin] motion-safe:duration-300 motion-safe:ease-signal",
-            sidebarCollapsed
-              ? "w-8 opacity-100"
-              : "pointer-events-none -me-2 w-0 opacity-0",
-          )}
-          inert={!sidebarCollapsed}
-        >
-          <SidebarToggleButton
-            action="expand"
-            onClick={toggleSidebarCollapsed}
-            onPointerEnter={() => setPeekIntent(true)}
-            onPointerLeave={() => setPeekIntent(false)}
-          />
-        </div>
-
         <WorkspaceMobileSidebar
           explorer={explorer}
           open={mobileSheetOpen}

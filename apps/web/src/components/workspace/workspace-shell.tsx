@@ -20,6 +20,7 @@ import {
   type MemoStatsResponse,
 } from "@/api";
 import {
+  SidebarToggle,
   WorkspaceSidebar,
   type WorkspaceSidebarContent,
   WorkspaceSidebarPeek,
@@ -29,6 +30,7 @@ import { useMemoMutations } from "@/hooks/use-memo-mutations";
 import { queryKeys } from "@/lib/query-keys";
 import { ACTIVITY_WINDOW_DAYS } from "@/lib/time-horizon";
 import { TIMELINE_SEARCH } from "@/lib/timeline-search";
+import { cn } from "@/lib/utils";
 
 const AccountSettingsDialog = lazy(() =>
   import("@/pages/account-page").then((module) => ({
@@ -162,6 +164,15 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       open ? 120 : 260,
     );
   }, []);
+
+  // Over the fixed toggle, an open peek stays open (the toggle floats above
+  // it); a closed peek is not opened by the toggle — clicking it expands.
+  const holdPeek = useCallback(
+    (hover: boolean) => {
+      if (peekOpenRef.current) setPeekIntent(hover);
+    },
+    [setPeekIntent],
+  );
 
   useEffect(
     () => () => {
@@ -344,7 +355,18 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             explorer={explorer}
             widthAnimating={animating}
           />
-          <div className="flex h-full min-w-0 flex-1 flex-col">{children}</div>
+          {/* Collapsed, the page area keeps the toggle's corner clear; the
+              inset eases in step with the sidebar so nothing jumps. */}
+          <div
+            className={cn(
+              "flex h-full min-w-0 flex-1 flex-col",
+              sidebarCollapsed && "lg:ps-14",
+              animating &&
+                "motion-safe:transition-[padding] motion-safe:duration-300 motion-safe:ease-signal",
+            )}
+          >
+            {children}
+          </div>
         </div>
         {(sidebarCollapsed || pinning) && (
           <WorkspaceSidebarPeek
@@ -354,6 +376,12 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             onIntent={setPeekIntent}
           />
         )}
+        <SidebarToggle
+          collapsed={sidebarCollapsed}
+          onPointerEnter={() => holdPeek(true)}
+          onPointerLeave={() => holdPeek(false)}
+          onToggle={toggleSidebarCollapsed}
+        />
         <Suspense fallback={null}>
           {accountSettingsOpen && (
             <AccountSettingsDialog

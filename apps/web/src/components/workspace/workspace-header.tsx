@@ -3,9 +3,7 @@ import type { ExplorerView } from "@/components/flaremo-explorer";
 import { ScopeSwitcher } from "@/components/scope-switcher";
 import { SpotlightSearchTrigger } from "@/components/spotlight-search";
 import { usePageContentWidth } from "@/components/workspace/workspace-layout";
-import { useWorkspaceShell } from "@/components/workspace/workspace-shell";
 import {
-  SidebarToggleButton,
   WorkspaceMobileSidebar,
   type WorkspaceSidebarContent,
 } from "@/components/workspace/workspace-sidebar";
@@ -25,10 +23,8 @@ export function WorkspaceHeader({
   setSpace,
   setSpotlightOpen,
   setView,
-  sidebarCollapsed,
   space,
   team,
-  toggleSidebarCollapsed,
   view,
 }: {
   /** Query shown in the spotlight pill; empty while a date filter owns it. */
@@ -41,13 +37,13 @@ export function WorkspaceHeader({
   setSpace: (space: MemoSpace) => void;
   setSpotlightOpen: (open: boolean) => void;
   setView: (view: ExplorerView) => void;
-  sidebarCollapsed: boolean;
+  /** Owned by the shell's fixed toggle now; accepted for call-site parity. */
+  sidebarCollapsed?: boolean;
   space: MemoSpace;
   team: { id: string; name: string } | null;
-  toggleSidebarCollapsed: () => void;
+  toggleSidebarCollapsed?: () => void;
   view: ExplorerView;
 }) {
-  const { setPeekIntent } = useWorkspaceShell();
   const contentWidth = usePageContentWidth();
 
   return (
@@ -64,22 +60,6 @@ export function WorkspaceHeader({
         className="mx-auto flex h-14 w-full items-center gap-2 px-5 lg:px-3"
         style={{ maxWidth: contentWidth }}
       >
-        <div
-          className={cn(
-            "hidden items-center overflow-hidden lg:flex motion-safe:transition-[width,opacity,margin] motion-safe:duration-300 motion-safe:ease-signal",
-            sidebarCollapsed
-              ? "w-8 opacity-100"
-              : "pointer-events-none -me-2 w-0 opacity-0",
-          )}
-          inert={!sidebarCollapsed}
-        >
-          <SidebarToggleButton
-            action="expand"
-            onClick={toggleSidebarCollapsed}
-            onPointerEnter={() => setPeekIntent(true)}
-            onPointerLeave={() => setPeekIntent(false)}
-          />
-        </div>
         <WorkspaceMobileSidebar
           explorer={explorer}
           open={mobileSheetOpen}

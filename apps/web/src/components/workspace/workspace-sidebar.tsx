@@ -2,8 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   DownloadIcon,
   MenuIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
+  PanelLeftIcon,
   UploadIcon,
 } from "lucide-react";
 import { type UIEvent, useCallback, useMemo, useState } from "react";
@@ -62,7 +61,8 @@ type WorkspaceExplorerPanelProps = WorkspaceSidebarContent & {
   /** Draws the header hairline once the panel has scrolled. */
   headerScrolled?: boolean;
   onNavigate?: () => void;
-  showCollapse?: boolean;
+  /** Leave room at the header's start for the fixed sidebar toggle. */
+  reserveToggle?: boolean;
 };
 
 /** Platform-aware label for the ⌘\ / Ctrl+\ sidebar shortcut. */
@@ -72,54 +72,57 @@ function sidebarShortcutLabel() {
 }
 
 /**
- * The one sidebar toggle: collapse inside the sidebar header, expand in the
- * page header. Same size, icon family and tooltip (with its shortcut) in both
- * places, so the control reads as one thing that moved, not two buttons.
+ * The one sidebar toggle. It is fixed to the same spot on screen (top leading
+ * corner, inside the sidebar header's row) in both states, so the pointer
+ * never has to follow it: click, click again, and the sidebar slides out and
+ * back from under a button that does not move. Clicks during the animation
+ * reverse it from wherever it is.
  */
-export function SidebarToggleButton({
-  action,
-  onClick,
+export function SidebarToggle({
+  collapsed,
+  onToggle,
   onPointerEnter,
   onPointerLeave,
 }: {
-  action: "collapse" | "expand";
-  onClick: () => void;
+  collapsed: boolean;
+  onToggle: () => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
 }) {
   const { t } = useI18n();
-  const label = t(
-    action === "collapse" ? "sidebar.collapse" : "sidebar.expand",
-  );
-  const Icon = action === "collapse" ? PanelLeftCloseIcon : PanelLeftOpenIcon;
+  const label = t(collapsed ? "sidebar.expand" : "sidebar.collapse");
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-keyshortcuts="Meta+Backslash Control+Backslash"
-            aria-label={label}
-            className="text-muted-foreground hover:text-foreground rtl:-scale-x-100"
-            size="icon-sm"
-            variant="ghost"
-            onClick={onClick}
-            onPointerEnter={onPointerEnter}
-            onPointerLeave={onPointerLeave}
-          />
-        }
-      >
-        <Icon />
-      </TooltipTrigger>
-      <TooltipContent>
-        {label}
-        <kbd
-          className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
-          data-slot="kbd"
+    <div className="fixed start-3 top-3.5 z-50 hidden lg:block">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-expanded={!collapsed}
+              aria-keyshortcuts="Meta+Backslash Control+Backslash"
+              aria-label={label}
+              className="text-muted-foreground hover:text-foreground"
+              data-testid="sidebar-toggle"
+              size="icon-sm"
+              variant="ghost"
+              onClick={onToggle}
+              onPointerEnter={onPointerEnter}
+              onPointerLeave={onPointerLeave}
+            />
+          }
         >
-          {sidebarShortcutLabel()}
-        </kbd>
-      </TooltipContent>
-    </Tooltip>
+          <PanelLeftIcon className="rtl:-scale-x-100" />
+        </TooltipTrigger>
+        <TooltipContent>
+          {label}
+          <kbd
+            className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
+            data-slot="kbd"
+          >
+            {sidebarShortcutLabel()}
+          </kbd>
+        </TooltipContent>
+      </Tooltip>
+    </div>
   );
 }
 
@@ -140,9 +143,8 @@ function WorkspaceExplorerPanel({
   onOpenSettings,
   onRenameTag,
   onTagChange,
-  onToggleCollapsed,
   onUntaggedChange,
-  showCollapse = false,
+  reserveToggle = false,
   space,
   stats,
   timeZone,
@@ -181,14 +183,6 @@ function WorkspaceExplorerPanel({
   const header = useMemo(
     () => <UserMenu onOpenSettings={handleOpenSettings} user={user} />,
     [handleOpenSettings, user],
-  );
-
-  const headerAction = useMemo(
-    () =>
-      showCollapse ? (
-        <SidebarToggleButton action="collapse" onClick={onToggleCollapsed} />
-      ) : undefined,
-    [showCollapse, onToggleCollapsed],
   );
 
   const footer = useMemo(
@@ -243,8 +237,8 @@ function WorkspaceExplorerPanel({
     <FlareMoExplorer
       activeTag={activeTag}
       header={header}
-      headerAction={headerAction}
       headerScrolled={headerScrolled}
+      reserveToggle={reserveToggle}
       footer={footer}
       space={space}
       stats={stats}
@@ -317,7 +311,7 @@ export function WorkspaceSidebar({
           {...explorer}
           headerScrolled={scrolled}
           importInputId="flaremo-import-file-desktop"
-          showCollapse
+          reserveToggle
         />
       </div>
     </aside>
@@ -381,6 +375,7 @@ export function WorkspaceSidebarPeek({
             {...explorer}
             headerScrolled={scrolled}
             importInputId="flaremo-import-file-peek"
+            reserveToggle
             onNavigate={() => onIntent(false)}
           />
         </div>
