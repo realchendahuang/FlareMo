@@ -84,6 +84,8 @@ const messages = {
   "voiceSettings.provider": "공급자",
   "voiceSettings.tencent": "Tencent Cloud",
   "voiceSettings.model": "인식 모델(비우면 기본값)",
+  "voiceSettings.modelLabel": "인식 모델",
+  "voiceSettings.modelDefault": "기본값",
   "voiceSettings.appId": "Tencent Cloud AppID",
   "voiceSettings.secretId": "Tencent Cloud SecretId",
   "voiceSettings.secretKey": "Tencent Cloud SecretKey",

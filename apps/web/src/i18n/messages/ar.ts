@@ -82,6 +82,8 @@ const messages = {
   "voiceSettings.provider": "المزوّد",
   "voiceSettings.tencent": "Tencent Cloud",
   "voiceSettings.model": "نموذج التعرّف (فارغ = الافتراضي)",
+  "voiceSettings.modelLabel": "نموذج التعرّف",
+  "voiceSettings.modelDefault": "الافتراضي",
   "voiceSettings.appId": "AppID الخاص بـ Tencent Cloud",
   "voiceSettings.secretId": "SecretId الخاص بـ Tencent Cloud",
   "voiceSettings.secretKey": "SecretKey الخاص بـ Tencent Cloud",

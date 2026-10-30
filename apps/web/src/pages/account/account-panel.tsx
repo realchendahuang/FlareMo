@@ -168,7 +168,7 @@ export function AccountPanel({
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Account & Credentials */}
-      <SettingsSectionGroup title={t("settings.group.account")}>
+      <SettingsSectionGroup>
         <AccountProfileSection
           accountError={accountError}
           avatarError={avatarError}

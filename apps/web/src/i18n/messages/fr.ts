@@ -85,6 +85,8 @@ const messages = {
   "voiceSettings.provider": "Fournisseur",
   "voiceSettings.tencent": "Tencent Cloud",
   "voiceSettings.model": "Modèle de reconnaissance (vide = valeur par défaut)",
+  "voiceSettings.modelLabel": "Modèle de reconnaissance",
+  "voiceSettings.modelDefault": "Par défaut",
   "voiceSettings.appId": "AppID Tencent Cloud",
   "voiceSettings.secretId": "SecretId Tencent Cloud",
   "voiceSettings.secretKey": "SecretKey Tencent Cloud",

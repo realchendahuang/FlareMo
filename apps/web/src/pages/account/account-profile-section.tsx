@@ -1,4 +1,5 @@
 import {
+  AtSignIcon,
   CameraIcon,
   RefreshCcwIcon,
   RotateCcwIcon,
@@ -144,7 +145,7 @@ export function AccountProfileSection({
         }}
       />
       <SettingsRow
-        icon={UserRoundIcon}
+        icon={AtSignIcon}
         label={
           <div className="flex items-center gap-1.5">
             <span>{t("auth.usernameHandle")}</span>

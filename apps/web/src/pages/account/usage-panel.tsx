@@ -1,5 +1,5 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { ActivityIcon, CloudIcon, GaugeIcon, InfoIcon } from "lucide-react";
+import { InfoIcon } from "lucide-react";
 import type { CloudflareUsageReport, VectorUsageReport } from "@/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TranslationKey } from "@/i18n";
@@ -81,16 +81,12 @@ function VectorUsageContent({
 
   return (
     <div className="flex flex-col divide-y divide-border/40">
-      <SettingsRow
-        icon={GaugeIcon}
-        label={t("usage.model")}
-        value={report.model}
-      />
+      <SettingsRow label={t("usage.model")} value={report.model} />
       <SettingsRow
         label={t("usage.vectors")}
         value={`${totalVectors.toLocaleString()} (${report.dimensions} dim)`}
       />
-      <div className="p-4 flex flex-col gap-4">
+      <div className="flex flex-col gap-4 px-3.5 py-4">
         <UsageBar
           hint={t("usage.storedHint")}
           label={t("usage.stored")}
@@ -119,7 +115,6 @@ function CloudflareUsageContent({
   return (
     <div className="flex flex-col divide-y divide-border/40">
       <SettingsRow
-        icon={ActivityIcon}
         label={t("usage.cfPeriod")}
         value={`${report.window.since.slice(0, 10)} ~ ${report.window.until.slice(0, 10)} (UTC)`}
       />
@@ -132,7 +127,6 @@ function CloudflareUsageContent({
       {report.d1 && (
         <>
           <SettingsRow
-            icon={CloudIcon}
             label={t("usage.cfD1Storage")}
             value={
               report.d1.storageBytes !== null

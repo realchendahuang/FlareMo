@@ -79,6 +79,8 @@ const messages = {
   "voiceSettings.provider": "服务商",
   "voiceSettings.tencent": "腾讯云",
   "voiceSettings.model": "识别模型（留空使用默认）",
+  "voiceSettings.modelLabel": "识别模型",
+  "voiceSettings.modelDefault": "默认",
   "voiceSettings.appId": "腾讯云 AppID",
   "voiceSettings.secretId": "腾讯云 SecretId",
   "voiceSettings.secretKey": "腾讯云 SecretKey",

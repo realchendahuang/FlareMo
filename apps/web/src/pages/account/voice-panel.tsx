@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MicIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -220,7 +219,6 @@ export function VoicePanel() {
   return (
     <div className="flex flex-col gap-5">
       <SettingsSectionGroup
-        title={t("voiceSettings.title")}
         footer={
           envManaged
             ? t("voiceSettings.envManaged")
@@ -230,7 +228,6 @@ export function VoicePanel() {
         }
       >
         <SettingsRow
-          icon={MicIcon}
           label={t("voiceSettings.enabled")}
           action={
             <Switch
@@ -249,8 +246,8 @@ export function VoicePanel() {
           }
         />
         <SettingsRow
-          label={t("voiceSettings.model")}
-          value={model || "—"}
+          label={t("voiceSettings.modelLabel")}
+          value={model || t("voiceSettings.modelDefault")}
           chevron={!editingDisabled}
           onClick={
             editingDisabled ? undefined : () => setConfigDialogOpen(true)
@@ -272,7 +269,7 @@ export function VoicePanel() {
         />
       </SettingsSectionGroup>
 
-      <SettingsSectionGroup title={t("common.actions")}>
+      <SettingsSectionGroup>
         <SettingsRow
           label={t("voiceSettings.test")}
           description={t("voiceSettings.testWarning")}

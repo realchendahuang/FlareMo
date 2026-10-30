@@ -177,6 +177,7 @@ export type AdminUser = {
   email: string;
   name: string;
   username: string;
+  avatar_url?: string | null;
   role: "owner" | "admin" | "member" | "reader" | null;
   /** Absolute expiry of the reader seat (ISO string), null when not a reader or the seat has no expiry. */
   reader_expires_at: string | null;

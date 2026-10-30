@@ -83,6 +83,8 @@ const messages = {
   "voiceSettings.provider": "プロバイダー",
   "voiceSettings.tencent": "Tencent Cloud",
   "voiceSettings.model": "認識モデル（空欄でデフォルト）",
+  "voiceSettings.modelLabel": "認識モデル",
+  "voiceSettings.modelDefault": "デフォルト",
   "voiceSettings.appId": "Tencent Cloud AppID",
   "voiceSettings.secretId": "Tencent Cloud SecretId",
   "voiceSettings.secretKey": "Tencent Cloud SecretKey",

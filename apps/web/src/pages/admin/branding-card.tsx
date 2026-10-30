@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageUpIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { ChevronRightIcon, ImageUpIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -16,7 +16,6 @@ import {
 } from "@/api";
 import { type BrandingAccent, setAccentAttribute } from "@/branding";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +29,7 @@ import { useI18n } from "@/i18n";
 import { normalizeHexColor } from "@/lib/brand-ramp";
 import { errorMessage } from "@/lib/error";
 import { queryKeys } from "@/lib/query-keys";
+import { SettingsSectionGroup } from "../account/apple-settings-ui";
 import {
   ACCENT_SWATCH_HEX,
   AccentPicker,
@@ -323,79 +323,67 @@ export function BrandingCard() {
     </div>
   );
 
+  // Laid out like every other settings pane: titled groups, no inner card
+  // title repeating the pane header. Swatches apply instantly; the identity
+  // row opens the logo/name editor (the old separate "Edit" button).
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{t("admin.branding.title")}</CardTitle>
-        <Button
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => setEditOpen(true)}
-        >
-          <PencilIcon data-icon="inline-start" />
-          {t("common.edit")}
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium">{t("admin.branding.accent")}</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <AccentPicker
-                customHex={brandingQuery.data?.accent_hex ?? null}
-                disabled={saveAccentMutation.isPending}
-                value={brandingQuery.data?.accent ?? "flame"}
-                onSelect={(accent) => {
-                  if (accent === "custom") {
-                    setCustomDraft(
-                      brandingQuery.data?.accent_hex ??
-                        (brandingQuery.data?.accent
-                          ? (ACCENT_SWATCH_HEX[
-                              brandingQuery.data
-                                .accent as keyof typeof ACCENT_SWATCH_HEX
-                            ] ?? "#ff6a00")
-                          : "#ff6a00"),
-                    );
-                    setCustomOpen(true);
-                    return;
-                  }
-                  void saveAccentMutation.mutateAsync({ accent });
-                }}
-              />
-              <span className="text-muted-foreground text-sm">
-                {accentSummaryLabel(
-                  brandingQuery.data?.accent,
-                  brandingQuery.data?.accent_hex,
-                  t,
-                )}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium">
-              {t("admin.branding.identity")}
-            </p>
-            <div className="flex items-center gap-3">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-muted/40 dark:bg-muted/20">
-                {brandingQuery.data?.mark_dark_url ? (
-                  <img
-                    alt=""
-                    className="size-8 object-contain"
-                    src={brandingQuery.data.mark_dark_url}
-                  />
-                ) : (
-                  <ImageUpIcon className="size-4 text-muted-foreground" />
-                )}
-              </div>
-              <p className="min-w-0 truncate text-sm">
-                {brandingQuery.data?.product_name ||
-                  t("admin.branding.statusDefault")}
-              </p>
-            </div>
-          </div>
+    <div className="flex flex-col gap-5">
+      <SettingsSectionGroup title={t("admin.branding.accent")}>
+        <div className="flex flex-wrap items-center gap-3 px-3.5 py-3">
+          <AccentPicker
+            customHex={brandingQuery.data?.accent_hex ?? null}
+            disabled={saveAccentMutation.isPending}
+            value={brandingQuery.data?.accent ?? "flame"}
+            onSelect={(accent) => {
+              if (accent === "custom") {
+                setCustomDraft(
+                  brandingQuery.data?.accent_hex ??
+                    (brandingQuery.data?.accent
+                      ? (ACCENT_SWATCH_HEX[
+                          brandingQuery.data
+                            .accent as keyof typeof ACCENT_SWATCH_HEX
+                        ] ?? "#ff6a00")
+                      : "#ff6a00"),
+                );
+                setCustomOpen(true);
+                return;
+              }
+              void saveAccentMutation.mutateAsync({ accent });
+            }}
+          />
+          <span className="text-muted-foreground text-sm">
+            {accentSummaryLabel(
+              brandingQuery.data?.accent,
+              brandingQuery.data?.accent_hex,
+              t,
+            )}
+          </span>
         </div>
-      </CardContent>
+      </SettingsSectionGroup>
+      <SettingsSectionGroup title={t("admin.branding.identity")}>
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="flex w-full cursor-pointer items-center gap-3 px-3.5 py-3 text-start transition-colors hover:bg-accent/40 active:bg-accent/60"
+        >
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40 dark:bg-muted/20">
+            {brandingQuery.data?.mark_dark_url ? (
+              <img
+                alt=""
+                className="size-7 object-contain"
+                src={brandingQuery.data.mark_dark_url}
+              />
+            ) : (
+              <ImageUpIcon className="size-4 text-muted-foreground" />
+            )}
+          </div>
+          <p className="min-w-0 flex-1 truncate text-sm">
+            {brandingQuery.data?.product_name ||
+              t("admin.branding.statusDefault")}
+          </p>
+          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/50 rtl:rotate-180" />
+        </button>
+      </SettingsSectionGroup>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -469,6 +457,6 @@ export function BrandingCard() {
           saveAccentMutation.mutateAsync({ accent: "custom", accentHex: hex })
         }
       />
-    </Card>
+    </div>
   );
 }

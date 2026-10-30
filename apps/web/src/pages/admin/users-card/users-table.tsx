@@ -14,6 +14,7 @@ import {
   XIcon,
 } from "lucide-react";
 import type { AdminUser } from "@/api";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -154,11 +155,11 @@ export function UsersTable({
               >
                 {/* Left: Avatar & Identity */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                    {(user.name || user.username || "?")
-                      .slice(0, 1)
-                      .toUpperCase()}
-                  </div>
+                  <Avatar
+                    className="size-9 shrink-0"
+                    name={user.name || user.username}
+                    src={user.avatar_url ?? null}
+                  />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-xs font-medium text-foreground">

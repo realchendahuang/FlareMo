@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MailIcon, ShieldCheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -139,7 +138,6 @@ export function EmailSettingsCard() {
   return (
     <div className="flex flex-col gap-5">
       <SettingsSectionGroup
-        title={t("admin.integrations.emailTitle")}
         footer={
           envManaged
             ? t("admin.integrations.emailEnvManaged")
@@ -149,7 +147,6 @@ export function EmailSettingsCard() {
         }
       >
         <SettingsRow
-          icon={MailIcon}
           label={t("admin.integrations.emailTitle")}
           description={
             config?.configured
@@ -182,37 +179,31 @@ export function EmailSettingsCard() {
             }
           />
         )}
-      </SettingsSectionGroup>
-
-      <SettingsSectionGroup title={t("common.actions")}>
+        {/* The row is the action: a separate button repeating the label
+            only doubled the words. */}
         <SettingsRow
           label={t("admin.integrations.testEmail")}
-          action={
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || !config?.configured}
-              onClick={() =>
-                void run(
-                  "test",
-                  testEmailSettings,
-                  "admin.integrations.testSuccess",
-                )
-              }
-            >
-              {pendingAction === "test" && <Spinner data-icon="inline-start" />}
-              {t("admin.integrations.testEmail")}
-            </Button>
+          action={pendingAction === "test" ? <Spinner /> : undefined}
+          disabled={busy || !config?.configured}
+          onClick={() =>
+            void run(
+              "test",
+              testEmailSettings,
+              "admin.integrations.testSuccess",
+            )
           }
         />
-        {config?.revision && !envManaged && (
+      </SettingsSectionGroup>
+
+      {config?.revision && !envManaged && (
+        <SettingsSectionGroup>
           <SettingsRow
             destructive
             label={t("admin.integrations.delete")}
             onClick={() => setConfirmDelete(true)}
           />
-        )}
-      </SettingsSectionGroup>
+        </SettingsSectionGroup>
+      )}
 
       {/* Progressive Disclosure: Email Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -468,12 +459,9 @@ export function OauthSettingsCard() {
         }
       >
         <SettingsRow
-          icon={ShieldCheckIcon}
           label="Google"
           description={
-            isGoogleActive
-              ? t("admin.integrations.providerActive")
-              : t("settings.status.notConfigured")
+            isGoogleActive ? t("admin.integrations.providerActive") : undefined
           }
           value={
             isGoogleActive
@@ -486,12 +474,9 @@ export function OauthSettingsCard() {
           }
         />
         <SettingsRow
-          icon={ShieldCheckIcon}
           label="GitHub"
           description={
-            isGithubActive
-              ? t("admin.integrations.providerActive")
-              : t("settings.status.notConfigured")
+            isGithubActive ? t("admin.integrations.providerActive") : undefined
           }
           value={
             isGithubActive
@@ -506,7 +491,7 @@ export function OauthSettingsCard() {
       </SettingsSectionGroup>
 
       {config?.revision && !envManaged && (
-        <SettingsSectionGroup title={t("common.actions")}>
+        <SettingsSectionGroup>
           <SettingsRow
             destructive
             label={t("admin.integrations.delete")}

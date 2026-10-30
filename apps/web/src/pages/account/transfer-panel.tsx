@@ -1,13 +1,20 @@
 import type { DataTaskDto } from "@flaremo/contracts";
-import type { UseQueryResult } from "@tanstack/react-query";
-import { DownloadIcon, RefreshCcwIcon } from "lucide-react";
-import { downloadExportJson } from "@/api";
+import {
+  type UseQueryResult,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { DownloadIcon, RefreshCcwIcon, UploadIcon } from "lucide-react";
+import { useRef } from "react";
+import { toast } from "sonner";
+import { createImportTask, downloadExportJson } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import type { TranslationKey } from "@/i18n";
-import { SettingsSectionGroup } from "./apple-settings-ui";
+import { type TranslationKey, useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
+import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 type TransferPanelProps = {
   createExportIsPending: boolean;
@@ -26,29 +33,44 @@ export function TransferPanel({
   onCreateExport,
   onRetryExport,
 }: TransferPanelProps) {
+  const importMutation = useImportBundle();
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="flex flex-col gap-5">
-      <SettingsSectionGroup
-        title={
-          <div className="flex items-center justify-between">
-            <span>{t("transfer.title")}</span>
-            <Button
-              disabled={createExportIsPending}
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={onCreateExport}
-            >
-              {createExportIsPending ? (
-                <Spinner className="size-3.5" data-icon="inline-start" />
-              ) : (
-                <DownloadIcon className="size-3.5" data-icon="inline-start" />
-              )}
-              {t("transfer.newExport")}
-            </Button>
-          </div>
-        }
-      >
+      {/* The section is "import & export": both directions start here, the
+          import used to live only in the sidebar's user menu. */}
+      <SettingsSectionGroup>
+        <SettingsRow
+          icon={DownloadIcon}
+          label={t("transfer.newExport")}
+          action={createExportIsPending ? <Spinner /> : undefined}
+          disabled={createExportIsPending}
+          onClick={onCreateExport}
+        />
+        <SettingsRow
+          icon={UploadIcon}
+          label={t("common.import")}
+          action={importMutation.isPending ? <Spinner /> : undefined}
+          disabled={importMutation.isPending}
+          onClick={() => importInputRef.current?.click()}
+        />
+      </SettingsSectionGroup>
+      <input
+        accept="application/json"
+        aria-hidden="true"
+        className="hidden"
+        ref={importInputRef}
+        tabIndex={-1}
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) importMutation.mutate(file);
+        }}
+      />
+
+      <SettingsSectionGroup>
         {dataTasksQuery.isLoading ? (
           <div className="p-4">
             <Skeleton className="h-16 w-full" />
@@ -159,4 +181,43 @@ export function TransferPanel({
       </SettingsSectionGroup>
     </div>
   );
+}
+
+/** Reads a Memos/FlareMo JSON bundle and imports it, the same request the
+ *  user menu's import sends; on success every cached view is refetched since
+ *  an import can touch memos, tags, stats and the task list at once. */
+function useImportBundle() {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      let bundle: unknown;
+      try {
+        bundle = JSON.parse(await file.text()) as unknown;
+      } catch {
+        throw new Error(t("toast.invalidImport"));
+      }
+      return createImportTask({ bundle });
+    },
+    onSuccess: ({ task, result }) => {
+      if (task.status !== "succeeded") {
+        toast.error(
+          t("toast.importFailed", {
+            message: task.error_message ?? task.status,
+          }),
+        );
+      } else {
+        toast.success(t("toast.importDone", { count: result.imported_memos }));
+      }
+      void queryClient.invalidateQueries();
+    },
+    onError: (error) => {
+      const message = errorMessage(error, "");
+      toast.error(
+        message === t("toast.invalidImport")
+          ? message
+          : t("toast.importFailed", { message }),
+      );
+    },
+  });
 }

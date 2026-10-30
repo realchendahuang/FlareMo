@@ -72,6 +72,10 @@ export function registerUsersRoutes(app: Hono<HonoBindings>) {
         email: authUser?.email ?? member.email,
         name: member.name,
         username: authUser?.username ?? member.id.replace(/^users\//, ""),
+        // The uploaded avatar, so a member's row shows the face they see on
+        // their own sidebar; without one both fall back to the same
+        // name-seeded generated avatar.
+        avatar_url: member.avatarUrl ?? null,
         role: membership?.role ?? null,
         reader_expires_at: membership
           ? readerExpiresAt(membership.expiresAt)

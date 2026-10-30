@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { SettingsSectionGroup } from "../../account/apple-settings-ui";
 import { localized } from "./plugin-row";
 import type { PluginSettingsState } from "./use-plugin-settings";
 
@@ -34,12 +35,11 @@ export function PluginCardsManager({
 }) {
   const { t } = useI18n();
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm font-medium">{t("admin.plugins.cards")}</p>
+    <SettingsSectionGroup title={t("admin.plugins.cards")}>
       {cardRows.map((row) => (
         <div
           className={cn(
-            "flex flex-col gap-3 rounded-lg border px-3 py-3",
+            "flex flex-col gap-3 px-3.5 py-2.5",
             !row.reachable && "opacity-60",
           )}
           key={row.id}
@@ -117,7 +117,7 @@ export function PluginCardsManager({
             </div>
           </div>
           {row.optionSpecs.length > 0 && (
-            <div className="flex flex-col gap-2 border-t pt-3">
+            <div className="flex flex-col gap-2 border-t border-border/40 pt-3">
               {row.optionSpecs.map((spec) => {
                 const value = row.options[spec.key];
                 return (
@@ -200,6 +200,6 @@ export function PluginCardsManager({
           )}
         </div>
       ))}
-    </div>
+    </SettingsSectionGroup>
   );
 }

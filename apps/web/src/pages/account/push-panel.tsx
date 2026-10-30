@@ -108,7 +108,7 @@ export function PushPanel() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SettingsSectionGroup title={t("push.title")}>
+      <SettingsSectionGroup>
         <SettingsRow
           icon={BellRingIcon}
           label={
@@ -121,8 +121,8 @@ export function PushPanel() {
             !configured
               ? t("push.notConfigured")
               : enabled
-                ? t("settings.status.configured")
-                : t("settings.status.notConfigured")
+                ? t("push.subscribed")
+                : undefined
           }
           action={
             <Switch

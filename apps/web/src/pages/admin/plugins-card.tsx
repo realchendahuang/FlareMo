@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { PluginCardsManager } from "./plugins/plugin-cards-manager";
@@ -24,22 +23,15 @@ export function PluginsCard() {
 
   if (!settings) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("admin.plugins.title")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner className="size-4" />
-            {t("admin.plugins.loading")}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+        <Spinner className="size-4" />
+        {t("admin.plugins.loading")}
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <PluginListCard
         busy={state.busy}
         plugins={state.plugins}

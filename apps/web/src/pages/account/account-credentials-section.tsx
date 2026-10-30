@@ -1,4 +1,4 @@
-import { KeyRoundIcon, RefreshCcwIcon, ShieldCheckIcon } from "lucide-react";
+import { KeyRoundIcon, MailIcon, RefreshCcwIcon } from "lucide-react";
 import { useState } from "react";
 import { InfoTip } from "@/components/info-tip";
 import { Alert } from "@/components/ui/alert";
@@ -98,7 +98,7 @@ export function AccountCredentialsSection({
   return (
     <>
       <SettingsRow
-        icon={ShieldCheckIcon}
+        icon={MailIcon}
         label={
           <div className="flex items-center gap-1.5">
             <span>{t("auth.emailTitle")}</span>

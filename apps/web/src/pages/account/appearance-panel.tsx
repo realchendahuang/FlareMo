@@ -39,7 +39,7 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         {themes.map((item) => {
           const active = theme === item.id;
           const Icon = item.icon;
@@ -49,16 +49,16 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
               type="button"
               onClick={() => setTheme(item.id)}
               className={cn(
-                "group relative flex flex-col items-center rounded-xl border p-4 text-center transition-all cursor-pointer",
+                "group relative flex cursor-pointer flex-col items-center rounded-xl border p-2.5 text-center transition-[border-color,background-color,box-shadow] sm:p-4",
                 active
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                  ? "border-primary bg-card ring-1 ring-primary/30 shadow-xs"
                   : "border-border/60 bg-card hover:border-border hover:bg-accent/40",
               )}
             >
               {/* Preview Box */}
               <div
                 className={cn(
-                  "relative mb-3 flex h-20 w-full items-center justify-center overflow-hidden rounded-lg border text-xs shadow-2xs transition-transform group-hover:scale-[1.02]",
+                  "relative mb-2.5 flex h-14 w-full items-center justify-center overflow-hidden rounded-lg border text-xs shadow-2xs sm:mb-3 sm:h-20",
                   item.id === "light" &&
                     "border-border/80 bg-[#faf9f7] text-[#1f1d1a]",
                   item.id === "dark" &&
@@ -104,7 +104,11 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
         })}
       </div>
 
-      <SettingsSectionGroup title={t("theme.previewDetails")}>
+      {/* A keyboard shortcut means nothing on a touch screen. */}
+      <SettingsSectionGroup
+        className="hidden sm:flex"
+        title={t("theme.previewDetails")}
+      >
         <div className="flex items-center justify-between px-4 py-3 text-xs">
           <span className="text-muted-foreground">
             {t("theme.shortcutTip")}

@@ -9,15 +9,9 @@ import type { PluginStoreEntry } from "@/api";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
+import { SettingsSectionGroup } from "../../account/apple-settings-ui";
 import { localized } from "./plugin-row";
 import type { PluginSettingsState } from "./use-plugin-settings";
 
@@ -79,51 +73,51 @@ export function PluginStoreCard({
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <CardTitle>{t("admin.plugins.store")}</CardTitle>
-          <CardDescription>
-            {t("admin.plugins.storeDescription")}
-          </CardDescription>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            accept=".zip,application/zip"
-            className="hidden"
-            ref={uploadInputRef}
-            type="file"
-            onChange={handleUpload}
-          />
-          <Button
-            disabled={busy}
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={() => uploadInputRef.current?.click()}
-          >
-            {uploadMutation.isPending ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <FileUpIcon data-icon="inline-start" />
-            )}
-            {t("admin.plugins.upload")}
-          </Button>
-          <Button
-            aria-label={t("admin.plugins.refresh")}
-            disabled={storeQuery.isFetching}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-            onClick={() => void storeQuery.refetch()}
-          >
-            <RefreshCwIcon
-              className={storeQuery.isFetching ? "animate-spin" : undefined}
+    <SettingsSectionGroup
+      footer={t("admin.plugins.storeDescription")}
+      title={
+        <div className="flex items-center justify-between gap-3">
+          <span>{t("admin.plugins.store")}</span>
+          <div className="flex items-center gap-1">
+            <input
+              accept=".zip,application/zip"
+              className="hidden"
+              ref={uploadInputRef}
+              type="file"
+              onChange={handleUpload}
             />
-          </Button>
+            <Button
+              className="h-7 text-xs"
+              disabled={busy}
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => uploadInputRef.current?.click()}
+            >
+              {uploadMutation.isPending ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <FileUpIcon data-icon="inline-start" />
+              )}
+              {t("admin.plugins.upload")}
+            </Button>
+            <Button
+              aria-label={t("admin.plugins.refresh")}
+              disabled={storeQuery.isFetching}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+              onClick={() => void storeQuery.refetch()}
+            >
+              <RefreshCwIcon
+                className={storeQuery.isFetching ? "animate-spin" : undefined}
+              />
+            </Button>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      }
+    >
+      <div className="flex flex-col gap-4 p-3.5">
         {uploadError && <Alert variant="destructive">{uploadError}</Alert>}
         <div className="flex flex-wrap items-center gap-2">
           <StoreIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -223,7 +217,7 @@ export function PluginStoreCard({
             {t("admin.plugins.storeEmpty")}
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </SettingsSectionGroup>
   );
 }
