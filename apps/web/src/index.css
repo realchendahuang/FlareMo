@@ -731,16 +731,24 @@ svg.lucide[stroke-width="2"] {
   }
 
   /* Drawn task box: the native one renders as a glaring white square in dark
-     mode. A hairline square on the card, ticked with a primary fill. */
+     mode. A hairline square on the card, ticked with a primary fill. Shared
+     by Markdown task lists and the todo rows (.task-checkbox). */
   .memo-markdown input[type="checkbox"] {
-    @apply me-2 inline-grid size-[15px] cursor-pointer appearance-none place-content-center rounded-[4px] border-[1.5px] border-muted-foreground/45 bg-card align-[-2px] transition-colors hover:border-primary/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/25 disabled:cursor-default;
+    @apply me-2 align-[-2px];
   }
 
-  .memo-markdown input[type="checkbox"]:checked {
+  .memo-markdown input[type="checkbox"],
+  .task-checkbox {
+    @apply inline-grid size-[15px] cursor-pointer appearance-none place-content-center rounded-[4px] border-[1.5px] border-muted-foreground/45 bg-card transition-colors hover:border-primary/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/25 disabled:cursor-default;
+  }
+
+  .memo-markdown input[type="checkbox"]:checked,
+  .task-checkbox:checked {
     @apply border-primary bg-primary;
   }
 
-  .memo-markdown input[type="checkbox"]:checked::after {
+  .memo-markdown input[type="checkbox"]:checked::after,
+  .task-checkbox:checked::after {
     @apply -mt-px h-[8px] w-[4.5px] rotate-45 border-r-[1.75px] border-b-[1.75px] border-primary-foreground;
     content: "";
   }
@@ -750,17 +758,15 @@ svg.lucide[stroke-width="2"] {
   }
 
   /* Shiki dual themes on article surfaces: colors arrive as CSS variables
-     (defaultColor: false), resolved per color-scheme at display time. */
+     (defaultColor: false), resolved per color-scheme at display time. Only
+     the token colors come from Shiki; the block keeps the app's warm muted
+     surface, since github-dark's cool slate fights the dark palette. */
   .memo-markdown pre.shiki {
-    @apply bg-[var(--shiki-light-bg)];
+    @apply bg-muted;
   }
 
   .memo-markdown pre.shiki span {
     color: var(--shiki-light);
-  }
-
-  .dark .memo-markdown pre.shiki {
-    @apply bg-[var(--shiki-dark-bg)];
   }
 
   .dark .memo-markdown pre.shiki span {

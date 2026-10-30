@@ -76,7 +76,7 @@ export function TaskRow({
       <input
         aria-label={task.title}
         checked={done}
-        className="mt-[3px] size-4 shrink-0 accent-brand-500"
+        className="task-checkbox mt-[3px] shrink-0"
         type="checkbox"
         onChange={() => {
           const next = done ? "todo" : "done";

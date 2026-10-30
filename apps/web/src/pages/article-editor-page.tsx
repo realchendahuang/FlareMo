@@ -274,185 +274,192 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   const shownArticle = savedArticle ?? article;
 
   return (
-    <div className={containerClass}>
+    <div>
       {/* One quiet bar for state and actions, the page itself for writing:
           the title is the article's first line, not a form field. The bar
           stays pinned so save state and publish remain in reach on long
-          articles. */}
-      <header className="sticky top-0 z-20 -mx-4 flex h-14 items-center gap-1 bg-background/90 px-4 shadow-[0_0_0_100vmax_color-mix(in_oklab,var(--background)_90%,transparent)] backdrop-blur-sm [clip-path:inset(0_-100vmax)]">
-        <Button
-          aria-label={t("common.back")}
-          onClick={() => navigate({ to: "/articles" })}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <ArrowLeftIcon />
-        </Button>
-        <span
-          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-          data-article-save-state={saveState}
-        >
-          {saveState === "saving"
-            ? t("article.saving")
-            : saveState === "dirty"
-              ? t("article.unsaved")
-              : t("article.saved")}
-          <span className="hidden sm:inline">
-            {" · "}
-            {t("article.wordCount", { count: countArticleChars(content) })}
-          </span>
-        </span>
-        {isPublished && (
+          articles. It spans the full width and carries the body's paper
+          grain, so the pinned band reads as the same sheet, not a strip. */}
+      <header className="sticky top-0 z-20 bg-background/90 bg-(image:--paper-grain) backdrop-blur-sm">
+        <div className="mx-auto flex h-14 w-full max-w-3xl items-center gap-1 px-4">
           <Button
-            aria-label={t("article.viewPublic")}
-            onClick={() =>
-              window.open(`/article/${shownArticle.slug}`, "_blank")
+            aria-label={t("common.back")}
+            onClick={() => navigate({ to: "/articles" })}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowLeftIcon />
+          </Button>
+          <span
+            className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+            data-article-save-state={saveState}
+          >
+            {saveState === "saving"
+              ? t("article.saving")
+              : saveState === "dirty"
+                ? t("article.unsaved")
+                : t("article.saved")}
+            <span className="hidden sm:inline">
+              {" · "}
+              {t("article.wordCount", { count: countArticleChars(content) })}
+            </span>
+          </span>
+          {isPublished && (
+            <Button
+              aria-label={t("article.viewPublic")}
+              onClick={() =>
+                window.open(`/article/${shownArticle.slug}`, "_blank")
+              }
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <ExternalLinkIcon data-icon="inline-start" />
+              <span className="hidden sm:inline">
+                {t("article.viewPublic")}
+              </span>
+            </Button>
+          )}
+          <Button
+            aria-label={
+              previewMode ? t("article.editMode") : t("article.previewAction")
             }
+            onClick={() => setPreviewMode((mode) => !mode)}
             size="sm"
             type="button"
             variant="ghost"
           >
-            <ExternalLinkIcon data-icon="inline-start" />
-            <span className="hidden sm:inline">{t("article.viewPublic")}</span>
+            {previewMode ? (
+              <PencilIcon data-icon="inline-start" />
+            ) : (
+              <EyeIcon data-icon="inline-start" />
+            )}
+            <span className="hidden sm:inline">
+              {previewMode ? t("article.editMode") : t("article.previewAction")}
+            </span>
           </Button>
-        )}
-        <Button
-          aria-label={
-            previewMode ? t("article.editMode") : t("article.previewAction")
-          }
-          onClick={() => setPreviewMode((mode) => !mode)}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {previewMode ? (
-            <PencilIcon data-icon="inline-start" />
-          ) : (
-            <EyeIcon data-icon="inline-start" />
-          )}
-          <span className="hidden sm:inline">
-            {previewMode ? t("article.editMode") : t("article.previewAction")}
-          </span>
-        </Button>
-        <Button
-          disabled={isUploadingImages}
-          onClick={() => setPublishOpen(true)}
-          size="sm"
-          type="button"
-          variant={isPublished ? "outline" : "default"}
-        >
-          {isUploadingImages && <Spinner data-icon="inline-start" />}
-          {isPublished
-            ? t("article.publishedBadge")
-            : t("article.publishAction")}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                aria-label={t("common.more")}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
+          <Button
+            disabled={isUploadingImages}
+            onClick={() => setPublishOpen(true)}
+            size="sm"
+            type="button"
+            variant={isPublished ? "outline" : "default"}
+          >
+            {isUploadingImages && <Spinner data-icon="inline-start" />}
+            {isPublished
+              ? t("article.publishedBadge")
+              : t("article.publishAction")}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={t("common.more")}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                disabled={deleteMutation.isPending}
+                variant="destructive"
+                onClick={() => setConfirmingDelete(true)}
               >
-                <MoreHorizontalIcon />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              disabled={deleteMutation.isPending}
-              variant="destructive"
-              onClick={() => setConfirmingDelete(true)}
-            >
-              <Trash2Icon />
-              {t("common.delete")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <Trash2Icon />
+                {t("common.delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
-      <textarea
-        aria-label={t("article.titleLabel")}
-        className="field-sizing-content mt-2 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-foreground/30"
-        rows={1}
-        readOnly={previewMode}
-        onChange={(event) => {
-          // The refs — not React state — are what the debounced save reads
-          // (state is stale inside the timer closure), so both must update
-          // on every keystroke. A title is one line: newlines are dropped.
-          const value = event.target.value.replace(/\n/g, " ");
-          titleRef.current = value;
-          setTitle(value);
-          scheduleSave();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            editorRef.current?.commands.focus("start");
-          }
-        }}
-        placeholder={t("article.titlePlaceholder")}
-        value={title}
-      />
+      <div className={`${containerClass} pt-3`}>
+        <textarea
+          aria-label={t("article.titleLabel")}
+          className="field-sizing-content mt-2 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-foreground/30"
+          rows={1}
+          readOnly={previewMode}
+          onChange={(event) => {
+            // The refs — not React state — are what the debounced save reads
+            // (state is stale inside the timer closure), so both must update
+            // on every keystroke. A title is one line: newlines are dropped.
+            const value = event.target.value.replace(/\n/g, " ");
+            titleRef.current = value;
+            setTitle(value);
+            scheduleSave();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              editorRef.current?.commands.focus("start");
+            }
+          }}
+          placeholder={t("article.titlePlaceholder")}
+          value={title}
+        />
 
-      {previewMode ? (
-        // The title line above already reads as the article's heading; the
-        // preview renders only the body, aligned with the editing surface.
-        <div className="memo-markdown min-h-svh px-1 pt-2 text-[15px] leading-7">
-          <ArticleShikiBody content={content} />
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <ArticleToolbar editorRef={editorRef} />
-          <ArticleEditor
-            content={content}
-            disabled={false}
-            editorRef={editorRef}
-            onContentChange={(next) => {
-              contentRef.current = next;
-              setContent(next);
-              scheduleSave();
-            }}
-            onImageFiles={enqueueInlineUploads}
-            placeholder={t("article.contentPlaceholder")}
-          />
-        </div>
-      )}
+        {previewMode ? (
+          // The title line above already reads as the article's heading; the
+          // preview renders only the body, aligned with the editing surface.
+          <div className="memo-markdown min-h-svh px-1 pt-2 text-[15px] leading-7">
+            <ArticleShikiBody content={content} />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <ArticleToolbar editorRef={editorRef} />
+            <ArticleEditor
+              content={content}
+              disabled={false}
+              editorRef={editorRef}
+              onContentChange={(next) => {
+                contentRef.current = next;
+                setContent(next);
+                scheduleSave();
+              }}
+              onImageFiles={enqueueInlineUploads}
+              placeholder={t("article.contentPlaceholder")}
+            />
+          </div>
+        )}
 
-      <ArticlePublishDialog
-        article={shownArticle}
-        onOpenChange={setPublishOpen}
-        onPublished={(updated) => {
-          setSavedArticle(updated);
-          void queryClient.invalidateQueries({ queryKey: ["articles"] });
-        }}
-        onUnpublished={(updated) => {
-          setSavedArticle(updated);
-          void queryClient.invalidateQueries({ queryKey: ["articles"] });
-        }}
-        open={publishOpen}
-      />
-      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("article.deleteConfirm")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("article.deleteDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleteMutation.isPending}
-              onClick={() => deleteMutation.mutate()}
-              variant="destructive"
-            >
-              {t("common.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <ArticlePublishDialog
+          article={shownArticle}
+          onOpenChange={setPublishOpen}
+          onPublished={(updated) => {
+            setSavedArticle(updated);
+            void queryClient.invalidateQueries({ queryKey: ["articles"] });
+          }}
+          onUnpublished={(updated) => {
+            setSavedArticle(updated);
+            void queryClient.invalidateQueries({ queryKey: ["articles"] });
+          }}
+          open={publishOpen}
+        />
+        <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("article.deleteConfirm")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("article.deleteDescription")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate()}
+                variant="destructive"
+              >
+                {t("common.delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }
