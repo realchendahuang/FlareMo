@@ -347,7 +347,6 @@ export function WorkspaceSidebar({
           />
         </div>
       </aside>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-only resize affordance; the sidebar width has sensible bounds without it */}
       <div
         aria-hidden="true"
         className={cn(

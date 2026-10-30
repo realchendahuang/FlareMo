@@ -188,3 +188,25 @@ test("uses the drawer below 768px", async ({ page }) => {
     .click();
   await expect(page.getByTestId("mobile-sidebar-scroll")).toBeVisible();
 });
+
+test("gives way to a narrowing window instantly: sidebar first, then the column", async ({
+  page,
+}) => {
+  await openTimeline(page);
+  const layout = async () => ({
+    sidebar: (await box(page, "aside")).width,
+    main: (await box(page, "main")).width,
+  });
+  // No transition on window resize: measured right after the resize.
+  await page.setViewportSize({ width: 900, height: 725 });
+  expect(await layout()).toEqual({ sidebar: 242, main: 640 });
+  await page.setViewportSize({ width: 800, height: 725 });
+  expect(await layout()).toEqual({ sidebar: 216, main: 566 });
+  await page.setViewportSize({ width: 1120, height: 725 });
+  expect(await layout()).toEqual({ sidebar: 312, main: 640 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});

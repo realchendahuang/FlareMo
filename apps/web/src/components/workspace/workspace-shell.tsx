@@ -11,7 +11,9 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
   getCurrentFlareMoUser,
@@ -54,6 +56,8 @@ const FRAME_GUTTER = 10;
 export const DEFAULT_CONTENT_MAX_WIDTH = 640;
 /** Matches Tailwind's `md`: from here up the sidebar is a column, below a drawer. */
 const DESKTOP_QUERY = "(min-width: 768px)";
+/** Show/hide duration; the sidebar, its gutter, the frame and the toggle share it. */
+const SIDEBAR_MOTION_MS = 400;
 /** Dragging the handle this far in hides the sidebar on release. */
 const COLLAPSE_DRAG_THRESHOLD = 120;
 
@@ -61,6 +65,20 @@ function clampSidebarWidth(width: number) {
   return Math.min(
     WORKSPACE_SIDEBAR_WIDTH,
     Math.max(WORKSPACE_SIDEBAR_MIN_WIDTH, Math.round(width)),
+  );
+}
+
+function subscribeViewport(onChange: () => void) {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+}
+
+/** The window's width, live; the shell's layout math reads it. */
+function useViewportWidth() {
+  return useSyncExternalStore(
+    subscribeViewport,
+    () => window.innerWidth,
+    () => 1280,
   );
 }
 
@@ -139,24 +157,49 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
-  // Width and frame offset ease on show/hide, never while dragging (the
-  // sidebar must track the pointer) and never on the first paint.
   const [resizing, setResizing] = useState(false);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(frame);
+  // Width and frame offset ease only while the sidebar is being shown or
+  // hidden. Resizing the window or dragging the handle must track instantly:
+  // an always-on transition made the layout trail the window edge by 400ms,
+  // so narrowing the window felt like the page refused to get narrower.
+  const [animating, setAnimating] = useState(false);
+  const animationTimer = useRef<number | undefined>(undefined);
+  const startToggleAnimation = useCallback(() => {
+    window.clearTimeout(animationTimer.current);
+    setAnimating(true);
+    animationTimer.current = window.setTimeout(
+      () => setAnimating(false),
+      SIDEBAR_MOTION_MS + 60,
+    );
   }, []);
+  useEffect(() => () => window.clearTimeout(animationTimer.current), []);
 
-  const setCollapsed = useCallback((next: boolean) => {
-    setSidebarCollapsed(next);
-    try {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
-    } catch {
-      // Persistence is best-effort; the in-memory choice still applies.
-    }
-  }, []);
+  // On a narrow window the sidebar gives way first: it shrinks from its
+  // chosen width toward 216px so the column can keep 640px, and only then
+  // does the column narrow. Below 768px the sidebar becomes the drawer.
+  const viewportWidth = useViewportWidth();
+  const effectiveSidebarWidth = Math.min(
+    sidebarWidth,
+    Math.max(
+      WORKSPACE_SIDEBAR_MIN_WIDTH,
+      viewportWidth - FRAME_GUTTER - RESIZER_WIDTH - DEFAULT_CONTENT_MAX_WIDTH,
+    ),
+  );
+
+  const setCollapsed = useCallback(
+    (next: boolean) => {
+      startToggleAnimation();
+      setSidebarCollapsed(next);
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        // Persistence is best-effort; the in-memory choice still applies.
+      }
+    },
+    [startToggleAnimation],
+  );
   const toggleSidebarCollapsed = useCallback(() => {
+    startToggleAnimation();
     setSidebarCollapsed((collapsed) => {
       const next = !collapsed;
       try {
@@ -166,7 +209,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       }
       return next;
     });
-  }, []);
+  }, [startToggleAnimation]);
 
   // Drag the handle between the sidebar and the page: the sidebar follows the
   // pointer between 216px and 312px; letting go after dragging it nearly shut
@@ -176,7 +219,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       if (event.button !== 0) return;
       event.preventDefault();
       const startX = event.clientX;
-      const startWidth = sidebarWidth;
+      // Start from what is on screen, which a narrow window may have
+      // squeezed below the stored width.
+      const startWidth = effectiveSidebarWidth;
       const direction = document.dir === "rtl" ? -1 : 1;
       let raw = startWidth;
       setResizing(true);
@@ -205,7 +250,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [setCollapsed, sidebarWidth],
+    [effectiveSidebarWidth, setCollapsed],
   );
 
   // ⌘\ / Ctrl+\ toggles the sidebar: the desktop column, or the drawer on
@@ -367,8 +412,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         <div
           className={cn(
             "flex h-full md:ms-(--frame-offset)",
-            ready &&
-              !resizing &&
+            animating &&
               "motion-safe:transition-[margin] motion-safe:duration-[400ms] motion-safe:ease-in-out",
           )}
           data-sidebar-collapsed={sidebarCollapsed || undefined}
@@ -377,7 +421,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
               "--frame-offset": `max(0px, calc((100vw - ${
                 (sidebarCollapsed
                   ? 0
-                  : FRAME_GUTTER + sidebarWidth + RESIZER_WIDTH) +
+                  : FRAME_GUTTER + effectiveSidebarWidth + RESIZER_WIDTH) +
                 DEFAULT_CONTENT_MAX_WIDTH
               }px) / 2))`,
             } as CSSProperties
@@ -388,23 +432,22 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             aria-hidden="true"
             className={cn(
               "hidden shrink-0 md:block",
-              ready &&
-                !resizing &&
+              animating &&
                 "motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-in-out",
             )}
             style={{ width: sidebarCollapsed ? 0 : FRAME_GUTTER }}
           />
           <WorkspaceSidebar
-            animate={ready && !resizing}
+            animate={animating}
             collapsed={sidebarCollapsed}
             explorer={explorer}
             resizing={resizing}
-            width={sidebarWidth}
+            width={effectiveSidebarWidth}
             onResizeStart={startResize}
           />
           <div className="relative flex h-full min-w-0 flex-1 flex-col">
             <SidebarToggle
-              animate={ready && !resizing}
+              animate={animating}
               collapsed={sidebarCollapsed}
               onToggle={toggleSidebarCollapsed}
             />
