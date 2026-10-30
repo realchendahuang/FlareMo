@@ -31,24 +31,25 @@ export function DailyReviewPage() {
     retry: false,
   });
 
-  // Cold-start interval ladder for users in their first year:
-  // when "on-this-day" returns nothing, pull earlier memos from recent weeks/months.
+  // Spaced-repetition ladder: a few notes from about a week, a month, a
+  // quarter and half a year back, shown under "on this day" (or alone in a
+  // first year, when there is no "this day" yet). One page of recent notes
+  // feeds it; each rung keeps its two newest.
   const intervalQuery = useQuery({
     queryKey: ["daily-review-ladder", today],
-    queryFn: () => listMemos({ page_size: 12, state: "normal" }),
-    enabled: Boolean(reviewQuery.data && reviewQuery.data.memos.length === 0),
+    queryFn: () => listMemos({ page_size: 100, state: "normal" }),
+    enabled: Boolean(reviewQuery.data),
     retry: false,
   });
 
-  const rawMemos =
-    reviewQuery.data && reviewQuery.data.memos.length > 0
-      ? reviewQuery.data.memos
-      : (intervalQuery.data?.memos ?? []);
-
-  const groups = useMemo(
-    () => buildReviewGroups(rawMemos, today, t),
-    [rawMemos, today, t],
-  );
+  const groups = useMemo(() => {
+    const onThisDay = reviewQuery.data?.memos ?? [];
+    const shown = new Set(onThisDay.map((memo) => memo.name));
+    const ladder = (intervalQuery.data?.memos ?? []).filter(
+      (memo) => !shown.has(memo.name),
+    );
+    return buildReviewGroups([...onThisDay, ...ladder], today, t);
+  }, [reviewQuery.data, intervalQuery.data, today, t]);
 
   const isInitialLoading = reviewQuery.isLoading;
   // The ladder only runs when on-this-day came back empty; a failed ladder
@@ -160,12 +161,22 @@ type ReviewGroup = {
   memos: Memo[];
 };
 
+/** Rungs of the first-year ladder, nearest first. */
+const LADDER = [
+  { key: "ladder-7d", maxDays: 7, title: "review.ladder7d" },
+  { key: "ladder-30d", maxDays: 30, title: "review.ladder30d" },
+  { key: "ladder-90d", maxDays: 90, title: "review.ladder90d" },
+  { key: "ladder-180d", maxDays: 366, title: "review.ladder180d" },
+] as const;
+
+/** Notes kept per ladder rung: a nudge, not a second timeline. */
+const PER_RUNG = 2;
+
 function buildReviewGroups(
   memos: Memo[],
   todayStr: string,
   t: (key: TranslationKey, params?: TranslationParams) => string,
 ): ReviewGroup[] {
-  const groups: ReviewGroup[] = [];
   // Whole local calendar days between two `YYYY-MM-DD` keys; noon anchors
   // keep a daylight-saving shift from moving the result.
   const daysBetween = (from: string, to: string) =>
@@ -174,6 +185,8 @@ function buildReviewGroups(
         new Date(`${from}T12:00:00`).getTime()) /
         86_400_000,
     );
+  const years = new Map<number, Memo[]>();
+  const rungs = new Map<string, Memo[]>();
 
   for (const memo of memos) {
     const timeStr = memo.display_time ?? memo.create_time;
@@ -184,42 +197,40 @@ function buildReviewGroups(
     // The review looks back; anything written today is not a memory yet.
     if (memoDay >= todayStr) continue;
 
-    const diffDays = daysBetween(memoDay, todayStr);
-    // A year counts once the anniversary has passed: a December note is
-    // not "a year ago" in January.
-    const yearsAgo = Math.floor(diffDays / 365.25);
-
-    let key: string;
-    let title: string;
+    // Whole years by the calendar: the anniversary must have come round, so
+    // a note from 2025-10-30 is "a year ago" on 2026-10-30 (365 days), and a
+    // December note is not "a year ago" in January.
+    let yearsAgo = Number(todayStr.slice(0, 4)) - Number(memoDay.slice(0, 4));
+    if (memoDay.slice(5) > todayStr.slice(5)) yearsAgo -= 1;
 
     if (yearsAgo >= 1) {
-      key = `years-${yearsAgo}`;
-      title =
-        yearsAgo === 1
-          ? t("review.oneYearAgoToday")
-          : t("review.yearsAgoToday", { count: yearsAgo });
-    } else if (diffDays <= 7) {
-      // First-year progressive interval ladder (spaced repetition).
-      key = "ladder-7d";
-      title = t("review.ladder7d");
-    } else if (diffDays <= 30) {
-      key = "ladder-30d";
-      title = t("review.ladder30d");
-    } else if (diffDays <= 90) {
-      key = "ladder-90d";
-      title = t("review.ladder90d");
-    } else {
-      key = "ladder-180d";
-      title = t("review.ladder180d");
+      const list = years.get(yearsAgo) ?? [];
+      list.push(memo);
+      years.set(yearsAgo, list);
+      continue;
     }
-
-    const existing = groups.find((g) => g.key === key);
-    if (existing) {
-      existing.memos.push(memo);
-    } else {
-      groups.push({ key, title, memos: [memo] });
-    }
+    const diffDays = daysBetween(memoDay, todayStr);
+    const rung = LADDER.find((item) => diffDays <= item.maxDays);
+    if (!rung) continue;
+    const list = rungs.get(rung.key) ?? [];
+    if (list.length < PER_RUNG) list.push(memo);
+    rungs.set(rung.key, list);
   }
 
+  const groups: ReviewGroup[] = [...years.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([count, list]) => ({
+      key: `years-${count}`,
+      title:
+        count === 1
+          ? t("review.oneYearAgoToday")
+          : t("review.yearsAgoToday", { count }),
+      memos: list,
+    }));
+  for (const rung of LADDER) {
+    const list = rungs.get(rung.key);
+    if (list?.length)
+      groups.push({ key: rung.key, title: t(rung.title), memos: list });
+  }
   return groups;
 }

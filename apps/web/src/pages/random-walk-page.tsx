@@ -100,6 +100,39 @@ export function RandomWalkPage() {
     void start();
   };
 
+  // Keyboard walking, so a long wander needs no pointer: → or J continues,
+  // ← or K steps back through the trail. Typing in a field is left alone.
+  const keyActionsRef = useRef<{ walk: () => void; back: () => void }>({
+    walk: () => {},
+    back: () => {},
+  });
+  keyActionsRef.current = {
+    walk: () => void walk(),
+    back: () => setCursor((current) => Math.max(0, current - 1)),
+  };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        target?.closest("input, textarea, [contenteditable=true]")
+      ) {
+        return;
+      }
+      if (event.key === "ArrowRight" || event.key === "j") {
+        event.preventDefault();
+        keyActionsRef.current.walk();
+      } else if (event.key === "ArrowLeft" || event.key === "k") {
+        event.preventDefault();
+        keyActionsRef.current.back();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const step = steps[cursor];
 
   return (
@@ -206,6 +239,9 @@ export function RandomWalkPage() {
                   >
                     {t("review.walkFinish")}
                   </Button>
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                    {t("review.walkKeyHint")}
+                  </span>
                 </div>
                 {exhausted && (
                   <div className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">

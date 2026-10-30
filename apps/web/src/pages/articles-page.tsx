@@ -190,88 +190,105 @@ export function ArticlesPage() {
         )}
         {articlesQuery.data && articles.length > 0 && (
           <div className="flex flex-col gap-3">
-            {articles.map((article) => (
-              <Card
-                className="py-3 transition-colors hover:bg-muted/40"
-                key={article.id}
-              >
-                <CardHeader className="pb-0">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <button
-                      className="min-w-0 flex-1 truncate text-left font-semibold hover:underline"
-                      onClick={() =>
-                        navigate({
-                          to: "/articles/$articleId/edit",
-                          params: { articleId: editorId(article.id) },
-                        })
-                      }
-                      type="button"
-                    >
-                      {article.title || t("article.untitled")}
-                    </button>
-                    <Badge
-                      variant={
-                        article.status === "published" ? "default" : "secondary"
-                      }
-                    >
-                      {article.status === "published"
-                        ? t("article.publishedBadge")
-                        : t("article.draftBadge")}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between gap-2 pt-1">
-                  <span className="text-xs text-muted-foreground">
-                    {article.deleted_at
-                      ? t("article.inRecycleBin")
-                      : formatDate(article.updated_at, locale)}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {article.status === "published" && !article.deleted_at && (
-                      <Button
-                        aria-label={t("article.viewPublic")}
+            {articles.map((article) => {
+              const published = article.status === "published";
+              const trashed = Boolean(article.deleted_at);
+              return (
+                <Card
+                  className={
+                    "group relative gap-1.5 py-4 transition-colors " +
+                    (trashed ? "opacity-70" : "hover:bg-muted/30")
+                  }
+                  key={article.id}
+                >
+                  <CardHeader className="gap-1 pb-0">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <button
+                        className="min-w-0 flex-1 truncate text-left font-semibold after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+                        disabled={trashed}
                         onClick={() =>
-                          window.open(`/article/${article.slug}`, "_blank")
+                          navigate({
+                            to: "/articles/$articleId/edit",
+                            params: { articleId: editorId(article.id) },
+                          })
                         }
-                        size="icon"
                         type="button"
-                        variant="ghost"
                       >
-                        <ExternalLinkIcon className="size-4" />
-                      </Button>
+                        {article.title || t("article.untitled")}
+                      </button>
+                      <Badge variant={published ? "success" : "secondary"}>
+                        {published
+                          ? t("article.publishedBadge")
+                          : t("article.draftBadge")}
+                      </Badge>
+                    </CardTitle>
+                    {article.description && (
+                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                        {article.description}
+                      </p>
                     )}
-                    {article.deleted_at ? (
-                      <Button
-                        disabled={
-                          restoreMutation.isPending &&
-                          restoreMutation.variables === article.id
-                        }
-                        onClick={() => restoreMutation.mutate(article.id)}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        {t("article.restoreAction")}
-                      </Button>
-                    ) : (
-                      <Button
-                        aria-label={t("common.delete")}
-                        disabled={
-                          deleteMutation.isPending &&
-                          deleteMutation.variables === article.id
-                        }
-                        onClick={() => setConfirmDeleteId(article.id)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2Icon className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between gap-2 pt-0">
+                    <span className="text-xs text-muted-foreground">
+                      {trashed
+                        ? t("article.inRecycleBin")
+                        : published && article.published_at
+                          ? t("article.publishedOn", {
+                              date: formatDate(article.published_at, locale),
+                            })
+                          : t("article.editedOn", {
+                              date: formatDate(article.updated_at, locale),
+                            })}
+                    </span>
+                    {/* Actions sit above the card-wide click target. */}
+                    <div className="relative z-10 flex items-center gap-1">
+                      {published && !trashed && (
+                        <Button
+                          onClick={() =>
+                            window.open(`/article/${article.slug}`, "_blank")
+                          }
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <ExternalLinkIcon data-icon="inline-start" />
+                          {t("article.viewPublic")}
+                        </Button>
+                      )}
+                      {trashed ? (
+                        <Button
+                          disabled={
+                            restoreMutation.isPending &&
+                            restoreMutation.variables === article.id
+                          }
+                          onClick={() => restoreMutation.mutate(article.id)}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          {t("article.restoreAction")}
+                        </Button>
+                      ) : (
+                        <Button
+                          aria-label={t("common.delete")}
+                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                          disabled={
+                            deleteMutation.isPending &&
+                            deleteMutation.variables === article.id
+                          }
+                          onClick={() => setConfirmDeleteId(article.id)}
+                          size="icon-sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Trash2Icon />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

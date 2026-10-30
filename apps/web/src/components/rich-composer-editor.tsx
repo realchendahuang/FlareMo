@@ -293,8 +293,12 @@ export function RichComposerEditor({
     };
   }, [editor, editorRef]);
 
+  // `setEditable` emits an `update` by default, which re-serialized the
+  // current document through onContentChange. Run before a loaded draft
+  // reached the editor, it pushed "" upstream and the article page saved
+  // that over the article. Toggling editability never changes content.
   useEffect(() => {
-    if (editor) editor.setEditable(!disabled);
+    if (editor) editor.setEditable(!disabled, false);
   }, [editor, disabled]);
 
   useEffect(() => {
@@ -305,8 +309,20 @@ export function RichComposerEditor({
   // Upstream draft restores (queued capture replay, persisted draft) push
   // markdown in; the editor re-parses only when the change did not originate
   // from its own keystrokes.
+  //
+  // A fresh editor instance is a second case. useEditor rebuilds the editor
+  // (React StrictMode remounts, option changes) from the options it captured
+  // at first render, which predate content that loaded later. Without this,
+  // the article editor came up empty after its draft loaded and then
+  // autosaved the empty document over the article.
+  const syncedEditorRef = useRef<Editor | null>(null);
   useEffect(() => {
-    if (!editor || content === lastEmittedRef.current) return;
+    if (!editor) return;
+    const freshInstance = syncedEditorRef.current !== editor;
+    syncedEditorRef.current = editor;
+    if (content === lastEmittedRef.current) {
+      if (!freshInstance || !content.trim() || !editor.isEmpty) return;
+    }
     lastEmittedRef.current = content;
     editor.commands.setContent(content, { contentType: "markdown" });
   }, [content, editor]);

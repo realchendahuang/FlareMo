@@ -15,10 +15,12 @@ import {
   ListTodoIcon,
   Loader2Icon,
   MinusIcon,
+  MoreHorizontalIcon,
   PencilIcon,
   QuoteIcon,
   StrikethroughIcon,
   TableIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -44,7 +46,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { uploadAndInsertImages } from "@/lib/rich-editor-upload";
@@ -59,6 +66,25 @@ type SaveState = "idle" | "dirty" | "saving" | "saved";
  * inline images survive the orphan GC), and every keystroke lands in a
  * 2s-debounced PATCH that also flushes on unmount / beforeunload.
  */
+/**
+ * Two bodies are the same article when they differ only in trailing blank
+ * lines: TipTap re-serializes markdown on load (a list gains a closing blank
+ * line), and saving that would bump updated_at on every open.
+ */
+function sameArticleBody(a: string, b: string) {
+  return a.trimEnd() === b.trimEnd();
+}
+
+/** Characters of prose, the way Chinese writing is counted: markup and
+ * whitespace do not count. */
+function countArticleChars(markdown: string) {
+  return markdown
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[#>*_`~|\-[\]]/g, "")
+    .replace(/\s+/g, "").length;
+}
+
 export function ArticleEditorPage({ articleId }: { articleId: string }) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -130,7 +156,8 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     const next = latestRef.current;
     if (
       !current ||
-      (next.title === current.title && next.content === current.content)
+      (next.title === current.title &&
+        sameArticleBody(next.content, current.content))
     ) {
       // Nothing to persist. TipTap normalizes markdown on mount and the
       // resulting onUpdate schedules a save whose round-trip is a no-op;
@@ -162,7 +189,8 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     const current = savedArticleRef.current;
     if (
       !current ||
-      (next.title === current.title && next.content === current.content)
+      (next.title === current.title &&
+        sameArticleBody(next.content, current.content))
     ) {
       return;
     }
@@ -209,7 +237,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   // Loading and error share the loaded editor's container so the page does
   // not jump sideways once the article arrives.
   const containerClass =
-    "mx-auto flex min-h-svh w-full max-w-5xl flex-col gap-3 px-4 py-6";
+    "mx-auto flex min-h-svh w-full max-w-3xl flex-col gap-3 px-4 pb-16";
 
   if (articleQuery.isLoading) {
     return (
@@ -247,32 +275,20 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
 
   return (
     <div className={containerClass}>
-      <header className="flex flex-wrap items-center gap-2">
+      {/* One quiet bar for state and actions, the page itself for writing:
+          the title is the article's first line, not a form field. */}
+      <header className="flex items-center gap-1 pt-3">
         <Button
           aria-label={t("common.back")}
           onClick={() => navigate({ to: "/articles" })}
-          size="icon"
+          size="icon-sm"
           type="button"
           variant="ghost"
         >
-          <ArrowLeftIcon className="size-4" />
+          <ArrowLeftIcon />
         </Button>
-        <Input
-          aria-label={t("article.titleLabel")}
-          className="h-9 flex-1 border-0 bg-transparent px-2 text-lg font-semibold shadow-none focus-visible:ring-0"
-          onChange={(event) => {
-            // The refs — not React state — are what the debounced save reads
-            // (state is stale inside the timer closure), so both must update
-            // on every keystroke.
-            titleRef.current = event.target.value;
-            setTitle(event.target.value);
-            scheduleSave();
-          }}
-          placeholder={t("article.titlePlaceholder")}
-          value={title}
-        />
         <span
-          className="text-xs text-muted-foreground"
+          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
           data-article-save-state={saveState}
         >
           {saveState === "saving"
@@ -280,9 +296,14 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             : saveState === "dirty"
               ? t("article.unsaved")
               : t("article.saved")}
+          <span className="hidden sm:inline">
+            {" · "}
+            {t("article.wordCount", { count: countArticleChars(content) })}
+          </span>
         </span>
         {isPublished && (
           <Button
+            aria-label={t("article.viewPublic")}
             onClick={() =>
               window.open(`/article/${shownArticle.slug}`, "_blank")
             }
@@ -290,27 +311,27 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             type="button"
             variant="ghost"
           >
-            <ExternalLinkIcon className="size-4" />
-            {t("article.viewPublic")}
+            <ExternalLinkIcon data-icon="inline-start" />
+            <span className="hidden sm:inline">{t("article.viewPublic")}</span>
           </Button>
         )}
         <Button
+          aria-label={
+            previewMode ? t("article.editMode") : t("article.previewAction")
+          }
           onClick={() => setPreviewMode((mode) => !mode)}
           size="sm"
           type="button"
           variant="ghost"
         >
           {previewMode ? (
-            <>
-              <PencilIcon className="size-4" />
-              {t("article.editMode")}
-            </>
+            <PencilIcon data-icon="inline-start" />
           ) : (
-            <>
-              <EyeIcon className="size-4" />
-              {t("article.previewAction")}
-            </>
+            <EyeIcon data-icon="inline-start" />
           )}
+          <span className="hidden sm:inline">
+            {previewMode ? t("article.editMode") : t("article.previewAction")}
+          </span>
         </Button>
         <Button
           disabled={isUploadingImages}
@@ -319,24 +340,63 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
           type="button"
           variant={isPublished ? "outline" : "default"}
         >
-          {isUploadingImages && <Loader2Icon className="size-4 animate-spin" />}
+          {isUploadingImages && (
+            <Loader2Icon
+              className="motion-safe:animate-spin"
+              data-icon="inline-start"
+            />
+          )}
           {isPublished
             ? t("article.publishedBadge")
             : t("article.publishAction")}
         </Button>
-        <Button
-          disabled={deleteMutation.isPending}
-          onClick={() => setConfirmingDelete(true)}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {deleteMutation.isPending && (
-            <Loader2Icon className="size-4 motion-safe:animate-spin" />
-          )}
-          {t("common.delete")}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                aria-label={t("common.more")}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <MoreHorizontalIcon />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              disabled={deleteMutation.isPending}
+              variant="destructive"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              <Trash2Icon />
+              {t("common.delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
+      <textarea
+        aria-label={t("article.titleLabel")}
+        className="field-sizing-content mt-4 w-full resize-none bg-transparent font-heading text-3xl leading-tight font-semibold tracking-tight outline-none placeholder:text-muted-foreground/60"
+        rows={1}
+        onChange={(event) => {
+          // The refs — not React state — are what the debounced save reads
+          // (state is stale inside the timer closure), so both must update
+          // on every keystroke. A title is one line: newlines are dropped.
+          const value = event.target.value.replace(/\n/g, " ");
+          titleRef.current = value;
+          setTitle(value);
+          scheduleSave();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            editorRef.current?.commands.focus("start");
+          }
+        }}
+        placeholder={t("article.titlePlaceholder")}
+        value={title}
+      />
 
       {previewMode ? (
         <div className="memo-markdown min-h-svh px-2 text-[15px] leading-7">
