@@ -11,6 +11,7 @@ import {
   dataTasks,
   embeddingTasks,
   memoRelations,
+  memoReviewMarks,
   memoRevisions,
   memoryItems,
   memoryRelations,
@@ -603,6 +604,7 @@ export async function finalizeFlaremoMemberRemoval(
         ),
       ),
     db.delete(shortcuts).where(eq(shortcuts.userId, userId)),
+    db.delete(memoReviewMarks).where(eq(memoReviewMarks.userId, userId)),
     db
       .delete(memoryResourceLinks)
       .where(eq(memoryResourceLinks.userId, userId)),

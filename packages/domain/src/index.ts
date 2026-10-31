@@ -28,6 +28,7 @@ export * from "./quotas";
 export * from "./registration";
 export * from "./relations";
 export * from "./review";
+export * from "./review-deck";
 export * from "./revisions";
 export * from "./semantic-search";
 export * from "./settings";

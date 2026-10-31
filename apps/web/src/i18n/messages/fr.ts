@@ -195,13 +195,9 @@ const messages = {
   "capture.transcribeFailed":
     "La transcription a échoué. Le texte reconnu n'a pas pu être produit ; modifiez le brouillon à la main ou abandonnez-le.",
   "capture.paused": "En pause · le chronomètre continue",
-  "review.onThisDayBanner": "Ce jour-là · {count} notes des années passées",
+  "review.onThisDayBanner": "Revue du jour · encore {count} notes",
   "review.oneYearAgoToday": "Il y a un an, jour pour jour",
   "review.yearsAgoToday": "Il y a {count} ans, jour pour jour",
-  "review.ladder7d": "Il y a quelques jours",
-  "review.ladder30d": "Il y a quelques semaines",
-  "review.ladder90d": "Il y a quelques mois",
-  "review.ladder180d": "Il y a environ six mois",
   "review.dailyEmptyTitle": "Pas encore de notes pour ce jour",
   "review.dailyEmptyDescription":
     "Commencez à écrire aujourd'hui ; dans un an, cette page vous retrouvera.",
@@ -1309,7 +1305,7 @@ const messages = {
   "projects.pickerLabel": "Choisir un projet",
   "projects.allProjects": "Tous les projets",
   "projects.archivedGroup": "Archivés",
-  "review.todayIntro": "{count} anciennes notes attendent d'être relues.",
+  "review.todayIntro": "Encore {count} anciennes notes à relire aujourd'hui.",
   "review.todayIntroEmpty": "Aucune ancienne note à relire aujourd'hui.",
   "review.deckProgress": "{current} / {total}",
   "review.previous": "Précédente",
@@ -1317,20 +1313,37 @@ const messages = {
   "review.finish": "Terminé",
   "review.doneTitle": "La revue du jour est terminée",
   "review.doneDescription":
-    "Vous avez relu {count} anciennes notes. D'autres viendront demain.",
+    "Vous avez relu {count} anciennes notes. Les notes lues ne reviennent pas avant un mois.",
   "review.readAgain": "Recommencer",
   "review.goWalk": "Faire une promenade",
-  "review.weekTitle": "7 derniers jours",
-  "review.weekCount": "notes",
-  "review.weekActiveDays": "Écrit {count} jours sur 7",
-  "review.weekTopTags": "Les plus utilisés",
-  "review.weekNoTags": "Aucune de ces notes n'a d'étiquette.",
-  "review.weekEmpty": "Rien d'écrit ces 7 derniers jours.",
   "review.walkIntro":
     "Partez d'une ancienne note et suivez ses étiquettes et ses liens jusqu'à la suivante.",
   "review.walkBack": "Retour",
   "article.filterAll": "Tout",
   "article.filterEmpty": "Aucun article ici pour l'instant",
+  "review.daysAgo": "Il y a {count} jours",
+  "review.weeksAgo": "Il y a {count} semaines",
+  "review.monthsAgo": "Il y a {count} mois",
+  "review.todayIntroDone": "Les {count} notes du jour sont relues.",
+  "review.reply": "Ajouter une pensée",
+  "review.archive": "Archiver",
+  "review.mute": "Ne plus afficher",
+  "review.archived": "Archivée",
+  "review.muted": "Cette note ne reviendra plus dans la revue",
+  "review.settingsTitle": "Réglages de la revue",
+  "review.settingsDescription":
+    "Choisissez les notes qui restent hors de la revue quotidienne.",
+  "review.excludedTagsTitle": "Ignorer ces étiquettes",
+  "review.excludedTagsHint":
+    "Une étiquette choisie ignore aussi ses sous-étiquettes.",
+  "review.excludedTagsEmpty": "Pas encore d'étiquettes.",
+  "review.mutedTitle": "Notes à ne plus afficher",
+  "review.mutedCount": "{count} notes",
+  "review.mutedNone": "Aucune",
+  "review.mutedRestore": "Tout rétablir",
+  "review.doneWeek": "Cette semaine, vous avez écrit {count} nouvelles notes.",
+  "review.doneWeekEmpty":
+    "Aucune nouvelle note cette semaine. Pourquoi ne pas en écrire une aujourd'hui ?",
 } as const satisfies Record<TranslationKey, string>;
 
 export const fr = messages;

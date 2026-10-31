@@ -8,7 +8,11 @@ import type {
   RandomMemoResponse,
   RelatedMemosResponse,
   RenameTagResponse,
+  ReviewMarkInput,
+  ReviewSettingsResponse,
+  ReviewSettingsUpdate,
   TagHierarchyResponse,
+  TodayReviewResponse,
   WalkNextResponse,
 } from "@flaremo/contracts";
 import { apiRequest } from "./client";
@@ -140,6 +144,35 @@ export async function getDailyReview(date: string, tzOffsetMinutes: number) {
   return apiRequest<DailyReviewResponse>(
     `/api/app/review/daily?${query.toString()}`,
   );
+}
+
+/** Today's review stack: on this day in past years, then the age ladder. */
+export async function getTodayReview(date: string, tzOffsetMinutes: number) {
+  const query = new URLSearchParams({
+    date,
+    tzOffset: String(tzOffsetMinutes),
+  });
+  return apiRequest<TodayReviewResponse>(
+    `/api/app/review/today?${query.toString()}`,
+  );
+}
+
+export async function markReviewMemo(input: ReviewMarkInput) {
+  return apiRequest<{ ok: true }>("/api/app/review/marks", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getReviewSettings() {
+  return apiRequest<ReviewSettingsResponse>("/api/app/review/settings");
+}
+
+export async function updateReviewSettings(input: ReviewSettingsUpdate) {
+  return apiRequest<ReviewSettingsResponse>("/api/app/review/settings", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function getRandomWalkMemo(exclude: string[] = []) {

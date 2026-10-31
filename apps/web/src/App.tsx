@@ -74,7 +74,7 @@ export function FlareMoApp() {
     keywordSearch,
     matchingTasks,
     memosQuery,
-    onThisDayQuery,
+    reviewRemaining,
     semanticEnabled,
     semanticMode,
     semanticResultsQuery,
@@ -266,9 +266,7 @@ export function FlareMoApp() {
             >
               <CalendarDaysIcon className="shrink-0 text-brand-500 dark:text-brand-400" />
               <span className="min-w-0 flex-1 truncate">
-                {t("review.onThisDayBanner", {
-                  count: onThisDayQuery.data?.memos.length ?? 0,
-                })}
+                {t("review.onThisDayBanner", { count: reviewRemaining })}
               </span>
               <ChevronRightIcon className="shrink-0 text-muted-foreground" />
             </Link>

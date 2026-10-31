@@ -50,6 +50,13 @@ export const queryKeys = {
     all: ["tag-hierarchy"] as const,
     forSpace: (space: string | undefined) => ["tag-hierarchy", space] as const,
   },
+  /** Today's review stack (page + home banner) and its reader settings. */
+  review: {
+    all: ["review-today"] as const,
+    today: (date: string, tzOffset: number) =>
+      ["review-today", date, tzOffset] as const,
+    settings: ["review-settings"] as const,
+  },
   currentUser: ["current-flaremo-user"] as const,
   adminUsers: ["admin-users"] as const,
   adminBranding: ["admin-branding"] as const,

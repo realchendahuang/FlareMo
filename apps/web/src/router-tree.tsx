@@ -7,9 +7,9 @@ import {
 } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import {
-  getDailyReview,
   getMemoContext,
   getRelatedMemos,
+  getTodayReview,
   listArticles,
   listMemories,
   listProjects,
@@ -18,6 +18,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { isRtlLocale, useI18n } from "@/i18n";
 import { todayKey } from "@/lib/calendar-date";
+import { queryKeys } from "@/lib/query-keys";
 import { allTasksQuery, isTaskView, type TaskView } from "@/lib/task-views";
 import { AuthenticatedRoute } from "@/routes/authenticated-route";
 import { indexRoute } from "@/routes/index-route";
@@ -340,8 +341,8 @@ const dailyReviewRoute = createRoute({
     const tzOffset = -new Date().getTimezoneOffset();
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["daily-review", today, tzOffset],
-        queryFn: () => getDailyReview(today, tzOffset),
+        queryKey: queryKeys.review.today(today, tzOffset),
+        queryFn: () => getTodayReview(today, tzOffset),
       }),
     );
   },

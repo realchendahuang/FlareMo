@@ -279,4 +279,98 @@ describe("FlareMo review and related memos API", () => {
       await fetchApp("http://flaremo.test/api/app/memos/nonexistent/related"),
     ).toMatchObject({ status: 404 });
   });
+  it("builds today's review from age bands, remembers reads and honours mutes", async () => {
+    const date = "2026-10-31";
+    const setCreatedAt = (name: string, createdAt: string) =>
+      env.DB.prepare("UPDATE memos SET created_at = ? WHERE id = ?")
+        .bind(createdAt, name)
+        .run();
+    const at = async (content: string, createdAt: string) => {
+      const memo = await createMemo(content);
+      await setCreatedAt(memo.name, createdAt);
+      return memo;
+    };
+    const yesterday = await at("yesterday", "2026-10-30T10:00:00.000Z");
+    const week = await at("a week back", "2026-10-24T10:00:00.000Z");
+    const month = await at("a month back", "2026-09-30T10:00:00.000Z");
+    const quarter = await at("a quarter back", "2026-07-31T10:00:00.000Z");
+    const diary = await at(
+      "half a year back #diary/2026",
+      "2026-04-30T10:00:00.000Z",
+    );
+    const lastYear = await at("last year today", "2025-10-31T10:00:00.000Z");
+    const today = async (query = "") =>
+      json(
+        await fetchApp(
+          `http://flaremo.test/api/app/review/today?date=${date}${query}`,
+        ),
+      );
+    const names = (body: { items: Array<{ memo: { name: string } }> }) =>
+      body.items.map((item) => item.memo.name);
+
+    const first = await today();
+    // Furthest first: on this day, then the ladder from oldest to newest.
+    // Yesterday is too fresh to count as a memory.
+    expect(names(first)).toEqual([
+      lastYear.name,
+      diary.name,
+      quarter.name,
+      month.name,
+      week.name,
+    ]);
+    expect(names(first)).not.toContain(yesterday.name);
+    expect(first.items[0].reason).toEqual({ type: "years", years: 1 });
+    expect(first.items[4].reason).toEqual({ type: "ladder", days: 7 });
+    expect(
+      first.items.every((item: { reviewed: boolean }) => !item.reviewed),
+    ).toBe(true);
+    // The same day always yields the same stack.
+    expect(names(await today())).toEqual(names(first));
+
+    const mark = (memoId: string, action: string, on = date) =>
+      fetchApp("http://flaremo.test/api/app/review/marks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ memoId, date: on, action }),
+      });
+    expect(await mark(week.name, "reviewed")).toMatchObject({ status: 200 });
+    const afterRead = await today();
+    expect(names(afterRead)).toContain(week.name);
+    expect(
+      afterRead.items.find(
+        (item: { memo: { name: string } }) => item.memo.name === week.name,
+      ).reviewed,
+    ).toBe(true);
+    // Read yesterday: it sits out the cooldown instead of coming back.
+    const nextDay = await json(
+      await fetchApp(
+        "http://flaremo.test/api/app/review/today?date=2026-11-01",
+      ),
+    );
+    expect(names(nextDay)).not.toContain(week.name);
+
+    await mark(month.name, "mute");
+    expect(names(await today())).not.toContain(month.name);
+    const settings = await json(
+      await fetchApp("http://flaremo.test/api/app/review/settings"),
+    );
+    expect(settings).toEqual({ excluded_tags: [], muted_count: 1 });
+
+    // An excluded tag also covers its children.
+    const updated = await json(
+      await fetchApp("http://flaremo.test/api/app/review/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ excludedTags: ["#diary"], restoreMuted: true }),
+      }),
+    );
+    expect(updated).toEqual({ excluded_tags: ["diary"], muted_count: 0 });
+    const filtered = names(await today());
+    expect(filtered).not.toContain(diary.name);
+    expect(filtered).toContain(month.name);
+
+    expect(await mark("memos/missing", "reviewed")).toMatchObject({
+      status: 404,
+    });
+  });
 });

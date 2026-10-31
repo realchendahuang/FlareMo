@@ -139,6 +139,18 @@ export const dailyReviewQuerySchema = z.object({
   tzOffset: z.coerce.number().int().min(-840).max(840).default(0),
 });
 
+export const reviewMarkSchema = z.object({
+  memoId: z.string().trim().min(1).max(200),
+  /** The viewer-local day the read happened, YYYY-MM-DD. */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  action: z.enum(["reviewed", "mute", "unmute"]),
+});
+
+export const reviewSettingsUpdateSchema = z.object({
+  excludedTags: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  restoreMuted: z.boolean().optional(),
+});
+
 export const randomMemoQuerySchema = z.object({
   /** Comma-separated memo resource names already walked through. */
   exclude: z.string().trim().max(64_000).optional(),
@@ -634,6 +646,23 @@ export type WalkNextQuery = z.infer<typeof walkNextQuerySchema>;
 export type RelatedMemosQuery = z.infer<typeof relatedMemosQuerySchema>;
 export type ReviewWalkVia = z.infer<typeof reviewWalkViaSchema>;
 export type DailyReviewResponse = { memos: MemoDto[] };
+export type ReviewMarkInput = z.infer<typeof reviewMarkSchema>;
+export type ReviewSettingsUpdate = z.infer<typeof reviewSettingsUpdateSchema>;
+/** Why a note is in today's review: a past year's same day, or its age. */
+export type TodayReviewReason =
+  | { type: "years"; years: number }
+  | { type: "ladder"; days: number };
+export type TodayReviewItem = {
+  memo: MemoDto;
+  reason: TodayReviewReason;
+  /** Already read in today's review (here or on another device). */
+  reviewed: boolean;
+};
+export type TodayReviewResponse = { date: string; items: TodayReviewItem[] };
+export type ReviewSettingsResponse = {
+  excluded_tags: string[];
+  muted_count: number;
+};
 export type RandomMemoResponse = { memo: MemoDto | null };
 export type WalkNextResponse = {
   memo: MemoDto | null;

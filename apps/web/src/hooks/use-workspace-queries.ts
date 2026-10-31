@@ -3,9 +3,9 @@ import { useCallback, useMemo, useState } from "react";
 import {
   getCaptureStatus,
   getCurrentFlareMoUser,
-  getDailyReview,
   getMemoStats,
   getTagHierarchy,
+  getTodayReview,
   getVectorUsage,
   listMemos,
   type MemoSpace,
@@ -208,15 +208,18 @@ export function useWorkspaceQueries({
     !activeTag &&
     !untagged &&
     !isSemanticSearch;
+  // The banner counts what is left of today's review stack, so it goes away
+  // once the stack is read (on any device).
   const onThisDayQuery = useQuery({
-    queryKey: ["daily-review", today, tzOffset],
+    queryKey: queryKeys.review.today(today, tzOffset),
     enabled: onThisDayEnabled,
-    queryFn: () => getDailyReview(today, tzOffset),
+    queryFn: () => getTodayReview(today, tzOffset),
     staleTime: 60_000,
     retry: false,
   });
-  const showOnThisDayBanner =
-    onThisDayEnabled && (onThisDayQuery.data?.memos.length ?? 0) > 0;
+  const reviewRemaining =
+    onThisDayQuery.data?.items.filter((item) => !item.reviewed).length ?? 0;
+  const showOnThisDayBanner = onThisDayEnabled && reviewRemaining > 0;
 
   const memos = useMemo(
     () => memosQuery.data?.pages.flatMap((page) => page.memos) ?? [],
@@ -247,6 +250,7 @@ export function useWorkspaceQueries({
     matchingTasks,
     memosQuery,
     onThisDayQuery,
+    reviewRemaining,
     semanticEnabled,
     semanticMode,
     semanticResultsQuery,

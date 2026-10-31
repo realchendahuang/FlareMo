@@ -242,6 +242,31 @@ export const memoRelations = sqliteTable(
   ],
 );
 
+// What the daily review remembers about one memo for its reader: the local
+// day it was last read in the review (so the same note does not come back the
+// next morning, and today's progress survives a reload or another device) and
+// whether the reader asked never to see it there again. Purely derived reader
+// state: losing a row only means a note may resurface sooner.
+export const memoReviewMarks = sqliteTable(
+  "memo_review_marks",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    memoId: text("memo_id")
+      .notNull()
+      .references(() => memos.id, { onDelete: "cascade" }),
+    /** Viewer-local `YYYY-MM-DD` of the last review read, or NULL. */
+    lastReviewedOn: text("last_reviewed_on"),
+    muted: integer("muted", { mode: "boolean" }).notNull().default(false),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.memoId] }),
+    index("memo_review_marks_memo_idx").on(table.memoId),
+  ],
+);
+
 // Memos reactions are first-class resources. `content_id` stores the memo
 // resource name (`memos/...`) so the compatibility layer can reconstruct the
 // upstream reaction resource name without introducing a second memo model.

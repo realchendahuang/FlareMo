@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import type { Memo } from "@/api";
 import { AttachmentGallery } from "@/components/attachment-gallery";
 import { LazyMemoContent } from "@/components/lazy-memo-content";
@@ -20,10 +20,13 @@ import { formatMemoTime, getMemoResourceId } from "@/lib/memo";
 /** Read-only memo card used by review surfaces (daily review, random walk). */
 export function MemoSnapshotCard({
   badge,
+  children,
   locale,
   memo,
 }: {
   badge?: string | null;
+  /** Rendered at the bottom of the card, e.g. an inline comment thread. */
+  children?: ReactNode;
   locale: string;
   memo: Memo;
 }) {
@@ -82,6 +85,7 @@ export function MemoSnapshotCard({
         {galleryAttachments.length > 0 && (
           <AttachmentGallery attachments={galleryAttachments} />
         )}
+        {children}
       </CardContent>
     </Card>
   );

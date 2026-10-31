@@ -1,36 +1,50 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
+  ArchiveIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   CalendarDaysIcon,
   CheckIcon,
+  EyeOffIcon,
   FootprintsIcon,
+  MessageSquarePlusIcon,
   PlusIcon,
   RotateCcwIcon,
+  SlidersHorizontalIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getDailyReview, getMemoStats, listMemos, type Memo } from "@/api";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import {
+  getMemoStats,
+  getTodayReview,
+  markReviewMemo,
+  type TodayReviewItem,
+  type TodayReviewReason,
+  updateMemo,
+} from "@/api";
+import { MemoComments } from "@/components/memo-comments";
 import { MemoSnapshotCard } from "@/components/memo-snapshot-card";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ReviewTabs } from "@/components/workspace/review-tabs";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
 import { type TranslationKey, type TranslationParams, useI18n } from "@/i18n";
-import {
-  addDays,
-  formatFullDayHeader,
-  formatWeekday,
-  isoDay,
-  todayKey,
-} from "@/lib/calendar-date";
-import { extractTags } from "@/lib/memo";
+import { addDays, formatFullDayHeader, todayKey } from "@/lib/calendar-date";
+import { errorMessage } from "@/lib/error";
+import { getMemoResourceId } from "@/lib/memo";
 import { queryKeys } from "@/lib/query-keys";
 import { ACTIVITY_WINDOW_DAYS } from "@/lib/time-horizon";
 import { cn } from "@/lib/utils";
+import { ReviewSettingsDialog } from "./review/review-settings-dialog";
 
 const COMPOSE_SEARCH = {
   compose: true,
@@ -41,60 +55,203 @@ const COMPOSE_SEARCH = {
   untagged: undefined,
 } as const;
 
+type Translate = (key: TranslationKey, params?: TranslationParams) => string;
+
+/** "3 years ago today", "5 days ago", "3 weeks ago", "4 months ago". */
+export function reviewReasonLabel(reason: TodayReviewReason, t: Translate) {
+  if (reason.type === "years") {
+    return reason.years === 1
+      ? t("review.oneYearAgoToday")
+      : t("review.yearsAgoToday", { count: reason.years });
+  }
+  if (reason.days < 14) return t("review.daysAgo", { count: reason.days });
+  if (reason.days < 60) {
+    return t("review.weeksAgo", { count: Math.round(reason.days / 7) });
+  }
+  return t("review.monthsAgo", { count: Math.round(reason.days / 30) });
+}
+
+/** The query both this page and the home banner read. */
+export function useTodayReviewQuery(enabled = true) {
+  const today = useMemo(() => todayKey(), []);
+  const tzOffset = useMemo(() => -new Date().getTimezoneOffset(), []);
+  return useQuery({
+    queryKey: queryKeys.review.today(today, tzOffset),
+    queryFn: () => getTodayReview(today, tzOffset),
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
 /**
- * Today's review: a short stack of old notes read one at a time (the same
- * day in past years, then a few from about a week, a month, a quarter and
- * half a year back), and under it a look at the last seven days of writing.
- * Reading one note at a time is the point: a list of old notes gets skimmed
- * like a second timeline, a single card gets read.
+ * Today's review: a short stack of old notes read one at a time. The server
+ * picks it (the same day in past years, then one note each from about a
+ * week, a few weeks, a few months and most of a year back) and remembers
+ * what was read, so a reload or another device resumes where the reader
+ * stopped and a read note sits out the next month. On each card the reader
+ * can add a line of today's thinking, archive a note that has had its day,
+ * or keep it out of the review for good.
  */
 export function DailyReviewPage() {
   const { locale, t } = useI18n();
+  const queryClient = useQueryClient();
   const today = useMemo(() => todayKey(), []);
   const tzOffset = useMemo(() => -new Date().getTimezoneOffset(), []);
-  const reviewQuery = useQuery({
-    queryKey: ["daily-review", today, tzOffset],
-    queryFn: () => getDailyReview(today, tzOffset),
-    retry: false,
-  });
+  const reviewKey = queryKeys.review.today(today, tzOffset);
+  const reviewQuery = useTodayReviewQuery();
+  const items = reviewQuery.data?.items ?? [];
 
-  // One page of recent notes feeds both the spaced-repetition ladder and
-  // the week's tags.
-  const recentQuery = useQuery({
-    queryKey: ["daily-review-ladder", today],
-    queryFn: () => listMemos({ page_size: 100, state: "normal" }),
-    retry: false,
-  });
-
-  const deck = useMemo(() => {
-    const onThisDay = reviewQuery.data?.memos ?? [];
-    const shown = new Set(onThisDay.map((memo) => memo.name));
-    const ladder = (recentQuery.data?.memos ?? []).filter(
-      (memo) => !shown.has(memo.name),
-    );
-    return buildReviewDeck([...onThisDay, ...ladder], today, t);
-  }, [reviewQuery.data, recentQuery.data, today, t]);
-
-  const [cursor, setCursor] = useState(0);
+  const [currentName, setCurrentName] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
-  const atLast = cursor >= deck.length - 1;
-  const item = deck[Math.min(cursor, deck.length - 1)];
+  const [replyFor, setReplyFor] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const startedRef = useRef(false);
+
+  // Resume at the first note not read yet; a fully read stack opens on the
+  // closing card.
+  useEffect(() => {
+    if (startedRef.current || !reviewQuery.data) return;
+    startedRef.current = true;
+    const firstUnread = reviewQuery.data.items.find((item) => !item.reviewed);
+    if (firstUnread) setCurrentName(firstUnread.memo.name);
+    else setFinished(reviewQuery.data.items.length > 0);
+  }, [reviewQuery.data]);
+
+  const foundIndex = items.findIndex((item) => item.memo.name === currentName);
+  const cursor = foundIndex >= 0 ? foundIndex : 0;
+  const item = items[cursor];
+  const atLast = cursor >= items.length - 1;
+  const readCount = items.filter((entry) => entry.reviewed).length;
+
+  const patchItems = (
+    update: (items: TodayReviewItem[]) => TodayReviewItem[],
+  ) => {
+    queryClient.setQueryData<typeof reviewQuery.data>(reviewKey, (data) =>
+      data ? { ...data, items: update(data.items) } : data,
+    );
+  };
+
+  const markRead = useMutation({
+    mutationFn: (memoName: string) =>
+      markReviewMemo({ memoId: memoName, date: today, action: "reviewed" }),
+    onMutate: (memoName) => {
+      patchItems((list) =>
+        list.map((entry) =>
+          entry.memo.name === memoName ? { ...entry, reviewed: true } : entry,
+        ),
+      );
+    },
+    // A lost read only means the note may come back sooner; no toast.
+  });
+
+  const goTo = (index: number) => {
+    setFinished(false);
+    setReplyFor(null);
+    const target = items[index];
+    if (target) setCurrentName(target.memo.name);
+  };
 
   const keyActionsRef = useRef({ next: () => {}, back: () => {} });
   keyActionsRef.current = {
     next: () => {
-      if (finished || deck.length === 0) return;
+      if (finished || !item) return;
+      if (!item.reviewed) markRead.mutate(item.memo.name);
+      setReplyFor(null);
       if (atLast) setFinished(true);
-      else setCursor((value) => value + 1);
+      else goTo(cursor + 1);
     },
     back: () => {
       if (finished) {
         setFinished(false);
         return;
       }
-      setCursor((value) => Math.max(0, value - 1));
+      if (cursor > 0) goTo(cursor - 1);
     },
   };
+
+  /** Take the current card out of the stack and move on to the next one. */
+  const dropCurrent = (memoName: string) => {
+    const index = items.findIndex((entry) => entry.memo.name === memoName);
+    const next = items[index + 1] ?? null;
+    patchItems((list) => list.filter((entry) => entry.memo.name !== memoName));
+    setReplyFor(null);
+    if (next) setCurrentName(next.memo.name);
+    else setFinished(items.length > 1);
+  };
+  /** Undo puts the note back in the stack and on screen. */
+  const restore = (memoName: string) => {
+    setFinished(false);
+    setCurrentName(memoName);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.review.all });
+  };
+
+  const archive = useMutation({
+    mutationFn: (memoId: string) => updateMemo(memoId, { status: "archived" }),
+    onSuccess: (_data, memoId) => {
+      const memoName = `memos/${memoId}`;
+      dropCurrent(memoName);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.memoStats.all });
+      toast.success(t("review.archived"), {
+        action: {
+          label: t("common.undo"),
+          onClick: () => {
+            void updateMemo(memoId, { status: "normal" })
+              .then(() => {
+                restore(memoName);
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.memos.all,
+                });
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.memoStats.all,
+                });
+              })
+              .catch((error: unknown) =>
+                toast.error(errorMessage(error, t("toast.requestFailed"))),
+              );
+          },
+        },
+      });
+    },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
+  });
+
+  const mute = useMutation({
+    mutationFn: (memoName: string) =>
+      markReviewMemo({ memoId: memoName, date: today, action: "mute" }),
+    onSuccess: (_data, memoName) => {
+      dropCurrent(memoName);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.review.settings,
+      });
+      toast.success(t("review.muted"), {
+        action: {
+          label: t("common.undo"),
+          onClick: () => {
+            void markReviewMemo({
+              memoId: memoName,
+              date: today,
+              action: "unmute",
+            })
+              .then(() => {
+                restore(memoName);
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.review.settings,
+                });
+              })
+              .catch((error: unknown) =>
+                toast.error(errorMessage(error, t("toast.requestFailed"))),
+              );
+          },
+        },
+      });
+    },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
+  });
+
   // ← and → page through the stack, as on the walk; typing is left alone.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -103,7 +260,9 @@ export function DailyReviewPage() {
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
-        target?.closest("input, textarea, [contenteditable=true]")
+        target?.closest(
+          "input, textarea, [contenteditable=true], [role=dialog]",
+        )
       ) {
         return;
       }
@@ -119,13 +278,9 @@ export function DailyReviewPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const isLoading = reviewQuery.isLoading || recentQuery.isLoading;
-  const failedQuery = reviewQuery.isError
-    ? reviewQuery
-    : recentQuery.isError
-      ? recentQuery
-      : null;
-  const ready = !isLoading && !failedQuery;
+  const ready = reviewQuery.isSuccess;
+  const remaining = items.length - readCount;
+  const busy = archive.isPending || mute.isPending;
 
   return (
     <WorkspaceLayout
@@ -150,139 +305,162 @@ export function DailyReviewPage() {
         />
       )}
     >
-      <div className="flex flex-col gap-8 py-2">
-        <section className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1 px-1">
+      <div className="flex flex-col gap-4 py-2">
+        <div className="flex items-start gap-3 px-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
             <h2 className="font-heading text-xl font-semibold tracking-tight">
               {formatFullDayHeader(today, locale)}
             </h2>
             <p className="text-sm text-muted-foreground">
               {!ready
                 ? "\u00a0"
-                : deck.length > 0
-                  ? t("review.todayIntro", { count: deck.length })
-                  : t("review.todayIntroEmpty")}
+                : items.length === 0
+                  ? t("review.todayIntroEmpty")
+                  : remaining === 0
+                    ? t("review.todayIntroDone", { count: items.length })
+                    : t("review.todayIntro", { count: remaining })}
             </p>
           </div>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={t("review.settingsTitle")}
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setSettingsOpen(true)}
+                />
+              }
+            >
+              <SlidersHorizontalIcon />
+            </TooltipTrigger>
+            <TooltipContent>{t("review.settingsTitle")}</TooltipContent>
+          </Tooltip>
+        </div>
 
-          {isLoading && (
-            <div className="flex flex-col gap-3">
-              <Skeleton className="h-1 w-full" />
-              <Skeleton className="h-48 w-full" />
-            </div>
-          )}
-          {failedQuery && (
-            <QueryErrorState
-              className="min-h-56 border text-muted-foreground"
-              isRetrying={failedQuery.isFetching}
-              onRetry={() => void failedQuery.refetch()}
+        {reviewQuery.isLoading && (
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-1 w-full" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+        )}
+        {reviewQuery.isError && (
+          <QueryErrorState
+            className="min-h-56 border text-muted-foreground"
+            isRetrying={reviewQuery.isFetching}
+            onRetry={() => void reviewQuery.refetch()}
+          />
+        )}
+
+        {ready && items.length === 0 && (
+          <Card className="border-dashed bg-transparent shadow-none ring-0">
+            <CardContent className="flex flex-col items-start gap-3 py-2">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium">
+                  {t("review.dailyEmptyTitle")}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {t("review.dailyEmptyDescription")}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  render={<Link search={COMPOSE_SEARCH} to="/" />}
+                  size="sm"
+                  variant="outline"
+                >
+                  <PlusIcon data-icon="inline-start" />
+                  {t("review.writeTodayMemo")}
+                </Button>
+                <Button
+                  render={<Link to="/review/walk" />}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <FootprintsIcon data-icon="inline-start" />
+                  {t("review.goWalk")}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {ready && items.length > 0 && (
+          <>
+            <DeckProgress
+              current={cursor}
+              finished={finished}
+              items={items}
+              onJump={goTo}
             />
-          )}
-
-          {ready && deck.length === 0 && (
-            <Card className="border-dashed bg-transparent shadow-none ring-0">
-              <CardContent className="flex flex-col items-start gap-3 py-2">
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium">
-                    {t("review.dailyEmptyTitle")}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {t("review.dailyEmptyDescription")}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    render={<Link search={COMPOSE_SEARCH} to="/" />}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <PlusIcon data-icon="inline-start" />
-                    {t("review.writeTodayMemo")}
-                  </Button>
-                  <Button
-                    render={<Link to="/review/walk" />}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <FootprintsIcon data-icon="inline-start" />
-                    {t("review.goWalk")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {ready && deck.length > 0 && (
-            <>
-              <DeckProgress
-                current={finished ? deck.length : cursor}
-                finished={finished}
-                total={deck.length}
-                onJump={(index) => {
-                  setFinished(false);
-                  setCursor(index);
-                }}
+            {finished ? (
+              <DoneCard
+                count={items.length}
+                today={today}
+                onReadAgain={() => goTo(0)}
               />
-              {finished ? (
-                <Card className="motion-safe:animate-rise">
-                  <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-                    <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                      <CheckIcon className="size-4" />
-                    </span>
-                    <div className="flex flex-col gap-1">
-                      <p className="font-heading text-lg font-semibold">
-                        {t("review.doneTitle")}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {t("review.doneDescription", { count: deck.length })}
-                      </p>
-                    </div>
-                    <div className="mt-1 flex flex-wrap justify-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setFinished(false);
-                          setCursor(0);
-                        }}
-                      >
-                        <RotateCcwIcon data-icon="inline-start" />
-                        {t("review.readAgain")}
-                      </Button>
-                      <Button render={<Link to="/review/walk" />} size="sm">
-                        <FootprintsIcon data-icon="inline-start" />
-                        {t("review.goWalk")}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                item && (
-                  <>
-                    <div
-                      className="motion-safe:animate-rise"
-                      key={item.memo.name}
+            ) : (
+              item && (
+                <>
+                  <div
+                    className="motion-safe:animate-rise"
+                    key={item.memo.name}
+                  >
+                    <MemoSnapshotCard
+                      badge={reviewReasonLabel(item.reason, t)}
+                      locale={locale}
+                      memo={item.memo}
                     >
-                      <MemoSnapshotCard
-                        badge={item.label}
-                        locale={locale}
-                        memo={item.memo}
+                      {replyFor === item.memo.name && (
+                        <MemoComments
+                          autoFocus
+                          canComment
+                          memoId={getMemoResourceId(item.memo)}
+                          variant="inline"
+                        />
+                      )}
+                    </MemoSnapshotCard>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CardAction
+                      active={replyFor === item.memo.name}
+                      icon={<MessageSquarePlusIcon />}
+                      label={t("review.reply")}
+                      onClick={() =>
+                        setReplyFor((value) =>
+                          value === item.memo.name ? null : item.memo.name,
+                        )
+                      }
+                    />
+                    {item.memo.can_manage !== false && (
+                      <CardAction
+                        disabled={busy}
+                        icon={<ArchiveIcon />}
+                        label={t("review.archive")}
+                        onClick={() =>
+                          archive.mutate(getMemoResourceId(item.memo))
+                        }
                       />
-                    </div>
-                    <div className="flex items-center gap-2">
+                    )}
+                    <CardAction
+                      disabled={busy}
+                      icon={<EyeOffIcon />}
+                      label={t("review.mute")}
+                      onClick={() => mute.mutate(item.memo.name)}
+                    />
+                    <div className="ms-auto flex items-center gap-1">
                       <Button
+                        aria-label={t("review.previous")}
                         disabled={cursor === 0}
+                        size="icon"
+                        title={t("review.previous")}
                         variant="ghost"
                         onClick={() => keyActionsRef.current.back()}
                       >
-                        <ArrowLeftIcon data-icon="inline-start" />
-                        {t("review.previous")}
+                        <ArrowLeftIcon />
                       </Button>
-                      <span className="ms-auto hidden text-xs text-muted-foreground sm:inline">
-                        {t("review.walkKeyHint")}
-                      </span>
                       <Button
-                        className="ms-auto sm:ms-0"
+                        title={t("review.walkKeyHint")}
                         onClick={() => keyActionsRef.current.next()}
                       >
                         {atLast ? t("review.finish") : t("review.next")}
@@ -293,36 +471,73 @@ export function DailyReviewPage() {
                         )}
                       </Button>
                     </div>
-                  </>
-                )
-              )}
-            </>
-          )}
-        </section>
-
-        <RecentWeek recent={recentQuery.data?.memos} today={today} />
+                  </div>
+                </>
+              )
+            )}
+          </>
+        )}
       </div>
+      <ReviewSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+      />
     </WorkspaceLayout>
   );
 }
 
-/** One segment per note; read ones darker, the current one solid ink. */
+/** A quiet card action: icon only on a phone, icon and label from `sm` up. */
+function CardAction({
+  active = false,
+  disabled = false,
+  icon,
+  label,
+  onClick,
+}: {
+  active?: boolean;
+  disabled?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      aria-label={label}
+      aria-pressed={active || undefined}
+      className={cn(
+        "text-muted-foreground hover:text-foreground",
+        active && "bg-muted text-foreground",
+      )}
+      disabled={disabled}
+      size="sm"
+      title={label}
+      variant="ghost"
+      onClick={onClick}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </Button>
+  );
+}
+
+/** One segment per note: read ones mid-grey, the current one solid ink. */
 function DeckProgress({
   current,
   finished,
-  total,
+  items,
   onJump,
 }: {
   current: number;
   finished: boolean;
-  total: number;
+  items: TodayReviewItem[];
   onJump: (index: number) => void;
 }) {
   const { t } = useI18n();
+  const total = items.length;
   return (
     <div className="flex items-center gap-3 px-1">
       <div className="flex flex-1 gap-1">
-        {Array.from({ length: total }, (_, index) => (
+        {items.map((entry, index) => (
           <button
             aria-current={!finished && index === current ? "step" : undefined}
             aria-label={t("review.deckProgress", {
@@ -330,18 +545,17 @@ function DeckProgress({
               total,
             })}
             className="group/seg flex h-4 flex-1 items-center outline-none"
-            // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional
-            key={index}
+            key={entry.memo.name}
             type="button"
             onClick={() => onJump(index)}
           >
             <span
               className={cn(
                 "h-1 w-full rounded-full motion-safe:transition-colors motion-safe:duration-200 group-hover/seg:bg-foreground/50 group-focus-visible/seg:ring-2 group-focus-visible/seg:ring-ring/40",
-                finished || index < current
-                  ? "bg-foreground/35"
-                  : index === current
-                    ? "bg-foreground"
+                !finished && index === current
+                  ? "bg-foreground"
+                  : entry.reviewed
+                    ? "bg-foreground/35"
                     : "bg-border",
               )}
             />
@@ -359,21 +573,24 @@ function DeckProgress({
 }
 
 /**
- * The last seven days at a glance: how much, on how many days, about what.
- * Counts come from the sidebar's stats query (same cache entry); tags from
- * the recent page the ladder already loaded.
+ * The closing card. One line about the week sits here instead of a chart:
+ * the sidebar heatmap already shows how much was written, and the review is
+ * about what was written.
  */
-function RecentWeek({
-  recent,
+function DoneCard({
+  count,
   today,
+  onReadAgain,
 }: {
-  recent: Memo[] | undefined;
+  count: number;
   today: string;
+  onReadAgain: () => void;
 }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [timeZone] = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
+  // Same cache entry as the sidebar heatmap.
   const statsQuery = useQuery({
     queryKey: queryKeys.memoStats.forWindow(
       "all",
@@ -384,208 +601,45 @@ function RecentWeek({
     staleTime: 30_000,
     retry: false,
   });
-
-  const days = useMemo(() => {
-    const byDate = new Map(
-      (statsQuery.data?.activity ?? []).map((day) => [day.date, day.count]),
-    );
-    return Array.from({ length: 7 }, (_, index) => {
-      const key = addDays(today, index - 6);
-      return { key, count: byDate.get(key) ?? 0 };
-    });
-  }, [statsQuery.data, today]);
-  const total = days.reduce((sum, day) => sum + day.count, 0);
-  const activeDays = days.filter((day) => day.count > 0).length;
-  const peak = Math.max(1, ...days.map((day) => day.count));
-
-  const topTags = useMemo(() => {
+  const weekCount = useMemo(() => {
     const since = addDays(today, -6);
-    const counts = new Map<string, number>();
-    for (const memo of recent ?? []) {
-      const day = isoDay(new Date(memo.display_time ?? memo.create_time));
-      if (day < since) continue;
-      for (const tag of memo.payload.tags ?? extractTags(memo.content)) {
-        counts.set(tag, (counts.get(tag) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
-  }, [recent, today]);
+    return (statsQuery.data?.activity ?? [])
+      .filter((day) => day.date >= since && day.date <= today)
+      .reduce((sum, day) => sum + day.count, 0);
+  }, [statsQuery.data, today]);
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="px-1 text-xs font-medium text-muted-foreground">
-        {t("review.weekTitle")}
-      </h2>
-      <Card>
-        <CardContent className="flex flex-col gap-5">
-          {statsQuery.isLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : (
-            <div className="flex items-end gap-6">
-              <div className="flex shrink-0 flex-col gap-1.5">
-                <p className="text-2xl leading-none font-semibold tabular-nums">
-                  {total}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {t("review.weekCount")}
-                </p>
-                <p className="pt-2 text-xs text-muted-foreground tabular-nums">
-                  {t("review.weekActiveDays", { count: activeDays })}
-                </p>
-              </div>
-              <div className="flex h-24 flex-1 items-end gap-1.5 sm:gap-2.5">
-                {days.map((day) => {
-                  const isToday = day.key === today;
-                  const weekday = new Date(`${day.key}T12:00:00`).getDay();
-                  return (
-                    <div
-                      className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
-                      key={day.key}
-                      title={`${day.key} · ${day.count}`}
-                    >
-                      <div className="flex w-full flex-1 items-end justify-center">
-                        <div
-                          className={cn(
-                            "w-full max-w-6 rounded-[3px] motion-safe:transition-[height] motion-safe:duration-300",
-                            day.count === 0
-                              ? "h-0.5 bg-border"
-                              : isToday
-                                ? "bg-primary"
-                                : "bg-foreground/25",
-                          )}
-                          style={
-                            day.count > 0
-                              ? {
-                                  height: `${Math.max(12, (day.count / peak) * 100)}%`,
-                                }
-                              : undefined
-                          }
-                        />
-                      </div>
-                      <span
-                        className={cn(
-                          "text-[11px] leading-none text-muted-foreground",
-                          isToday && "font-medium text-foreground",
-                        )}
-                      >
-                        {formatWeekday(weekday, locale, "narrow")}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+    <Card className="motion-safe:animate-rise">
+      <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+        <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <CheckIcon className="size-4" />
+        </span>
+        <div className="flex flex-col gap-1">
+          <p className="font-heading text-lg font-semibold">
+            {t("review.doneTitle")}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {t("review.doneDescription", { count })}
+          </p>
+          {statsQuery.isSuccess && (
+            <p className="text-sm text-muted-foreground">
+              {weekCount > 0
+                ? t("review.doneWeek", { count: weekCount })
+                : t("review.doneWeekEmpty")}
+            </p>
           )}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-border/60 pt-4 text-xs text-muted-foreground">
-            {topTags.length > 0 ? (
-              <>
-                <span>{t("review.weekTopTags")}</span>
-                {topTags.map(([tag, count]) => (
-                  <Link
-                    className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-foreground/80 hover:text-foreground"
-                    key={tag}
-                    search={{ ...COMPOSE_SEARCH, compose: undefined, tag }}
-                    to="/"
-                  >
-                    #{tag}
-                    <span className="text-muted-foreground tabular-nums">
-                      {count}
-                    </span>
-                  </Link>
-                ))}
-              </>
-            ) : (
-              <span>
-                {total > 0 ? t("review.weekNoTags") : t("review.weekEmpty")}
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </section>
+        </div>
+        <div className="mt-1 flex flex-wrap justify-center gap-2">
+          <Button size="sm" variant="outline" onClick={onReadAgain}>
+            <RotateCcwIcon data-icon="inline-start" />
+            {t("review.readAgain")}
+          </Button>
+          <Button render={<Link to="/review/walk" />} size="sm">
+            <FootprintsIcon data-icon="inline-start" />
+            {t("review.goWalk")}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
-}
-
-type ReviewItem = {
-  memo: Memo;
-  label: string;
-};
-
-/** Rungs of the first-year ladder, nearest first. */
-const LADDER = [
-  { key: "ladder-7d", maxDays: 7, title: "review.ladder7d" },
-  { key: "ladder-30d", maxDays: 30, title: "review.ladder30d" },
-  { key: "ladder-90d", maxDays: 90, title: "review.ladder90d" },
-  { key: "ladder-180d", maxDays: 366, title: "review.ladder180d" },
-] as const;
-
-/** Notes kept per ladder rung: a nudge, not a second timeline. */
-const PER_RUNG = 2;
-
-/** "On this day" notes kept per year, so a busy anniversary stays short. */
-const PER_YEAR = 3;
-
-function buildReviewDeck(
-  memos: Memo[],
-  todayStr: string,
-  t: (key: TranslationKey, params?: TranslationParams) => string,
-): ReviewItem[] {
-  // Whole local calendar days between two `YYYY-MM-DD` keys; noon anchors
-  // keep a daylight-saving shift from moving the result.
-  const daysBetween = (from: string, to: string) =>
-    Math.round(
-      (new Date(`${to}T12:00:00`).getTime() -
-        new Date(`${from}T12:00:00`).getTime()) /
-        86_400_000,
-    );
-  const years = new Map<number, Memo[]>();
-  const rungs = new Map<string, Memo[]>();
-  const seen = new Set<string>();
-
-  for (const memo of memos) {
-    if (seen.has(memo.name)) continue;
-    seen.add(memo.name);
-    const timeStr = memo.display_time ?? memo.create_time;
-    // The memo's day as the author saw it. The stored time is UTC, so
-    // slicing the string put a note written at 07:00 in UTC+8 on the
-    // previous day, and today's notes leaked into the review.
-    const memoDay = isoDay(new Date(timeStr));
-    // The review looks back; anything written today is not a memory yet.
-    if (memoDay >= todayStr) continue;
-
-    // Whole years by the calendar: the anniversary must have come round, so
-    // a note from 2025-10-30 is "a year ago" on 2026-10-30 (365 days), and a
-    // December note is not "a year ago" in January.
-    let yearsAgo = Number(todayStr.slice(0, 4)) - Number(memoDay.slice(0, 4));
-    if (memoDay.slice(5) > todayStr.slice(5)) yearsAgo -= 1;
-
-    if (yearsAgo >= 1) {
-      const list = years.get(yearsAgo) ?? [];
-      if (list.length < PER_YEAR) list.push(memo);
-      years.set(yearsAgo, list);
-      continue;
-    }
-    const diffDays = daysBetween(memoDay, todayStr);
-    const rung = LADDER.find((item) => diffDays <= item.maxDays);
-    if (!rung) continue;
-    const list = rungs.get(rung.key) ?? [];
-    if (list.length < PER_RUNG) list.push(memo);
-    rungs.set(rung.key, list);
-  }
-
-  const deck: ReviewItem[] = [];
-  for (const [count, list] of [...years.entries()].sort(([a], [b]) => b - a)) {
-    const label =
-      count === 1
-        ? t("review.oneYearAgoToday")
-        : t("review.yearsAgoToday", { count });
-    for (const memo of list) deck.push({ memo, label });
-  }
-  // Furthest back first: the older a note, the more it has to say again.
-  for (const rung of [...LADDER].reverse()) {
-    for (const memo of rungs.get(rung.key) ?? []) {
-      deck.push({ memo, label: t(rung.title) });
-    }
-  }
-  return deck;
 }
