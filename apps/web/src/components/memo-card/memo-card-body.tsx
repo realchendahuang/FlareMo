@@ -41,6 +41,56 @@ export function memoBodyClipClass(collapsed: boolean) {
   );
 }
 
+/**
+ * A live memo opens its thread in place once comments are on for the
+ * workspace (or it already has some); elsewhere (archive, bin) a count still
+ * leads to the memo, where the thread reads in full.
+ */
+export function canOpenMemoThread(memo: Memo, commentsEnabled: boolean) {
+  return (
+    memo.state === "normal" &&
+    (commentsEnabled || (memo.comment_count ?? 0) > 0)
+  );
+}
+
+/**
+ * The comment toggle in the card's top row. With replies it always shows
+ * its count; without, it appears on hover like the ⋯ menu (always on touch
+ * screens), so a quiet timeline does not grow a row of empty bubbles.
+ */
+export function MemoCommentButton({
+  count,
+  open,
+  onToggle,
+}: {
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <button
+      aria-expanded={open}
+      aria-label={
+        count > 0 ? t("comments.count", { count }) : t("comments.action")
+      }
+      className={cn(
+        "inline-flex h-6 min-w-6 items-center justify-center gap-1 rounded-md px-1 text-xs text-muted-foreground tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/25 motion-safe:transition-[color,background-color,opacity]",
+        open && "bg-muted text-foreground",
+        count === 0 &&
+          !open &&
+          "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
+      )}
+      title={t("comments.title")}
+      type="button"
+      onClick={onToggle}
+    >
+      <MessageCircleIcon aria-hidden="true" className="size-3.5" />
+      {count > 0 && count}
+    </button>
+  );
+}
+
 type MemoCardBodyProps = {
   attachments: Attachment[];
   canManage: boolean;
@@ -51,6 +101,8 @@ type MemoCardBodyProps = {
   onToggleExpanded: () => void;
   searchQuery?: string;
   taskInteraction?: MemoTaskInteraction;
+  /** The card opens its thread in place (see `canOpenMemoThread`). */
+  canOpenThread?: boolean;
 };
 
 /** The card's read face: the body, its collapse control and the tag footer. */
@@ -63,6 +115,7 @@ export function MemoCardBody({
   onToggleExpanded,
   searchQuery,
   taskInteraction,
+  canOpenThread = false,
 }: MemoCardBodyProps) {
   const { t } = useI18n();
   // Both of these walk the whole body: tag extraction runs a regex over the
@@ -156,7 +209,7 @@ export function MemoCardBody({
       {(footerTags.length > 0 ||
         memo.state !== "normal" ||
         memoTasks.length > 0 ||
-        commentCount > 0) && (
+        (!canOpenThread && commentCount > 0)) && (
         <footer className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div className="flex flex-wrap gap-1.5">
             {footerTags.map((tag) =>
@@ -184,7 +237,7 @@ export function MemoCardBody({
           </div>
           <div className="ml-auto flex min-w-0 items-center gap-2">
             <MemoTaskBadge tasks={memoTasks} />
-            {commentCount > 0 && (
+            {!canOpenThread && commentCount > 0 && (
               <Link
                 aria-label={t("comments.count", { count: commentCount })}
                 className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground tabular-nums hover:bg-muted hover:text-foreground"

@@ -91,6 +91,8 @@ type MemoListProps = {
   /** Which list is empty: picks the icon (archive box, bin, inbox). */
   emptyIcon?: "all" | "archived" | "trashed";
   emptyTitle?: string;
+  /** Live cards open their comment thread in place. */
+  commentsEnabled?: boolean;
   onClearFilters?: () => void;
   onArchive: (id: string) => void;
   onPin: (id: string, pinned: boolean) => void;
@@ -112,6 +114,7 @@ type MemoListProps = {
 
 type VirtualizedCardsProps = {
   attachmentsByMemo: Map<string, Attachment[]>;
+  commentsEnabled: boolean;
   editingMemoNames: Set<string>;
   focusedMemoId?: string | null;
   isUpdating: boolean;
@@ -155,6 +158,7 @@ type VirtualizedCardsProps = {
  */
 function VirtualizedCards({
   attachmentsByMemo,
+  commentsEnabled,
   editingMemoNames,
   focusedMemoId,
   isUpdating,
@@ -276,6 +280,7 @@ function VirtualizedCards({
               }
               canManage={memo.can_manage === true}
               canGovern={memo.can_govern === true}
+              commentsEnabled={commentsEnabled}
               index={item.index}
               isFocused={focusedMemoId === (memo.id || memo.name)}
               memo={memo}
@@ -337,6 +342,7 @@ export const MemoList = memo(function MemoList({
   emptyDescription,
   emptyIcon,
   emptyTitle,
+  commentsEnabled = false,
   onClearFilters,
   isUpdating = false,
   isRetrying = false,
@@ -502,6 +508,7 @@ export const MemoList = memo(function MemoList({
       {memos.length > VIRTUALIZE_THRESHOLD ? (
         <VirtualizedCards
           attachmentsByMemo={attachmentsByMemo}
+          commentsEnabled={commentsEnabled}
           editingMemoNames={editingMemoNames}
           focusedMemoId={focusedMemoId}
           isUpdating={isUpdating}
@@ -535,6 +542,7 @@ export const MemoList = memo(function MemoList({
               }
               canManage={memo.can_manage === true}
               canGovern={memo.can_govern === true}
+              commentsEnabled={commentsEnabled}
               index={index}
               isFocused={focusedMemoId === (memo.id || memo.name)}
               key={memo.name}

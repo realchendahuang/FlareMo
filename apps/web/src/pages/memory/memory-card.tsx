@@ -147,7 +147,7 @@ export const MemoryCard = memo(function MemoryCard({
               render={
                 <Button
                   aria-label={t("common.actions")}
-                  className="opacity-70 hover:opacity-100 group-hover:opacity-100 transition-opacity"
+                  className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100 [@media(hover:none)]:opacity-100"
                   size="icon-sm"
                   variant="ghost"
                 >

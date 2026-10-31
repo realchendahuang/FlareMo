@@ -161,7 +161,7 @@ const messages = {
   "space.expiredNotice":
     "Срок доступа читателя истёк. Пространство команды станет доступным после продления.",
   "nav.allMemos": "Заметки",
-  "nav.dailyReview": "В этот день",
+  "nav.dailyReview": "Обзор дня",
   "nav.randomWalk": "Случайная прогулка",
   "nav.review": "Обзор",
   "nav.memory": "Память",
@@ -196,10 +196,10 @@ const messages = {
   "review.onThisDayBanner": "В этот день · {count} заметок прошлых лет",
   "review.oneYearAgoToday": "Год назад в этот день",
   "review.yearsAgoToday": "{count} лет назад в этот день",
-  "review.ladder7d": "На этой неделе",
-  "review.ladder30d": "В этом месяце",
-  "review.ladder90d": "За три месяца",
-  "review.ladder180d": "Чуть раньше",
+  "review.ladder7d": "Несколько дней назад",
+  "review.ladder30d": "Несколько недель назад",
+  "review.ladder90d": "Несколько месяцев назад",
+  "review.ladder180d": "Около полугода назад",
   "review.dailyEmptyTitle": "Записей за этот день пока нет",
   "review.dailyEmptyDescription":
     "Начните писать сегодня — через год эта страница напомнит о сегодняшнем дне.",
@@ -1279,6 +1279,39 @@ const messages = {
     "Заметка сохранена, но задачи не созданы. Преобразуйте их из карточки.",
   "toast.tooManyMemoImages":
     "В заметке не больше 9 изображений. Для большего напишите статью.",
+  "comments.action": "Комментировать",
+  "comments.placeholderMentions":
+    "Напишите комментарий, @ — упомянуть участника…",
+  "comments.mentionList": "Кого можно упомянуть",
+  "comments.viewAll": "Все комментарии: {count}",
+  "projects.viewsLabel": "По сроку",
+  "projects.view.upcomingShort": "7 дней",
+  "projects.allTasksShort": "Все",
+  "projects.pickerLabel": "Выбрать проект",
+  "projects.allProjects": "Все проекты",
+  "projects.archivedGroup": "В архиве",
+  "review.todayIntro": "Старых заметок, которые стоит перечитать: {count}.",
+  "review.todayIntroEmpty": "Сегодня перечитывать нечего.",
+  "review.deckProgress": "{current} / {total}",
+  "review.previous": "Назад",
+  "review.next": "Дальше",
+  "review.finish": "Готово",
+  "review.doneTitle": "Обзор дня завершён",
+  "review.doneDescription":
+    "Перечитано старых заметок: {count}. Завтра будут новые.",
+  "review.readAgain": "Сначала",
+  "review.goWalk": "Случайная прогулка",
+  "review.weekTitle": "Последние 7 дней",
+  "review.weekCount": "заметок",
+  "review.weekActiveDays": "Записи в {count} из 7 дней",
+  "review.weekTopTags": "Чаще всего",
+  "review.weekNoTags": "У этих заметок нет тегов.",
+  "review.weekEmpty": "За последние 7 дней ничего не написано.",
+  "review.walkIntro":
+    "Начните со старой заметки и идите по её тегам и ссылкам к следующей.",
+  "review.walkBack": "Назад",
+  "article.filterAll": "Все",
+  "article.filterEmpty": "Здесь пока нет статей",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ru = messages;

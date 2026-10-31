@@ -59,3 +59,37 @@ test("a ticked memo line completes the task it scheduled", async ({ page }) => {
   const body = (await tasks.json()) as { tasks: { status: string }[] };
   expect(body.tasks[0]?.status).toBe("done");
 });
+
+test("date views and the project picker combine in one column", async ({
+  page,
+}) => {
+  const name = `Picker project ${Date.now()}`;
+  const project = await page.request.post("/api/app/projects", {
+    ...E2E_COOKIE_MUTATION_OPTIONS,
+    data: { name },
+  });
+  const { project: created } = (await project.json()) as {
+    project: { id: string };
+  };
+  const inside = `项目里今天的事 ${Date.now()}`;
+  const outside = `别处今天的事 ${Date.now()}`;
+  await page.request.post("/api/app/tasks", {
+    ...E2E_COOKIE_MUTATION_OPTIONS,
+    data: { title: inside, due_at: localDay(), project_id: created.id },
+  });
+  await page.request.post("/api/app/tasks", {
+    ...E2E_COOKIE_MUTATION_OPTIONS,
+    data: { title: outside, due_at: localDay() },
+  });
+
+  await page.goto("/projects");
+  await page.getByRole("tab", { name: /^(今天|Today)/ }).click();
+  await expect(page.getByText(outside)).toBeVisible();
+
+  await page.getByRole("button", { name: /选择项目|Choose a project/ }).click();
+  await page.getByRole("menuitem", { name: new RegExp(name) }).click();
+  await expect(page).toHaveURL(/view=today/);
+  await expect(page).toHaveURL(/project=/);
+  await expect(page.getByText(inside)).toBeVisible();
+  await expect(page.getByText(outside)).toHaveCount(0);
+});

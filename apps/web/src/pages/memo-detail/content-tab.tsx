@@ -70,6 +70,7 @@ export function ContentTab({
         <MemoComments
           canComment={context.memo.state === "normal"}
           memoId={context.memo.id}
+          mentions={context.memo.visibility !== "private"}
         />
       )}
       {context.memories.length > 0 && (

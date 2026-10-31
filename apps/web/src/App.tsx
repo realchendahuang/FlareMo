@@ -299,6 +299,7 @@ export function FlareMoApp() {
             )}
           <MemoList
             attachmentsByMemo={attachmentsByMemo}
+            commentsEnabled={Boolean(sharedTeam)}
             emptyIcon={view}
             emptyDescription={
               isSemanticSearch

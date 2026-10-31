@@ -1,5 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { FootprintsIcon, PlusIcon, ShuffleIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  FootprintsIcon,
+  PlusIcon,
+  ShuffleIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRandomWalkMemo, getWalkNextMemo } from "@/api";
 import { MemoSnapshotCard } from "@/components/memo-snapshot-card";
@@ -104,7 +110,8 @@ export function RandomWalkPage() {
     back: () => {},
   });
   keyActionsRef.current = {
-    walk: () => void walk(),
+    walk: () =>
+      cursor < steps.length - 1 ? setCursor(cursor + 1) : void walk(),
     back: () => setCursor((current) => Math.max(0, current - 1)),
   };
   useEffect(() => {
@@ -156,6 +163,14 @@ export function RandomWalkPage() {
       )}
     >
       <div className="flex flex-col gap-4 py-2">
+        <div className="flex flex-col gap-1 px-1">
+          <h2 className="font-heading text-xl font-semibold tracking-tight">
+            {t("nav.randomWalk")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {t("review.walkIntro")}
+          </p>
+        </div>
         {finished ? (
           <WalkPostcard onRestart={restart} pending={pending} steps={steps} />
         ) : (
@@ -213,10 +228,35 @@ export function RandomWalkPage() {
                   locale={locale}
                   memo={step.memo}
                 />
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Button
-                    disabled={pending || exhausted}
-                    onClick={() => void walk()}
+                    disabled={cursor === 0}
+                    variant="ghost"
+                    onClick={() => keyActionsRef.current.back()}
+                  >
+                    <ArrowLeftIcon data-icon="inline-start" />
+                    {t("review.walkBack")}
+                  </Button>
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                    {t("review.walkKeyHint")}
+                  </span>
+                  <Button
+                    className="ms-auto"
+                    disabled={pending}
+                    variant="ghost"
+                    onClick={() => setFinished(true)}
+                  >
+                    {t("review.walkFinish")}
+                  </Button>
+                  <Button
+                    disabled={
+                      pending || (exhausted && cursor >= steps.length - 1)
+                    }
+                    onClick={() =>
+                      cursor < steps.length - 1
+                        ? setCursor(cursor + 1)
+                        : void walk()
+                    }
                   >
                     {pending ? (
                       <Spinner data-icon="inline-start" />
@@ -224,17 +264,8 @@ export function RandomWalkPage() {
                       <FootprintsIcon data-icon="inline-start" />
                     )}
                     {t("review.walkContinue")}
+                    <ArrowRightIcon data-icon="inline-end" />
                   </Button>
-                  <Button
-                    disabled={pending}
-                    variant="outline"
-                    onClick={() => setFinished(true)}
-                  >
-                    {t("review.walkFinish")}
-                  </Button>
-                  <span className="hidden text-xs text-muted-foreground sm:inline">
-                    {t("review.walkKeyHint")}
-                  </span>
                 </div>
                 {exhausted && (
                   <div className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">

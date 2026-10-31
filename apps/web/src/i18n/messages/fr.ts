@@ -163,7 +163,7 @@ const messages = {
   "space.expiredNotice":
     "Votre accès lecteur a expiré. L'espace d'équipe redeviendra accessible après renouvellement.",
   "nav.allMemos": "Notes",
-  "nav.dailyReview": "Ce jour-là",
+  "nav.dailyReview": "Revue du jour",
   "nav.randomWalk": "Balade",
   "nav.review": "Revoir",
   "nav.memory": "Mémoire",
@@ -198,10 +198,10 @@ const messages = {
   "review.onThisDayBanner": "Ce jour-là · {count} notes des années passées",
   "review.oneYearAgoToday": "Il y a un an, jour pour jour",
   "review.yearsAgoToday": "Il y a {count} ans, jour pour jour",
-  "review.ladder7d": "Cette semaine",
-  "review.ladder30d": "Ce mois-ci",
-  "review.ladder90d": "Ces trois derniers mois",
-  "review.ladder180d": "Un peu plus loin",
+  "review.ladder7d": "Il y a quelques jours",
+  "review.ladder30d": "Il y a quelques semaines",
+  "review.ladder90d": "Il y a quelques mois",
+  "review.ladder180d": "Il y a environ six mois",
   "review.dailyEmptyTitle": "Pas encore de notes pour ce jour",
   "review.dailyEmptyDescription":
     "Commencez à écrire aujourd'hui ; dans un an, cette page vous retrouvera.",
@@ -1298,6 +1298,39 @@ const messages = {
     "Note enregistrée, mais les tâches n'ont pas été créées. Convertissez-les depuis la carte.",
   "toast.tooManyMemoImages":
     "Une note contient au plus 9 images. Pour davantage, écrivez un article.",
+  "comments.action": "Commenter",
+  "comments.placeholderMentions":
+    "Écrire un commentaire, @ pour mentionner quelqu'un…",
+  "comments.mentionList": "Personnes à mentionner",
+  "comments.viewAll": "Voir les {count} commentaires",
+  "projects.viewsLabel": "Afficher par échéance",
+  "projects.view.upcomingShort": "7 jours",
+  "projects.allTasksShort": "Tout",
+  "projects.pickerLabel": "Choisir un projet",
+  "projects.allProjects": "Tous les projets",
+  "projects.archivedGroup": "Archivés",
+  "review.todayIntro": "{count} anciennes notes attendent d'être relues.",
+  "review.todayIntroEmpty": "Aucune ancienne note à relire aujourd'hui.",
+  "review.deckProgress": "{current} / {total}",
+  "review.previous": "Précédente",
+  "review.next": "Suivante",
+  "review.finish": "Terminé",
+  "review.doneTitle": "La revue du jour est terminée",
+  "review.doneDescription":
+    "Vous avez relu {count} anciennes notes. D'autres viendront demain.",
+  "review.readAgain": "Recommencer",
+  "review.goWalk": "Faire une promenade",
+  "review.weekTitle": "7 derniers jours",
+  "review.weekCount": "notes",
+  "review.weekActiveDays": "Écrit {count} jours sur 7",
+  "review.weekTopTags": "Les plus utilisés",
+  "review.weekNoTags": "Aucune de ces notes n'a d'étiquette.",
+  "review.weekEmpty": "Rien d'écrit ces 7 derniers jours.",
+  "review.walkIntro":
+    "Partez d'une ancienne note et suivez ses étiquettes et ses liens jusqu'à la suivante.",
+  "review.walkBack": "Retour",
+  "article.filterAll": "Tout",
+  "article.filterEmpty": "Aucun article ici pour l'instant",
 } as const satisfies Record<TranslationKey, string>;
 
 export const fr = messages;

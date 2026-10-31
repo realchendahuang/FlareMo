@@ -1,5 +1,6 @@
 import type { MemoDto } from "@flaremo/contracts";
 import { expect, test } from "@playwright/test";
+import { E2E_BASE_URL } from "./auth-fixture";
 import { startWithCleanClientState } from "./workspace-helpers";
 
 // The personal/team split only shows once someone else holds a seat; the e2e
@@ -254,4 +255,26 @@ test("the composer send target follows the active space", async ({ page }) => {
     "Team-side note|protected",
     "Personal-side note|private",
   ]);
+});
+
+test("a shared workspace comments on a card in place", async ({ page }) => {
+  await startWithCleanClientState(page);
+  const marker = `Inline thread ${Date.now()}`;
+  await page.request.post("/api/app/memos", {
+    headers: { origin: E2E_BASE_URL },
+    data: { content: marker, visibility: "protected" },
+  });
+  await page.goto("/");
+  const card = page.locator("article").filter({ hasText: marker });
+  await expect(card).toBeVisible();
+  await card.hover();
+  await card.getByRole("button", { name: /^(comment|评论)$/i }).click();
+  const reply = `Reply ${Date.now()}`;
+  const box = card.getByRole("textbox", { name: /comment|评论/i });
+  await box.fill(reply);
+  await box.press("Enter");
+  await expect(card.getByText(reply)).toBeVisible();
+  await expect(
+    card.getByRole("button", { name: /1 (comment|条评论)/i }),
+  ).toBeVisible();
 });

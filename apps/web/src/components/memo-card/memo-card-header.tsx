@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { PinIcon } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { Memo, MemoVisibility, Share } from "@/api";
 import { MemoVisibilityDialog } from "@/components/memo-visibility-dialog";
 import { useI18n } from "@/i18n";
@@ -9,6 +9,8 @@ import { VisibilityBadge, VoiceBadge } from "./memo-card-badges";
 import { MemoCardMenu } from "./memo-card-menu";
 
 type MemoCardHeaderProps = {
+  /** The comment toggle, first in the trailing cluster. */
+  commentAction?: ReactNode;
   memo: Memo;
   id: string;
   isTrashed: boolean;
@@ -38,6 +40,7 @@ type MemoCardHeaderProps = {
  * instead, so the card keeps none.
  */
 export function MemoCardHeader({
+  commentAction,
   memo,
   id,
   isTrashed,
@@ -92,6 +95,7 @@ export function MemoCardHeader({
           </span>
         </Link>
         <div className="flex shrink-0 items-center gap-1">
+          {commentAction}
           {memo.pinned && memo.state === "normal" && (
             <span
               className="inline-flex size-6 items-center justify-center text-muted-foreground"
