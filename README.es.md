@@ -31,6 +31,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="Interfaz de escritorio de FlareMo en modo claro" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="Interfaz de escritorio de FlareMo en modo oscuro" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="Interfaz móvil de FlareMo" /> |
 
+| ✅ Tareas, proyectos y repaso | 📄 Artículos y publicación |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="Tareas, proyectos y repaso" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="Artículos y publicación" /> |
+
 <sub>Capturas reales de la aplicación: alternancia fluida entre temas claro y oscuro y diseño móvil completamente adaptable. Cada funcionalidad mostrada está conectada al backend.</sub>
 
 </div>
@@ -39,7 +43,7 @@
 
 ## 💡 ¿Por qué elegir FlareMo?
 
-Herramientas como Flomo y Memos han demostrado el inmenso valor de registrar notas sin fricción en una línea de tiempo limpia. Sin embargo, autohospedar un sistema de notas tradicional suele significar pagar un VPS, configurar Docker y PostgreSQL, mantener scripts de respaldo y vivir con el miedo a un fallo de disco o de hardware.
+Registrar notas sin fricción en una línea de tiempo limpia ya ha demostrado su valor. Sin embargo, autohospedar un sistema de notas tradicional suele significar pagar un VPS, configurar Docker y PostgreSQL, mantener scripts de respaldo y vivir con el miedo a un fallo de disco o de hardware.
 
 FlareMo responde a una pregunta más simple: **¿Es posible tener una base de conocimiento en línea las 24 horas, resiliente, con aceleración global y sin mantenimiento de servidores, usando solo una cuenta gratuita de Cloudflare?**
 
@@ -99,7 +103,7 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 ### 8. Compatibilidad con Memos y migración sin costuras
 - **Compatibilidad con la API `/api/v1` de Memos**: Proporciona los endpoints principales de la API de Memos (camelCase por defecto, snake_case heredado vía cabecera) y el esquema OpenAPI.
 - **Listo para apps de terceros**: Funciona directamente con clientes móviles como Moe Memos.
-- **Importación y exportación bidireccionales**: Importación en un clic desde Memos / flomo con estrategias de conflicto y paquetes de exportación completos en formato original.
+- **Importación y exportación bidireccionales**: paquetes de exportación completos, importación en un clic con estrategias de conflicto y un conversor para exportaciones de Memos 0.31 ([guía](./docs/en/import-from-memos.md)).
 
 ---
 

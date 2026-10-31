@@ -43,6 +43,36 @@ const PER_YEAR = 2;
 export const REVIEW_COOLDOWN_DAYS = 30;
 /** Candidate rows read per band; the pick only needs a varied sample. */
 const BAND_SCAN_LIMIT = 400;
+/** "On this day" candidates kept per past year before the seeded pick. */
+const YEAR_SCAN_LIMIT = 50;
+/**
+ * How many past years "on this day" reaches back. Far enough that a decade of
+ * notes is all visible, short enough that the query count stays fixed.
+ */
+export const YEARS_LOOKBACK = 20;
+
+/**
+ * The viewer-local calendar days "on this day" searches: the same month and
+ * day in each of the previous `yearsBack` years. Feb 29 only exists in leap
+ * years, so those years are skipped rather than matched against a day that
+ * never happened.
+ */
+export function onThisDayWindows(
+  date: string,
+  yearsBack = YEARS_LOOKBACK,
+): string[] {
+  const monthDay = date.slice(5);
+  const thisYear = Number(date.slice(0, 4));
+  const days: string[] = [];
+  for (let year = thisYear - 1; year >= thisYear - yearsBack; year -= 1) {
+    const day = `${year}-${monthDay}`;
+    const parsed = new Date(`${day}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) continue;
+    if (parsed.toISOString().slice(0, 10) !== day) continue;
+    days.push(day);
+  }
+  return days;
+}
 /** Seeded candidates per pool checked against excluded tags. */
 const POOL_HEAD = 12;
 
@@ -186,17 +216,26 @@ export async function buildTodayReview(
     notComment(),
   );
   const monthDay = date.slice(5);
-  const [onThisDay, ...bands] = await Promise.all([
+  // One bounded range per past year instead of one scan over every note.
+  // `datetime()` on the column matches the calendar day but cannot use
+  // `memos_user_created_id_idx`; the range can, and the local-day check below
+  // drops the one boundary note a timezone offset can pull in.
+  const onThisDayQueries = onThisDayWindows(date).map((day) =>
     db
       .select({ id: memos.id, createdAt: memos.createdAt })
       .from(memos)
       .where(
         and(
           ownNormal,
-          sql`substr(datetime(${memos.createdAt}, printf('%+d minutes', ${tzOffset})), 6, 5) = ${monthDay}`,
-          lt(memos.createdAt, localDayStartUtc(date, tzOffset)),
+          gte(memos.createdAt, localDayStartUtc(day, tzOffset)),
+          lt(memos.createdAt, localDayStartUtc(shiftDay(day, 1), tzOffset)),
         ),
-      ),
+      )
+      .orderBy(asc(memos.createdAt))
+      .limit(YEAR_SCAN_LIMIT),
+  );
+  const [onThisDayGroups, ...bands] = await Promise.all([
+    Promise.all(onThisDayQueries),
     ...LADDER_BANDS.map(([nearest, furthest]) =>
       db
         .select({ id: memos.id, createdAt: memos.createdAt })
@@ -221,7 +260,7 @@ export async function buildTodayReview(
 
   // Group "on this day" by how many years back, keeping only whole years.
   const years = new Map<number, Candidate[]>();
-  for (const candidate of onThisDay) {
+  for (const candidate of onThisDayGroups.flat()) {
     if (!eligible(candidate)) continue;
     const day = localDayOf(candidate.createdAt, tzOffset);
     if (day.slice(5) !== monthDay) continue;

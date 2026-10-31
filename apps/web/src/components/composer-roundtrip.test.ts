@@ -84,6 +84,21 @@ describe("composer markdown round-trip", () => {
     expect(round("```\nconst x = 1;\n```")).toContain("const x = 1;");
   });
 
+  it("keeps runs of spaces and hash marks through a round trip", () => {
+    // What the card shows is rendered from this stored text, so the editor
+    // must not eat the spaces or the `#` someone typed.
+    for (const sample of [
+      "hello  world",
+      "a    b",
+      "#tag",
+      "text #tag",
+      "C# 语言",
+      "价格是 #1 元",
+    ]) {
+      expect(round(sample)).toBe(sample);
+    }
+  });
+
   it("does not resurrect underline or introduce HTML", () => {
     const once = round("正文 <u>下划线</u> 不放行");
     const twice = round(once);

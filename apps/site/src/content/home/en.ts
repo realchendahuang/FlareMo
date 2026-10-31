@@ -110,8 +110,8 @@ export const EN_HOME: HomeContent = {
       a: "Data is stored on Cloudflare's enterprise-grade distributed infrastructure with multi-region replication. FlareMo also supports one-click exports to standard Memos bundles for regular offline archiving.",
     },
     {
-      q: "Can I migrate from Memos or flomo?",
-      a: "Yes. FlareMo imports ZIP or JSON export bundles from Memos and flomo, preserving timestamps, tags, and content while allowing custom conflict resolution.",
+      q: "Can I migrate from Memos?",
+      a: "Yes. FlareMo imports ZIP or JSON export bundles from Memos, preserving timestamps, tags, and content while allowing custom conflict resolution.",
     },
     {
       q: "Do third-party apps and scripts still work?",

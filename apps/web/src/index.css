@@ -683,6 +683,12 @@ svg.lucide[stroke-width="2"] {
     @apply mt-1;
   }
 
+  /* A note keeps the blank lines its author typed (see remark-literal): each
+     extra one renders as a paragraph whose only child is a break. */
+  .memo-markdown p:has(> br:only-child) {
+    min-height: 1.75rem;
+  }
+
   .memo-markdown h1 {
     @apply text-xl font-semibold tracking-tight;
   }

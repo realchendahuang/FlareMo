@@ -31,6 +31,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="FlareMo 데스크톱 라이트 모드" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="FlareMo 데스크톱 다크 모드" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="FlareMo 모바일 화면" /> |
 
+| ✅ 할 일·프로젝트·돌아보기 | 📄 글과 발행 |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="할 일·프로젝트·돌아보기" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="글과 발행" /> |
+
 <sub>실제 운영 화면 스크린샷: 라이트/다크 모드 매끄러운 전환과 모바일 완전 반응형. 화면에 보이는 모든 기능은 실제로 동작하는 백엔드 기능과 연결되어 있습니다.</sub>
 
 </div>
@@ -39,7 +43,7 @@
 
 ## 💡 왜 FlareMo인가?
 
-Flomo와 Memos 같은 도구들은 부담 없는 메모 기록과 방해받지 않는 타임라인이 지닌 큰 가치를 증명해 왔습니다. 하지만 전통적인 노트 환경을 자체 호스팅하려면 VPS 비용을 지불하고, Docker와 PostgreSQL을 설정하고, 자동 백업 스크립트를 작성·관리하면서 디스크나 하드웨어 고장을 걱정해야 했습니다.
+부담 없는 메모 기록과 방해받지 않는 타임라인의 가치는 이미 충분히 증명되었습니다. 하지만 전통적인 노트 환경을 자체 호스팅하려면 VPS 비용을 지불하고, Docker와 PostgreSQL을 설정하고, 자동 백업 스크립트를 작성·관리하면서 디스크나 하드웨어 고장을 걱정해야 했습니다.
 
 FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하나만으로, 서버 유지보수 없이 24시간 온라인으로 살아있고 전 세계에서 가속되는 지식 베이스를 만들 수 없을까?**
 
@@ -99,7 +103,7 @@ FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하�
 ### 8. Memos 호환 & 매끄러운 이전
 - **Memos `/api/v1` 호환**: 핵심 Memos API 엔드포인트(기본 camelCase, 헤더로 legacy snake_case)와 OpenAPI 스키마를 제공합니다.
 - **서드파티 앱 대응**: Moe Memos 같은 모바일 클라이언트에서 바로 연결할 수 있습니다.
-- **양방향 가져오기/내보내기**: Memos / flomo에서 충돌 처리 전략과 함께 원클릭 가져오기, 전체 원본 내보내기 번들을 지원합니다.
+- **양방향 가져오기/내보내기**: 전체 원본 내보내기, 충돌 처리 전략이 있는 원클릭 가져오기, Memos 0.31 내보내기 변환 스크립트([가이드](./docs/en/import-from-memos.md))를 지원합니다.
 
 ---
 

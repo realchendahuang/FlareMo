@@ -15,6 +15,11 @@ import remarkGfm from "remark-gfm";
 import { useI18n } from "@/i18n";
 import { createSlugger } from "@/lib/markdown-outline";
 import { memoTaskLines } from "@/lib/memo-tasks";
+import {
+  protectLiteralLayout,
+  remarkLiteralBreaks,
+  remarkLiteralHashes,
+} from "@/lib/remark-literal";
 import { mentionFromHref, remarkTags, tagFromHref } from "@/lib/remark-tags";
 import {
   isTimestampHref,
@@ -149,6 +154,9 @@ export const MemoContent = memo(function MemoContent({
   // Transcript bodies rewrite clock markers into `#flaremo-t=` links before
   // parsing; prose without markers passes through untouched.
   const body = onTimestampClick ? toTimestampHrefMarkdown(content) : content;
+  // Articles pass rehype plugins and are typeset as documents. A note is a
+  // record, so its blank lines, indentation and lone `#` survive Markdown.
+  const source = rehypePlugins ? body : protectLiteralLayout(body);
   const slug = withHeadingIds ? createSlugger() : undefined;
   const interactiveTasks = Boolean(onToggleTask || onConvertTask);
 
@@ -339,10 +347,20 @@ export const MemoContent = memo(function MemoContent({
           },
         }}
         rehypePlugins={rehypePlugins}
-        remarkPlugins={[remarkGfm, remarkBreaks, remarkTags]}
+        remarkPlugins={
+          rehypePlugins
+            ? [remarkGfm, remarkBreaks, remarkTags]
+            : [
+                remarkGfm,
+                remarkLiteralBreaks,
+                remarkBreaks,
+                remarkLiteralHashes,
+                remarkTags,
+              ]
+        }
         skipHtml
       >
-        {body}
+        {source}
       </Markdown>
     </div>
   );

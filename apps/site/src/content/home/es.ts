@@ -111,7 +111,7 @@ export const ES_HOME: HomeContent = {
       a: "Están almacenados en la infraestructura global de Cloudflare. Además, puedes exportar una copia completa en formato Memos cuando desees.",
     },
     {
-      q: "¿Puedo migrar desde Memos o flomo?",
+      q: "¿Puedo migrar desde Memos?",
       a: "Sí, sube tu archivo ZIP o JSON de exportación para importar todo conservando fechas, etiquetas y contenido.",
     },
     {

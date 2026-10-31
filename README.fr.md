@@ -31,6 +31,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="Interface FlareMo thème clair" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="Interface FlareMo thème sombre" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="Interface mobile FlareMo" /> |
 
+| ✅ Tâches, projets et relecture | 📄 Articles et publication |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="Tâches, projets et relecture" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="Articles et publication" /> |
+
 <sub>Captures réelles d'utilisation : transition fluide entre modes clair et sombre, design mobile entièrement réactif. Toutes les fonctionnalités présentées sont reliées au backend.</sub>
 
 </div>
@@ -39,7 +43,7 @@
 
 ## 💡 Pourquoi choisir FlareMo ?
 
-Les outils comme Flomo ou Memos ont démontré la puissance d'une capture d'idées fluide et d'un fil chronologique sans distraction. Cependant, auto-héberger un système traditionnel implique souvent de payer un VPS chaque mois, de configurer Docker et PostgreSQL, d'écrire des scripts de sauvegarde et de redouter la panne d'un disque dur.
+La capture d'idées fluide et le fil chronologique sans distraction ont prouvé leur valeur. Auto-héberger un système traditionnel implique pourtant souvent de payer un VPS chaque mois, de configurer Docker et PostgreSQL, d'écrire des scripts de sauvegarde et de redouter la panne d'un disque dur.
 
 FlareMo répond à une question plus simple : **Peut-on obtenir une base de connaissances en ligne 24h/24, résiliente, accélérée mondialement et sans maintenance de serveur, simplement avec un compte gratuit Cloudflare ?**
 
@@ -99,7 +103,7 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 ### 8. Compatibilité Memos & Migration sans friction
 - **Compatibilité `/api/v1` de Memos** : Fournit les principaux endpoints de l'API Memos (camelCase par défaut, snake_case historique via en-tête) et le schéma OpenAPI.
 - **Prêt pour les applications tierces** : Fonctionne directement avec des clients mobiles comme Moe Memos.
-- **Import / Export bidirectionnel** : Import en un clic depuis Memos / flomo avec stratégies de gestion des conflits et paquets d'export brut complets.
+- **Import / Export bidirectionnel** : paquets d'export brut complets, import en un clic avec stratégies de conflit, et un convertisseur pour les exports Memos 0.31 ([guide](./docs/en/import-from-memos.md)).
 
 ---
 

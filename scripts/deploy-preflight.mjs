@@ -7,7 +7,43 @@
 // deploy (docs/deploy.md). Hard-failing there broke every automated first
 // deploy in v0.15.0, so CI (`CI=true`) only gets a warning; local deploys
 // keep the gate.
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+
 const isCi = process.env.CI === "true" || process.env.CI === "1";
+
+// `wrangler.jsonc` is gitignored because it carries a real account id, so a
+// clean checkout (Workers Builds, a fresh clone) does not have it. Without
+// this check the deploy died later on wrangler's bare ENOENT, which said
+// nothing about what to set. A build environment that provides the inputs
+// gets the file generated; a local operator gets the two commands that
+// produce one.
+if (!existsSync("wrangler.jsonc")) {
+  const canGenerate = Boolean(
+    process.env.WRANGLER_JSONC?.trim() ||
+      process.env.FLAREMO_PUBLIC_URL?.trim() ||
+      process.env.FLAREMO_D1_DATABASE_ID?.trim(),
+  );
+  if (!canGenerate) {
+    console.error(
+      [
+        "wrangler.jsonc is missing, so there is nothing to deploy.",
+        "",
+        "Local deploy:",
+        "  cp wrangler.jsonc.example wrangler.jsonc",
+        "  pnpm provision:remote   # creates D1/R2/Queue/Vectorize and writes the D1 id back",
+        "",
+        "Workers Builds / CI: set FLAREMO_PUBLIC_URL as a build environment",
+        "variable, plus FLAREMO_D1_DATABASE_ID or a full WRANGLER_JSONC; this",
+        "preflight then writes wrangler.jsonc from wrangler.jsonc.example.",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+  execFileSync(process.execPath, ["scripts/write-wrangler-config.mjs"], {
+    stdio: "inherit",
+  });
+}
 const secret = process.env.BETTER_AUTH_SECRET?.trim();
 
 let problem;

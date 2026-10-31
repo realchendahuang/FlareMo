@@ -14,6 +14,27 @@ FlareMo 部署到 Cloudflare Workers。Worker 同时承载前端静态资源和 
 
 手动部署仍是受支持的完整路径，按钮流程更适合快速试用。
 
+## Cloudflare Workers Builds（原生构建）
+
+不经过 Deploy 按钮、自己把仓库接到 Workers Builds 时，在 Worker 的
+Settings → Build 里填：
+
+- **Build command**：`pnpm run build`
+- **Deploy command**：`pnpm run deploy`
+- **Build variables**：
+  - `FLAREMO_PUBLIC_URL`：你的公开 origin（必填，例如 `https://notes.example.com`，不要带路径）
+  - `FLAREMO_D1_DATABASE_ID`：已有 D1 的 UUID；留空则保留模板里的占位 ID
+  - 或者用 `WRANGLER_JSONC` 直接提供整份 `wrangler.jsonc`
+
+仓库不跟踪 `wrangler.jsonc`，因为它带着真实的 account id 和 D1 id，干净的
+checkout 里没有这个文件。`pnpm deploy` 的 preflight 会在文件缺失时用上面的
+变量从 `wrangler.jsonc.example` 生成；一个变量都没设置时，它会直接列出需要
+补的配置，而不是让 wrangler 报 `ENOENT: wrangler.jsonc`。
+
+`BETTER_AUTH_SECRET` 不要放进构建变量：CI 环境里 preflight 只给出警告，
+正式 secret 应在首次发布后用 `wrangler secret put BETTER_AUTH_SECRET`
+写入 Worker。
+
 ## GitHub Action 手动部署（自托管 fork）
 
 自己的 fork 或部署仓库可以使用 `.github/workflows/deploy-cloudflare.yml`：在 Actions 里手动 `Run workflow`，创建缺失的 D1 / R2 / Queue / Vectorize，发布 Worker，并把仓库 Secrets 里的 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 同步到 Cloudflare。push 不会自动发布；上游 `realchendahuang/FlareMo` 不会跑这个 job。

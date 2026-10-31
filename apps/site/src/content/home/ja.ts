@@ -109,7 +109,7 @@ export const JA_HOME: HomeContent = {
       a: "データはCloudflareの分散基盤で冗長化保管されます。さらに標準Memos形式でワンクリック完全バックアップも可能です。",
     },
     {
-      q: "Memosやflomoから移行できる？",
+      q: "Memosから移行できる？",
       a: "はい。ZIPまたはJSONエクスポートファイルをアップロードするだけで、タグや作成日を保持したまま移行できます。",
     },
     {

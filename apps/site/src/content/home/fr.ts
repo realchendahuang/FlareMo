@@ -110,7 +110,7 @@ export const FR_HOME: HomeContent = {
       a: "Elles sont stockées sur l'infrastructure robuste de Cloudflare. Vous pouvez également exporter une sauvegarde complète Memos à tout moment.",
     },
     {
-      q: "Puis-je migrer depuis Memos ou flomo ?",
+      q: "Puis-je migrer depuis Memos ?",
       a: "Oui, chargez simplement votre fichier d'exportation ZIP ou JSON pour tout importer avec conservation des dates et étiquettes.",
     },
     {

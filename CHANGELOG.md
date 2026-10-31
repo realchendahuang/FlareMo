@@ -6,6 +6,14 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 **新增 migration `0039_memo_review_marks`（只加一张表，向后兼容）与 `0040_memory_core_rules_locked`（只改数据），无 Cloudflare 资源变化，Memos 兼容面不变。**
 
+- **记录按写下的样子显示**（issue #157）：此前记录按 Markdown 排版，连续空行被折成一段间距，单独一行的 `#` 被当成空标题消失，行首缩进被去掉，保存后再打开就对不上写下时的样子。现在记录、评论与详情页保留这些：多出的每个空行仍占一行，`#`、`## #` 这类没有正文的标题按原字符显示，行首缩进保留且不会被误当成代码块。真正的标题、列表、任务、引用、代码块和标签不受影响。文章是排版过的文档，不在此列。
+- **今日回顾不再整表扫描**：`GET /api/app/review/today` 的「往年今天」此前用 `datetime()` 包住 `created_at` 比较月日，扫过该用户的全部记录且无法用索引。现改为往前 20 年、每年一个有界的日期范围（走 `memos_user_created_id_idx`，每年最多 50 条），2 月 29 日只匹配真正有这一天的年份。选出的记录与原来一致。
+- **小时活跃度改读聚合表**：日、周、月视图的 `GET /api/app/stats/hourly` 此前按请求区间分组扫描 `memos`。现改为读 `memo_hourly_counts`（与日热力图同一个计数），按 UTC 小时换算回本地小时。请求跨度限制在 31 天以内，更长的区间返回 400。计数口径不变：正常与已归档的记录，不含评论。
+- **宣传文案不再提及 flomo**：README 八个语言版本与官网首页去掉了对 flomo 的点名。导入实际只接受 Memos 导出的数据包，原文案与实现不符。
+- **从 Memos 0.31 迁移**：新增 `scripts/migrate-memos-export.mjs`，把 Memos 的 ZIP 导出（manifest + 每条记录 JSON + Markdown 正文 + 附件）转成 FlareMo「导入」接受的 JSON 包，含附件字节、时间戳、置顶与可见性映射；Space 记录收紧为仅自己可见，评论按独立记录导入。教程见 `docs/import-from-memos.md`（英文版 `docs/en/import-from-memos.md`），README 八个语言版本的导入说明同步改写并加链接。
+- **Workers Builds 缺配置不再只报 ENOENT**（issue #151）：`pnpm deploy` 的 preflight 发现根目录没有 `wrangler.jsonc` 时，会按 `FLAREMO_PUBLIC_URL` / `FLAREMO_D1_DATABASE_ID` / `WRANGLER_JSONC` 自动从模板生成；一个都没有时直接列出「复制模板 + provision」或「设置构建变量」两条路径。`docs/deploy.md` 新增 Workers Builds 小节。
+- **README 截图重拍**：八种语言共用的桌面明色、桌面暗色、移动端三张换成当前界面（Ember 3、侧栏与页头新分工），新增待办看板与文章列表两张功能截图；图片体积从约 1MB 降到 70KB 左右。
+
 - **记忆页重做**：
   - 「随身小抄」此前每次打开都报错（前端没传必填的 `agent`，还把返回的对象当字符串用），现已修好：显示 Agent 通过 MCP 实际拿到的那份内容、带上几条、约多少 tokens、因篇幅没带上的条目，可以切换到某个项目里看。
   - 「铁律」只认已锁定（`verification=locked`）的记忆，与编译器和 Agent 的规则一致。此前菜单里「钉住」只锁定、不进「铁律」筛选；编辑弹窗的「铁律」开关只改 `tier`、实际并不锁定。现在开关就是锁定/解锁，锁定时 `tier` 同步为 core。migration `0040` 把用户自己写的、`tier=core` 但未锁定的有效记忆补成锁定。

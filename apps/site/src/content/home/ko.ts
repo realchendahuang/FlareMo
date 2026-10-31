@@ -109,7 +109,7 @@ export const KO_HOME: HomeContent = {
       a: "Cloudflare의 글로벌 분산 인프라에 안전하게 다중 복제됩니다. 또한 언제든 표준 Memos 패키지로 전체 오프라인 백업이 가능합니다.",
     },
     {
-      q: "Memos나 flomo에서 가져올 수 있나요?",
+      q: "Memos에서 가져올 수 있나요?",
       a: "네, 내보낸 ZIP이나 JSON 파일을 업로드하면 날짜, 태그, 본문 손실 없이 한 번에 가져올 수 있습니다.",
     },
     {

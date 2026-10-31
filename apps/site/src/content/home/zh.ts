@@ -42,9 +42,9 @@ export const ZH_HOME: HomeContent = {
         "把便签发到团队，在原帖下评论、@ 彼此——用来分享，不做项目协作。Owner / Admin / Member 三种角色，私密、团队可见、公开三档可见性，成员离开时私密数据彻底清理。",
     },
     {
-      title: "全面兼容 Memos 与 flomo",
+      title: "全面兼容 Memos",
       description:
-        "完整实现 Memos /api/v1 核心接口与 OpenAPI 规范，支持第三方客户端直接连接，Memos/flomo 数据一键无损导入导出。",
+        "完整实现 Memos /api/v1 核心接口与 OpenAPI 规范，支持第三方客户端直接连接，Memos 数据一键无损导入导出。",
     },
     {
       title: "便签、长文与待办",
@@ -109,8 +109,8 @@ export const ZH_HOME: HomeContent = {
       a: "记录保存在 Cloudflare 企业级分布式基础设施中，自带跨地域冗余持久化，不会因单点硬件故障丢失。同时 FlareMo 支持一键导出标准 Memos 格式备份包，随时可本地离线归档形成双重保障。",
     },
     {
-      q: "能从 Memos 或 flomo 搬家过来吗？",
-      a: "可以。FlareMo 支持导入 Memos 和 flomo 导出的 ZIP 或 JSON 格式数据包，导入时可自由配置冲突策略，时间戳、标签与正文完整保留。",
+      q: "能从 Memos 搬家过来吗？",
+      a: "可以。FlareMo 支持导入 Memos 导出的 ZIP 或 JSON 格式数据包，导入时可自由配置冲突策略，时间戳、标签与正文完整保留。",
     },
     {
       q: "现有的第三方 App 和自动化脚本还能用吗？",

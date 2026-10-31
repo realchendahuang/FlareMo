@@ -31,6 +31,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="FlareMo 桌面端浅色界面" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="FlareMo 桌面端深色界面" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="FlareMo 移动端界面" /> |
 
+| ✅ 待办、项目与回顾 | 📄 文章与发布 |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="待办、项目与回顾" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="文章与发布" /> |
+
 <sub>真实运行界面：支持深浅主题无缝切换与全功能移动端自适应。所有展示功能均已稳定接入后端，不放未实现的占位按钮。</sub>
 
 </div>
@@ -39,7 +43,7 @@
 
 ## 💡 为什么选择 FlareMo
 
-Flomo 和 Memos 证明了「快速捕捉 + 流式时间线」这种无压力记录体验的巨大价值。但自部署传统的笔记系统通常意味着：你需要一台按月付费的 VPS、安装并配置 Docker / Postgres、编写定时备份脚本，还要时刻提防硬盘损坏或硬件故障导致的数据损失。
+「快速捕捉 + 流式时间线」这种无压力记录体验的价值已经得到证明。但自部署传统的笔记系统通常意味着：你需要一台按月付费的 VPS、安装并配置 Docker / Postgres、编写定时备份脚本，还要时刻提防硬盘损坏或硬件故障导致的数据损失。
 
 FlareMo 回答了一个更简单的问题：**仅凭一个免费的 Cloudflare 账号、零服务器维护，你能拥有一个 7×24 小时在线、有韧性、全球加速的知识库吗？**
 
@@ -99,7 +103,7 @@ FlareMo 回答了一个更简单的问题：**仅凭一个免费的 Cloudflare �
 ### 8. Memos 兼容与无缝迁移
 - **Memos `/api/v1` 兼容**：提供核心 Memos API 端点（默认 camelCase，经请求头可切换 legacy snake_case）与 OpenAPI 契约。
 - **第三方客户端开箱即用**：直接兼容 Moe Memos 等移动端客户端。
-- **双向导入导出**：从 Memos / flomo 一键导入（带冲突处理策略），并支持全量原始数据导出包。
+- **双向导入导出**：全量原始数据导出包、带冲突处理策略的一键导入，并提供 Memos 0.31 导出包的转换脚本（[指南](./docs/import-from-memos.md)）。
 
 ---
 
