@@ -8,7 +8,7 @@
  * startup graph.
  */
 
-export const FLAREMO_API_VERSION = "0.23.0";
+export const FLAREMO_API_VERSION = "0.24.0";
 
 // Streaming capture (16 kHz mono s16le).
 export const CAPTURE_SAMPLE_RATE = 16_000;
