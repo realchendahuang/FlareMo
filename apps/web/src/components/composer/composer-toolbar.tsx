@@ -1,12 +1,12 @@
 import type { Editor } from "@tiptap/react";
 import {
   BoldIcon,
-  FilePenLineIcon,
   HashIcon,
   ImagePlusIcon,
   ListIcon,
   ListOrderedIcon,
   ListTodoIcon,
+  Maximize2Icon,
   MicIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -63,7 +63,7 @@ export function ComposerToolbar({
   onAddFiles: (files: File[]) => void;
   /** Starts a session; the caller owns the controller. */
   onStartVoice: () => void;
-  /** Opens the long-form (article) canvas. */
+  /** Opens the full-screen focus canvas for the same note. */
   onExpand?: () => void;
   /** The draft's reminder day / project; see `MemoSchedule`. */
   schedule?: MemoSchedule;
@@ -205,7 +205,7 @@ export function ComposerToolbar({
               void loadComposerFocusCanvas();
             }}
           >
-            <FilePenLineIcon />
+            <Maximize2Icon />
           </ToolButton>
         </>
       )}

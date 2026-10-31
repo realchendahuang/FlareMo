@@ -56,7 +56,16 @@ export function WorkspacePageHeader({
               item keeps its content width and `truncate` on the h1 has nothing
               to shrink into, so a long title ran under the actions. */}
           <div className="flex min-w-0 items-center gap-2 px-1">
-            {icon}
+            {/* Ink, not flame: the sidebar row already says where you are
+                in color; the title repeats it quietly. */}
+            {icon ? (
+              <span
+                aria-hidden="true"
+                className="flex shrink-0 text-muted-foreground [&_svg]:size-4 [&_svg]:text-current!"
+              >
+                {icon}
+              </span>
+            ) : null}
             <h1 className="min-w-0 truncate text-[15px] leading-none font-semibold tracking-tight">
               {title}
             </h1>

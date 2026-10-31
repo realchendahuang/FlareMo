@@ -140,18 +140,19 @@ export function MonthHorizonPureView({
           const [q0, q1, q2, q3] = dayQuadrants.get(cell.key) ?? [0, 0, 0, 0];
 
           // ── 100% 对齐年视图：统一采用相同的质感与深浅阶梯 ──
-          // Ember 2 heat: empty days carry no fill at all; activity is a
-          // tint ramp of the primary, solid only for the busiest days.
+          // Ember 3 heat: the tint carries the activity, the figure stays
+          // ink (red numerals on every busy day read as alarms). Only the
+          // busiest step is solid, with its own foreground.
           const activityStyle =
             totalCount <= 0
               ? "text-foreground/70 hover:bg-muted"
               : totalCount === 1
-                ? "bg-primary/12 text-brand-700 hover:bg-primary/18 dark:bg-primary/16 dark:text-brand-200"
+                ? "bg-primary/10 text-foreground hover:bg-primary/16 dark:bg-primary/14"
                 : totalCount === 2
-                  ? "bg-primary/24 text-brand-700 hover:bg-primary/30 dark:bg-primary/28 dark:text-brand-100"
+                  ? "bg-primary/20 text-foreground hover:bg-primary/26 dark:bg-primary/24"
                   : totalCount <= 4
-                    ? "bg-primary/45 text-brand-700 hover:bg-primary/52 dark:bg-primary/50 dark:text-white"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90";
+                    ? "bg-primary/36 text-foreground hover:bg-primary/42 dark:bg-primary/40"
+                    : "bg-primary font-medium text-primary-foreground hover:bg-primary/90";
           return (
             <button
               className={cn(

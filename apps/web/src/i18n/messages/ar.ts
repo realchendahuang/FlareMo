@@ -1231,7 +1231,7 @@ const messages = {
     "عند الإرسال تصبح كل مهمة غير مُنجزة مهمةً مستقلة؛ والملاحظة بلا مهام تصبح مهمة واحدة. نذكّرك في يومها.",
   "composer.schedule.taskCount": "{count} مهمة",
   "composer.schedule.noTasks": "لا توجد مهام مفتوحة",
-  "composer.longform": "اكتب مقالًا",
+  "composer.longform": "الكتابة بملء الشاشة",
   "toast.scheduledTasks": "حُفظت، وجُدولت {count} مهمة",
   "toast.scheduleFailed": "حُفظت الملاحظة لكن لم تُنشأ مهامها. حوّلها من البطاقة.",
   "toast.tooManyMemoImages":

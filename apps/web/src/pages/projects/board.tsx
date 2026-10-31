@@ -100,10 +100,7 @@ export function Board({
     return (
       <Empty className="min-h-56 border">
         <EmptyHeader>
-          <EmptyMedia
-            className="bg-accent text-accent-foreground"
-            variant="icon"
-          >
+          <EmptyMedia variant="icon">
             <ListChecksIcon />
           </EmptyMedia>
           <EmptyTitle>

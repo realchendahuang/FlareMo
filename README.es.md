@@ -55,7 +55,7 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 
 ### 1. Captura instantánea y revisión que inspira
 - **Captura en milisegundos**: Línea de tiempo en tarjetas, etiquetas, Markdown/GFM y vista previa de imágenes y audios adjuntos.
-- **Notas y textos largos**: El editor sigue siendo una nota rápida (etiquetas, hasta 9 imágenes, negrita, listas, pendientes); «Escribir texto largo» abre un lienzo a pantalla completa para artículos.
+- **Notas y artículos**: El editor sigue siendo una nota rápida (etiquetas, hasta 9 imágenes, negrita, listas, pendientes); «Escribir a pantalla completa» abre la misma nota en un lienzo a pantalla completa. Los artículos se escriben desde la página Artículos.
 - **Comentarios bajo la nota**: Comenta cualquier nota, en tu espacio personal o en el del equipo, como en Weibo. Los comentarios viven bajo la nota original y quedan fuera de la línea de tiempo, la búsqueda, las estadísticas, las etiquetas y la revisión.
 - **Búsqueda ultrarrápida**: Indexación de texto completo SQLite FTS5 con operadores de consulta (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Búsqueda semántica («Find» vectorial)**: Embeddings de Workers AI combinados con índices vectoriales derivados de Vectorize para recordar por contexto; revalida permisos contra D1 y degrada con elegancia a FTS5.

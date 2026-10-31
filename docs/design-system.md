@@ -6,6 +6,22 @@ FlareMo 的视觉语言叫 Ember：界面保持安静，暖调中性色承担约
 
 Ember 2（2026-10）在此基础上收紧了三件事：**墨色是默认、火焰色是强调**（默认按钮、激活的筛选 chip 用墨色，每屏唯一的主 CTA 才用火焰色）；**纸张层级代替彩色高亮**（侧栏/设置的激活项是一张浮起的纸片：卡片底 + 发丝环 + xs 阴影，图标染火焰色，不再整行铺品牌浅底）；**更精确的形状**（圆角整体收小，控件 10px、卡片 14px、弹窗 18px）。
 
+Ember 3（2026-10-31）把这套规则落到基础层，让组件不必各自记住：
+
+- **`accent` 是中性色**：菜单焦点、命令面板选中、行 hover、空状态图标底都用它（暖灰，不再是品牌浅底）。需要品牌暗示的地方直接用 `primary/10` 一类的 tint，并且只用在小面积状态上。
+- **页面标题图标是墨色**：`WorkspacePageHeader` 会把传入的图标统一染成 `muted-foreground`。位置由侧栏激活行的火焰色图标表达，标题不再重复。
+- **热力图数字保持墨色**：活跃度只由底色深浅表达，只有最高一档是实色加 `primary-foreground`。
+- **空状态图标是一张小纸片**：`EmptyMedia variant="icon"` 为 40px、`rounded-xl`、卡片底、发丝环、`shadow-sm`，图标 18px 墨灰。页面不要再覆盖它的底色（错误态的 destructive tint 除外）。
+- **键帽统一用 `Kbd`**（`components/ui/kbd.tsx`），不要手写 `<kbd>` 样式。
+- **页头搜索框统一用 `HEADER_SEARCH_FIELD_CLASS`**（`components/search-field-styles.ts`）。
+- **发送按钮统一用 `SendButton`**（`components/composer/send-button.tsx`），时间线、全屏书写、记忆三处一致：没内容时是灰色圆盘，有内容时点亮渐变。
+- **中英混排**：`html` 开启 `text-autospace: normal` 与 `text-spacing-trim: normal`，汉字与拉丁字母、数字之间自动留出细空（作者手打的空格不会叠加），行首全角标点自动挤压。不支持的浏览器保持原样。
+
+## 产品结构（Ember 3 同期定案）
+
+- **搜索只有一个入口**：⌘K 命令面板。宽屏页头是一个输入框形状的按钮，窄屏是放大镜图标，两者打开同一个面板；已生效的查询显示在输入框里（窄屏图标上有一个小圆点），并由时间线上方的筛选条承担清除。时间线里不再放第二个搜索框。
+- **文章只从「文章」页开始写**。输入框的全屏按钮（`composer.longform`，「全屏书写」）打开的是同一条记录的全屏版本，没有标题栏，也不提供「转成文章」。
+
 ## 色彩
 
 所有 token 定义在 `apps/web/src/index.css`，用 oklch 书写，`.dark` 类切换暗色。
@@ -15,7 +31,7 @@ Ember 2（2026-10）在此基础上收紧了三件事：**墨色是默认、火�
 - 语义色：`primary` / `secondary` / `muted` / `accent` / `destructive` / `success` / `warning` / `info` 及各自的 `-foreground`。
 - 状态色有两种文字 token：`-foreground` 只用于**实心底**上的文字（暗色下是深色）；**浅色底（10% 左右 tint）**上的文字用 `success-emphasis` / `warning-emphasis` / `info-emphasis`，两套主题都保证可读。提示条用 `Alert` 的 `warning` / `success` / `info` / `destructive` 变体，状态徽标用 `Badge` 的 `success` / `warning` / `info` 变体；不要再手写 `amber-*` / `emerald-*` / `blue-*` 等原始色板类。原始色板只允许出现在纯装饰处（头像哈希配色、外观设置的主题预览色块）。
 - 品牌渐变 `--gradient-brand`(Tailwind 类 `bg-brand-gradient`）只允许出现在：logo、composer 发送按钮（`Button variant="gradient"`）、置顶记录的内嵌指示条、认证页品牌区的短横线。其余主 CTA 一律用实色 `brand`。
-- hover 用暖调 `muted`；`accent`（品牌浅底）只留给少数需要品牌暗示的小面积状态（如铁律开关），不用于导航激活态。
+- hover 用暖调 `muted`；`accent` 在 Ember 3 已是中性色（见上），可以放心用于 hover 与选中。
 
 ## 纸张质感（Paper）
 
@@ -59,6 +75,8 @@ Ember 2（2026-10）在此基础上收紧了三件事：**墨色是默认、火�
 ## 动效
 
 token:`animate-rise`(200ms expo 入场）、`animate-fade`(140ms)、`animate-scale-in`(140ms spring，小元素）、`animate-shimmer`（骨架屏）。
+
+时长只有三档（`:root` 的 `--duration-fast` 120ms / `--duration-overlay` 160ms / `--duration-surface` 220ms）：交互反馈、浮层（菜单、tooltip）、表面（弹窗、抽屉、页面入场）。浮层入场统一为淡入加缩放到 97%（`zoom-in-97`），位移 4px（`slide-in-from-*-1`）；全屏书写画布用 98%。不要再用 shadcn 默认的 95% 与 8px，那个幅度在小菜单上显得发飘。
 
 规则：
 

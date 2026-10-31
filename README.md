@@ -55,7 +55,7 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 
 ### 1. Instant Capture & Inspiring Review
 - **Capture in milliseconds**: Card-style timeline, tags, Markdown/GFM, and previews for image and audio attachments.
-- **Notes and long-form**: The composer stays a quick note (tags, up to 9 images, bold, lists, to-dos); "Write long-form" opens a full-screen canvas for articles.
+- **Notes and articles**: The composer stays a quick note (tags, up to 9 images, bold, lists, to-dos); "Write full screen" opens the same note in a full-screen canvas. Articles are written from the Articles page.
 - **Comments under the note**: Comment on any note, in your personal space or the team space, Weibo-style. Comments live under the original note and stay out of the timeline, search, stats, tags, and review.
 - **Lightning-fast search**: SQLite FTS5 full-text indexing with query operators (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Semantic "Find" (Vector Search)**: Workers AI embeddings paired with Vectorize derived vector indexes for contextual recall; re-verifies permissions against D1 and seamlessly falls back to FTS5.

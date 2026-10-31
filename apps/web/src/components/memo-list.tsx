@@ -446,10 +446,7 @@ export const MemoList = memo(function MemoList({
     return (
       <Empty className="min-h-64 text-muted-foreground motion-safe:animate-rise">
         <EmptyHeader>
-          <EmptyMedia
-            className="bg-accent text-accent-foreground"
-            variant="icon"
-          >
+          <EmptyMedia variant="icon">
             {onClearFilters ? (
               <SearchIcon />
             ) : emptyIcon === "archived" ? (

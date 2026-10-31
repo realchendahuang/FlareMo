@@ -78,15 +78,20 @@ export function WorkspaceHeader({
           />
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* One search everywhere: the same palette behind a field on wide
+              screens and an icon on narrow ones. */}
           <SpotlightSearchTrigger
             className="hidden md:flex"
             onClick={() => setSpotlightOpen(true)}
             activeQuery={activeQuery}
             onClear={() => setQuery("")}
           />
-          {/* Small screens search from the box above the timeline, which
-              also carries the semantic toggle; a second icon here was a
-              duplicate way into the same thing. */}
+          <SpotlightSearchTrigger
+            compact
+            className="md:hidden"
+            onClick={() => setSpotlightOpen(true)}
+            activeQuery={activeQuery}
+          />
         </div>
       </div>
     </header>

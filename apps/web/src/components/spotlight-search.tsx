@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import { listMemos, type Memo, type Task } from "@/api";
+import { HEADER_SEARCH_FIELD_CLASS } from "@/components/search-field-styles";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -26,6 +27,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { formatMemoRelativeTime, memoExcerpt } from "@/lib/memo";
@@ -269,7 +271,7 @@ export function SpotlightSearch({
         showCloseButton={false}
         // gap-0: the dialog's own gap-4 stacked 16px of dead air above and
         // below the result list.
-        className="top-[20%] translate-y-0 w-full max-w-lg gap-0 overflow-hidden rounded-xl border border-border/60 bg-popover/95 p-0 shadow-lg backdrop-blur-xl sm:max-w-xl"
+        className="top-[12%] w-full max-w-[min(32rem,calc(100%-1.5rem))] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:top-[18%] sm:max-w-xl"
       >
         <DialogTitle className="sr-only">{t("common.search")}</DialogTitle>
 
@@ -343,7 +345,7 @@ export function SpotlightSearch({
         </div>
 
         {/* Results / Suggestions List */}
-        <div className="max-h-[380px] overflow-y-auto p-2 divide-y divide-border/20">
+        <div className="max-h-[min(380px,50vh)] overflow-y-auto p-1.5">
           {actionItems.length > 0 ? (
             <div className="flex flex-col gap-0.5">
               {actionItems.map((item, idx) => {
@@ -356,25 +358,25 @@ export function SpotlightSearch({
                     onClick={item.onExecute}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors cursor-pointer",
+                      "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors duration-100",
                       isSelected
-                        ? "bg-accent text-accent-foreground shadow-2xs"
-                        : "text-foreground hover:bg-accent/50",
+                        ? "bg-accent text-accent-foreground"
+                        : "text-foreground",
                     )}
                   >
                     <div
                       className={cn(
-                        "flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/40",
+                        "flex size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-100",
                         isSelected
-                          ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground",
+                          ? "bg-card text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted"
+                          : "bg-muted/70 text-muted-foreground",
                       )}
                     >
                       <Icon className="size-3.5" />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium leading-snug">
+                      <p className="truncate text-sm leading-snug">
                         {item.title}
                       </p>
                       {item.subtitle && (
@@ -385,7 +387,12 @@ export function SpotlightSearch({
                     </div>
 
                     {item.type === "action" && (
-                      <ArrowRightIcon className="size-3.5 shrink-0 text-muted-foreground/60" />
+                      <ArrowRightIcon
+                        className={cn(
+                          "size-3.5 shrink-0 text-muted-foreground/60 transition-opacity duration-100",
+                          isSelected ? "opacity-100" : "opacity-0",
+                        )}
+                      />
                     )}
                   </button>
                 );
@@ -400,25 +407,19 @@ export function SpotlightSearch({
         </div>
 
         {/* Footer shortcuts hint */}
-        <div className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span>
-              <kbd className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono">
-                ↑↓
-              </kbd>{" "}
+        <div className="flex items-center justify-between border-t border-border/50 px-3.5 py-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5">
+              <Kbd>↑↓</Kbd>
               {t("search.navigateHint")}
             </span>
-            <span>
-              <kbd className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono">
-                ↵
-              </kbd>{" "}
+            <span className="inline-flex items-center gap-1.5">
+              <Kbd>↵</Kbd>
               {t("search.selectHint")}
             </span>
           </div>
-          <span>
-            <kbd className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono">
-              esc
-            </kbd>{" "}
+          <span className="inline-flex items-center gap-1.5">
+            <Kbd>esc</Kbd>
             {t("common.cancel")}
           </span>
         </div>
@@ -428,67 +429,89 @@ export function SpotlightSearch({
 }
 
 /**
- * Clean trigger button for the header:
- * Renders `[ 🔍 搜索记录… ⌘K ]` (or active query)
+ * The one way into search, everywhere: a field-shaped button on wide
+ * screens, an icon button on narrow ones. Both open the same palette; an
+ * applied query shows in the field (with its own clear control) and as a
+ * dot on the icon, so the timeline never looks unfiltered while it is.
  */
 export function SpotlightSearchTrigger({
   onClick,
   activeQuery,
   onClear,
   className,
+  compact = false,
 }: {
   onClick: () => void;
   activeQuery?: string;
   onClear?: () => void;
   className?: string;
+  /** Icon-only trigger for the mobile top bar. */
+  compact?: boolean;
 }) {
   const { t } = useI18n();
 
-  if (activeQuery) {
+  if (compact) {
     return (
-      <div
-        className={cn(
-          "flex h-8.5 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 text-xs text-primary shadow-2xs",
-          className,
-        )}
+      <Button
+        aria-label={t("search.triggerPlaceholder")}
+        className={cn("relative text-muted-foreground", className)}
+        size="icon"
+        title={t("search.triggerPlaceholder")}
+        type="button"
+        variant="ghost"
+        onClick={onClick}
       >
-        <SearchIcon className="size-3.5 shrink-0" />
-        <span className="min-w-0 max-w-[120px] truncate font-medium">
-          {activeQuery}
-        </span>
-        {onClear && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
-            className="rounded p-0.5 hover:bg-primary/15 text-primary transition-colors cursor-pointer"
-            title={t("search.clear")}
-          >
-            <XIcon className="size-3" />
-          </button>
-        )}
-      </div>
+        <SearchIcon className="size-[18px]" />
+        {activeQuery ? (
+          <span
+            aria-hidden="true"
+            className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary ring-2 ring-background"
+          />
+        ) : null}
+      </Button>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={cn(
-        "group flex h-8.5 w-[220px] sm:w-[260px] items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-2.5 text-xs text-muted-foreground transition-all cursor-pointer hover:border-border hover:bg-accent/60 hover:text-foreground shadow-2xs",
+        HEADER_SEARCH_FIELD_CLASS,
+        "w-[220px] sm:w-[260px]",
         className,
       )}
     >
-      <div className="flex items-center gap-2 min-w-0 truncate">
-        <SearchIcon className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground" />
-        <span className="truncate">{t("search.triggerPlaceholder")}</span>
-      </div>
-      <kbd className="hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/70 bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground group-hover:text-foreground">
-        <span className="text-[11px]">⌘</span>K
-      </kbd>
-    </button>
+      <button
+        aria-label={t("search.triggerPlaceholder")}
+        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 ps-2.5 pe-2 text-start outline-none"
+        type="button"
+        onClick={onClick}
+      >
+        <SearchIcon className="size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+        {activeQuery ? (
+          <span className="min-w-0 truncate font-medium text-foreground">
+            {activeQuery}
+          </span>
+        ) : (
+          <span className="min-w-0 truncate text-muted-foreground">
+            {t("search.triggerPlaceholder")}
+          </span>
+        )}
+      </button>
+      {activeQuery && onClear ? (
+        <button
+          aria-label={t("search.clear")}
+          className="me-1 inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/25"
+          title={t("search.clear")}
+          type="button"
+          onClick={onClear}
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      ) : (
+        <Kbd className="pointer-events-none me-1.5 hidden sm:inline-flex">
+          ⌘K
+        </Kbd>
+      )}
+    </div>
   );
 }

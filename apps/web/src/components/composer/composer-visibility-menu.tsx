@@ -1,5 +1,6 @@
-import { LockIcon, SendIcon, UsersIcon } from "lucide-react";
+import { LockIcon, UsersIcon } from "lucide-react";
 import type { MemoVisibility } from "@/api";
+import { SendButton } from "@/components/composer/send-button";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -108,33 +108,11 @@ export function ComposerVisibilityMenu({
           {SUBMIT_HINT}
         </span>
       )}
-      {/* The round send is the composer's one flame: a quiet grey disc while
-          there is nothing to send, lit with the brand gradient once there is.
-          The paper plane lifts a pixel on hover. */}
-      <Button
-        aria-label={t("composer.send")}
-        className={cn(
-          "group/send size-8 rounded-full disabled:opacity-100",
-          !canSubmit &&
-            "disabled:bg-none disabled:bg-muted disabled:text-muted-foreground/60 disabled:shadow-none",
-        )}
-        disabled={isPending || isUploadingImages || !canSubmit || voiceActive}
-        size="icon-sm"
-        type="submit"
-        variant="gradient"
-      >
-        {isPending ? (
-          <Spinner />
-        ) : (
-          <SendIcon
-            className={cn(
-              "-translate-x-px translate-y-px motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-signal group-hover/send:translate-x-px group-hover/send:-translate-y-px",
-              canSubmit && "motion-safe:animate-scale-in",
-            )}
-            key={canSubmit ? "lit" : "idle"}
-          />
-        )}
-      </Button>
+      <SendButton
+        canSubmit={canSubmit}
+        disabled={isUploadingImages || voiceActive}
+        isPending={isPending}
+      />
     </div>
   );
 }

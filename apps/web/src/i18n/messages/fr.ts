@@ -1291,7 +1291,7 @@ const messages = {
     "À l'envoi, chaque case non cochée devient une tâche ; une note sans case devient une seule tâche. Rappel le jour même.",
   "composer.schedule.taskCount": "{count} tâche(s)",
   "composer.schedule.noTasks": "Aucune tâche ouverte",
-  "composer.longform": "Écrire un article",
+  "composer.longform": "Écrire en plein écran",
   "toast.scheduledTasks": "Enregistré, {count} tâche(s) planifiée(s)",
   "toast.scheduleFailed":
     "Note enregistrée, mais les tâches n'ont pas été créées. Convertissez-les depuis la carte.",

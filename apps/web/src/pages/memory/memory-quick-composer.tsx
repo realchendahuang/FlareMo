@@ -6,12 +6,12 @@ import {
   GlobeIcon,
   PinIcon,
   PlusIcon,
-  SendIcon,
   SparklesIcon,
 } from "lucide-react";
 import { type KeyboardEvent, type RefObject, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { createMemory, type Memory } from "@/api";
+import { SendButton } from "@/components/composer/send-button";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,7 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { cn } from "@/lib/utils";
@@ -257,20 +256,10 @@ export function MemoryQuickComposer({
         </div>
 
         {/* Send Button */}
-        <Button
-          type="submit"
-          size="icon-sm"
-          variant="brand"
-          className="size-7.5 rounded-full shrink-0"
-          disabled={!content.trim() || createMutation.isPending}
-          aria-label={t("composer.send")}
-        >
-          {createMutation.isPending ? (
-            <Spinner className="size-3.5" />
-          ) : (
-            <SendIcon className="size-3.5 motion-safe:animate-scale-in" />
-          )}
-        </Button>
+        <SendButton
+          canSubmit={Boolean(content.trim())}
+          isPending={createMutation.isPending}
+        />
       </div>
     </form>
   );

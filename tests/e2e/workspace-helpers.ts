@@ -9,9 +9,14 @@ import { expect, type Page } from "@playwright/test";
  * time the shell changes there is one place to update instead of eight.
  */
 
-/** The trigger button that opens the spotlight search dialog. */
+/** The trigger that opens the spotlight search dialog: a field on wide
+ *  screens, an icon on narrow ones. Both stay in the DOM, so pick the one
+ *  the current viewport shows. */
 export function searchTrigger(page: Page) {
-  return page.getByRole("button", { name: /搜索记录|Search notes/i }).first();
+  return page
+    .getByRole("button", { name: /搜索记录|Search notes/i })
+    .filter({ visible: true })
+    .first();
 }
 
 /**

@@ -107,10 +107,7 @@ export function DailyReviewPage() {
           !intervalQuery.isError && (
             <Empty className="min-h-72 border border-border/60 bg-card/50 motion-safe:animate-rise">
               <EmptyHeader>
-                <EmptyMedia
-                  className="bg-accent text-accent-foreground"
-                  variant="icon"
-                >
+                <EmptyMedia variant="icon">
                   <CalendarDaysIcon className="size-5" />
                 </EmptyMedia>
                 <EmptyTitle>{t("review.dailyEmptyTitle")}</EmptyTitle>

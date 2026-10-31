@@ -18,7 +18,6 @@ import { WorkspaceFilterChips } from "@/components/workspace/workspace-filter-ch
 import { WorkspaceHeader } from "@/components/workspace/workspace-header";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspaceComposer } from "@/components/workspace-composer";
-import { WorkspaceSearch } from "@/components/workspace-search";
 import { useMemoMutations } from "@/hooks/use-memo-mutations";
 import { useWorkspaceFilters } from "@/hooks/use-workspace-filters";
 import { useWorkspaceQueries } from "@/hooks/use-workspace-queries";
@@ -54,7 +53,6 @@ export function FlareMoApp() {
   const [timeZone] = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
-  const mobileSearchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement | null>(null);
   const [isTimelineScrolled, setIsTimelineScrolled] = useState(false);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
@@ -217,16 +215,6 @@ export function FlareMoApp() {
           setShowScrollToTop((prev) => (prev === showTop ? prev : showTop));
         }}
       >
-        <WorkspaceSearch
-          className="mb-3 md:hidden motion-safe:animate-rise"
-          inputRef={mobileSearchRef}
-          onToggleSemantic={semanticEnabled ? toggleSemantic : undefined}
-          query={dayFilter ? "" : query}
-          semanticMode={semanticMode}
-          semanticPending={vectorUsageQuery.isPending}
-          onQueryChange={setQuery}
-          isPending={isUpdating}
-        />
         <div className="flex flex-col gap-3">
           {teamExpired && (
             <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise">

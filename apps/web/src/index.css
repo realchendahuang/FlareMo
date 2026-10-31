@@ -224,8 +224,11 @@
     --secondary-foreground: oklch(0.28 0.006 75);
     --muted: oklch(0.948 0.007 80);
     --muted-foreground: oklch(0.5 0.009 75);
-    --accent: var(--brand-50);
-    --accent-foreground: var(--brand-700);
+    /* Ember 3: accent is the neutral "pointer is here" fill (menu focus,
+       palette selection, row hover, empty-state tiles). Brand tint washing
+       every hovered row read loud; selection is ink, emphasis is flame. */
+    --accent: oklch(0.948 0.008 78);
+    --accent-foreground: var(--foreground);
     --destructive: oklch(0.577 0.245 27.325);
     --success: oklch(0.62 0.13 155);
     --success-foreground: oklch(0.98 0.01 150);
@@ -242,6 +245,13 @@
     /* Ember 2: a tighter, more exact corner. Controls 10px, cards 14px,
        dialogs 18px. The 0.875rem base read as soft and bubbly at h-8. */
     --radius: 0.625rem;
+    /* Motion durations (Ember 3). Three steps only: feedback (hover, press,
+       toggles), overlay (menus, popovers, tooltips) and surface (dialogs,
+       sheets, page entrances). Easing is --ease-signal everywhere except
+       micro pops (--ease-spring). */
+    --duration-fast: 120ms;
+    --duration-overlay: 160ms;
+    --duration-surface: 220ms;
     /* Two-layer warm shadows: a tight contact shadow for edge definition plus
        a soft ambient one for lift. Kept low so surfaces read as paper. */
     --shadow-xs: 0 1px 2px oklch(0.30 0.02 60 / 0.045);
@@ -289,8 +299,8 @@
     --secondary-foreground: oklch(0.955 0.003 75);
     --muted: oklch(0.26 0.004 75);
     --muted-foreground: oklch(0.68 0.008 75);
-    --accent: oklch(0.30 0.03 35);
-    --accent-foreground: var(--brand-200);
+    --accent: oklch(0.285 0.006 72);
+    --accent-foreground: var(--foreground);
     --destructive: oklch(0.704 0.191 22.216);
     --success: oklch(0.70 0.13 155);
     --success-foreground: oklch(0.16 0.03 155);
@@ -437,6 +447,15 @@
     }
   html {
     @apply font-sans;
+    /* Mixed CJK/Latin setting: a hair of space between Han and Latin or
+       digits ("D1 是事实源" without the author typing the spaces), and
+       full-width punctuation trimmed at line starts and in runs ("，「"),
+       the two habits that separate typeset Chinese from a raw text dump.
+       Progressive: engines without support render exactly as before, and
+       an existing space is never doubled. */
+    text-autospace: normal;
+    text-spacing-trim: normal;
+    font-kerning: normal;
     }
   /* CJK fallback list, keyed off the document language that I18nProvider
      writes to <html lang>. Font matching walks the family list per character,

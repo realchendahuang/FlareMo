@@ -9,10 +9,6 @@ import { MemoComposer } from "@/components/memo-composer";
 import { useMemoMutations } from "@/hooks/use-memo-mutations";
 import { useNewMemoCapture } from "@/hooks/use-new-memo-capture";
 import { useI18n } from "@/i18n";
-import {
-  createArticleWithAttachments,
-  MAX_ARTICLE_CONTENT_LENGTH,
-} from "@/lib/article-submission";
 import { focusComposerInput } from "@/lib/composer-focus";
 import {
   enqueueMemoSubmission,
@@ -30,7 +26,6 @@ import {
   validateMemoCaptureSubmission,
 } from "@/lib/memo-submission";
 import { queryKeys } from "@/lib/query-keys";
-import { stripResourceName } from "@/lib/utils";
 
 // The composer's send target defaults to the active space ("归属在创建时决定").
 // An explicit pick is remembered per space so a member who publishes to the
@@ -75,7 +70,7 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
   tags?: Array<{ name: string; count: number }>;
   captureAvailable?: boolean;
 }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate({ from: "/" });
   const [newMemoDraftId] = useState(getNewMemoDraftId);
   const [visibilityPref, setVisibilityPref] =
@@ -274,44 +269,6 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
     }
   };
 
-  const handleArticleSubmit = async (input: MemoCaptureInput) => {
-    if (isCaptureSubmitting.current) return;
-
-    if (!isBrowserOnline()) {
-      toast.error(t("composer.article.offlineBlocked"));
-      return;
-    }
-
-    if (input.content.length > MAX_ARTICLE_CONTENT_LENGTH) {
-      toast.error(t("composer.article.tooLong"));
-      return;
-    }
-
-    isCaptureSubmitting.current = true;
-    setIsCaptureSubmissionPending(true);
-    try {
-      const article = await createArticleWithAttachments(input, {
-        title: input.title,
-        lang: locale,
-      });
-      await capture.discardDraft();
-      toast.success(t("toast.saved"));
-      navigate({
-        to: "/articles/$articleId/edit",
-        params: { articleId: stripResourceName(article.id, "articles") },
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === "article-too-long") {
-        toast.error(t("composer.article.tooLong"));
-      } else {
-        toast.error(t("article.createFailed"));
-      }
-    } finally {
-      isCaptureSubmitting.current = false;
-      setIsCaptureSubmissionPending(false);
-    }
-  };
-
   if (!visible) return null;
   const showOfflineNotice = !online || queuedCount > 0;
   return (
@@ -342,7 +299,6 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
           });
         }}
         onSubmit={handleCaptureSubmit}
-        onSubmitArticle={handleArticleSubmit}
       />
     </>
   );

@@ -1277,7 +1277,7 @@ const messages = {
     "Al enviar, cada pendiente sin marcar se convierte en una tarea; una nota sin pendientes se convierte en una sola tarea. Te avisamos ese día.",
   "composer.schedule.taskCount": "{count} pendiente(s)",
   "composer.schedule.noTasks": "No hay pendientes abiertos",
-  "composer.longform": "Escribir artículo",
+  "composer.longform": "Escribir a pantalla completa",
   "toast.scheduledTasks": "Guardado, con {count} pendiente(s) programado(s)",
   "toast.scheduleFailed":
     "Nota guardada, pero sus pendientes no se programaron. Conviértelos desde la tarjeta.",

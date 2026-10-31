@@ -41,8 +41,6 @@ type MemoComposerProps = {
   captureAvailable?: boolean;
   onDraftChange: (draft: MemoCaptureInput) => void;
   onSubmit: (input: MemoCaptureInput) => Promise<void>;
-  /** Optional article drafting submission from fullscreen canvas. */
-  onSubmitArticle?: (input: MemoCaptureInput) => Promise<void>;
   onVisibilityChange?: (visibility: MemoVisibility) => void;
 };
 
@@ -70,7 +68,6 @@ export function MemoComposer({
   captureAvailable = false,
   onDraftChange,
   onSubmit,
-  onSubmitArticle,
   onVisibilityChange,
 }: MemoComposerProps) {
   const { t } = useI18n();
@@ -307,9 +304,7 @@ export function MemoComposer({
           schedule={draft.schedule}
           onScheduleChange={(schedule) => commitDraft({ schedule })}
           onStartVoice={() => void captureController.start()}
-          onExpand={
-            onSubmitArticle ? () => setIsFullscreenOpen(true) : undefined
-          }
+          onExpand={() => setIsFullscreenOpen(true)}
         />
         <ComposerVisibilityMenu
           showVisibility={showVisibility}
@@ -324,7 +319,7 @@ export function MemoComposer({
           }}
         />
       </div>
-      {onSubmitArticle && isFullscreenOpen && (
+      {isFullscreenOpen && (
         <Suspense fallback={null}>
           <ComposerFocusCanvas
             open={isFullscreenOpen}
@@ -336,7 +331,6 @@ export function MemoComposer({
             captureAvailable={captureAvailable}
             onDraftChange={onDraftChange}
             onSubmitMemo={onSubmit}
-            onSubmitArticle={onSubmitArticle}
             onVisibilityChange={onVisibilityChange}
           />
         </Suspense>

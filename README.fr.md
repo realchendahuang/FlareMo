@@ -55,7 +55,7 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 
 ### 1. Capture instantanée & Revue stimulante
 - **Prise de note immédiate** : Flux chronologique sous forme de cartes, multi-étiquettes, Markdown/GFM, prévisualisation des pièces jointes image et audio.
-- **Notes et textes longs** : L'éditeur reste une note rapide (étiquettes, jusqu'à 9 images, gras, listes, tâches) ; « Écrire un texte long » ouvre un canevas plein écran pour les articles.
+- **Notes et articles** : L'éditeur reste une note rapide (étiquettes, jusqu'à 9 images, gras, listes, tâches) ; « Écrire en plein écran » ouvre la même note dans un canevas plein écran. Les articles s'écrivent depuis la page Articles.
 - **Commentaires sous la note** : Commentez n'importe quelle note, dans votre espace personnel ou l'espace d'équipe, comme sur Weibo. Les commentaires restent sous la note d'origine et n'apparaissent ni dans le flux, ni dans la recherche, les statistiques, les étiquettes ou la revue.
 - **Recherche plein texte ultra-rapide** : Indexation SQLite FTS5 avec opérateurs de requête (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Recherche sémantique vectorielle** : Embeddings Workers AI couplés aux index vectoriels dérivés de Vectorize pour un rappel contextuel ; re-vérification des permissions contre D1 et repli transparent sur FTS5.

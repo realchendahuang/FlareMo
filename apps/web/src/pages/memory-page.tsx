@@ -257,10 +257,7 @@ export function MemoryPage() {
             (memories.length === 0 && !listQuery.isLoading && !query ? (
               <Empty className="min-h-56 border motion-safe:animate-rise">
                 <EmptyHeader>
-                  <EmptyMedia
-                    className="bg-accent text-accent-foreground"
-                    variant="icon"
-                  >
+                  <EmptyMedia variant="icon">
                     <BrainIcon />
                   </EmptyMedia>
                   <EmptyTitle>{t("memory.emptyTitle")}</EmptyTitle>

@@ -169,10 +169,7 @@ export function ArticlesPage() {
         {articlesQuery.data && articles.length === 0 && (
           <Empty className="min-h-72 border border-border/60 bg-card/50 motion-safe:animate-rise">
             <EmptyHeader>
-              <EmptyMedia
-                className="bg-accent text-accent-foreground"
-                variant="icon"
-              >
+              <EmptyMedia variant="icon">
                 <FileTextIcon className="size-5" />
               </EmptyMedia>
               <EmptyTitle>{t("article.emptyTitle")}</EmptyTitle>

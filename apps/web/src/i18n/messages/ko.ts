@@ -1255,7 +1255,7 @@ const messages = {
     "보내면 완료되지 않은 할 일이 각각 작업이 됩니다. 할 일이 없으면 메모 전체가 작업 하나가 됩니다. 마감일에 알려 드립니다.",
   "composer.schedule.taskCount": "할 일 {count}개",
   "composer.schedule.noTasks": "남은 할 일이 없습니다",
-  "composer.longform": "긴 글 쓰기",
+  "composer.longform": "전체 화면으로 쓰기",
   "toast.scheduledTasks": "저장했고 할 일 {count}개를 추가했습니다",
   "toast.scheduleFailed":
     "메모는 저장했지만 할 일은 만들지 못했습니다. 카드에서 하나씩 작업으로 바꿔 주세요",

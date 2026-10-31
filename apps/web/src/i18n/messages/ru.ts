@@ -1272,7 +1272,7 @@ const messages = {
     "При отправке каждый открытый пункт станет задачей; заметка без пунктов станет одной задачей. Напомним в этот день.",
   "composer.schedule.taskCount": "Задач: {count}",
   "composer.schedule.noTasks": "Нет открытых пунктов",
-  "composer.longform": "Написать статью",
+  "composer.longform": "Писать на весь экран",
   "toast.scheduledTasks": "Сохранено, задач запланировано: {count}",
   "toast.scheduleFailed":
     "Заметка сохранена, но задачи не созданы. Преобразуйте их из карточки.",

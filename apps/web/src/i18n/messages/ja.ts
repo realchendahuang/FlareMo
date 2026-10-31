@@ -1263,7 +1263,7 @@ const messages = {
     "送信すると、未完了の ToDo がそれぞれタスクになります。ToDo がなければメモ全体が 1 つのタスクになります。当日に通知します。",
   "composer.schedule.taskCount": "ToDo {count} 件",
   "composer.schedule.noTasks": "未完了の ToDo はありません",
-  "composer.longform": "長文を書く",
+  "composer.longform": "全画面で書く",
   "toast.scheduledTasks": "保存し、ToDo を {count} 件追加しました",
   "toast.scheduleFailed":
     "メモは保存しましたが、ToDo は作成できませんでした。カードから個別にタスク化してください",

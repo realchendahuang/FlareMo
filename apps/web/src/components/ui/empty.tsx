@@ -31,7 +31,9 @@ const emptyMediaVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        icon: "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-4",
+        /* A small raised sheet (the same paper chip as the active nav row),
+           icon in muted ink. Error states override with a destructive tint. */
+        icon: "flex size-10 shrink-0 items-center justify-center rounded-xl bg-card text-muted-foreground shadow-sm ring-1 ring-border/70 dark:bg-muted dark:ring-border [&_svg:not([class*='size-'])]:size-[18px] [&_svg]:size-[18px]!",
       },
     },
     defaultVariants: {
@@ -60,7 +62,7 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="empty-title"
       className={cn(
-        "font-heading text-sm font-medium tracking-tight",
+        "font-heading text-[15px] font-semibold tracking-tight",
         className
       )}
       {...props}
