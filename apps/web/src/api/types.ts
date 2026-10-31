@@ -4,6 +4,7 @@ import type {
   ArticleSummaryDto,
   AttachmentDto,
   CalendarView,
+  CompiledMemoryDto,
   CreateArticleInput,
   CreateMemoInput,
   CreateMemoryInput,
@@ -45,6 +46,7 @@ export type RelatedMemo = RelatedMemosResponse["memos"][number];
 export type TagHierarchyNode = TagHierarchyResponse["tags"][number];
 export type AppNotification = AppNotificationDto;
 export type Memory = MemoryDto;
+export type { CompiledMemoryDto };
 export type MemoryRevision = MemoryRevisionDto;
 export type {
   MemoState,

@@ -281,6 +281,13 @@
       "when": 1793434072636,
       "tag": "0039_memo_review_marks",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1793434172636,
+      "tag": "0040_memory_core_rules_locked",
+      "breakpoints": true
     }
   ]
 }

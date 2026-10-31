@@ -196,6 +196,15 @@ export const memoryDtoSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   evidence: z.array(memoryEvidenceDtoSchema).optional(),
+  // Review inbox only: the memory this item would replace or contradicts.
+  conflict_with: z
+    .object({
+      id: z.string(),
+      content: z.string(),
+      verification: memoryVerificationSchema,
+    })
+    .nullable()
+    .optional(),
 });
 
 export const memoryRevisionDtoSchema = z.object({

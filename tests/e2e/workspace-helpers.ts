@@ -170,9 +170,11 @@ export async function createMemoryViaComposer(
     )
     .first();
   await expect(composer).toBeVisible();
-  if (tier === "preference") {
+  // The composer starts as a plain preference; its toggle turns it into a
+  // rule (the button reads 偏好 / Preference until pressed).
+  if (tier === "ironRule") {
     await page
-      .getByRole("button", { name: /^铁律$|^Iron rule$/i })
+      .getByRole("button", { name: /^偏好$|^Preference$/i })
       .first()
       .click();
   }

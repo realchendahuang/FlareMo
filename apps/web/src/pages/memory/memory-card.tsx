@@ -36,22 +36,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/i18n";
+import type { TranslationKey } from "@/i18n/key";
 import { formatMemoRelativeTime, formatMemoTime } from "@/lib/memo";
 import { cn, stripResourceName } from "@/lib/utils";
-import { formatProjectName } from "./memory-filters";
+import { formatProjectName, isRule } from "./memory-filters";
 import { MemoryFormDialog } from "./memory-form-dialog";
 import { MemoryRevisions } from "./memory-revisions";
-import { useMemoryMutations } from "./use-memory-mutations";
+import { type MemoryAction, useMemoryMutations } from "./use-memory-mutations";
+
+/** `review_reason` is a machine code; only the ones worth a sentence map. */
+const REVIEW_REASON_LABEL: Partial<Record<string, TranslationKey>> = {
+  supersede_proposal: "memory.reason.supersede",
+  contradicts: "memory.reason.contradicts",
+  evidence_stale: "memory.reason.evidenceStale",
+};
 
 export const MemoryCard = memo(function MemoryCard({
   memory,
-  showSource,
+  hideProject,
   review,
   onSelectProject,
   onMutated,
 }: {
   memory: Memory;
-  showSource: boolean;
+  hideProject: boolean;
   review: boolean;
   onSelectProject?: (projectKey: string) => void;
   onMutated: () => void;
@@ -63,6 +71,21 @@ export const MemoryCard = memo(function MemoryCard({
 
   const mutation = useMemoryMutations(memory, onMutated);
   const id = stripResourceName(memory.id, "memories");
+  const isActive = memory.status === "active";
+  const isProposal = memory.verification === "inferred";
+  const pendingReview = isActive && (review || memory.needs_review);
+  const conflict = memory.conflict_with ?? null;
+  const reasonKey = memory.review_reason
+    ? REVIEW_REASON_LABEL[memory.review_reason]
+    : undefined;
+  // A live memory whose source changed is asked "still true?", not
+  // "accept this proposal?": keeping it confirms, dropping it archives.
+  const staleCheck = pendingReview && !isProposal;
+  const evidence = memory.evidence?.find(
+    (ev) => !conflict || ev.source_id !== conflict.id,
+  );
+  const isPending = (action: MemoryAction) =>
+    mutation.isPending && mutation.variables === action;
 
   return (
     <article
@@ -72,48 +95,76 @@ export const MemoryCard = memo(function MemoryCard({
         "paper group relative flex w-full flex-col gap-2 rounded-xl border border-border/60 bg-card px-4 py-3.5 text-card-foreground shadow-xs [content-visibility:auto] [contain-intrinsic-size:auto_120px] motion-safe:animate-rise motion-safe:transition-[border-color,box-shadow] motion-safe:duration-150 hover:border-border hover:shadow-sm sm:px-5 sm:py-4",
       )}
     >
-      {/* Header row: Timestamp & scope on left, Status badges + ⋯ menu on right */}
       <div className="flex w-full items-center justify-between gap-2">
-        {/* The timestamp stands alone on the left: its hover swap reserves
-            the absolute time's width, so anything placed after it floated a
-            column away from "1 分钟前". Scope and source sit on the right. */}
-        <div className="flex min-w-0 items-center text-xs text-muted-foreground">
-          <span className="inline-grid [grid-template-areas:'stack'] items-center truncate">
-            <span className="[grid-area:stack] transition-opacity duration-150 group-hover:opacity-0 pointer-events-none">
-              {formatMemoRelativeTime(memory.created_at, locale)}
+        {/* Time, then who wrote it and how often an agent has used it. The
+            absolute time is a tooltip: a hover swap would reserve its width
+            and push the facts after it a column away. */}
+        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <time
+            className="shrink-0"
+            dateTime={memory.created_at}
+            title={formatMemoTime(memory.created_at, locale)}
+          >
+            {formatMemoRelativeTime(memory.created_at, locale)}
+          </time>
+          {memory.created_by_type === "agent" && memory.source_agent && (
+            <span className="truncate">· {memory.source_agent}</span>
+          )}
+          {memory.access_count > 0 && (
+            <span
+              className="shrink-0 tabular-nums"
+              title={
+                memory.last_accessed_at
+                  ? t("memory.lastUsed", {
+                      time: formatMemoRelativeTime(
+                        memory.last_accessed_at,
+                        locale,
+                      ),
+                    })
+                  : undefined
+              }
+            >
+              · {t("memory.usedCount", { count: memory.access_count })}
             </span>
-            <span className="[grid-area:stack] opacity-0 transition-opacity duration-150 group-hover:opacity-100 whitespace-nowrap">
-              {formatMemoTime(memory.created_at, locale)}
-            </span>
-          </span>
+          )}
         </div>
 
         <div className="flex min-w-0 shrink-0 items-center gap-1.5">
-          {showSource && memory.source_agent && (
-            <span className="max-w-[120px] truncate text-xs text-muted-foreground">
-              {memory.source_agent}
-            </span>
-          )}
-
-          {memory.scope_type === "project" && memory.scope_key && (
-            <button
-              type="button"
-              onClick={() => {
-                if (memory.scope_key) onSelectProject?.(memory.scope_key);
-              }}
-              className="inline-flex max-w-[180px] cursor-pointer items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-xs text-muted-foreground motion-safe:transition-colors hover:bg-muted hover:text-foreground"
-              title={memory.scope_key}
-            >
-              <FolderIcon className="size-3 shrink-0" />
-              <span className="truncate">
-                {formatProjectName(memory.scope_key)}
-              </span>
-            </button>
-          )}
+          {!hideProject &&
+            memory.scope_type === "project" &&
+            memory.scope_key && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (memory.scope_key) onSelectProject?.(memory.scope_key);
+                }}
+                className="inline-flex max-w-[160px] cursor-pointer items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-xs text-muted-foreground motion-safe:transition-colors hover:bg-muted hover:text-foreground"
+                title={memory.scope_key}
+              >
+                <FolderIcon className="size-3 shrink-0" />
+                <span className="truncate">
+                  {formatProjectName(memory.scope_key)}
+                </span>
+              </button>
+            )}
 
           {/* Same name and tint as the 铁律 filter and composer toggle: one
-              concept, one label, no solid brand block on every core card. */}
-          {memory.tier === "core" || memory.verification === "locked" ? (
+              concept, one label, and only locked rows earn it. */}
+          {memory.status === "superseded" ? (
+            <Badge
+              variant="outline"
+              className="text-xs font-normal text-muted-foreground"
+            >
+              {t("memory.status.supersededShort")}
+            </Badge>
+          ) : memory.status === "archived" ? (
+            <Badge
+              variant="outline"
+              className="text-xs font-normal text-muted-foreground"
+            >
+              {t("memory.status.archivedShort")}
+            </Badge>
+          ) : isRule(memory) ? (
             <Badge
               variant="outline"
               className="gap-1 border-brand-500/30 bg-brand-500/10 text-xs font-normal text-brand-600 dark:text-brand-400"
@@ -126,21 +177,12 @@ export const MemoryCard = memo(function MemoryCard({
               <EyeIcon className="size-3" />
               <span>{t("memory.observedBadge")}</span>
             </Badge>
-          ) : memory.needs_review || memory.verification === "inferred" ? (
+          ) : isProposal ? (
             <Badge variant="warning" className="gap-1 font-normal">
               <SparklesIcon className="size-3" />
               <span>{t("memory.inferredBadge")}</span>
             </Badge>
           ) : null}
-
-          {memory.status === "archived" && (
-            <Badge
-              variant="outline"
-              className="text-xs font-normal text-muted-foreground"
-            >
-              {t("memory.status.archivedShort")}
-            </Badge>
-          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -161,29 +203,40 @@ export const MemoryCard = memo(function MemoryCard({
                 {t("common.edit")}
               </DropdownMenuItem>
 
-              {memory.verification === "locked" ? (
-                <DropdownMenuItem onClick={() => mutation.mutate("unpin")}>
-                  <PinOffIcon />
-                  {t("memory.unpin")}
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => mutation.mutate("pin")}>
-                  <PinIcon />
-                  {t("memory.pin")}
+              {/* A proposal is decided first; pinning it would skip the
+                  decision. Retired rows are history and stay as they are. */}
+              {isActive &&
+                !isProposal &&
+                (isRule(memory) ? (
+                  <DropdownMenuItem onClick={() => mutation.mutate("unpin")}>
+                    <PinOffIcon />
+                    {t("memory.unpin")}
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => mutation.mutate("pin")}>
+                    <PinIcon />
+                    {t("memory.pin")}
+                  </DropdownMenuItem>
+                ))}
+
+              {isActive && memory.verification === "observed" && (
+                <DropdownMenuItem onClick={() => mutation.mutate("confirm")}>
+                  <CheckIcon />
+                  {t("memory.confirmObserved")}
                 </DropdownMenuItem>
               )}
 
-              {memory.status === "active" ? (
+              {isActive ? (
                 <DropdownMenuItem onClick={() => mutation.mutate("archive")}>
                   <ArchiveIcon />
                   {t("memory.archive")}
                 </DropdownMenuItem>
-              ) : (
+              ) : memory.status === "archived" ? (
                 <DropdownMenuItem onClick={() => mutation.mutate("restore")}>
                   <CornerUpLeftIcon />
                   {t("memory.restore")}
                 </DropdownMenuItem>
-              )}
+              ) : null}
 
               <DropdownMenuItem
                 onClick={() => setShowRevisions((value) => !value)}
@@ -209,8 +262,23 @@ export const MemoryCard = memo(function MemoryCard({
         </div>
       </div>
 
-      {/* Body: clean typography */}
       <div className="flex flex-col gap-2 pt-0.5">
+        {/* What the agent wants to replace, above what it proposes: the
+            decision is between these two lines. */}
+        {pendingReview && conflict && (
+          <div className="flex flex-col gap-1 rounded-lg bg-muted/50 px-3 py-2 text-xs">
+            <span className="flex items-center gap-1 text-muted-foreground">
+              {conflict.verification === "locked" && (
+                <PinIcon className="size-3 fill-current" />
+              )}
+              {t("memory.conflictCurrent")}
+            </span>
+            <p className="whitespace-pre-wrap text-foreground/80 select-text">
+              {conflict.content}
+            </p>
+          </div>
+        )}
+
         <p className="text-sm leading-relaxed whitespace-pre-wrap select-text">
           {memory.content}
         </p>
@@ -228,44 +296,54 @@ export const MemoryCard = memo(function MemoryCard({
           </div>
         )}
 
-        {memory.evidence && memory.evidence.length > 0 && (
-          <div className="text-xs text-muted-foreground flex items-center gap-1.5 border-t border-border/30 pt-1.5 mt-0.5">
+        {evidence && (evidence.excerpt || evidence.source_type !== "other") && (
+          <div className="mt-0.5 flex items-center gap-1.5 border-t border-border/30 pt-1.5 text-xs text-muted-foreground">
             <LinkIcon className="size-3 shrink-0 opacity-70" />
-            <span>{t("memory.evidenceLabel")}:</span>
-            <span className="truncate max-w-[400px]">
-              {memory.evidence[0].excerpt ||
-                `${t("memory.evidenceFrom")} ${memory.evidence[0].source_type}`}
+            <span className="shrink-0">{t("memory.evidenceLabel")}</span>
+            <span className="min-w-0 truncate">
+              {evidence.excerpt ||
+                `${t("memory.evidenceFrom")} ${evidence.source_type}`}
             </span>
           </div>
         )}
       </div>
 
-      {/* Review action buttons (ONLY when review || memory.needs_review) */}
-      {(review || memory.needs_review) && (
-        <div className="flex items-center gap-2 pt-2 border-t border-border/40 mt-1">
+      {pendingReview && (
+        <div className="mt-1 flex items-center gap-2 border-t border-border/40 pt-2.5">
           <Button
             size="sm"
-            variant="default"
             onClick={() => mutation.mutate("confirm")}
-            disabled={mutation.isPending && mutation.variables === "confirm"}
-            className="h-8 gap-1.5 text-xs"
+            disabled={isPending("confirm")}
+            className="gap-1.5"
           >
-            <CheckIcon className="size-3.5" />
-            {t("memory.acceptProposal")}
+            <CheckIcon data-icon="inline-start" />
+            {staleCheck
+              ? t("memory.keepStillTrue")
+              : conflict
+                ? t("memory.acceptReplace")
+                : t("memory.acceptProposal")}
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => mutation.mutate("reject")}
-            disabled={mutation.isPending && mutation.variables === "reject"}
-            className="h-8 gap-1.5 text-xs"
+            onClick={() => mutation.mutate(staleCheck ? "archive" : "reject")}
+            disabled={isPending(staleCheck ? "archive" : "reject")}
+            className="gap-1.5"
           >
-            <XIcon className="size-3.5" />
-            {t("memory.rejectProposal")}
+            {staleCheck ? (
+              <ArchiveIcon data-icon="inline-start" />
+            ) : (
+              <XIcon data-icon="inline-start" />
+            )}
+            {staleCheck
+              ? t("memory.archive")
+              : conflict
+                ? t("memory.keepCurrent")
+                : t("memory.rejectProposal")}
           </Button>
-          {memory.review_reason && (
-            <span className="ms-auto max-w-[200px] truncate text-xs font-medium text-warning-emphasis">
-              {memory.review_reason}
+          {reasonKey && (
+            <span className="ms-auto min-w-0 truncate text-xs text-muted-foreground">
+              {t(reasonKey)}
             </span>
           )}
         </div>

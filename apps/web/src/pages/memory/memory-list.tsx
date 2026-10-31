@@ -1,11 +1,6 @@
 import type { Memory } from "@/api";
 import { QueryErrorState } from "@/components/query-error-state";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { MemoryCard } from "./memory-card";
@@ -18,7 +13,7 @@ export function MemoryList({
   onRetry,
   onMutated,
   emptyTitle,
-  showSource = false,
+  hideProject = false,
   review = false,
   onSelectProject,
 }: {
@@ -29,7 +24,8 @@ export function MemoryList({
   onRetry?: () => void;
   onMutated: () => void;
   emptyTitle?: string;
-  showSource?: boolean;
+  /** Inside a project view the project chip on every card is noise. */
+  hideProject?: boolean;
   review?: boolean;
   onSelectProject?: (projectKey: string) => void;
 }) {
@@ -56,15 +52,12 @@ export function MemoryList({
 
   if (memories.length === 0) {
     return (
-      <Empty className="min-h-56 border">
+      <Empty className="min-h-40 border border-dashed">
         <EmptyHeader>
-          <EmptyTitle>
+          <EmptyTitle className="text-sm font-normal text-muted-foreground">
             {emptyTitle ??
-              (review ? t("memory.reviewEmpty") : t("memory.emptyTitle"))}
+              (review ? t("memory.reviewEmpty") : t("memory.listEmpty"))}
           </EmptyTitle>
-          {!review && !emptyTitle && (
-            <EmptyDescription>{t("memory.emptyDescription")}</EmptyDescription>
-          )}
         </EmptyHeader>
       </Empty>
     );
@@ -76,7 +69,7 @@ export function MemoryList({
         <MemoryCard
           key={memory.id}
           memory={memory}
-          showSource={showSource}
+          hideProject={hideProject}
           review={review}
           onSelectProject={onSelectProject}
           onMutated={onMutated}

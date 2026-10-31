@@ -126,6 +126,14 @@ async function setVerification(
   await appendRevision(db, user, existing, "user");
   const now = new Date().toISOString();
 
+  // Confirming never demotes an iron rule: a locked memory that re-entered
+  // review (its evidence changed) is affirmed as still locked. Only an explicit
+  // unlock may lower it.
+  const nextVerification =
+    verification === "confirmed" && existing.verification === "locked"
+      ? "locked"
+      : verification;
+
   const wasInferred = existing.verification === "inferred";
   const becomesHuman =
     verification === "confirmed" || verification === "locked";
@@ -146,7 +154,9 @@ async function setVerification(
   const confirmStatement = db
     .update(memoryItems)
     .set({
-      verification,
+      verification: nextVerification,
+      // An iron rule is also first in line at bootstrap; tier follows lock.
+      ...(nextVerification === "locked" ? { tier: "core" as const } : {}),
       needsReview: false,
       reviewReason: reason ?? null,
       updatedAt: now,
@@ -257,12 +267,19 @@ export async function unlockMemory(
     throw new ForbiddenError("Only the user may unpin a memory.");
   }
   const existing = await requireMemory(db, user, id);
+  // Only an iron rule can be unpinned. Unlocking anything else used to
+  // promote it straight to confirmed, which turned a pending proposal live
+  // without retiring the fact it wanted to replace.
+  if (existing.verification !== "locked") {
+    return memoryToDto(existing);
+  }
   await appendRevision(db, user, existing, "user");
   const now = new Date().toISOString();
   await db
     .update(memoryItems)
     .set({
       verification: "confirmed",
+      tier: "normal",
       updatedAt: now,
     })
     .where(and(eq(memoryItems.id, id), eq(memoryItems.userId, user.id)));

@@ -27,7 +27,7 @@ export function MemoryWorkspaceHeader({
   return (
     <WorkspacePageHeader
       {...header}
-      icon={<BrainIcon className="size-4 shrink-0 text-brand-500" />}
+      icon={<BrainIcon className="size-4 shrink-0" />}
       title={t("memory.title")}
       actions={
         <>

@@ -22,18 +22,72 @@ test("creates a memory and locks it", async ({ page }) => {
     .click();
   await expect(page.getByText(content)).toBeVisible();
 
-  // Locking ("钉住铁律" / "Pin as rule") is one of the card's overflow-menu
-  // actions; it flips the verification badge to the locked state, after which
-  // the menu offers the inverse.
+  // Making it an iron rule ("设为铁律" / "Make iron rule") is one of the
+  // card's overflow-menu actions; only locked memories carry the 铁律 badge.
+  const card = page.locator("article").filter({ hasText: content });
+  await card.getByRole("button", { name: /^Actions$|^操作$/i }).click();
   await page
-    .getByRole("button", { name: /^Actions$|^操作$/i })
+    .getByRole("menuitem", { name: /Make iron rule|设为铁律/i })
     .first()
     .click();
-  await page
-    .getByRole("menuitem", { name: /Pin as rule|钉住铁律/i })
-    .first()
+  await expect(card.getByText(/^Iron rule$|^铁律$/)).toBeVisible();
+});
+
+test("shows the memory a proposal wants to replace in the review inbox", async ({
+  page,
+  request,
+}) => {
+  const stamp = Date.now();
+  const factKey = `e2e.deploy.${stamp}`;
+  // A user-confirmed fact, then the same key from an agent: the agent write
+  // cannot overwrite a human fact, so it lands in the inbox as a proposal.
+  await request.post("/api/app/memory", {
+    headers: { origin: E2E_BASE_URL },
+    data: {
+      content: `部署只走脚本 ${stamp}`,
+      type: "semantic",
+      kind: "decision",
+      scope_type: "global",
+      fact_key: factKey,
+    },
+  });
+  const pat = await request.post("/api/app/account/personal-access-tokens", {
+    headers: { origin: E2E_BASE_URL },
+    data: { name: `e2e-memory-${stamp}`, expires_in_days: 1 },
+  });
+  expect(pat.status()).toBe(201);
+  const { token } = (await pat.json()) as { token: string };
+  await request.post("/memory/mcp", {
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "memory_remember",
+        arguments: {
+          content: `部署改走 CI ${stamp}`,
+          fact_key: factKey,
+          scope_type: "global",
+          source_agent: "e2e",
+        },
+      },
+    },
+  });
+
+  await page.goto("/memory");
+  await page.getByTestId("memory-review-notice").click();
+  const card = page
+    .locator("article")
+    .filter({ hasText: `部署改走 CI ${stamp}` });
+  await expect(card.getByText(`部署只走脚本 ${stamp}`)).toBeVisible();
+  await card
+    .getByRole("button", { name: /^保留原来的$|^Keep current$/ })
     .click();
-  await expect(page.getByText(/^My call$|^我拍板的$/).first()).toBeVisible();
+  await expect(card).not.toBeVisible();
 });
 
 test("lists a memory created through the API", async ({ page, request }) => {

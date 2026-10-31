@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   archiveMemory,
   compileCoreMemory,
+  confirmMemory,
   createMemory,
   extractAndProposeDreamingFact,
   getMemory,
@@ -19,10 +20,12 @@ import {
   hardDeleteMemory,
   listMemoryEvidence,
   listMemoryReview,
+  lockMemory,
   type MemoryActor,
   recallMemories,
   resolveProposal,
   restoreMemory,
+  unlockMemory,
 } from "./memory";
 import { ensureSingleUser } from "./users";
 
@@ -552,5 +555,49 @@ describe("Memory Ledger v2 Architecture & Acceptance Tests", () => {
     expect(pendingA.verification).toBe("inferred");
     const inbox = await listMemoryReview(db, user);
     expect(inbox.some((r) => r.id === proposalA.memory.id)).toBe(true);
+  });
+
+  it("Review inbox shows the memory a proposal would replace; confirm keeps an iron rule locked; unlock only unpins rules", async () => {
+    const rule = await createMemory(db, user, USER, {
+      content: "部署只走 kosx 脚本",
+      factKey: "deploy.path",
+      type: "semantic",
+      kind: "constraint",
+      scopeType: "global",
+      scopeKey: null,
+      tier: "normal",
+      importance: 80,
+      confidence: 100,
+      verification: "confirmed",
+    });
+    const locked = await lockMemory(db, user, USER, rule.memory.id);
+    expect(locked.verification).toBe("locked");
+    expect(locked.tier).toBe("core");
+
+    const proposal = await createMemory(db, user, AGENT, {
+      content: "部署改走 GitHub Actions",
+      factKey: "deploy.path",
+      type: "semantic",
+      kind: "decision",
+      scopeType: "global",
+      scopeKey: null,
+      tier: "normal",
+      importance: 50,
+      confidence: 60,
+    });
+    const inbox = await listMemoryReview(db, user);
+    const item = inbox.find((r) => r.id === proposal.memory.id);
+    expect(item?.conflict_with?.id).toBe(rule.memory.id);
+    expect(item?.conflict_with?.content).toBe("部署只走 kosx 脚本");
+
+    const stillLocked = await confirmMemory(db, user, USER, rule.memory.id);
+    expect(stillLocked.verification).toBe("locked");
+
+    const untouched = await unlockMemory(db, user, USER, proposal.memory.id);
+    expect(untouched.verification).toBe("inferred");
+
+    const unpinned = await unlockMemory(db, user, USER, rule.memory.id);
+    expect(unpinned.verification).toBe("confirmed");
+    expect(unpinned.tier).toBe("normal");
   });
 });

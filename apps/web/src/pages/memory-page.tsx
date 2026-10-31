@@ -1,14 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertCircleIcon,
   BrainIcon,
+  ChevronRightIcon,
   EyeIcon,
   FolderIcon,
   PinIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { listMemories, listMemoryReview } from "@/api";
-import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -19,12 +19,11 @@ import {
 import { FilterPill } from "@/components/ui/filter-pill";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { useI18n } from "@/i18n";
-import { formatProjectName, groupMemories } from "./memory/memory-filters";
+import { countProjects, groupMemories } from "./memory/memory-filters";
 import { MemoryLensDialog } from "./memory/memory-lens-dialog";
 import { MemoryList } from "./memory/memory-list";
 import { MemoryQuickComposer } from "./memory/memory-quick-composer";
 import { MemoryWorkspaceHeader } from "./memory/memory-workspace-header";
-import { ProjectGroups } from "./memory/project-groups";
 
 type FilterTab =
   | "all"
@@ -67,38 +66,51 @@ export function MemoryPage() {
   }, [memories, query]);
 
   const groups = useMemo(() => groupMemories(filtered), [filtered]);
-
-  const projectCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const m of groups.projects) {
-      const key = m.scope_key ?? m.scope_type;
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return [...counts.entries()]
-      .map(([key, count]) => ({
-        key,
-        displayName: formatProjectName(key),
-        count,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [groups.projects]);
-
-  const handleSelectProject = useCallback((projectKey: string | null) => {
-    setSelectedProject(projectKey);
-    setTab("projects");
-  }, []);
-
-  const reviewMemories = useMemo(
-    () => reviewQuery.data?.memories ?? [],
-    [reviewQuery.data],
+  const projectCounts = useMemo(
+    () => countProjects(groups.projects),
+    [groups.projects],
+  );
+  // The composer offers every known project, not only the ones a search left.
+  const allProjectCounts = useMemo(
+    () => countProjects(groupMemories(memories).projects),
+    [memories],
   );
 
-  // Stable identities so the memoized MemoryCard rows survive a parent render.
+  const reviewMemories = useMemo(() => {
+    const items = reviewQuery.data?.memories ?? [];
+    const q = query.trim().toLowerCase();
+    return q
+      ? items.filter((memory) => memory.content.toLowerCase().includes(q))
+      : items;
+  }, [reviewQuery.data, query]);
+  const reviewCount = reviewQuery.data?.memories.length ?? 0;
+
+  const openTab = useCallback((next: FilterTab, project?: string | null) => {
+    setTab(next);
+    setSelectedProject(project ?? null);
+  }, []);
+
+  const handleSelectProject = useCallback(
+    (projectKey: string) => openTab("projects", projectKey),
+    [openTab],
+  );
+
+  // Stable identity so the memoized MemoryCard rows survive a parent render.
   const invalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["memories"] });
   }, [queryClient]);
 
-  const reviewCount = reviewMemories.length;
+  const listState = {
+    hasError: listQuery.isError && !listQuery.data,
+    isRetrying: listQuery.isRefetching,
+    loading: listQuery.isLoading,
+    onMutated: invalidate,
+    onRetry: () => void listQuery.refetch(),
+    onSelectProject: handleSelectProject,
+  };
+
+  const isEmptyLedger =
+    memories.length === 0 && !listQuery.isLoading && !listQuery.isError;
 
   return (
     <WorkspaceLayout
@@ -129,218 +141,213 @@ export function MemoryPage() {
       }}
     >
       <div className="flex flex-col gap-3.5 pt-2">
-        {/* Pending Review Alert Banner */}
-        {reviewCount > 0 && (
-          <div className="flex items-center justify-between gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning-emphasis motion-safe:animate-rise">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <AlertCircleIcon className="size-4 shrink-0" />
-              <span className="truncate font-medium">
-                {t("memory.bannerReviewAlert", { count: reviewCount })}
-              </span>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setTab("review")}
-              className="border-warning/30 bg-card text-warning-emphasis hover:bg-warning/15 hover:text-warning-emphasis"
-            >
-              {t("memory.filterReview")}
-            </Button>
-          </div>
+        {/* Same quiet notice as the home page's daily-review row: the inbox
+            is a nudge, not an alarm. */}
+        {reviewCount > 0 && tab !== "review" && (
+          <button
+            type="button"
+            className="flex items-center gap-2.5 rounded-xl border border-brand-300/40 bg-brand-50/50 px-3.5 py-2.5 text-start text-sm text-foreground motion-safe:animate-rise motion-safe:transition-[background-color,border-color] motion-safe:duration-150 hover:bg-brand-50 dark:border-brand-400/25 dark:bg-brand-400/5 dark:hover:bg-brand-400/10"
+            data-testid="memory-review-notice"
+            onClick={() => openTab("review")}
+          >
+            <SparklesIcon className="size-4 shrink-0 text-brand-500 dark:text-brand-400" />
+            <span className="min-w-0 flex-1 truncate">
+              {t("memory.bannerReviewAlert", { count: reviewCount })}
+            </span>
+            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+          </button>
         )}
 
-        {/* Quick Add Memory Box */}
         <MemoryQuickComposer
           defaultScopeKey={tab === "projects" ? selectedProject : null}
-          projects={projectCounts}
+          projects={allProjectCounts}
           onCreated={invalidate}
         />
 
-        {/* Filter Pills */}
-        <div className="flex flex-col gap-2 pt-0.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <FilterPill
-              active={tab === "all"}
-              label={t("memory.filterAll")}
-              count={groups.active.length}
-              onClick={() => {
-                setTab("all");
-                setSelectedProject(null);
-              }}
-            />
-            <FilterPill
-              active={tab === "core"}
-              label={t("memory.filterCore")}
-              count={groups.core.length}
-              icon={
-                <PinIcon className="size-3 text-brand-500 fill-brand-500/20" />
-              }
-              onClick={() => {
-                setTab("core");
-                setSelectedProject(null);
-              }}
-            />
-            {(groups.observed.length > 0 || tab === "observed") && (
+        {!isEmptyLedger && (
+          <div className="flex flex-col gap-2 pt-0.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <FilterPill
-                active={tab === "observed"}
-                label={t("memory.filterObserved")}
-                count={groups.observed.length}
-                icon={<EyeIcon className="size-3" />}
-                onClick={() => {
-                  setTab("observed");
-                  setSelectedProject(null);
-                }}
+                active={tab === "all"}
+                label={t("memory.filterAll")}
+                count={groups.active.length}
+                onClick={() => openTab("all")}
               />
-            )}
-            {(groups.projects.length > 0 || tab === "projects") && (
               <FilterPill
-                active={tab === "projects"}
-                label={t("memory.tab.projects")}
-                count={groups.projects.length}
-                icon={<FolderIcon className="size-3" />}
-                onClick={() => setTab("projects")}
+                active={tab === "core"}
+                label={t("memory.filterCore")}
+                count={groups.core.length}
+                icon={<PinIcon className="size-3" />}
+                onClick={() => openTab("core")}
               />
-            )}
-            {(reviewCount > 0 || tab === "review") && (
-              <FilterPill
-                active={tab === "review"}
-                label={t("memory.filterReview")}
-                count={reviewCount}
-                highlight={reviewCount > 0}
-                onClick={() => {
-                  setTab("review");
-                  setSelectedProject(null);
-                }}
-              />
-            )}
-            {(groups.archive.length > 0 || tab === "archive") && (
-              <FilterPill
-                active={tab === "archive"}
-                label={t("memory.tab.archive")}
-                count={groups.archive.length}
-                onClick={() => {
-                  setTab("archive");
-                  setSelectedProject(null);
-                }}
-              />
+              {(groups.observed.length > 0 || tab === "observed") && (
+                <FilterPill
+                  active={tab === "observed"}
+                  label={t("memory.filterObserved")}
+                  count={groups.observed.length}
+                  icon={<EyeIcon className="size-3" />}
+                  onClick={() => openTab("observed")}
+                />
+              )}
+              {(groups.projects.length > 0 || tab === "projects") && (
+                <FilterPill
+                  active={tab === "projects"}
+                  label={t("memory.tab.projects")}
+                  count={groups.projects.length}
+                  icon={<FolderIcon className="size-3" />}
+                  onClick={() => openTab("projects")}
+                />
+              )}
+              {(reviewCount > 0 || tab === "review") && (
+                <FilterPill
+                  active={tab === "review"}
+                  label={t("memory.filterReview")}
+                  count={reviewCount}
+                  highlight={reviewCount > 0}
+                  onClick={() => openTab("review")}
+                />
+              )}
+              {(groups.archive.length > 0 || tab === "archive") && (
+                <FilterPill
+                  active={tab === "archive"}
+                  label={t("memory.tab.archive")}
+                  count={groups.archive.length}
+                  onClick={() => openTab("archive")}
+                />
+              )}
+            </div>
+
+            {tab === "projects" && projectCounts.length > 1 && (
+              <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pt-0.5 pb-1">
+                <FilterPill
+                  active={!selectedProject}
+                  variant="sub"
+                  label={t("memory.allProjects")}
+                  count={groups.projects.length}
+                  onClick={() => setSelectedProject(null)}
+                />
+                {projectCounts.map((p) => (
+                  <FilterPill
+                    key={p.key}
+                    active={selectedProject === p.key}
+                    variant="sub"
+                    label={p.displayName}
+                    count={p.count}
+                    onClick={() => setSelectedProject(p.key)}
+                  />
+                ))}
+              </div>
             )}
           </div>
+        )}
 
-          {/* Project Sub-pills (when projects tab is active) */}
-          {tab === "projects" && projectCounts.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar text-xs">
-              <FilterPill
-                active={!selectedProject}
-                variant="sub"
-                label={t("memory.allProjects")}
-                count={groups.projects.length}
-                onClick={() => setSelectedProject(null)}
-              />
-
-              {projectCounts.map((p) => (
-                <FilterPill
-                  key={p.key}
-                  active={selectedProject === p.key}
-                  variant="sub"
-                  label={p.displayName}
-                  count={p.count}
-                  onClick={() => setSelectedProject(p.key)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Main Content Area */}
         <div className="pt-1">
-          {tab === "all" &&
-            (memories.length === 0 && !listQuery.isLoading && !query ? (
-              <Empty className="min-h-56 border motion-safe:animate-rise">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <BrainIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>{t("memory.emptyTitle")}</EmptyTitle>
-                  <EmptyDescription>
-                    {t("memory.emptyDescription")}
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <MemoryList
-                hasError={listQuery.isError && !listQuery.data}
-                isRetrying={listQuery.isRefetching}
-                loading={listQuery.isLoading}
-                memories={groups.active}
-                onMutated={invalidate}
-                onRetry={() => void listQuery.refetch()}
-                onSelectProject={handleSelectProject}
-                showSource
-              />
-            ))}
+          {isEmptyLedger && !query ? (
+            <Empty className="min-h-56 border motion-safe:animate-rise">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BrainIcon />
+                </EmptyMedia>
+                <EmptyTitle>{t("memory.emptyTitle")}</EmptyTitle>
+                <EmptyDescription>
+                  {t("memory.emptyDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <>
+              {tab === "all" && (
+                <MemoryList {...listState} memories={groups.active} />
+              )}
 
-          {tab === "core" && (
-            <MemoryList
-              hasError={listQuery.isError && !listQuery.data}
-              isRetrying={listQuery.isRefetching}
-              loading={listQuery.isLoading}
-              memories={groups.core}
-              onMutated={invalidate}
-              onRetry={() => void listQuery.refetch()}
-              onSelectProject={handleSelectProject}
-            />
-          )}
+              {tab === "core" && (
+                <MemoryList
+                  {...listState}
+                  emptyTitle={t("memory.coreEmpty")}
+                  memories={groups.core}
+                />
+              )}
 
-          {tab === "observed" && (
-            <MemoryList
-              hasError={listQuery.isError && !listQuery.data}
-              isRetrying={listQuery.isRefetching}
-              loading={listQuery.isLoading}
-              memories={groups.observed}
-              onMutated={invalidate}
-              onRetry={() => void listQuery.refetch()}
-              onSelectProject={handleSelectProject}
-              showSource
-            />
-          )}
+              {tab === "observed" && (
+                <MemoryList {...listState} memories={groups.observed} />
+              )}
 
-          {tab === "projects" && (
-            <ProjectGroups
-              memories={groups.projects}
-              selectedProject={selectedProject}
-              onSelectProject={setSelectedProject}
-              onMutated={invalidate}
-            />
-          )}
+              {tab === "projects" &&
+                (selectedProject || projectCounts.length <= 1 ? (
+                  <MemoryList
+                    {...listState}
+                    hideProject
+                    memories={groups.projects.filter(
+                      (m) =>
+                        !selectedProject ||
+                        (m.scope_key ?? m.scope_type) === selectedProject,
+                    )}
+                  />
+                ) : (
+                  // Every project at once, each under its own small label;
+                  // the label is the shortcut into that project alone.
+                  <div className="flex flex-col gap-6">
+                    {projectCounts.map((project) => (
+                      <section
+                        className="flex flex-col gap-2"
+                        key={project.key}
+                      >
+                        <button
+                          type="button"
+                          className="flex w-fit items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground motion-safe:transition-colors hover:text-foreground"
+                          onClick={() => setSelectedProject(project.key)}
+                          title={project.key}
+                        >
+                          <FolderIcon className="size-3" />
+                          <span>{project.displayName}</span>
+                          <span className="tabular-nums opacity-60">
+                            {project.count}
+                          </span>
+                        </button>
+                        <MemoryList
+                          {...listState}
+                          hideProject
+                          memories={groups.projects.filter(
+                            (m) =>
+                              (m.scope_key ?? m.scope_type) === project.key,
+                          )}
+                        />
+                      </section>
+                    ))}
+                  </div>
+                ))}
 
-          {tab === "review" && (
-            <MemoryList
-              memories={reviewMemories}
-              loading={reviewQuery.isLoading}
-              hasError={reviewQuery.isError}
-              onMutated={invalidate}
-              onRetry={() => void reviewQuery.refetch()}
-              onSelectProject={handleSelectProject}
-              review
-            />
-          )}
+              {tab === "review" && (
+                <MemoryList
+                  hasError={reviewQuery.isError}
+                  isRetrying={reviewQuery.isRefetching}
+                  loading={reviewQuery.isLoading}
+                  memories={reviewMemories}
+                  onMutated={invalidate}
+                  onRetry={() => void reviewQuery.refetch()}
+                  onSelectProject={handleSelectProject}
+                  review
+                />
+              )}
 
-          {tab === "archive" && (
-            <MemoryList
-              emptyTitle={t("memory.archiveEmpty")}
-              hasError={listQuery.isError && !listQuery.data}
-              isRetrying={listQuery.isRefetching}
-              loading={listQuery.isLoading}
-              memories={groups.archive}
-              onMutated={invalidate}
-              onRetry={() => void listQuery.refetch()}
-              onSelectProject={handleSelectProject}
-            />
+              {tab === "archive" && (
+                <MemoryList
+                  {...listState}
+                  emptyTitle={t("memory.archiveEmpty")}
+                  memories={groups.archive}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
 
-      <MemoryLensDialog open={lensOpen} onOpenChange={setLensOpen} />
+      <MemoryLensDialog
+        open={lensOpen}
+        onOpenChange={setLensOpen}
+        projects={allProjectCounts}
+        defaultProject={tab === "projects" ? selectedProject : null}
+      />
     </WorkspaceLayout>
   );
 }

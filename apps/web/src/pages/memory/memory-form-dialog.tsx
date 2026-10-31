@@ -2,7 +2,13 @@ import { useMutation } from "@tanstack/react-query";
 import { GlobeIcon, PinIcon, SparklesIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { createMemory, type Memory, updateMemory } from "@/api";
+import {
+  createMemory,
+  type Memory,
+  pinMemory,
+  unpinMemory,
+  updateMemory,
+} from "@/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 import { stripResourceName } from "@/lib/utils";
+import { isRule } from "./memory-filters";
 
 export function MemoryFormDialog({
   memory,
@@ -36,31 +43,38 @@ export function MemoryFormDialog({
   useEffect(() => {
     if (open) {
       setContent(memory?.content ?? "");
-      setIsCore(
-        memory
-          ? memory.tier === "core" || memory.verification === "locked"
-          : true,
-      );
+      setIsCore(memory ? isRule(memory) : true);
       setScopeType(memory?.scope_type === "project" ? "project" : "global");
       setScopeKey(memory?.scope_key ?? "");
     }
   }, [open, memory]);
 
+  // A proposal is decided in the inbox, and a retired row is history: only
+  // live, decided memories can be pinned from here.
+  const canToggleRule =
+    !memory ||
+    (memory.status === "active" && memory.verification !== "inferred");
+
   const saveMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const trimmedContent = content.trim();
       const trimmedScopeKey = scopeKey.trim();
       const scope =
         scopeType === "project" && trimmedScopeKey ? "project" : "global";
 
       if (memory) {
-        return updateMemory(stripResourceName(memory.id, "memories"), {
+        const id = stripResourceName(memory.id, "memories");
+        // 铁律 is the lock, not the tier: the toggle pins or unpins, so the
+        // rule the dialog shows is the rule the compiler hands to agents.
+        const updated = await updateMemory(id, {
           content: trimmedContent,
-          tier: isCore ? "core" : "normal",
-          importance: isCore ? 80 : 50,
           scope_type: scope,
           scope_key: scope === "project" ? trimmedScopeKey : undefined,
         });
+        if (canToggleRule && isCore !== isRule(memory)) {
+          return isCore ? pinMemory(id) : unpinMemory(id);
+        }
+        return updated;
       }
 
       return createMemory({
@@ -106,38 +120,40 @@ export function MemoryFormDialog({
             className="text-sm resize-none focus-visible:ring-1"
           />
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">
-              {t("memory.tier")}
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setIsCore(true)}
-                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 px-3 text-xs transition-colors ${
-                  isCore
-                    ? "border-brand-500/80 bg-brand-500/10 text-brand-600 dark:text-brand-400 font-medium"
-                    : "border-border/70 hover:bg-muted/50 text-muted-foreground"
-                }`}
-              >
-                <PinIcon className="size-3.5 shrink-0" />
-                <span>{t("memory.filterCore")}</span>
-              </button>
+          {canToggleRule && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("memory.tier")}
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCore(true)}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 px-3 text-xs transition-colors ${
+                    isCore
+                      ? "border-brand-500/80 bg-brand-500/10 text-brand-600 dark:text-brand-400 font-medium"
+                      : "border-border/70 hover:bg-muted/50 text-muted-foreground"
+                  }`}
+                >
+                  <PinIcon className="size-3.5 shrink-0" />
+                  <span>{t("memory.filterCore")}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setIsCore(false)}
-                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 px-3 text-xs transition-colors ${
-                  !isCore
-                    ? "border-brand-500/80 bg-brand-500/10 text-brand-600 dark:text-brand-400 font-medium"
-                    : "border-border/70 hover:bg-muted/50 text-muted-foreground"
-                }`}
-              >
-                <SparklesIcon className="size-3.5 shrink-0" />
-                <span>{t("memory.kind.preference")}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCore(false)}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 px-3 text-xs transition-colors ${
+                    !isCore
+                      ? "border-brand-500/80 bg-brand-500/10 text-brand-600 dark:text-brand-400 font-medium"
+                      : "border-border/70 hover:bg-muted/50 text-muted-foreground"
+                  }`}
+                >
+                  <SparklesIcon className="size-3.5 shrink-0" />
+                  <span>{t("memory.kind.preference")}</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">

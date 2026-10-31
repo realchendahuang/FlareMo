@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import type {
+  CompiledMemoryDto,
   CreateMemoryRequest,
   Memory,
   MemoryRevision,
@@ -201,20 +202,16 @@ export async function getMemoryEvidence(id: string) {
   );
 }
 
-export async function compileMemory(
-  params: {
-    scope_type?: string;
-    scope_key?: string;
-    agent_id?: string;
-    format?: "markdown" | "json";
-  } = {},
-) {
-  const query = new URLSearchParams();
-  if (params.scope_type) query.set("scope_type", params.scope_type);
-  if (params.scope_key) query.set("scope_key", params.scope_key);
-  if (params.agent_id) query.set("agent_id", params.agent_id);
-  if (params.format) query.set("format", params.format);
-  return apiRequest<{ compiled: string }>(
+/**
+ * What an agent would receive right now: the same compile the MCP
+ * `memory_compile` tool runs, without archiving it. `agent` is required by
+ * the contract; the web preview uses a neutral name so no agent-scoped
+ * memories leak into the general view.
+ */
+export async function compileMemory(params: { project_key?: string } = {}) {
+  const query = new URLSearchParams({ agent: "web" });
+  if (params.project_key) query.set("project_key", params.project_key);
+  return apiRequest<{ compiled: CompiledMemoryDto }>(
     `/api/app/memory/compile?${query.toString()}`,
   );
 }

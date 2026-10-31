@@ -14,6 +14,14 @@ import { createMemory, type Memory } from "@/api";
 import { SendButton } from "@/components/composer/send-button";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -21,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { cn } from "@/lib/utils";
@@ -49,6 +58,16 @@ export function MemoryQuickComposer({
   );
   const [scopeKey, setScopeKey] = useState(() => defaultScopeKey || "");
   const [isFocused, setIsFocused] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customKey, setCustomKey] = useState("");
+
+  const applyCustomProject = () => {
+    const key = customKey.trim();
+    if (!key) return;
+    setScopeType("project");
+    setScopeKey(key);
+    setCustomOpen(false);
+  };
 
   // Follow the page's project context both ways: leaving a project view must
   // not keep silently filing new memories under that project.
@@ -238,14 +257,8 @@ export function MemoryQuickComposer({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  const custom = window.prompt(
-                    t("memory.composerCustomProjectPrompt"),
-                    scopeKey,
-                  );
-                  if (custom?.trim()) {
-                    setScopeType("project");
-                    setScopeKey(custom.trim());
-                  }
+                  setCustomKey(scopeType === "project" ? scopeKey : "");
+                  setCustomOpen(true);
                 }}
               >
                 <PlusIcon className="size-4" />
@@ -261,6 +274,47 @@ export function MemoryQuickComposer({
           isPending={createMutation.isPending}
         />
       </div>
+
+      {/* A project key is usually a repo path or `github:owner/repo`, the
+          same string agents send; a small dialog instead of window.prompt. */}
+      <Dialog open={customOpen} onOpenChange={setCustomOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("memory.composerCustomProject")}</DialogTitle>
+            <DialogDescription>
+              {t("memory.composerCustomProjectPrompt")}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={customKey}
+            onChange={(event) => setCustomKey(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                applyCustomProject();
+              }
+            }}
+            placeholder="github:owner/repo"
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setCustomOpen(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              disabled={!customKey.trim()}
+              onClick={applyCustomProject}
+            >
+              {t("memory.composerUseProject")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

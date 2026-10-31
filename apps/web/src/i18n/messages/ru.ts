@@ -818,16 +818,15 @@ const messages = {
   "memory.quickAddPinned": "Закрепить как строгое правило",
   "memory.bannerHint":
     "ИИ извлекает долговременную память из заметок; управляйте правилами и привычками здесь.",
-  "memory.bannerReviewAlert":
-    "Ожидает решения: {count} предложений или конфликтов от ИИ",
+  "memory.bannerReviewAlert": "Предложений ИИ ждут вашего решения: {count}",
   "memory.viewLens": "Шпаргалка ИИ",
-  "memory.lensTitle": "Линза памяти ИИ",
+  "memory.lensTitle": "Шпаргалка",
   "memory.lensDescription":
-    "Ниже приведен динамически скомпилированный контекст памяти, внедряемый в системные промпты агентов.",
+    "Именно это получает агент, когда запрашивает память через MCP. Железные правила входят всегда, остальное заполняет место по важности.",
   "memory.filterAll": "Все",
   "memory.filterCore": "Правила",
-  "memory.filterObserved": "Наблюдения ИИ",
-  "memory.filterReview": "На рассмотрении",
+  "memory.filterObserved": "Найдено ИИ",
+  "memory.filterReview": "На подтверждение",
   "memory.allProjects": "Все проекты",
   "memory.coreShort": "Правило",
   "memory.projectMemoryCount": "Воспоминаний: {count}",
@@ -841,8 +840,8 @@ const messages = {
     "Запишите предпочтение или наблюдение…",
   "memory.composerPickProject": "Выбрать проект",
   "memory.composerCustomProjectPrompt":
-    "Введите имя проекта или абсолютный путь (например, FlareMo или /Users/...):",
-  "memory.composerCustomProject": "Свой проект…",
+    "Название проекта, путь к репозиторию или github:owner/repo — тот же ключ, что сообщают ваши агенты.",
+  "memory.composerCustomProject": "Другой проект…",
   "memory.coldStartTitle": "Быстро задайте первое правило:",
   "memory.coldStart1": "Отвечать сразу по существу, без лишних предисловий",
   "memory.coldStart2":
@@ -857,7 +856,7 @@ const messages = {
   "memory.emptyTitle": "Памятей пока нет",
   "memory.emptyDescription":
     "AI будет накапливать долговременную память в ходе работы, а вы можете добавлять её здесь вручную.",
-  "memory.reviewEmpty": "Проверять нечего",
+  "memory.reviewEmpty": "Нет предложений на подтверждение",
   "memory.content": "Содержимое",
   "memory.type": "Тип",
   "memory.kind": "Разряд",
@@ -913,16 +912,16 @@ const messages = {
   "memory.confirmedBadge": "Подтверждено",
   "memory.observedBadge": "ИИ обнаружил",
   "memory.inferredBadge": "Догадка ИИ",
-  "memory.pin": "Закрепить как правило",
-  "memory.unpin": "Открепить",
+  "memory.pin": "Сделать железным правилом",
+  "memory.unpin": "Снять железное правило",
   "memory.restore": "Восстановить заметку",
   "memory.status.current": "Действует",
   "memory.status.supersededShort": "Заменено",
   "memory.status.archivedShort": "В архиве",
   "memory.evidenceLabel": "Основание",
   "memory.pendingDecision": "Ждёт решения",
-  "memory.acceptProposal": "Одобрить",
-  "memory.rejectProposal": "Удалить",
+  "memory.acceptProposal": "Принять",
+  "memory.rejectProposal": "Отклонить",
   "toast.memoryPinned": "Закреплено как правило",
   "toast.memoryUnpinned": "Откреплено",
   "toast.memoryRestored": "Заметка восстановлена",
@@ -1324,6 +1323,30 @@ const messages = {
   "review.doneWeek": "На этой неделе новых заметок: {count}.",
   "review.doneWeekEmpty":
     "На этой неделе новых заметок пока нет. Может, напишете сегодня?",
+  "memory.composerUseProject": "Использовать",
+  "memory.coreEmpty":
+    "Железных правил пока нет. Сделать правило можно в меню «…» записи.",
+  "memory.listEmpty": "Здесь пока нет воспоминаний",
+  "memory.usedCount": "использовано {count} раз",
+  "memory.lastUsed": "Последнее использование {time}",
+  "memory.reason.supersede": "Хочет заменить подтверждённую вами запись",
+  "memory.reason.contradicts": "Противоречит существующей записи",
+  "memory.reason.evidenceStale": "Источник изменился",
+  "memory.confirmObserved": "Подтвердить",
+  "memory.conflictCurrent": "Сейчас",
+  "memory.keepStillTrue": "Всё ещё верно",
+  "memory.acceptReplace": "Взять новое",
+  "memory.keepCurrent": "Оставить как есть",
+  "memory.lensContext": "Где идёт работа",
+  "memory.lensGlobal": "Общее (вне проекта)",
+  "memory.lensInProject": "В {project}",
+  "memory.lensStats": "Включено: {count} · около {tokens} tokens",
+  "memory.lensTruncated": "Не хватило места, не вошло ещё {count}:",
+  "memory.lensPinnedOverflow":
+    "Железные правила заняли всё место, остальное не вошло.",
+  "memory.lensEmpty":
+    "Пока нечего передать агентам. Здесь появятся подтверждённые записи и железные правила.",
+  "memory.lensCopy": "Копировать",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ru = messages;

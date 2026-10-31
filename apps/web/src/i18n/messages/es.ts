@@ -827,16 +827,15 @@ const messages = {
   "memory.quickAddPinned": "Fijar como regla estricta",
   "memory.bannerHint":
     "La IA destila memoria a largo plazo de tus notas; administra tus reglas y hábitos aquí.",
-  "memory.bannerReviewAlert":
-    "Tienes {count} propuestas o conflictos de la IA pendientes de revisión",
+  "memory.bannerReviewAlert": "{count} propuestas de la IA esperan tu decisión",
   "memory.viewLens": "Ver notas del asistente",
-  "memory.lensTitle": "Lente de memoria para IA",
+  "memory.lensTitle": "Chuleta",
   "memory.lensDescription":
-    "A continuación se muestra el contexto de memoria compilado dinámicamente inyectado en los prompts del sistema.",
+    "Esto es lo que recibe un agente al pedir memoria por MCP. Las reglas de oro siempre van; el resto llena el espacio por importancia.",
   "memory.filterAll": "Todo",
   "memory.filterCore": "Reglas de oro",
-  "memory.filterObserved": "Descubierto por IA",
-  "memory.filterReview": "Pendiente",
+  "memory.filterObserved": "Hallado por IA",
+  "memory.filterReview": "Por confirmar",
   "memory.allProjects": "Todos los proyectos",
   "memory.coreShort": "Regla de oro",
   "memory.projectMemoryCount": "{count} recuerdos",
@@ -849,8 +848,8 @@ const messages = {
   "memory.composerPlaceholderPreference": "Anota una preferencia o idea…",
   "memory.composerPickProject": "Elegir un proyecto",
   "memory.composerCustomProjectPrompt":
-    "Introduce un nombre de proyecto o una ruta absoluta (p. ej. FlareMo o /Users/...):",
-  "memory.composerCustomProject": "Proyecto personalizado…",
+    "Nombre del proyecto, ruta del repositorio o github:owner/repo: la misma clave que envían tus agentes.",
+  "memory.composerCustomProject": "Otro proyecto…",
   "memory.coldStartTitle": "Establece rápidamente tu primera regla:",
   "memory.coldStart1": "Ve directo al grano, evita rodeos y formalismos",
   "memory.coldStart2":
@@ -865,7 +864,7 @@ const messages = {
   "memory.emptyTitle": "Aún no hay memorias",
   "memory.emptyDescription":
     "Tu AI destilará memorias de largo plazo mientras trabaja, y tú también puedes agregarlas aquí.",
-  "memory.reviewEmpty": "Nada que revisar",
+  "memory.reviewEmpty": "No hay propuestas pendientes",
   "memory.content": "Contenido",
   "memory.type": "Tipo",
   "memory.kind": "Clase",
@@ -920,16 +919,16 @@ const messages = {
   "memory.confirmedBadge": "Confirmado",
   "memory.observedBadge": "La IA lo detectó",
   "memory.inferredBadge": "Suposición de la IA",
-  "memory.pin": "Fijar como regla",
-  "memory.unpin": "Soltar",
+  "memory.pin": "Convertir en regla de oro",
+  "memory.unpin": "Quitar regla de oro",
   "memory.restore": "Restaurar nota",
   "memory.status.current": "Vigente",
   "memory.status.supersededShort": "Reemplazado",
   "memory.status.archivedShort": "Archivado",
   "memory.evidenceLabel": "Según",
   "memory.pendingDecision": "Por decidir",
-  "memory.acceptProposal": "Aprobar",
-  "memory.rejectProposal": "Eliminar",
+  "memory.acceptProposal": "Aceptar",
+  "memory.rejectProposal": "Rechazar",
   "toast.memoryPinned": "Fijado como regla",
   "toast.memoryUnpinned": "Soltado",
   "toast.memoryRestored": "Nota restaurada",
@@ -1330,6 +1329,30 @@ const messages = {
   "review.doneWeek": "Esta semana escribiste {count} notas nuevas.",
   "review.doneWeekEmpty":
     "Aún no hay notas nuevas esta semana. ¿Escribes una hoy?",
+  "memory.composerUseProject": "Usar",
+  "memory.coreEmpty":
+    "Aún no hay reglas de oro. Usa el menú «…» de un recuerdo para crear una.",
+  "memory.listEmpty": "Aún no hay recuerdos aquí",
+  "memory.usedCount": "usado {count} veces",
+  "memory.lastUsed": "Último uso {time}",
+  "memory.reason.supersede": "Quiere reemplazar uno que confirmaste",
+  "memory.reason.contradicts": "Contradice un recuerdo existente",
+  "memory.reason.evidenceStale": "Su fuente ha cambiado",
+  "memory.confirmObserved": "Confirmar",
+  "memory.conflictCurrent": "Actualmente",
+  "memory.keepStillTrue": "Sigue siendo cierto",
+  "memory.acceptReplace": "Usar el nuevo",
+  "memory.keepCurrent": "Mantener el actual",
+  "memory.lensContext": "Contexto de trabajo",
+  "memory.lensGlobal": "General (sin proyecto)",
+  "memory.lensInProject": "En {project}",
+  "memory.lensStats": "{count} incluidos · unos {tokens} tokens",
+  "memory.lensTruncated": "Sin espacio: quedaron fuera {count} más:",
+  "memory.lensPinnedOverflow":
+    "Las reglas de oro ocupan todo el espacio; no cupo nada más.",
+  "memory.lensEmpty":
+    "Aún no hay nada que pasar a los agentes. Aquí aparecerán los recuerdos confirmados y las reglas de oro.",
+  "memory.lensCopy": "Copiar",
 } as const satisfies Record<TranslationKey, string>;
 
 export const es = messages;

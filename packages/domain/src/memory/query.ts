@@ -187,7 +187,12 @@ export async function listMemoryReview(db: FlareMoDb, user: UserRow) {
         // this list happens here rather than by rewriting the row's
         // verification: archived inferences (rejected or forgotten) are done.
         or(
-          eq(memoryItems.needsReview, true),
+          // A flag on an archived or superseded row is history, not work:
+          // the evidence sweep can mark rows that are already retired.
+          and(
+            eq(memoryItems.needsReview, true),
+            eq(memoryItems.status, "active"),
+          ),
           eq(memoryItems.status, "disputed"),
           and(
             eq(memoryItems.verification, "inferred"),
@@ -222,9 +227,115 @@ export async function listMemoryReview(db: FlareMoDb, user: UserRow) {
     }
   }
 
-  return rows.map((r) =>
-    memoryToDto(r, (evidenceMap.get(r.id) ?? []).map(memoryEvidenceToDto)),
-  );
+  const conflicts = await findReviewConflicts(db, user, rows, evidenceMap);
+
+  return rows.map((r) => ({
+    ...memoryToDto(r, (evidenceMap.get(r.id) ?? []).map(memoryEvidenceToDto)),
+    conflict_with: conflicts.get(r.id) ?? null,
+  }));
+}
+
+/**
+ * The memory a queued item wants to replace or contradicts, so the inbox can
+ * show "what you have now" beside "what the AI proposes". Three paths lead
+ * here: a proposal against a confirmed fact (`contradicts` relation written
+ * at creation), an agent `memory_link contradicts` (same relation), and the
+ * Dreaming conflict patrol (target id in its evidence). Falls back to the
+ * live holder of the same fact key.
+ */
+async function findReviewConflicts(
+  db: FlareMoDb,
+  user: UserRow,
+  rows: MemoryItemRow[],
+  evidenceMap: Map<string, (typeof memoryEvidence.$inferSelect)[]>,
+) {
+  const result = new Map<
+    string,
+    { id: string; content: string; verification: MemoryItemRow["verification"] }
+  >();
+  if (rows.length === 0) return result;
+  const ids = rows.map((r) => r.id);
+  const targetByItem = new Map<string, string>();
+
+  const relationRows = await db
+    .select({
+      memoryId: memoryRelations.memoryId,
+      relatedMemoryId: memoryRelations.relatedMemoryId,
+    })
+    .from(memoryRelations)
+    .where(
+      and(
+        eq(memoryRelations.userId, user.id),
+        eq(memoryRelations.type, "contradicts"),
+        inArray(memoryRelations.memoryId, ids),
+      ),
+    );
+  for (const rel of relationRows) {
+    if (!targetByItem.has(rel.memoryId)) {
+      targetByItem.set(rel.memoryId, rel.relatedMemoryId);
+    }
+  }
+  for (const r of rows) {
+    if (targetByItem.has(r.id)) continue;
+    const pointer = (evidenceMap.get(r.id) ?? []).find(
+      (ev) => ev.sourceType === "other" && ev.sourceId !== r.id,
+    );
+    if (pointer) targetByItem.set(r.id, pointer.sourceId);
+  }
+
+  const factKeys = rows
+    .filter((r) => !targetByItem.has(r.id) && r.factKey)
+    .map((r) => r.factKey as string);
+  const targetIds = [...new Set(targetByItem.values())];
+  const targets =
+    targetIds.length > 0 || factKeys.length > 0
+      ? await db
+          .select({
+            id: memoryItems.id,
+            content: memoryItems.content,
+            verification: memoryItems.verification,
+            factKey: memoryItems.factKey,
+            status: memoryItems.status,
+          })
+          .from(memoryItems)
+          .where(
+            and(
+              eq(memoryItems.userId, user.id),
+              or(
+                targetIds.length > 0
+                  ? inArray(memoryItems.id, targetIds)
+                  : undefined,
+                factKeys.length > 0
+                  ? and(
+                      inArray(memoryItems.factKey, factKeys),
+                      eq(memoryItems.status, "active"),
+                      sql`${memoryItems.verification} != 'inferred'`,
+                    )
+                  : undefined,
+              ),
+            ),
+          )
+      : [];
+  const byId = new Map(targets.map((t) => [t.id, t]));
+  for (const r of rows) {
+    const targetId = targetByItem.get(r.id);
+    const target = targetId
+      ? byId.get(targetId)
+      : r.factKey
+        ? targets.find(
+            (t) =>
+              t.factKey === r.factKey && t.id !== r.id && t.status === "active",
+          )
+        : undefined;
+    if (target && target.id !== r.id) {
+      result.set(r.id, {
+        id: target.id,
+        content: target.content,
+        verification: target.verification,
+      });
+    }
+  }
+  return result;
 }
 
 /**
