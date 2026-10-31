@@ -271,11 +271,9 @@ test("keeps the draft when moving between the timeline and archive", async ({
   await page.goto("/");
   const composer = page.locator("#flaremo-composer-input");
   await composer.fill("Draft that survives workspace navigation");
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /archive|归档/i }).click();
+  await page.getByRole("link", { name: /^(archive|归档)$/i }).click();
   await expect(composer).toHaveCount(0);
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /all|全部/i }).click();
+  await page.getByRole("link", { name: /^(memos|记录)$/i }).click();
   await expect(composer).toHaveText("Draft that survives workspace navigation");
 });
 

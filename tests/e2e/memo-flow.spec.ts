@@ -95,8 +95,7 @@ test("searches timeline and archived notes by default and supports archive synta
   expect(archiveResponse.ok()).toBe(true);
 
   await page.goto("/");
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /archive|归档/i }).click();
+  await page.getByRole("link", { name: /^(archive|归档)$/i }).click();
   await searchTimeline(page, `search marker ${marker}`);
   await expect(
     page.locator("article").filter({ hasText: timeline }),
@@ -407,15 +406,13 @@ test("archives and restores a memo", async ({ page }) => {
   const card = page.locator("article").filter({ hasText: content });
   await card.getByRole("button", { name: /actions|操作/i }).click();
   await page.getByRole("menuitem", { name: /archive|归档/i }).click();
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /archive|归档/i }).click();
+  await page.getByRole("link", { name: /^(archive|归档)$/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
   const archivedCard = page.locator("article").filter({ hasText: content });
   await archivedCard.getByRole("button", { name: /actions|操作/i }).click();
   await page.getByRole("menuitem", { name: /timeline|时间线/i }).click();
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /all|全部/i }).click();
+  await page.getByRole("link", { name: /^(memos|记录)$/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 });
 
@@ -435,22 +432,19 @@ test("trashes, restores, and hard-deletes a memo", async ({ page }) => {
   const card = page.locator("article").filter({ hasText: content });
   await card.getByRole("button", { name: /actions|操作/i }).click();
   await page.getByRole("menuitem", { name: /trash|回收站/i }).click();
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /trash|回收站/i }).click();
+  await page.getByRole("link", { name: /^(trash|回收站)$/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
   const trashedCard = page.locator("article").filter({ hasText: content });
   await trashedCard.getByRole("button", { name: /actions|操作/i }).click();
   await page.getByRole("menuitem", { name: /restore|恢复/i }).click();
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /all|全部/i }).click();
+  await page.getByRole("link", { name: /^(memos|记录)$/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
   const finalCard = page.locator("article").filter({ hasText: content });
   await finalCard.getByRole("button", { name: /actions|操作/i }).click();
   await page.getByRole("menuitem", { name: /trash|回收站/i }).click();
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /trash|回收站/i }).click();
+  await page.getByRole("link", { name: /^(trash|回收站)$/i }).click();
   const deleteCard = page.locator("article").filter({ hasText: content });
   await deleteCard.getByRole("button", { name: /actions|操作/i }).click();
   await page
@@ -656,10 +650,15 @@ test("keeps the mobile navigation usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  // Space scope and the low-frequency archive/trash views moved to the
-  // header ScopeSwitcher; the sheet keeps navigation and tags.
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /archive|归档/i }).click();
+  // Archive and trash are sidebar pages; the sheet carries them below the
+  // tags.
+  await page
+    .getByRole("button", { name: /toggle sidebar|切换侧边栏/i })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: /^(archive|归档)$/i })
+    .click();
   await expect(page).toHaveURL(/view=archived/);
 
   await page
@@ -681,13 +680,11 @@ test("keeps the mobile navigation usable", async ({ page }) => {
   await scroller.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
-  // The bottom of the drawer (the tag list) stays reachable; language,
-  // export and import live in the account menu at the top.
+  // The bottom of the drawer (archive and trash, below the tag list) stays
+  // reachable; language, export and import live in the account menu at the
+  // top.
   await expect(
-    page
-      .getByRole("dialog")
-      .getByText(/^(tags|标签)$/i)
-      .last(),
+    page.getByRole("dialog").getByRole("link", { name: /^(trash|回收站)$/i }),
   ).toBeInViewport();
   await scroller.evaluate((element) => {
     element.scrollTop = 0;

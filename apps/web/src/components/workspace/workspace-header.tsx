@@ -1,18 +1,16 @@
+import { ArchiveIcon, LayoutGridIcon, Trash2Icon } from "lucide-react";
 import type { MemoSpace } from "@/api";
 import type { ExplorerView } from "@/components/flaremo-explorer";
 import { ScopeSwitcher } from "@/components/scope-switcher";
 import { SpotlightSearchTrigger } from "@/components/spotlight-search";
-import { usePageContentWidth } from "@/components/workspace/workspace-layout";
-import {
-  SidebarToggleSlot,
-  WorkspaceMobileSidebar,
-  type WorkspaceSidebarContent,
-} from "@/components/workspace/workspace-sidebar";
-import { cn } from "@/lib/utils";
+import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
+import type { WorkspaceSidebarContent } from "@/components/workspace/workspace-sidebar";
+import { useI18n } from "@/i18n";
 
 /**
- * The timeline top bar: sidebar toggle, scope switcher and the two spotlight
- * entries (desktop pill, mobile icon), plus the mobile sidebar trigger.
+ * The timeline top bar. The title names the page the sidebar opened (memos,
+ * archive or trash), like every other page; the right side holds what narrows
+ * it: the space filter (only with a shared team) and the search entry.
  */
 export function WorkspaceHeader({
   activeQuery,
@@ -24,7 +22,6 @@ export function WorkspaceHeader({
   setQuery,
   setSpace,
   setSpotlightOpen,
-  setView,
   space,
   team,
   view,
@@ -38,7 +35,8 @@ export function WorkspaceHeader({
   setQuery: (q: string) => void;
   setSpace: (space: MemoSpace) => void;
   setSpotlightOpen: (open: boolean) => void;
-  setView: (view: ExplorerView) => void;
+  /** Kept for call-site parity; archive and trash are sidebar pages now. */
+  setView?: (view: ExplorerView) => void;
   sidebarCollapsed: boolean;
   space: MemoSpace;
   team: { id: string; name: string } | null;
@@ -46,38 +44,30 @@ export function WorkspaceHeader({
   toggleSidebarCollapsed?: () => void;
   view: ExplorerView;
 }) {
-  const contentWidth = usePageContentWidth();
+  const { t } = useI18n();
+  const [Icon, title] =
+    view === "archived"
+      ? [ArchiveIcon, t("view.archive")]
+      : view === "trashed"
+        ? [Trash2Icon, t("view.trash")]
+        : [LayoutGridIcon, t("nav.allMemos")];
 
   return (
-    <header
-      className={cn(
-        "z-20 shrink-0 border-b bg-background/90 backdrop-blur-md motion-safe:transition-[border-color,box-shadow] motion-safe:duration-200",
-        isTimelineScrolled ? "border-border shadow-xs" : "border-transparent",
-      )}
-    >
-      {/* The bar spans the whole area beside the sidebar (its hairline and
-          blur run edge to edge); its row has the page's content width and
-          starts where the column below starts, so the title lines up. */}
-      <div
-        className="mx-auto flex h-14 w-full items-center gap-1 px-5 md:ms-0 lg:px-2.5"
-        style={{ maxWidth: contentWidth }}
-      >
-        <SidebarToggleSlot collapsed={sidebarCollapsed} />
-        <WorkspaceMobileSidebar
-          explorer={explorer}
-          open={mobileSheetOpen}
-          onOpenChange={setMobileSheetOpen}
-        />
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+    <WorkspacePageHeader
+      explorer={explorer}
+      icon={<Icon />}
+      isScrolled={isTimelineScrolled}
+      mobileSheetOpen={mobileSheetOpen}
+      setMobileSheetOpen={setMobileSheetOpen}
+      sidebarCollapsed={sidebarCollapsed}
+      title={title}
+      actions={
+        <>
           <ScopeSwitcher
             activeSpace={space}
-            activeView={view}
             team={team}
             onSpaceChange={setSpace}
-            onViewChange={setView}
           />
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
           {/* One search everywhere: the same palette behind a field on wide
               screens and an icon on narrow ones. */}
           <SpotlightSearchTrigger
@@ -92,8 +82,8 @@ export function WorkspaceHeader({
             onClick={() => setSpotlightOpen(true)}
             activeQuery={activeQuery}
           />
-        </div>
-      </div>
-    </header>
+        </>
+      }
+    />
   );
 }

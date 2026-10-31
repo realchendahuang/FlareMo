@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  ArchiveIcon,
   BrainIcon,
   CalendarDaysIcon,
   ChevronRightIcon,
@@ -104,6 +105,15 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   const inReview = useRouterState({
     select: (state) => state.location.pathname.startsWith("/review/"),
   });
+  // Memos, archive and trash are one route told apart by `?view=`, so the
+  // three rows match on that instead of the router's exact-search rule.
+  const timelineView = useRouterState({
+    select: (state) => {
+      if (state.location.pathname !== "/") return null;
+      const view = (state.location.search as { view?: ExplorerView }).view;
+      return view ?? "all";
+    },
+  });
   const streak = useMemo(() => currentStreak(stats.activity), [stats.activity]);
 
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
@@ -153,9 +163,8 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         className="mt-3 flex flex-col gap-0.5"
       >
         <Link
-          activeOptions={{ exact: true }}
-          activeProps={NAV_ACTIVE}
-          className={NAV_ITEM}
+          aria-current={timelineView === "all" ? "page" : undefined}
+          className={cn(NAV_ITEM, timelineView === "all" && NAV_ACTIVE_CLASS)}
           onClick={onNavigate}
           search={{ ...TIMELINE_SEARCH }}
           to="/"
@@ -250,7 +259,33 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
           </div>
         )}
       </section>
-      {footer && <div className="mt-auto px-1 pt-5 pb-1">{footer}</div>}
+      {/* Places notes go when they leave the timeline. Low-frequency, so
+          they sink to the bottom of the panel instead of sitting among the
+          modules; they are pages to visit, not filters on the timeline. */}
+      <nav
+        aria-label={t("sidebar.storage")}
+        className="mt-auto flex flex-col gap-0.5 pt-6"
+      >
+        {(
+          [
+            ["archived", ArchiveIcon, t("view.archive")],
+            ["trashed", Trash2Icon, t("view.trash")],
+          ] as const
+        ).map(([view, Icon, label]) => (
+          <Link
+            aria-current={timelineView === view ? "page" : undefined}
+            className={cn(NAV_ITEM, timelineView === view && NAV_ACTIVE_CLASS)}
+            key={view}
+            onClick={onNavigate}
+            search={{ ...TIMELINE_SEARCH, view }}
+            to="/"
+          >
+            <Icon />
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+          </Link>
+        ))}
+      </nav>
+      {footer && <div className="px-1 pt-5 pb-1">{footer}</div>}
     </aside>
   );
 });
