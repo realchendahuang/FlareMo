@@ -123,7 +123,11 @@ export function ProjectsPage() {
   const navigate = useNavigate({ from: "/projects" });
   const search = useSearch({ from: "/workspace/projects" });
   const [creatingProject, setCreatingProject] = useState(false);
-  const [creatingTask, setCreatingTask] = useState(false);
+  // The quick-add line's expand button hands over what was typed.
+  const [creatingTask, setCreatingTask] = useState<{
+    title: string;
+    dueAt?: string;
+  } | null>(null);
 
   const projectsQuery = useQuery({
     queryKey: ["projects"],
@@ -215,28 +219,6 @@ export function ProjectsPage() {
         explorer,
       }) => (
         <WorkspacePageHeader
-          actions={
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCreatingTask(true)}
-              >
-                <PlusIcon data-icon="inline-start" />
-                {t("projects.newTask")}
-              </Button>
-              <Button
-                // Phones: the rail's own "New project" row is one swipe away.
-                className="max-sm:hidden"
-                size="sm"
-                variant="outline"
-                onClick={() => setCreatingProject(true)}
-              >
-                <PlusIcon data-icon="inline-start" />
-                {t("projects.newProject")}
-              </Button>
-            </>
-          }
           explorer={explorer}
           icon={
             <ListChecksIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
@@ -333,6 +315,7 @@ export function ProjectsPage() {
               project={selectedProject}
               view={view}
               onCreated={invalidate}
+              onExpand={setCreatingTask}
             />
 
             {!selectedProjectId && view !== "all" && tasks.length > 0 ? (
@@ -374,9 +357,13 @@ export function ProjectsPage() {
           onSaved={invalidate}
         />
         <TaskFormDialog
+          defaultDueAt={creatingTask?.dueAt}
           defaultProjectId={selectedProject?.id}
-          open={creatingTask}
-          onOpenChange={setCreatingTask}
+          defaultTitle={creatingTask?.title}
+          open={creatingTask !== null}
+          onOpenChange={(open) => {
+            if (!open) setCreatingTask(null);
+          }}
           onSaved={invalidate}
         />
       </div>

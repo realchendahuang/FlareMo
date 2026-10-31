@@ -165,6 +165,7 @@ const messages = {
   "nav.allMemos": "Toutes les notes",
   "nav.dailyReview": "Ce jour-là",
   "nav.randomWalk": "Balade",
+  "nav.review": "Revoir",
   "nav.memory": "Mémoire",
   "nav.projects": "Tâches",
   "capture.title": "Capture vocale",

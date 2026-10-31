@@ -161,6 +161,7 @@ const messages = {
   "nav.allMemos": "All memos",
   "nav.dailyReview": "On this day",
   "nav.randomWalk": "Wander",
+  "nav.review": "Review",
   "nav.memory": "Memory",
   "nav.projects": "To-dos",
   "capture.title": "Voice capture",

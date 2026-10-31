@@ -2,6 +2,18 @@ import type { MemoDto } from "@flaremo/contracts";
 import { expect, test } from "@playwright/test";
 import { startWithCleanClientState } from "./workspace-helpers";
 
+// The personal/team split only shows once someone else holds a seat; the e2e
+// owner is alone in the default team, so report a second member.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/app/me", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    const body = await response.json();
+    if (body.team) body.team.member_count = 2;
+    await route.fulfill({ response, json: body });
+  });
+});
+
 function note(id: string, visibility: MemoDto["visibility"]): MemoDto {
   return {
     id,

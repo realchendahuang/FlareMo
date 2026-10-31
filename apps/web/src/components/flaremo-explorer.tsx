@@ -1,10 +1,9 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   BrainIcon,
   CalendarDaysIcon,
   ChevronRightIcon,
   FileTextIcon,
-  FootprintsIcon,
   HashIcon,
   LayoutGridIcon,
   ListChecksIcon,
@@ -102,6 +101,9 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   onNavigate,
 }: FlareMoExplorerProps) {
   const { t } = useI18n();
+  const inReview = useRouterState({
+    select: (state) => state.location.pathname.startsWith("/review/"),
+  });
   const streak = useMemo(() => currentStreak(stats.activity), [stats.activity]);
 
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
@@ -161,25 +163,16 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
           <LayoutGridIcon />
           <span className="min-w-0 flex-1 truncate">{t("nav.allMemos")}</span>
         </Link>
+        {/* One entry for both ways of looking back; the page header
+            switches between "on this day" and the random walk. */}
         <Link
-          activeProps={NAV_ACTIVE}
-          className={NAV_ITEM}
+          aria-current={inReview ? "page" : undefined}
+          className={cn(NAV_ITEM, inReview && NAV_ACTIVE_CLASS)}
           onClick={onNavigate}
           to="/review/daily"
         >
           <CalendarDaysIcon />
-          <span className="min-w-0 flex-1 truncate">
-            {t("nav.dailyReview")}
-          </span>
-        </Link>
-        <Link
-          activeProps={NAV_ACTIVE}
-          className={NAV_ITEM}
-          onClick={onNavigate}
-          to="/review/walk"
-        >
-          <FootprintsIcon />
-          <span className="min-w-0 flex-1 truncate">{t("nav.randomWalk")}</span>
+          <span className="min-w-0 flex-1 truncate">{t("nav.review")}</span>
         </Link>
         <Link
           activeProps={NAV_ACTIVE}

@@ -31,12 +31,17 @@ import { patchTasksCache } from "./task-cache";
 export function TaskFormDialog({
   task,
   defaultProjectId,
+  defaultTitle,
+  defaultDueAt,
   open,
   onSaved,
   onOpenChange,
 }: {
   task?: Task;
   defaultProjectId?: string;
+  /** New task only: what was already typed into the quick-add line. */
+  defaultTitle?: string;
+  defaultDueAt?: string;
   open: boolean;
   onSaved: () => void;
   onOpenChange: (open: boolean) => void;
@@ -64,13 +69,13 @@ export function TaskFormDialog({
   useEffect(() => {
     if (open) {
       setProjectId(task?.project_id ?? defaultProjectId ?? "");
-      setTitle(task?.title ?? "");
+      setTitle(task?.title ?? defaultTitle ?? "");
       setNotes(task?.notes ?? "");
       setPriority(task?.priority ?? "none");
-      setDueAt(task?.due_at ?? "");
+      setDueAt(task?.due_at ?? defaultDueAt ?? "");
       setStatus(task?.status ?? "todo");
     }
-  }, [open, task, defaultProjectId]);
+  }, [open, task, defaultProjectId, defaultTitle, defaultDueAt]);
 
   // Active projects to pick from; when editing, a task still pointing at an
   // archived project keeps that option so the value never disappears.

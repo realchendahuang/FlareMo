@@ -40,21 +40,23 @@ export function ScopeSwitcher({
   onViewChange: (view: ExplorerView) => void;
 }) {
   const { t } = useI18n();
+  // Without a shared team there is only one space, so "personal" would just
+  // repeat "all": the menu shrinks to all / archive / trash.
   const spaceItems = [
     {
       icon: LayersIcon,
       label: t("space.all"),
       value: "all" as const,
     },
-    {
-      icon: LockIcon,
-      label: t("space.personal"),
-      value: "personal" as const,
-    },
-    // No membership, no team space — the whole entry disappears instead of
-    // rendering an always-empty view.
     ...(team
-      ? [{ icon: UsersIcon, label: t("space.team"), value: "team" as const }]
+      ? [
+          {
+            icon: LockIcon,
+            label: t("space.personal"),
+            value: "personal" as const,
+          },
+          { icon: UsersIcon, label: t("space.team"), value: "team" as const },
+        ]
       : []),
   ];
   const activeSpaceItem = spaceItems.find((item) => item.value === activeSpace);
@@ -97,11 +99,16 @@ export function ScopeSwitcher({
           {spaceItems.map((item) => (
             <DropdownMenuItem
               key={item.value}
-              onClick={() => pickSpace(item.value)}
+              onClick={() => {
+                if (activeSpace === item.value) onViewChange("all");
+                else pickSpace(item.value);
+              }}
             >
               <item.icon />
               {item.label}
-              {activeSpace === item.value && <CheckIcon className="ml-auto" />}
+              {activeSpace === item.value && activeView === "all" && (
+                <CheckIcon className="ml-auto" />
+              )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

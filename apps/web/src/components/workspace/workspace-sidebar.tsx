@@ -14,7 +14,6 @@ import type {
   TagHierarchyNode,
 } from "@/api";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -212,23 +211,11 @@ function WorkspaceExplorerPanel({
     [handleOpenSettings, onExport, onImportFile, user],
   );
 
-  // Only the language stays at the bottom; export and import moved into the
-  // account menu, where they are labelled instead of two bare arrows.
-  const footer = useMemo(
-    () => (
-      <div className="flex items-center text-muted-foreground">
-        <LocaleSwitcher />
-      </div>
-    ),
-    [],
-  );
-
   return (
     <FlareMoExplorer
       activeTag={activeTag}
       header={header}
       headerScrolled={headerScrolled}
-      footer={footer}
       space={space}
       stats={stats}
       timeZone={timeZone}

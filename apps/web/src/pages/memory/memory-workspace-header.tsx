@@ -54,15 +54,16 @@ export function MemoryWorkspaceHeader({
             )}
           </div>
 
+          {/* Named, not a bare eye: what the agents actually receive. */}
           <Button
-            size="icon-sm"
+            size="sm"
             variant="ghost"
-            aria-label={t("memory.viewLens")}
             className="text-muted-foreground hover:text-foreground"
             onClick={onOpenLens}
-            title={t("memory.viewLens")}
+            title={t("memory.lensTitle")}
           >
-            <EyeIcon className="size-4" />
+            <EyeIcon data-icon="inline-start" />
+            {t("memory.viewLens")}
           </Button>
         </>
       }

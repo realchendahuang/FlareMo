@@ -184,7 +184,13 @@ export function useWorkspaceQueries({
   // Readers (time-boxed read-only seats) browse the team space but never
   // publish into it; their composer target stays personal everywhere.
   const isReader = currentUserQuery.data?.role === "reader";
-  const canPublishTeam = Boolean(currentUserQuery.data?.team) && !isReader;
+  // A team the viewer is alone in is not a second space: the personal/team
+  // split (scope menu, composer visibility) only appears once someone else
+  // holds a seat. Older servers omit member_count; keep showing it then.
+  const rawTeam = currentUserQuery.data?.team ?? null;
+  const sharedTeam =
+    rawTeam && (rawTeam.member_count ?? 2) > 1 ? rawTeam : null;
+  const canPublishTeam = Boolean(sharedTeam) && !isReader;
   const teamExpired = Boolean(currentUserQuery.data?.team_expired);
   // "On this day" teaser for the timeline top: notes from past years dated
   // today. The query shares the daily-review page's cache entry, so landing
@@ -231,6 +237,7 @@ export function useWorkspaceQueries({
   return {
     attachmentsByMemo,
     canPublishTeam,
+    sharedTeam,
     captureStatusQuery,
     currentUserQuery,
     displayedMemos,

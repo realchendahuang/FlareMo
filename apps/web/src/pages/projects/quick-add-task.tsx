@@ -1,8 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { CornerDownLeftIcon, PlusIcon } from "lucide-react";
+import { CornerDownLeftIcon, Maximize2Icon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { createTask, type Project } from "@/api";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import { addDays, todayKey } from "@/lib/calendar-date";
 import { errorMessage } from "@/lib/error";
@@ -17,10 +18,13 @@ export function QuickAddTask({
   project,
   view,
   onCreated,
+  onExpand,
 }: {
   project: Project | null;
   view: TaskView;
   onCreated: () => void;
+  /** Open the full task form (notes, priority, project) with what was typed. */
+  onExpand: (draft: { title: string; dueAt?: string }) => void;
 }) {
   const { t } = useI18n();
   const [title, setTitle] = useState("");
@@ -83,6 +87,22 @@ export function QuickAddTask({
         aria-hidden="true"
         className="size-3.5 shrink-0 text-muted-foreground/60"
       />
+      {/* The page's only "new task" entry besides this line: the full form,
+          for notes, priority or another project. */}
+      <Button
+        aria-label={t("projects.newTask")}
+        className="-me-1.5 size-7 text-muted-foreground hover:text-foreground"
+        size="icon-sm"
+        title={t("projects.newTask")}
+        type="button"
+        variant="ghost"
+        onClick={() => {
+          onExpand({ title: title.trim(), dueAt: due });
+          setTitle("");
+        }}
+      >
+        <Maximize2Icon className="size-3.5" />
+      </Button>
     </form>
   );
 }

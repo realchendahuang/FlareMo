@@ -10,7 +10,7 @@ import {
   type UserRow,
   users,
 } from "@flaremo/db";
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt } from "drizzle-orm";
 import { ConflictError } from "./errors";
 import type { TeamRole, TeamViewer } from "./team-permissions";
 import {
@@ -296,6 +296,23 @@ export async function getMembershipState(
     organizationName: row.organizationName,
     expiresAt: row.expiresAt ?? null,
   };
+}
+
+/**
+ * How many people hold a seat in the organization (owner included). The
+ * workspace hides its personal/team split while this is 1: with nobody to
+ * share with, "team space" is just a second name for the same notes.
+ */
+export async function countOrganizationMembers(
+  db: FlareMoDb,
+  organizationId: string,
+): Promise<number> {
+  const row = await db
+    .select({ value: count() })
+    .from(authMembers)
+    .where(eq(authMembers.organizationId, organizationId))
+    .get();
+  return row?.value ?? 0;
 }
 
 /**

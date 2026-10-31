@@ -1,6 +1,7 @@
 import { FLAREMO_API_VERSION } from "@flaremo/contracts/constants";
 import {
   canManageVoiceService,
+  countOrganizationMembers,
   getBranding,
   getMembershipState,
   isInstanceOwner,
@@ -45,6 +46,10 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
         state?.role === "reader" &&
         state.expiresAt !== null &&
         state.expiresAt.getTime() <= Date.now();
+      const memberCount =
+        state && !teamExpired
+          ? await countOrganizationMembers(db, state.organizationId)
+          : 0;
       const avatarUrl = user.avatarUrl ?? resolvedAuthUser?.image ?? null;
       return c.json({
         id: user.id,
@@ -58,7 +63,11 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
         avatar_url: avatarUrl,
         team:
           state && !teamExpired
-            ? { id: state.organizationId, name: state.organizationName }
+            ? {
+                id: state.organizationId,
+                name: state.organizationName,
+                member_count: memberCount,
+              }
             : null,
         team_expired: teamExpired,
         ...(state?.role === "reader"

@@ -42,7 +42,9 @@ export function MemoryQuickComposer({
 }: MemoryQuickComposerProps) {
   const { t } = useI18n();
   const [content, setContent] = useState("");
-  const [isCore, setIsCore] = useState(true);
+  // Rules are the exception: a new memory starts as a plain preference and
+  // is promoted to a locked rule only when the author asks for it.
+  const [isCore, setIsCore] = useState(false);
   const [scopeType, setScopeType] = useState<Memory["scope_type"]>(() =>
     defaultScopeKey ? "project" : "global",
   );

@@ -254,9 +254,13 @@ function MemoDetail({
                 {t("memo.pinnedBadge")}
               </Badge>
             )}
-            <Badge className="text-muted-foreground" variant="outline">
-              {t(`visibility.${context.memo.visibility}`)}
-            </Badge>
+            {/* Private is the default, so only shared notes say so — the
+                same rule as the timeline card. */}
+            {context.memo.visibility !== "private" && (
+              <Badge className="text-muted-foreground" variant="outline">
+                {t(`visibility.${context.memo.visibility}`)}
+              </Badge>
+            )}
             <Button
               disabled={rememberPending}
               size="sm"

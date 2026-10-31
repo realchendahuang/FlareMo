@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { ReviewTabs } from "@/components/workspace/review-tabs";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
 import { type TranslationKey, useI18n } from "@/i18n";
@@ -148,7 +149,8 @@ export function RandomWalkPage() {
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
-          title={t("nav.randomWalk")}
+          title={t("nav.review")}
+          actions={<ReviewTabs />}
           toggleSidebarCollapsed={toggleSidebarCollapsed}
         />
       )}

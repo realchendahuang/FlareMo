@@ -16,6 +16,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReviewTabs } from "@/components/workspace/review-tabs";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
 import { type TranslationKey, type TranslationParams, useI18n } from "@/i18n";
@@ -77,7 +78,8 @@ export function DailyReviewPage() {
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
-          title={t("nav.dailyReview")}
+          title={t("nav.review")}
+          actions={<ReviewTabs />}
           toggleSidebarCollapsed={toggleSidebarCollapsed}
         />
       )}

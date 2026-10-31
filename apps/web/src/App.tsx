@@ -68,8 +68,8 @@ export function FlareMoApp() {
   const {
     attachmentsByMemo,
     canPublishTeam,
+    sharedTeam,
     captureStatusQuery,
-    currentUserQuery,
     displayedMemos,
     isReader,
     isSemanticSearch,
@@ -201,7 +201,7 @@ export function FlareMoApp() {
             setView={setView}
             sidebarCollapsed={shell.sidebarCollapsed}
             space={space}
-            team={currentUserQuery.data?.team ?? null}
+            team={sharedTeam}
             toggleSidebarCollapsed={shell.toggleSidebarCollapsed}
             view={view}
           />

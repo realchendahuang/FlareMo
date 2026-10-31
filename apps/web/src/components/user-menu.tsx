@@ -3,6 +3,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   DownloadIcon,
+  LanguagesIcon,
   LogOutIcon,
   MonitorIcon,
   MoonIcon,
@@ -43,7 +44,7 @@ import {
   useUpdateStatus,
 } from "@/components/update-status";
 import { useSignOut } from "@/hooks/use-sign-out";
-import { useI18n } from "@/i18n";
+import { LOCALE_LABELS, type Locale, SUPPORTED_LOCALES, useI18n } from "@/i18n";
 
 // The sidebar's single identity affordance, flomo-style: the topbar shows
 // only the member's name; email, settings, notifications, update check and
@@ -60,7 +61,7 @@ export function UserMenu({
   onImportFile?: (bundle: unknown) => Promise<void>;
   onOpenSettings: () => void;
 }) {
-  const { t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const importInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -185,6 +186,27 @@ export function UserMenu({
                 <span className="flex-1">{t("theme.dark")}</span>
                 {theme === "dark" && <CheckIcon className="ml-auto" />}
               </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          {/* Language lives here with appearance, not alone at the foot of
+              the sidebar. */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <LanguagesIcon />
+              <span className="min-w-0 flex-1 truncate">
+                {t("language.toggle")}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {LOCALE_LABELS[locale]}
+              </span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {SUPPORTED_LOCALES.map((next: Locale) => (
+                <DropdownMenuItem key={next} onClick={() => setLocale(next)}>
+                  <span className="flex-1">{LOCALE_LABELS[next]}</span>
+                  {next === locale && <CheckIcon className="ml-auto" />}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuItem onClick={() => setNotificationsOpen(true)}>
