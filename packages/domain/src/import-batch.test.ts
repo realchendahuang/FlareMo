@@ -6,11 +6,18 @@ import {
   memoRelations,
   memos,
   shares,
+  taskActivity,
 } from "@flaremo/db";
 import { eq } from "drizzle-orm";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { importData } from "./import-export";
+import { createDataTask, getDataTask, runImportTask } from "./data-tasks";
+import {
+  exportData,
+  finalizeImportTaskAudit,
+  importData,
+  rollbackImportTask,
+} from "./import-export";
 import type { TeamViewer } from "./team-permissions";
 import { ensureTeamOwner } from "./test-support";
 import { createFlaremoMember } from "./users";
@@ -181,5 +188,194 @@ describe("importData batching", () => {
         .from(memos)
         .where(eq(memos.id, "memos/owned-elsewhere")),
     ).toEqual([{ content: "not yours" }]);
+  });
+
+  it("exports team ids, omits share tokens, and re-mints them on import", async () => {
+    const now = new Date().toISOString();
+    await db.insert(memos).values({
+      id: "memos/team-note",
+      userId: owner.id,
+      teamId: owner.teamOrganizationId,
+      content: "team note",
+      visibility: "protected",
+      status: "normal",
+      pinned: false,
+      payload: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(shares).values({
+      id: "shares/team-share",
+      memoId: "memos/team-note",
+      userId: owner.id,
+      token: "original-secret-token",
+      expiresAt: null,
+      createdAt: now,
+      updatedAt: now,
+      revokedAt: null,
+    });
+
+    const bundle = await exportData(db, owner);
+    const exportedMemo = bundle.memos.find(
+      (memo) => memo.name === "memos/team-note",
+    );
+    expect(exportedMemo?.team_id).toBe(owner.teamOrganizationId);
+    const exportedShare = bundle.shares.find(
+      (share) => share.name === "shares/team-share",
+    );
+    expect(exportedShare).toBeDefined();
+    expect(exportedShare).not.toHaveProperty("token");
+
+    await db.delete(shares).where(eq(shares.userId, owner.id));
+    await db.delete(memos).where(eq(memos.userId, owner.id));
+    await importData(db, owner, bundle, { conflict: "skip" });
+
+    const restored = await db
+      .select()
+      .from(memos)
+      .where(eq(memos.id, "memos/team-note"))
+      .get();
+    expect(restored?.teamId).toBe(owner.teamOrganizationId);
+    expect(restored?.visibility).toBe("protected");
+    const restoredShare = await db
+      .select()
+      .from(shares)
+      .where(eq(shares.memoId, "memos/team-note"))
+      .get();
+    expect(restoredShare?.token).toBeTruthy();
+    expect(restoredShare?.token).not.toBe("original-secret-token");
+  });
+
+  it("rolls back every row recorded in the import checkpoint", async () => {
+    const now = new Date().toISOString();
+    const task = await createDataTask(db, owner, { kind: "import" });
+    const bundle = importBundleSchema.parse({
+      version: 6,
+      memos: [
+        {
+          name: "memos/rollback-me",
+          content: "rollback",
+          visibility: "private",
+          state: "normal",
+          pinned: false,
+          payload: {},
+          create_time: now,
+        },
+      ],
+    });
+    await importData(db, owner, bundle, { auditTaskId: task.id });
+    expect(
+      await db
+        .select({ id: memos.id })
+        .from(memos)
+        .where(eq(memos.id, "memos/rollback-me")),
+    ).toHaveLength(1);
+
+    const rolledBack = await rollbackImportTask(db, task.id);
+    expect(rolledBack.deleted).toBe(1);
+    expect(
+      await db
+        .select({ id: memos.id })
+        .from(memos)
+        .where(eq(memos.id, "memos/rollback-me")),
+    ).toHaveLength(0);
+  });
+
+  it("retrying a task rolls back the interrupted attempt first", async () => {
+    const now = new Date().toISOString();
+    const task = await createDataTask(db, owner, { kind: "import" });
+    const bundle = importBundleSchema.parse({
+      version: 6,
+      memos: [
+        {
+          name: "memos/retry-once",
+          content: "retry",
+          visibility: "private",
+          state: "normal",
+          pinned: false,
+          payload: {},
+          create_time: now,
+        },
+      ],
+    });
+    // Simulate a worker killed after the first insert but before the task row
+    // was completed: the ledger and its memo are still there.
+    await importData(db, owner, bundle, { auditTaskId: task.id });
+    expect(
+      await db
+        .select({ id: memos.id })
+        .from(memos)
+        .where(eq(memos.id, "memos/retry-once")),
+    ).toHaveLength(1);
+
+    const result = await runImportTask(db, owner, task.id, bundle, {
+      conflict: "duplicate",
+    });
+    expect(result.imported_memos).toBe(1);
+    // The partial row was removed, so duplicate mode did not produce a twin.
+    expect(
+      await db
+        .select({ id: memos.id })
+        .from(memos)
+        .where(eq(memos.id, "memos/retry-once")),
+    ).toHaveLength(1);
+    expect((await getDataTask(db, owner, task.id)).status).toBe("succeeded");
+  });
+
+  it("strips the rollback marker from imported task activity on success", async () => {
+    const now = new Date().toISOString();
+    const task = await createDataTask(db, owner, { kind: "import" });
+    const bundle = importBundleSchema.parse({
+      version: 6,
+      memos: [],
+      attachments: [],
+      relations: [],
+      shares: [],
+      projects: [],
+      tasks: [
+        {
+          name: "tasks/audit-task",
+          project_id: null,
+          source_memo_id: null,
+          title: "audited",
+          notes: null,
+          status: "todo",
+          priority: "none",
+          due_at: null,
+          sort_order: 0,
+          completed_at: null,
+          deleted_at: null,
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+      task_activity: [
+        {
+          task_id: "tasks/audit-task",
+          actor_type: "user",
+          actor_name: null,
+          action: "created",
+          changes: { title: "audited" },
+          created_at: now,
+        },
+      ],
+    });
+    await importData(db, owner, bundle, { auditTaskId: task.id });
+    const [marked] = await db
+      .select()
+      .from(taskActivity)
+      .where(eq(taskActivity.userId, owner.id));
+    expect(marked?.changes).toMatchObject({
+      title: "audited",
+      __import_task_id: task.id,
+    });
+
+    await finalizeImportTaskAudit(db, task.id, owner.id);
+    const [cleaned] = await db
+      .select()
+      .from(taskActivity)
+      .where(eq(taskActivity.userId, owner.id));
+    expect(cleaned?.changes).toMatchObject({ title: "audited" });
+    expect(cleaned?.changes).not.toHaveProperty("__import_task_id");
   });
 });

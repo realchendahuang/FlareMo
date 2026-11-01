@@ -13,9 +13,11 @@ import {
   failDataTask,
   getAttachmentById,
   getDataTask,
-  importData,
   listDataTasks,
+  rollbackImportTask,
   runImportTask,
+  runImportTransactionally,
+  updateDataTask,
 } from "@flaremo/domain";
 import { parseAttachmentsResourceName } from "@flaremo/memos";
 import { zValidator } from "@hono/zod-validator";
@@ -159,10 +161,13 @@ export function registerTransferRoutes(app: Hono<HonoBindings>) {
             413,
           );
         }
-        const result = await importData(db, user, bundle, {
+        const result = await runImportTransactionally(db, user, bundle, {
           attachmentR2Keys: uploaded.r2Keys,
           attachmentEtags: uploaded.r2Etags,
           conflict: c.req.valid("query").conflict,
+          onRollbackR2Keys: async (keys) => {
+            await c.env.ATTACHMENTS.delete(keys);
+          },
         });
         if (result.cleanupR2Keys.length > 0) {
           try {
@@ -352,8 +357,18 @@ export function registerTransferRoutes(app: Hono<HonoBindings>) {
       try {
         const { db, user, limits, userLimits } = await getRequestContext(c);
         const body = c.req.valid("json");
-        const task = await createDataTask(db, user, { kind: "import" });
+        const task = await createDataTask(db, user, {
+          kind: "import",
+          options: { conflict: body.conflict },
+        });
         taskId = task.id;
+        // Keep the bundle so a failed task can be retried without asking the
+        // browser to hold the whole file. The TTL sweep removes the prefix.
+        const bundleKey = `imports/${task.id}/bundle.json`;
+        await c.env.ATTACHMENTS.put(bundleKey, JSON.stringify(body.bundle), {
+          httpMetadata: { contentType: "application/json" },
+        });
+        await updateDataTask(db, task.id, { manifestKey: bundleKey });
 
         await assertAttachmentStorageQuota(
           db,
@@ -384,7 +399,13 @@ export function registerTransferRoutes(app: Hono<HonoBindings>) {
           attachmentR2Keys: uploaded.r2Keys,
           attachmentEtags: uploaded.r2Etags,
           conflict: body.conflict,
+          onRecoveredR2Keys: async (keys) => {
+            await c.env.ATTACHMENTS.delete(keys);
+          },
         });
+        // The bundle is only needed for a retry; a successful task drops it.
+        await c.env.ATTACHMENTS.delete(bundleKey).catch(() => undefined);
+        await updateDataTask(db, task.id, { manifestKey: null });
 
         if (result.cleanupR2Keys.length > 0) {
           try {
@@ -415,11 +436,151 @@ export function registerTransferRoutes(app: Hono<HonoBindings>) {
             ).catch(() => undefined);
           }
         }
-        if (writtenKeys.length > 0) {
+        if (taskId && writtenKeys.length > 0) {
+          const context = await getRequestContext(c).catch(() => undefined);
+          if (context) {
+            // Only drop the freshly uploaded objects once the ledger rollback
+            // succeeded; if it did not, the rows may still reference them.
+            try {
+              const rolledBack = await rollbackImportTask(context.db, taskId);
+              await c.env.ATTACHMENTS.delete([
+                ...rolledBack.r2Keys,
+                ...writtenKeys,
+              ]);
+            } catch (rollbackError) {
+              console.error(
+                JSON.stringify({
+                  message: "import rollback failed; keeping R2 objects",
+                  taskId,
+                  error:
+                    rollbackError instanceof Error
+                      ? rollbackError.message
+                      : String(rollbackError),
+                }),
+              );
+            }
+          }
+        } else if (writtenKeys.length > 0) {
           await c.env.ATTACHMENTS.delete(writtenKeys);
         }
         return jsonError(c, error);
       }
     },
   );
+
+  app.post("/import/tasks/:id/retry", async (c) => {
+    const writtenKeys: string[] = [];
+    let taskId: string | undefined;
+    try {
+      const { db, user, limits, userLimits } = await getRequestContext(c);
+      const task = await getDataTask(db, user, c.req.param("id"));
+      taskId = task.id;
+      if (task.kind !== "import") {
+        return c.json({ error: { message: "Not an import task" } }, 400);
+      }
+      if (task.status !== "failed" && task.status !== "expired") {
+        return c.json(
+          { error: { message: "Only failed import tasks can be retried" } },
+          409,
+        );
+      }
+      if (!task.manifestKey) {
+        return c.json(
+          { error: { message: "The import bundle has expired" } },
+          410,
+        );
+      }
+      const object = await c.env.ATTACHMENTS.get(task.manifestKey);
+      if (!object) {
+        return c.json(
+          { error: { message: "The import bundle has expired" } },
+          410,
+        );
+      }
+      let bundle: ReturnType<typeof importBundleSchema.parse>;
+      try {
+        bundle = importBundleSchema.parse(JSON.parse(await object.text()));
+      } catch {
+        return c.json(
+          { error: { message: "The stored bundle is invalid" } },
+          400,
+        );
+      }
+      const conflict = task.options?.conflict ?? "duplicate";
+      if (conflict === "overwrite") {
+        return c.json(
+          { error: { message: "Overwrite tasks cannot be retried" } },
+          400,
+        );
+      }
+
+      // A previous interrupted attempt may still own rows and R2 objects.
+      const leftovers = await rollbackImportTask(db, task.id);
+      if (leftovers.r2Keys.length > 0) {
+        await c.env.ATTACHMENTS.delete(leftovers.r2Keys);
+      }
+      await assertAttachmentStorageQuota(
+        db,
+        limits,
+        bundleAttachmentBytes(bundle.attachments),
+        { userLimits, userId: user.id },
+      );
+      await assertMemoCountQuota(db, userLimits, user.id, bundle.memos.length);
+      const uploaded = await importBundleUpload(
+        c.env,
+        user.id,
+        bundle.attachments,
+        writtenKeys,
+      );
+      if (!uploaded) {
+        return c.json(
+          { error: { message: "Imported attachment exceeds 25 MiB" } },
+          413,
+        );
+      }
+
+      const result = await runImportTask(db, user, task.id, bundle, {
+        attachmentR2Keys: uploaded.r2Keys,
+        attachmentEtags: uploaded.r2Etags,
+        conflict,
+        onRecoveredR2Keys: async (keys) => {
+          await c.env.ATTACHMENTS.delete(keys);
+        },
+      });
+      await c.env.ATTACHMENTS.delete(task.manifestKey).catch(() => undefined);
+      await updateDataTask(db, task.id, { manifestKey: null });
+      if (result.cleanupR2Keys.length > 0) {
+        await c.env.ATTACHMENTS.delete(result.cleanupR2Keys).catch(
+          () => undefined,
+        );
+      }
+      const { cleanupR2Keys: _cleanupR2Keys, ...publicResult } = result;
+      const taskDto = dataTaskToDto(await getDataTask(db, user, task.id));
+      return c.json({ task: taskDto, result: publicResult }, 202);
+    } catch (error) {
+      const context = await getRequestContext(c).catch(() => undefined);
+      if (context) {
+        if (taskId) {
+          await failDataTask(
+            context.db,
+            taskId,
+            "import_failed",
+            errorMessage(error),
+          ).catch(() => undefined);
+        }
+        if (taskId && writtenKeys.length > 0) {
+          try {
+            const rolledBack = await rollbackImportTask(context.db, taskId);
+            await c.env.ATTACHMENTS.delete([
+              ...rolledBack.r2Keys,
+              ...writtenKeys,
+            ]);
+          } catch {
+            // Keep the objects; a later retry or TTL sweep will deal with them.
+          }
+        }
+      }
+      return jsonError(c, error);
+    }
+  });
 }

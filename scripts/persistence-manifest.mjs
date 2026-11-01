@@ -39,6 +39,7 @@ export const RESTORE_TABLES = [
   "voice_service_config",
   "integration_config",
   "data_tasks",
+  "import_task_rows",
   "member_removal_jobs",
   "memory_items",
   "memory_revisions",

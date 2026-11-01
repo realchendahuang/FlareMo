@@ -130,4 +130,4 @@ locked > confirmed > observed > inferred
 
 Web 的 `/memory` 页面提供 Core / Projects / Recent / Review / Archive 分栏：查看 AI 记下的每条记忆的来源与可信度，确认、锁定、纠正、归档或删除；Review 分栏汇总 `inferred` 待确认与 `disputed` 冲突项。memo 详情页可「记为 Memory」，memory 卡片可「转为记录」。
 
-导出时记忆六类数据纳入 bundle（version 5：items / revisions / relations / resource-links / evidence / events），fingerprint、访问计数与 embedding 派生字段不导出，导入时重建。
+导出时记忆六类数据纳入 bundle（version 6：items / revisions / relations / resource-links / evidence / events），fingerprint、访问计数与 embedding 派生字段不导出，导入时重建。

@@ -365,6 +365,9 @@ const importAttachmentSchema = exportAttachmentSchema.partial({
 const importShareSchema = shareDtoSchema.partial({
   update_time: true,
   revoked_at: true,
+  // Since bundle v6 exports omit the capability token: an export file must
+  // never carry working share URLs. Import always mints a fresh token.
+  token: true,
 });
 
 export const importBundleSchema = z.object({
@@ -375,6 +378,7 @@ export const importBundleSchema = z.object({
       z.literal(3),
       z.literal(4),
       z.literal(5),
+      z.literal(6),
     ])
     .default(1),
   memos: z
@@ -396,7 +400,12 @@ export const importBundleSchema = z.object({
           update_time: true,
           display_time: true,
         })
-        .extend({ source: z.string().max(64).optional() }),
+        .extend({
+          source: z.string().max(64).optional(),
+          // v6: team-visible memos carry their organization id. Older bundles
+          // omit it and import into the receiver's own team when possible.
+          team_id: z.string().nullable().optional(),
+        }),
     )
     .max(50_000),
   attachments: z.array(importAttachmentSchema).max(5_000).default([]),
@@ -524,7 +533,9 @@ export const createDataTaskResponseSchema = z.object({
 
 export const createImportTaskRequestSchema = z.object({
   bundle: importBundleSchema,
-  conflict: importOptionsSchema.shape.conflict.optional(),
+  // Task imports are checkpointed and insert-only, so they cannot overwrite
+  // pre-existing rows. The inline /import endpoint keeps the full enum.
+  conflict: z.enum(["skip", "duplicate"]).optional(),
 });
 
 export const exportManifestSchema = z.object({

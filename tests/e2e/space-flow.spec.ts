@@ -169,6 +169,12 @@ test("a private capture in the team space only appears in its own timeline", asy
     page.locator("article").filter({ hasText: "Space note team-only" }),
   ).toBeVisible();
 
+  // The target follows the space context asynchronously; sending before it
+  // settles files the note as personal and the optimistic card never enters
+  // the team timeline.
+  await expect(
+    page.getByRole("button", { name: /send target|发送目标/i }),
+  ).toContainText(/team|团队/i);
   await composer.fill("Private note typed in the team space");
   await page.getByRole("button", { name: /^(send|发送)$/i }).click();
 

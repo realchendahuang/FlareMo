@@ -12,10 +12,14 @@ import {
   memos,
   shares,
 } from "@flaremo/db";
-import { and, asc, desc, eq, gt, inArray, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, ne, or } from "drizzle-orm";
 import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError } from "./errors";
-import { importData } from "./import-export";
+import {
+  finalizeImportTaskAudit,
+  importData,
+  rollbackImportTask,
+} from "./import-export";
 
 export type DataTaskKind = "export" | "import";
 export type DataTaskStatus =
@@ -31,6 +35,7 @@ export const DATA_TASK_LEASE_MS = 60 * 60 * 1000; // 1 hour stale threshold
 export type CreateDataTaskInput = {
   kind: DataTaskKind;
   phase?: string;
+  options?: { conflict?: "skip" | "duplicate" | "overwrite" };
 };
 
 /**
@@ -50,6 +55,7 @@ export async function createDataTask(
     kind: input.kind,
     status: "queued",
     phase: input.phase ?? "created",
+    options: input.options,
     attempts: 0,
     progressDone: 0,
     progressTotal: 0,
@@ -112,7 +118,14 @@ export async function listDataTasks(db: FlareMoDb, user: UserRow, limit = 20) {
   return db
     .select()
     .from(dataTasks)
-    .where(eq(dataTasks.userId, user.id))
+    .where(
+      and(
+        eq(dataTasks.userId, user.id),
+        // Inline imports use a short-lived task row for their checkpoint; it
+        // is not a user-visible transfer job.
+        ne(dataTasks.phase, "sync"),
+      ),
+    )
     .orderBy(desc(dataTasks.createdAt))
     .limit(limit)
     .all();
@@ -147,6 +160,7 @@ export async function updateDataTask(
       | "phase"
       | "attempts"
       | "manifestKey"
+      | "options"
       | "progressDone"
       | "progressTotal"
       | "errorCode"
@@ -192,9 +206,10 @@ export async function expireStaleDataTasks(
   db: FlareMoDb,
   now = new Date(),
   taskId: string | undefined = undefined,
+  onImportRollback?: (taskId: string, r2Keys: string[]) => Promise<void>,
 ) {
   const stale = await db
-    .select({ id: dataTasks.id })
+    .select({ id: dataTasks.id, kind: dataTasks.kind })
     .from(dataTasks)
     .where(
       and(
@@ -205,6 +220,27 @@ export async function expireStaleDataTasks(
     )
     .all();
   if (stale.length === 0) return 0;
+  // An interrupted import leaves a partial ledger. Roll it back before the
+  // task is marked failed so its rows never become visible as a half-restore.
+  for (const row of stale) {
+    if (row.kind !== "import") continue;
+    try {
+      const rolledBack = await rollbackImportTask(db, row.id);
+      if (rolledBack.r2Keys.length > 0) {
+        await onImportRollback?.(row.id, rolledBack.r2Keys);
+      }
+    } catch (error) {
+      // One stuck rollback must not stop the reconciler from marking the
+      // remaining tasks failed.
+      console.error(
+        JSON.stringify({
+          message: "stale import rollback failed",
+          taskId: row.id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }
   const staleIds = stale.map((row) => row.id);
   // One bound parameter per id; chunk so a long-stalled queue still drains.
   for (const idChunk of chunkForD1(staleIds, d1IdsPerStatement())) {
@@ -419,23 +455,90 @@ export async function runImportTask(
     attachmentR2Keys?: Map<string, string>;
     attachmentEtags?: Map<string, string | null>;
     conflict?: "skip" | "duplicate" | "overwrite";
+    /** Drops binaries from a previous interrupted attempt during recovery. */
+    onRecoveredR2Keys?: (keys: string[]) => Promise<void>;
   } = {},
 ) {
+  // A resumed task never starts on top of a previous partial attempt: the
+  // ledger from that attempt is rolled back first (no-op when it is empty).
+  const stale = await rollbackImportTask(db, taskId);
+  if (stale.r2Keys.length > 0) await options.onRecoveredR2Keys?.(stale.r2Keys);
+  const task = await getDataTask(db, user, taskId);
   await updateDataTask(db, taskId, {
     status: "running",
     phase: "importing",
+    attempts: task.attempts + 1,
+    errorCode: null,
+    errorMessage: null,
+    completedAt: null,
     progressTotal: bundle.memos.length,
     progressDone: 0,
   });
-  const result = await importData(db, user, bundle, options);
-  await updateDataTask(db, taskId, {
-    status: "succeeded",
-    phase: "completed",
-    progressDone: bundle.memos.length,
-    progressTotal: bundle.memos.length,
-    completedAt: new Date().toISOString(),
+  try {
+    const result = await importData(db, user, bundle, {
+      ...options,
+      auditTaskId: taskId,
+    });
+    await finalizeImportTaskAudit(db, taskId, user.id);
+    await updateDataTask(db, taskId, {
+      status: "succeeded",
+      phase: "completed",
+      progressDone: bundle.memos.length,
+      progressTotal: bundle.memos.length,
+      completedAt: new Date().toISOString(),
+    });
+    return result;
+  } catch (error) {
+    const rolledBack = await rollbackImportTask(db, taskId);
+    if (rolledBack.r2Keys.length > 0) {
+      await options.onRecoveredR2Keys?.(rolledBack.r2Keys);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Run a small synchronous import with the same rollback guarantee as a task:
+ * the task row exists only for the duration of the request and is removed on
+ * both paths. The callback lets the Worker drop attachment binaries that the
+ * rollback released.
+ */
+export async function runImportTransactionally(
+  db: FlareMoDb,
+  user: UserRow,
+  bundle: ImportBundle,
+  options: {
+    attachmentR2Keys?: Map<string, string>;
+    attachmentEtags?: Map<string, string | null>;
+    conflict?: "skip" | "duplicate" | "overwrite";
+    onRollbackR2Keys?: (keys: string[]) => Promise<void>;
+  } = {},
+) {
+  // Overwrite mutates existing rows and has no ledger-based rollback. Keep the
+  // legacy behavior for that explicit mode; skip/duplicate are atomic.
+  if (options.conflict === "overwrite") {
+    return importData(db, user, bundle, options);
+  }
+  const task = await createDataTask(db, user, {
+    kind: "import",
+    phase: "sync",
   });
-  return result;
+  try {
+    const result = await importData(db, user, bundle, {
+      ...options,
+      auditTaskId: task.id,
+    });
+    await finalizeImportTaskAudit(db, task.id, user.id);
+    await db.delete(dataTasks).where(eq(dataTasks.id, task.id));
+    return result;
+  } catch (error) {
+    const rolledBack = await rollbackImportTask(db, task.id);
+    if (rolledBack.r2Keys.length > 0) {
+      await options.onRollbackR2Keys?.(rolledBack.r2Keys);
+    }
+    await db.delete(dataTasks).where(eq(dataTasks.id, task.id));
+    throw error;
+  }
 }
 
 // Re-export the import result type for the route layer.

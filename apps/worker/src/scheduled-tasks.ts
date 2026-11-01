@@ -352,17 +352,27 @@ export async function runScheduledMaintenance(
   // Reconcile data-transfer tasks: expire stale queued/running tasks whose
   // lease lapsed (interrupted request), then garbage-collect completed task
   // rows older than the TTL along with their R2 export artifacts.
-  const staleCount = await expireStaleDataTasks(db);
+  const staleCount = await expireStaleDataTasks(
+    db,
+    new Date(),
+    undefined,
+    async (_taskId, keys) => {
+      await env.ATTACHMENTS.delete(keys);
+    },
+  );
   const expiredIds = await deleteExpiredDataTasks(db);
   for (const id of expiredIds) {
-    const prefix = `exports/${id}`;
-    let cursor: string | undefined;
-    do {
-      const listing = await env.ATTACHMENTS.list({ prefix, cursor });
-      const keys = listing.objects.map((object) => object.key);
-      if (keys.length > 0) await env.ATTACHMENTS.delete(keys);
-      cursor = listing.truncated ? listing.cursor : undefined;
-    } while (cursor);
+    // Export manifests and import bundles use distinct prefixes; both are
+    // task-scoped and safe to drop once the row is gone.
+    for (const prefix of [`exports/${id}`, `imports/${id}`]) {
+      let cursor: string | undefined;
+      do {
+        const listing = await env.ATTACHMENTS.list({ prefix, cursor });
+        const keys = listing.objects.map((object) => object.key);
+        if (keys.length > 0) await env.ATTACHMENTS.delete(keys);
+        cursor = listing.truncated ? listing.cursor : undefined;
+      } while (cursor);
+    }
   }
   // Rebuild the derived memo activity counter. Every memo write adjusts it
   // inside the same batch, so this pass exists only to heal drift: a

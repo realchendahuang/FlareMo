@@ -128,4 +128,4 @@ These are deliberately deferred, not defects; the design leaves room for them:
 
 The web `/memory` page provides Core / Projects / Recent / Review / Archive columns: inspect every AI-recorded memory's provenance and confidence, confirm, lock, correct, archive, or delete; the Review column aggregates `inferred` pending items and `disputed` conflicts. A memo detail page can "record as Memory", and a memory card can "promote to memo".
 
-On export, the six memory datasets are included in the bundle (version 5: items / revisions / relations / resource-links / evidence / events); fingerprints, access counts and embedding-derived fields are not exported and are rebuilt on import.
+On export, the six memory datasets are included in the bundle (version 6: items / revisions / relations / resource-links / evidence / events); fingerprints, access counts and embedding-derived fields are not exported and are rebuilt on import.

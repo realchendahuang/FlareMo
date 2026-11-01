@@ -85,7 +85,7 @@ export async function exportData(
     );
   }
   return {
-    version: 5,
+    version: 6,
     exported_at: new Date().toISOString(),
     memos: memoRows.map((memo) => ({
       name: memo.id,
@@ -95,6 +95,7 @@ export async function exportData(
       pinned: memo.pinned,
       payload: memo.payload ?? {},
       source: memo.source,
+      team_id: memo.teamId,
       create_time: memo.createdAt,
       update_time: memo.updatedAt,
       display_time: memo.createdAt,
@@ -129,7 +130,8 @@ export async function exportData(
       name: share.id,
       id: share.id.replace(/^shares\//, ""),
       memo: share.memoId,
-      token: share.token,
+      // The token is a capability URL: never write a working one into an
+      // export file. Import mints a fresh token for every restored share.
       expires_at: share.expiresAt,
       create_time: share.createdAt,
       update_time: share.updatedAt,

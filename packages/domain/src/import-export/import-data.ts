@@ -18,7 +18,7 @@ import {
 } from "@flaremo/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { d1IdsPerStatement } from "../d1-limits";
-import { ConflictError } from "../errors";
+import { ConflictError, ValidationError } from "../errors";
 import { createResourceId, createToken, parseResourceName } from "../ids";
 import { recalibrateUserHourlyCounts } from "../memo-hourly-counts";
 import {
@@ -27,11 +27,28 @@ import {
   updateMemo,
 } from "../memos";
 import { extractTags, normalizeMemoTags } from "../tags";
+import { type ImportAuditTable, importAuditStatement } from "./audit";
 
 /** A prepared Drizzle statement awaiting one `db.batch` slice. */
 type ImportStatement = Parameters<FlareMoDb["batch"]>[0][number];
 
 const IMPORT_INSERT_BATCH = 100;
+// Checkpointed groups are [insert, audit] pairs (or [insert, children, audit]);
+// flushing whole groups keeps the ledger row and its record in one batch.
+const IMPORT_GROUP_BATCH = 40;
+
+/** Flush [record, ledger] groups whole, so a committed record always has its
+ *  checkpoint row in the same D1 transaction. */
+async function flushImportGroups(
+  db: FlareMoDb,
+  groups: readonly ImportStatement[][],
+) {
+  for (let offset = 0; offset < groups.length; offset += IMPORT_GROUP_BATCH) {
+    const slice = groups.slice(offset, offset + IMPORT_GROUP_BATCH).flat();
+    if (slice.length === 0) continue;
+    await db.batch(slice as unknown as Parameters<FlareMoDb["batch"]>[0]);
+  }
+}
 
 /**
  * Run prepared statements in `db.batch` slices. Used for the entity groups
@@ -147,6 +164,27 @@ async function assertImportIdsAreFree(
 }
 
 /**
+ * Map a bundle memo's team to the receiving account. A memo can only live in
+ * the receiver's own organization: anything else would publish into a team the
+ * importer does not belong to. Export v6 carries the source `team_id`; v5 and
+ * older omit it, so a non-private memo there is restored into the receiver's
+ * team (the only team that can own it). When neither works the memo falls back
+ * to private rather than remaining "protected without a team".
+ */
+function resolveImportedTeamId(
+  user: UserRow & { teamOrganizationId?: string | null },
+  memo: ImportBundle["memos"][number],
+): string | null {
+  if (memo.visibility === "private") return null;
+  const exportedTeamId = memo.team_id ?? null;
+  const receiverTeamId = user.teamOrganizationId ?? null;
+  if (exportedTeamId) {
+    return exportedTeamId === receiverTeamId ? exportedTeamId : null;
+  }
+  return receiverTeamId;
+}
+
+/**
  * The import half of import-export.ts, moved verbatim: replays an
  * ImportBundle into the target account with conflict handling and
  * id remapping (memos/attachments/relations/shares/memories/projects/
@@ -154,16 +192,33 @@ async function assertImportIdsAreFree(
  */
 export async function importData(
   db: FlareMoDb,
-  user: UserRow,
+  user: UserRow & { teamOrganizationId?: string | null },
   bundle: ImportBundle,
   options: {
     attachmentR2Keys?: Map<string, string>;
     attachmentEtags?: Map<string, string | null>;
     conflict?: ImportOptions["conflict"];
+    /**
+     * When set, every top-level insert also appends a row to the import
+     * checkpoint ledger. The caller rolls the ledger back on failure, so an
+     * interrupted bundle leaves nothing behind and a retry starts clean.
+     */
+    auditTaskId?: string;
   } = {},
 ) {
   const now = new Date().toISOString();
   const conflict = options.conflict ?? "duplicate";
+  if (options.auditTaskId && conflict === "overwrite") {
+    // Overwrite mutates pre-existing rows; the ledger can only roll back
+    // inserts. Checkpointed imports stay insert-only.
+    throw new ValidationError(
+      "Checkpointed imports cannot use the overwrite conflict strategy",
+    );
+  }
+  const audit = (table: ImportAuditTable, rowId: string): ImportStatement[] =>
+    options.auditTaskId
+      ? [importAuditStatement(db, options.auditTaskId, table, rowId)]
+      : [];
   const memoIdMap = new Map<string, string>();
   let importedMemos = 0;
   let skippedMemos = 0;
@@ -242,6 +297,8 @@ export async function importData(
   }
 
   for (const { memo, sourceId, payload, requestedClientId } of preparedMemos) {
+    const importedTeamId = resolveImportedTeamId(user, memo);
+    const importedVisibility = importedTeamId ? memo.visibility : "private";
     const clientIdOwnerId = requestedClientId
       ? claimedClientIds.get(requestedClientId)
       : undefined;
@@ -265,7 +322,7 @@ export async function importData(
       delete payload.client_id;
       await updateMemo(db, user, existing.id, {
         content: memo.content,
-        visibility: memo.visibility,
+        visibility: importedVisibility,
         status: memo.state,
         pinned: memo.pinned,
         payload,
@@ -274,6 +331,7 @@ export async function importData(
         .update(memos)
         .set({
           source: memo.source ?? "import",
+          teamId: importedTeamId,
           createdAt: memo.create_time ?? now,
           updatedAt: memo.update_time ?? memo.create_time ?? now,
         })
@@ -301,8 +359,9 @@ export async function importData(
     const insertMemo = db.insert(memos).values({
       id: importedId,
       userId: user.id,
+      teamId: importedTeamId,
       content: memo.content,
-      visibility: memo.visibility,
+      visibility: importedVisibility,
       status: memo.state,
       pinned: memo.pinned,
       source: memo.source ?? "import",
@@ -324,9 +383,10 @@ export async function importData(
             createdAt,
           })),
         ),
+        ...audit("memos", importedId),
       ]);
     } else {
-      await insertMemo;
+      await db.batch([insertMemo, ...audit("memos", importedId)]);
     }
     // Rows claimed inside this import join the prefetched sets so later
     // bundle entries dedup against them exactly like the old sequential
@@ -375,7 +435,7 @@ export async function importData(
     for (const row of rows) existingAttachmentById.set(row.id, row);
   }
 
-  const attachmentStatements: ImportStatement[] = [];
+  const attachmentGroups: ImportStatement[][] = [];
   for (const attachment of bundle.attachments) {
     const mappedMemoId = attachment.memo
       ? (memoIdMap.get(attachment.memo) ?? null)
@@ -426,7 +486,7 @@ export async function importData(
       deletedAt: null,
     };
     if (existing && conflict === "overwrite") {
-      attachmentStatements.push(
+      attachmentGroups.push([
         db
           .update(attachments)
           .set({ ...attachmentValues, id: existing.id })
@@ -436,18 +496,19 @@ export async function importData(
               eq(attachments.userId, user.id),
             ),
           ),
-      );
+      ]);
       if (objectKey && objectKey !== existing.r2Key) {
         cleanupR2Keys.push(existing.r2Key);
       }
     } else {
-      attachmentStatements.push(
+      attachmentGroups.push([
         db.insert(attachments).values(attachmentValues),
-      );
+        ...audit("attachments", importedId),
+      ]);
     }
     importedAttachments += 1;
   }
-  await flushImportStatements(db, attachmentStatements);
+  await flushImportGroups(db, attachmentGroups);
 
   const relationStatements: ImportStatement[] = [];
   for (const relation of bundle.relations) {
@@ -476,14 +537,43 @@ export async function importData(
     importedRelations = relationChanges.reduce((sum, n) => sum + n, 0);
   }
 
-  const shareStatements: ImportStatement[] = [];
+  const existingShareIds = new Set<string>();
+  for (
+    let offset = 0;
+    offset < bundle.shares.length;
+    offset += IMPORT_PREFETCH_CHUNK
+  ) {
+    const rows = await db
+      .select({ id: shares.id })
+      .from(shares)
+      .where(
+        and(
+          eq(shares.userId, user.id),
+          inArray(
+            shares.id,
+            bundle.shares
+              .slice(offset, offset + IMPORT_PREFETCH_CHUNK)
+              .map((share) => parseResourceName(share.name, "shares")),
+          ),
+        ),
+      );
+    for (const row of rows) existingShareIds.add(row.id);
+  }
+  const shareGroups: ImportStatement[][] = [];
   for (const share of bundle.shares) {
     const memoId = memoIdMap.get(share.memo);
     if (!memoId) continue;
+    const sourceId = parseResourceName(share.name, "shares");
+    const existing = existingShareIds.has(sourceId);
+    if (existing && conflict === "skip") continue;
+    // A re-import creates a new share row only in duplicate mode; the token is
+    // always minted here, never taken from the bundle.
+    const importedId = existing ? createResourceId("shares") : sourceId;
+    existingShareIds.add(importedId);
     const createdAt = share.create_time || now;
-    shareStatements.push(
+    shareGroups.push([
       db.insert(shares).values({
-        id: createResourceId("shares"),
+        id: importedId,
         memoId,
         userId: user.id,
         token: createToken(),
@@ -492,10 +582,11 @@ export async function importData(
         updatedAt: share.update_time ?? createdAt,
         revokedAt: share.revoked_at ?? null,
       }),
-    );
+      ...audit("shares", importedId),
+    ]);
     importedShares += 1;
   }
-  await flushImportStatements(db, shareStatements);
+  await flushImportGroups(db, shareGroups);
 
   // Memories are user-owned, atomic records. Import preserves the namespaced
   // id so memory↔memo resource links stay intact, resets derived fields
@@ -527,7 +618,12 @@ export async function importData(
       );
     for (const row of rows) existingMemoryIds.add(row.id);
   }
-  const memoryStatements: ImportStatement[] = [];
+  const memoryGroups: ImportStatement[][] = [];
+  // Child rows (revisions/links/evidence/events) are imported only for the
+  // memory rows this run actually wrote. A skipped existing memory keeps its
+  // own history untouched, and the child rows cascade from the audited parent
+  // if this import is later rolled back.
+  const importedMemoryIds = new Set<string>();
   for (const memory of bundle.memories) {
     const sourceId = parseResourceName(memory.name, "memories");
     const existing = existingMemoryIds.has(sourceId)
@@ -539,14 +635,53 @@ export async function importData(
     }
     const importedId = existing ? createResourceId("memories") : sourceId;
     memoryIdMap.set(memory.name, importedId);
+    importedMemoryIds.add(importedId);
     const createdAt = memory.created_at ?? now;
     const updatedAt = memory.updated_at ?? createdAt;
-    memoryStatements.push(
-      db
-        .insert(memoryItems)
-        .values({
-          id: importedId,
-          userId: user.id,
+    const memoryInsert = db
+      .insert(memoryItems)
+      .values({
+        id: importedId,
+        userId: user.id,
+        content: memory.content,
+        type: memory.type,
+        kind: memory.kind,
+        scopeType: memory.scope_type,
+        scopeKey: memory.scope_key,
+        factKey: memory.fact_key ?? null,
+        tags: Array.isArray(memory.tags) ? memory.tags : [],
+        tier: memory.tier,
+        verification: memory.verification,
+        status: memory.status,
+        importance: memory.importance,
+        confidence: memory.confidence,
+        needsReview: memory.needs_review,
+        reviewReason: memory.review_reason,
+        createdByType: memory.created_by_type,
+        sourceAgent: memory.source_agent,
+        sourceSession: memory.source_session,
+        sourceRef: memory.source_ref,
+        validFrom: memory.valid_from,
+        validTo: memory.valid_to,
+        observedAt: memory.observed_at ?? null,
+        expiresAt: memory.expires_at ?? null,
+        supersededById: memory.superseded_by_id ?? null,
+        supersededAt: memory.superseded_at ?? null,
+        rejectedAt: memory.rejected_at ?? null,
+        // The canonical fingerprint is rebuilt from content on the next
+        // write; an import-scoped placeholder keeps the per-user unique
+        // index intact without trusting the exported (derived) value.
+        fingerprint: `import:${importedId}`,
+        accessCount: 0,
+        lastAccessedAt: null,
+        embeddingStatus: "not_indexed",
+        createdAt,
+        updatedAt,
+        deletedAt: memory.status === "deleted" ? updatedAt : null,
+      })
+      .onConflictDoUpdate({
+        target: memoryItems.id,
+        set: {
           content: memory.content,
           type: memory.type,
           kind: memory.kind,
@@ -561,7 +696,6 @@ export async function importData(
           confidence: memory.confidence,
           needsReview: memory.needs_review,
           reviewReason: memory.review_reason,
-          createdByType: memory.created_by_type,
           sourceAgent: memory.source_agent,
           sourceSession: memory.source_session,
           sourceRef: memory.source_ref,
@@ -572,51 +706,13 @@ export async function importData(
           supersededById: memory.superseded_by_id ?? null,
           supersededAt: memory.superseded_at ?? null,
           rejectedAt: memory.rejected_at ?? null,
-          // The canonical fingerprint is rebuilt from content on the next
-          // write; an import-scoped placeholder keeps the per-user unique
-          // index intact without trusting the exported (derived) value.
-          fingerprint: `import:${importedId}`,
-          accessCount: 0,
-          lastAccessedAt: null,
-          embeddingStatus: "not_indexed",
-          createdAt,
           updatedAt,
-          deletedAt: memory.status === "deleted" ? updatedAt : null,
-        })
-        .onConflictDoUpdate({
-          target: memoryItems.id,
-          set: {
-            content: memory.content,
-            type: memory.type,
-            kind: memory.kind,
-            scopeType: memory.scope_type,
-            scopeKey: memory.scope_key,
-            factKey: memory.fact_key ?? null,
-            tags: Array.isArray(memory.tags) ? memory.tags : [],
-            tier: memory.tier,
-            verification: memory.verification,
-            status: memory.status,
-            importance: memory.importance,
-            confidence: memory.confidence,
-            needsReview: memory.needs_review,
-            reviewReason: memory.review_reason,
-            sourceAgent: memory.source_agent,
-            sourceSession: memory.source_session,
-            sourceRef: memory.source_ref,
-            validFrom: memory.valid_from,
-            validTo: memory.valid_to,
-            observedAt: memory.observed_at ?? null,
-            expiresAt: memory.expires_at ?? null,
-            supersededById: memory.superseded_by_id ?? null,
-            supersededAt: memory.superseded_at ?? null,
-            rejectedAt: memory.rejected_at ?? null,
-            updatedAt,
-          },
-        }),
-    );
+        },
+      });
+    memoryGroups.push([memoryInsert, ...audit("memory_items", importedId)]);
     importedMemories += 1;
   }
-  await flushImportStatements(db, memoryStatements);
+  await flushImportGroups(db, memoryGroups);
 
   // Projects, tasks and the activity trail follow the same remap pipeline as
   // memories: the source id is preserved when free, collision imports get a
@@ -638,7 +734,7 @@ export async function importData(
     }
     const importedId = existing ? createResourceId("projects") : sourceId;
     projectIdMap.set(project.name, importedId);
-    await db
+    const projectInsert = db
       .insert(projects)
       .values({
         id: importedId,
@@ -660,6 +756,7 @@ export async function importData(
           updatedAt: project.updated_at,
         },
       });
+    await db.batch([projectInsert, ...audit("projects", importedId)]);
     importedProjects += 1;
   }
 
@@ -678,7 +775,7 @@ export async function importData(
     }
     const importedId = existing ? createResourceId("tasks") : sourceId;
     taskIdMap.set(task.name, importedId);
-    await db
+    const taskInsert = db
       .insert(tasks)
       .values({
         id: importedId,
@@ -722,6 +819,7 @@ export async function importData(
           updatedAt: task.updated_at,
         },
       });
+    await db.batch([taskInsert, ...audit("tasks", importedId)]);
     importedTasks += 1;
   }
 
@@ -739,8 +837,12 @@ export async function importData(
       userId: user.id,
       actorType: activity.actor_type,
       actorName: activity.actor_name,
+      // The marker is what lets a failed import find project-scoped rows (no
+      // task FK) and what the success path strips again.
+      changes: options.auditTaskId
+        ? { ...activity.changes, __import_task_id: options.auditTaskId }
+        : activity.changes,
       action: activity.action,
-      changes: activity.changes,
       createdAt: activity.created_at,
     });
     importedTaskActivity += 1;
@@ -753,7 +855,7 @@ export async function importData(
 
   for (const revision of bundle.memory_revisions) {
     const memoryId = memoryIdMap.get(revision.memory_id);
-    if (!memoryId) continue;
+    if (!memoryId || !importedMemoryIds.has(memoryId)) continue;
     statements.push(
       db
         .insert(memoryRevisions)
@@ -774,7 +876,13 @@ export async function importData(
   for (const relation of bundle.memory_relations) {
     const memoryId = memoryIdMap.get(relation.memory_id);
     const relatedMemoryId = memoryIdMap.get(relation.related_memory_id);
-    if (!memoryId || !relatedMemoryId) continue;
+    if (
+      !memoryId ||
+      !relatedMemoryId ||
+      !importedMemoryIds.has(memoryId) ||
+      !importedMemoryIds.has(relatedMemoryId)
+    )
+      continue;
     statements.push(
       db
         .insert(memoryRelations)
@@ -792,7 +900,7 @@ export async function importData(
 
   for (const link of bundle.memory_resource_links) {
     const memoryId = memoryIdMap.get(link.memory_id);
-    if (!memoryId) continue;
+    if (!memoryId || !importedMemoryIds.has(memoryId)) continue;
     statements.push(
       db
         .insert(memoryResourceLinks)
@@ -812,7 +920,7 @@ export async function importData(
 
   for (const evidence of bundle.memory_evidence) {
     const memoryId = memoryIdMap.get(evidence.memory_id);
-    if (!memoryId) continue;
+    if (!memoryId || !importedMemoryIds.has(memoryId)) continue;
     statements.push(
       db
         .insert(memoryEvidence)
@@ -836,7 +944,7 @@ export async function importData(
 
   for (const event of bundle.memory_events) {
     const memoryId = memoryIdMap.get(event.memory_id);
-    if (!memoryId) continue;
+    if (!memoryId || !importedMemoryIds.has(memoryId)) continue;
     statements.push(
       db
         .insert(memoryEvents)

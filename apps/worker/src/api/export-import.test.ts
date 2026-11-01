@@ -244,4 +244,85 @@ describe("FlareMo export and import tasks", () => {
     expect(listed.memos).toHaveLength(1);
     expect(listed.memos[0].name).toBe("memos/import-task-memo");
   });
+
+  it("rolls a failed import back and retries it from the stored bundle", async () => {
+    const now = "2023-11-14T22:13:20Z";
+    const memo = {
+      name: "memos/retry-import",
+      content: "retry import",
+      visibility: "private" as const,
+      state: "normal" as const,
+      pinned: false,
+      payload: {},
+      create_time: now,
+      update_time: now,
+    };
+    const taskId = crypto.randomUUID();
+    const bundleKey = `imports/${taskId}/bundle.json`;
+    const userId = (
+      await env.DB.prepare("SELECT id FROM users LIMIT 1").first<{
+        id: string;
+      }>()
+    )?.id;
+    expect(userId).toBeTruthy();
+    // Simulate the state a killed Worker leaves behind: a failed task, the
+    // original bundle in R2, one committed memo, and its ledger row.
+    await env.DB.prepare(
+      `INSERT INTO data_tasks
+        (id, user_id, kind, status, phase, attempts, manifest_key, options,
+         progress_done, progress_total, created_at, updated_at)
+       VALUES (?, ?, 'import', 'failed', 'importing', 1, ?, ?, 0, 0, ?, ?)`,
+    )
+      .bind(
+        taskId,
+        userId,
+        bundleKey,
+        JSON.stringify({ conflict: "skip" }),
+        now,
+        now,
+      )
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO memos
+        (id, user_id, content, created_at, updated_at)
+       VALUES ('memos/retry-import', ?, 'partial attempt', ?, ?)`,
+    )
+      .bind(userId, now, now)
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO import_task_rows (task_id, table_name, row_id) VALUES (?, 'memos', 'memos/retry-import')",
+    )
+      .bind(taskId)
+      .run();
+    await env.ATTACHMENTS.put(
+      bundleKey,
+      JSON.stringify({
+        version: 6,
+        memos: [memo],
+        attachments: [],
+        relations: [],
+        shares: [],
+      }),
+    );
+
+    const retried = await fetchApp(
+      `http://flaremo.test/api/v1/import/tasks/${taskId}/retry`,
+      { method: "POST" },
+    );
+    expect(retried.status).toBe(202);
+    const body = await retried.json<{
+      task: { status: string };
+      result: { imported_memos: number };
+    }>();
+    expect(body.task.status).toBe("succeeded");
+    expect(body.result.imported_memos).toBe(1);
+    const restored = await env.DB.prepare(
+      "SELECT content FROM memos WHERE id = 'memos/retry-import'",
+    ).first<{ content: string }>();
+    expect(restored?.content).toBe("retry import");
+    const remaining = await env.DB.prepare(
+      "SELECT count(*) AS n FROM memos WHERE id = 'memos/retry-import'",
+    ).first<{ n: number }>();
+    expect(remaining?.n).toBe(1);
+  });
 });

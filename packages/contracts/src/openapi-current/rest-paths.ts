@@ -1091,6 +1091,23 @@ export const restPaths = {
       },
     }),
   },
+  "/api/v1/import/tasks/{id}/retry": {
+    post: secured({
+      operationId: "retryImportTask",
+      summary: "Retry a failed import from its stored bundle",
+      tags: ["ImportExport"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        "202": response("Import task accepted.", { type: "object" }),
+        "400": response("The task cannot be retried.", error),
+        "404": response("Task not found.", error),
+        "409": response("The task is not in a failed state.", error),
+        "410": response("The stored bundle has expired.", error),
+      },
+    }),
+  },
   "/api/v1/openapi.json": {
     get: {
       operationId: "getCurrentOpenApiDocument",

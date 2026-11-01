@@ -4,18 +4,18 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## v0.25.0
 
-**新增 migration `0041_attachment_thumbnail_size`（`attachments` 只加一列，向后兼容），无 Cloudflare 资源变化；Memos 兼容面新增时区偏移时间戳，其余不变。**
+**新增 migration `0041_attachment_thumbnail_size`（`attachments` 加一列）、`0042_import_task_rows`（导入 checkpoint 台账）、`0043_data_task_options`（任务选项列），均为增量变更；无 Cloudflare 资源变化。导入导出包升级到 v6，Memos 兼容面新增时区偏移时间戳。**
 
 ### 升级步骤
 
 1. 部署前照常备份 D1 与 R2（含认证表）。
-2. `pnpm deploy`：先应用 `0041`，再发布 Worker。
-3. 部署后检查登录、时间线、图片附件（缩略图）、分享弹窗与回收站各一次。
+2. `pnpm deploy`：先应用 `0041`、`0042`、`0043`，再发布 Worker。
+3. 部署后检查登录、时间线、图片附件（缩略图）、导入任务与分享弹窗各一次。
 
 ### 已知问题
 
-- 导入仍在一个请求内逐段写入：中途失败可能留下部分记录，已提交的行也可能指向随后被清理的 R2 对象；大包导入的超时重试还不幂等。后续需要任务级 checkpoint 与源 id 去重。
-- 导出包不含 `team_id`，团队可见记录导入后会退回作者可见；导出仍包含有效的分享 token，备份文件需要按敏感数据保管。
+- 同步导入的 `overwrite` 模式仍按旧行为直接改写现有行；它没有 ledger 可回滚。大包/任务导入只支持 `skip` 与 `duplicate`，两者都具备失败回滚与重试。
+- 导出包 v6 不再携带分享 token，导入时会重新生成；旧分享链接不会在恢复后继续有效，需要重新复制。
 
 ### 修复
 
@@ -58,6 +58,9 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - **Workers Builds 缺配置不再只报 ENOENT**（issue #151）：`pnpm deploy` 的 preflight 发现根目录没有 `wrangler.jsonc` 时，会按 `FLAREMO_PUBLIC_URL` / `FLAREMO_D1_DATABASE_ID` / `WRANGLER_JSONC` 自动从模板生成；一个都没有时直接列出「复制模板 + provision」或「设置构建变量」两条路径。`docs/deploy.md` 新增 Workers Builds 小节。
 - **README 截图重拍**：八种语言共用的桌面明色、桌面暗色、移动端三张换成当前界面（Ember 3、侧栏与页头新分工），新增待办看板与文章列表两张功能截图；图片体积从约 1MB 降到 70KB 左右。
 
+- **导入有了任务级 checkpoint，失败不再留下半成品**：每条导入写入都会在同一批次里登记到 `import_task_rows`。失败（包括 Worker 被中断后由 cron 发现）先按台账回滚所有顶层记录及附件对象，再标记失败；任务重试会从干净状态重跑，不会重复插入。`/api/v1/import/tasks/:id/retry` 用创建任务时存入 R2 的原始 bundle 直接重试，导入面板对失败的导入显示「重试」。同步 `/import` 的 `skip`/`duplicate` 也走同一套台账；`overwrite` 保持旧行为。
+- **导出包升级到 v6**：memo 条目新增 `team_id`，团队可见记录恢复到接收方自己的团队；跨团队或不存在的团队回退为仅自己可见，不再产生「protected 但没有 team」的行。分享条目不再导出 `token`（capability URL 不应写进备份文件），导入时重新生成。
+- **移除 dev-only 的 `shadcn` CLI 依赖**：它只用于生成组件，不参与构建或运行；连带清掉 Dependabot 报的 `minimatch` 与 `deepmerge` 两条开发依赖告警。需要时用 `pnpm dlx shadcn@latest`。
 - **记忆页重做**：
   - 「随身小抄」此前每次打开都报错（前端没传必填的 `agent`，还把返回的对象当字符串用），现已修好：显示 Agent 通过 MCP 实际拿到的那份内容、带上几条、约多少 tokens、因篇幅没带上的条目，可以切换到某个项目里看。
   - 「铁律」只认已锁定（`verification=locked`）的记忆，与编译器和 Agent 的规则一致。此前菜单里「钉住」只锁定、不进「铁律」筛选；编辑弹窗的「铁律」开关只改 `tier`、实际并不锁定。现在开关就是锁定/解锁，锁定时 `tier` 同步为 core。migration `0040` 把用户自己写的、`tier=core` 但未锁定的有效记忆补成锁定。

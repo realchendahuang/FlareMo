@@ -51,7 +51,11 @@ test("keeps loaded cards mounted when pagination fails and retries the missing p
   await page.goto("/");
   await expect(page.locator("article")).toHaveCount(30);
   const firstCard = await page.locator("article").first().elementHandle();
-  await page.getByRole("button", { name: /load more|加载更多/i }).click();
+  const loadMore = page.getByRole("button", { name: /load more|加载更多/i });
+  await loadMore.scrollIntoViewIfNeeded();
+  // The virtualized footer re-renders while scrolling, so a coordinate click
+  // can be intercepted by its wrapper. Invoke the button's own handler.
+  await loadMore.evaluate((element) => (element as HTMLElement).click());
   await expect(page.getByRole("alert")).toContainText(
     /previously loaded|已加载/i,
   );
