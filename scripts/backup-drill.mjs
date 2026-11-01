@@ -159,9 +159,19 @@ step("verify R2 bucket exists", () => {
   // check failed every deployment that named its bucket anything else —
   // including this repo's own, which is `flaremo`.
   const bucket = attachmentBucketName();
-  const result = run("pnpm", ["exec", "wrangler", "r2", "bucket", "list"], {
-    capture: true,
-  });
+  const result = run(
+    "pnpm",
+    [
+      "exec",
+      "wrangler",
+      "--config",
+      "./wrangler.jsonc",
+      "r2",
+      "bucket",
+      "list",
+    ],
+    { capture: true },
+  );
   if (!result.stdout.includes(bucket)) {
     throw new Error(`R2 bucket ${bucket} was not found.`);
   }

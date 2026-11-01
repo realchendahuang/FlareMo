@@ -122,6 +122,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   const contentRef = useRef("");
   const seededRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Autosaves are chained instead of fired in parallel: two PATCHes in flight
+  // can return out of order and let the older body overwrite the newer one.
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const savedArticleRef = useRef<Article | null>(null);
   savedArticleRef.current = savedArticle;
   const latestRef = useRef({ title: "", content: "" });
@@ -143,7 +146,15 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       updateArticle(articleId, patch),
     onSuccess: ({ article: updated }) => {
       setSavedArticle(updated);
-      setSaveState("saved");
+      // A queued save may still be behind this response; only claim "saved"
+      // when the persisted body matches what the editor currently holds.
+      const latest = latestRef.current;
+      setSaveState(
+        updated.title === latest.title &&
+          sameArticleBody(updated.content, latest.content)
+          ? "saved"
+          : "saving",
+      );
       queryClient.setQueryData(["article", articleId], { article: updated });
     },
     onError: () => {
@@ -181,8 +192,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       return;
     }
     setSaveState("saving");
-    void saveRef
-      .current({ title: next.title, content: next.content })
+    saveChainRef.current = saveChainRef.current
+      .catch(() => undefined)
+      .then(() => saveRef.current({ title: next.title, content: next.content }))
       .catch(() => undefined);
   }, []);
 
@@ -451,10 +463,16 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
           onOpenChange={setPublishOpen}
           onPublished={(updated) => {
             setSavedArticle(updated);
+            queryClient.setQueryData(["article", articleId], {
+              article: updated,
+            });
             void queryClient.invalidateQueries({ queryKey: ["articles"] });
           }}
           onUnpublished={(updated) => {
             setSavedArticle(updated);
+            queryClient.setQueryData(["article", articleId], {
+              article: updated,
+            });
             void queryClient.invalidateQueries({ queryKey: ["articles"] });
           }}
           open={publishOpen}

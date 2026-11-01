@@ -69,6 +69,11 @@ export function SpotlightSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(query);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // Local filtering answers every keystroke; the network probe is debounced
+  // and paused while an IME composition is in flight, so typing Chinese does
+  // not fire one request per candidate character.
+  const [debouncedDraft, setDebouncedDraft] = useState("");
+  const [composing, setComposing] = useState(false);
 
   // Synchronize draft with query when opened
   useEffect(() => {
@@ -83,12 +88,18 @@ export function SpotlightSearch({
 
   const trimmedDraft = draft.trim();
 
+  useEffect(() => {
+    if (!open || composing) return undefined;
+    const timer = setTimeout(() => setDebouncedDraft(trimmedDraft), 250);
+    return () => clearTimeout(timer);
+  }, [composing, open, trimmedDraft]);
+
   // Instant global search probe across the entire corpus
   const remoteMemosQuery = useQuery({
-    queryKey: ["spotlight-remote-memos", trimmedDraft],
+    queryKey: ["spotlight-remote-memos", debouncedDraft],
     queryFn: ({ signal }) =>
-      listMemos({ q: trimmedDraft, page_size: 6 }, signal),
-    enabled: open && trimmedDraft.length >= 1,
+      listMemos({ q: debouncedDraft, page_size: 6 }, signal),
+    enabled: open && debouncedDraft.length >= 1,
     staleTime: 10_000,
   });
 
@@ -109,14 +120,16 @@ export function SpotlightSearch({
   // immediately to memory cache so keystroke feedback is instant.
   const matchingMemos = useMemo(() => {
     if (!trimmedDraft) return [];
-    if (remoteMemosQuery.data?.memos) {
+    // Do not show the previous query's remote page while the current draft is
+    // still inside its debounce window; the local cache covers that gap.
+    if (debouncedDraft === trimmedDraft && remoteMemosQuery.data?.memos) {
       return remoteMemosQuery.data.memos.slice(0, 6);
     }
     const q = trimmedDraft.toLowerCase();
     return memos
       .filter((memo) => memo.content.toLowerCase().includes(q))
       .slice(0, 5);
-  }, [trimmedDraft, remoteMemosQuery.data, memos]);
+  }, [debouncedDraft, trimmedDraft, remoteMemosQuery.data, memos]);
 
   // Collect all selectable action items
   type SearchActionItem = {
@@ -295,6 +308,8 @@ export function SpotlightSearch({
                 setDraft(e.target.value);
                 setSelectedIndex(0);
               }}
+              onCompositionEnd={() => setComposing(false)}
+              onCompositionStart={() => setComposing(true)}
               onKeyDown={handleKeyDown}
               placeholder={
                 semanticMode

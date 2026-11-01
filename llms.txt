@@ -40,4 +40,4 @@ pnpm deploy:dry-run
 pnpm backup:drill
 ```
 
-仓库有瘦 CI（.github/workflows/ci.yml：format / lint / typecheck / 单元测试，约 14 分钟）作为 push 与外部 PR 的快速门禁；它不跑 E2E、不构建、不做部署。全量 `pnpm verify` 只在维护者明确要求时本地执行（发版默认不跑）；日常提交按改动跑定向测试，E2E 一律 opt-in。
+仓库没有 CI，push 与 PR 不自动跑检查，也没有自动部署。全量 `pnpm verify` 只在维护者明确要求时本地执行（发版默认不跑）；日常提交按改动跑定向测试，E2E 一律 opt-in。

@@ -1,10 +1,10 @@
 # 发版规则
 
-FlareMo 使用 Git tag 和 GitHub Release 发布版本。仓库有瘦 CI（format / lint / typecheck / 单元测试）作为 push 与外部 PR 的快速门禁，但它不跑 E2E、不做部署；发布前默认按改动执行定向检查，完整门禁仅在维护者明确要求时于本地执行。用户部署仓库中的更新 workflow 只消费这里发布的正式 Release。
+FlareMo 使用 Git tag 和 GitHub Release 发布版本。仓库**没有 CI**：push 与 PR 上不自动跑任何检查，也没有自动部署；发布前默认按改动执行本地定向检查，完整门禁 `pnpm verify` 仅在维护者明确要求时于本地执行。用户部署仓库中的更新 workflow 只消费这里发布的正式 Release。
 
 ## 标准流程（runbook）
 
-仓库有瘦 CI、没有 Workers Builds 自动部署；E2E 与部署之外的完整门禁都在维护者本地跑（瘦 CI 只做 format / lint / typecheck / 单元测试的快速防线）。一次「改动 → 推送 → 测试 → 发版」按这个顺序：
+仓库没有 CI、没有 Workers Builds 自动部署；所有门禁都在维护者本地跑。一次「改动 → 推送 → 测试 → 发版」按这个顺序：
 
 1. **改动与提交**：产品改动走 feature 分支 + conventional commits（`feat(...)`、`fix(...)`、`chore(...)`）；文档等小改动可直接提交 main。推送前先 `pnpm check`（lint + typecheck）。
 2. **合并与推送**：main 统一 fast-forward（`git checkout main && git merge --ff-only <branch> && git push origin main`），保持线性历史。**合并依赖更新 PR 必须逐个合、每个之间先 rebase/重新解析**：并行合并两个基于同一旧 lockfile 的 PR 会把 `pnpm-lock.yaml` 写坏（duplicated key）；且 Dependabot 不遵守 `minimumReleaseAge` 供应链策略，其 lockfile 改动合并后必须用 `pnpm install` 重新解析并确认通过策略校验。

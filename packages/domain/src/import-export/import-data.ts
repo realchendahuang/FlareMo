@@ -16,8 +16,9 @@ import {
   taskActivity,
   tasks,
 } from "@flaremo/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { d1IdsPerStatement } from "../d1-limits";
+import { ConflictError } from "../errors";
 import { createResourceId, createToken, parseResourceName } from "../ids";
 import { recalibrateUserHourlyCounts } from "../memo-hourly-counts";
 import {
@@ -66,6 +67,86 @@ async function flushImportStatements(
 }
 
 /**
+ * Resource ids are global (`memos/<uuid>`, `attachments/<uuid>`…), while an
+ * import into a different account has no remap step. A bundle exported from
+ * account A therefore either hits a primary-key conflict halfway through the
+ * write, or — for the id-targeted upserts below — silently overwrites A's
+ * rows. Refuse the whole bundle before the first write instead.
+ */
+async function assertImportIdsAreFree(
+  db: FlareMoDb,
+  userId: string,
+  bundle: ImportBundle,
+) {
+  // One extra bound value (`userId`) rides along with each id list.
+  const chunkSize = d1IdsPerStatement(2);
+  const groups = [
+    {
+      ids: bundle.memos.map((memo) => parseResourceName(memo.name, "memos")),
+      findForeign: (chunk: string[]) =>
+        db
+          .select({ id: memos.id })
+          .from(memos)
+          .where(and(inArray(memos.id, chunk), ne(memos.userId, userId))),
+    },
+    {
+      ids: bundle.attachments.map((attachment) =>
+        parseResourceName(attachment.name, "attachments"),
+      ),
+      findForeign: (chunk: string[]) =>
+        db
+          .select({ id: attachments.id })
+          .from(attachments)
+          .where(
+            and(inArray(attachments.id, chunk), ne(attachments.userId, userId)),
+          ),
+    },
+    {
+      ids: bundle.memories.map((memory) =>
+        parseResourceName(memory.name, "memories"),
+      ),
+      findForeign: (chunk: string[]) =>
+        db
+          .select({ id: memoryItems.id })
+          .from(memoryItems)
+          .where(
+            and(inArray(memoryItems.id, chunk), ne(memoryItems.userId, userId)),
+          ),
+    },
+    {
+      ids: bundle.projects.map((project) =>
+        parseResourceName(project.name, "projects"),
+      ),
+      findForeign: (chunk: string[]) =>
+        db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(inArray(projects.id, chunk), ne(projects.userId, userId))),
+    },
+    {
+      ids: bundle.tasks.map((task) => parseResourceName(task.name, "tasks")),
+      findForeign: (chunk: string[]) =>
+        db
+          .select({ id: tasks.id })
+          .from(tasks)
+          .where(and(inArray(tasks.id, chunk), ne(tasks.userId, userId))),
+    },
+  ];
+  for (const group of groups) {
+    for (let offset = 0; offset < group.ids.length; offset += chunkSize) {
+      const rows = await group.findForeign(
+        group.ids.slice(offset, offset + chunkSize),
+      );
+      if (rows.length > 0) {
+        throw new ConflictError(
+          "This bundle contains resources owned by another account. Import it into the account that exported it.",
+        );
+      }
+    }
+  }
+}
+
+/**
  * The import half of import-export.ts, moved verbatim: replays an
  * ImportBundle into the target account with conflict handling and
  * id remapping (memos/attachments/relations/shares/memories/projects/
@@ -105,6 +186,7 @@ export async function importData(
     if (requestedClientId) payload.client_id = requestedClientId;
     return { memo, sourceId, payload, requestedClientId };
   });
+  await assertImportIdsAreFree(db, user.id, bundle);
   const existingMemoIds = new Set<string>();
   for (
     let offset = 0;
@@ -312,18 +394,28 @@ export async function importData(
     const importedId = existing ? createResourceId("attachments") : sourceId;
     const createdAt = attachment.create_time || now;
     const updatedAt = attachment.update_time || createdAt;
+    // A duplicate row without bytes must not claim the original's R2 object:
+    // both rows would point at one key and deleting either one would break
+    // the other. Only an overwrite keeps the existing object by design.
+    const reuseExistingObject =
+      Boolean(existing) && !objectKey && conflict === "overwrite";
     const attachmentValues = {
       id: importedId,
       userId: user.id,
       memoId: mappedMemoId,
       r2Key:
         objectKey ??
-        existing?.r2Key ??
-        `imports/${user.id}/missing/${crypto.randomUUID()}`,
+        (reuseExistingObject && existing
+          ? existing.r2Key
+          : `imports/${user.id}/missing/${crypto.randomUUID()}`),
       filename: attachment.filename,
       contentType: attachment.content_type,
       size: attachment.size,
-      state: objectKey ? ("ready" as const) : (existing?.state ?? "missing"),
+      state: objectKey
+        ? ("ready" as const)
+        : reuseExistingObject
+          ? (existing?.state ?? "missing")
+          : ("missing" as const),
       etag:
         options.attachmentEtags?.get(attachment.name) ??
         attachment.etag ??

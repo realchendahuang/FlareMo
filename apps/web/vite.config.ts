@@ -55,6 +55,15 @@ export default defineConfig({
             // TipTap + ProseMirror: only the lazy rich composer chunk needs
             // it; keeping it in its own chunk keeps the initial load free of
             // the editor.
+            // Floating UI is shared by Base UI (eager: tooltips, menus) and
+            // the TipTap bubble menu (lazy). Without its own group it joins
+            // vendor-tiptap through the lazy dependency and drags the whole
+            // editor chunk into the first screen's preload list.
+            {
+              name: "vendor-floating",
+              test: /node_modules[\\/]@floating-ui[\\/]/,
+              priority: 5,
+            },
             {
               name: "vendor-tiptap",
               test: /node_modules[\\/]@tiptap[\\/]/,

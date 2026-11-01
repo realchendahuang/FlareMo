@@ -645,7 +645,16 @@ export const MemoList = memo(function MemoList({
               content: visibilityMemo.content,
               visibility,
             });
-            setVisibilityMemo(null);
+            if (visibility === "public") {
+              // Public provisioning creates the share link in the next step;
+              // keep the dialog open so it can be copied, and reflect the new
+              // visibility in the pressed option.
+              setVisibilityMemo((current) =>
+                current ? { ...current, visibility } : current,
+              );
+            } else {
+              setVisibilityMemo(null);
+            }
           }}
           share={sharesByMemo.get(visibilityMemo.name)}
         />

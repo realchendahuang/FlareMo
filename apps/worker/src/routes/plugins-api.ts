@@ -96,9 +96,15 @@ pluginsApi.get("/assets/:id/:version/*", async (c) => {
       "x-content-type-options": "nosniff",
     });
     // Plugin assets are untrusted code: force an opaque origin whenever a
-    // browser navigates to them directly.
+    // browser navigates to them directly. SVG is a document too — scripts
+    // inside it would otherwise run on the app origin — so it gets the same
+    // treatment plus a download disposition. `<img src>` still renders it.
     if (contentType.startsWith("text/html")) {
       headers.set("content-security-policy", "sandbox; default-src 'none'");
+    }
+    if (contentType === "image/svg+xml") {
+      headers.set("content-security-policy", "sandbox; default-src 'none'");
+      headers.set("content-disposition", "attachment");
     }
     return new Response(object.body, { headers });
   } catch (error) {

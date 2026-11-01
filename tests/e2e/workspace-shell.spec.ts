@@ -197,13 +197,17 @@ test("gives way to a narrowing window instantly: sidebar first, then the column"
     sidebar: (await box(page, "aside")).width,
     main: (await box(page, "main")).width,
   });
-  // No transition on window resize: measured right after the resize.
+  // No transition on window resize: the new geometry must land within a
+  // frame or two. A 300ms ceiling distinguishes that from the 400ms
+  // show/hide transition without depending on React's commit timing.
+  const expectLayout = (expected: { sidebar: number; main: number }) =>
+    expect.poll(layout, { timeout: 300 }).toEqual(expected);
   await page.setViewportSize({ width: 900, height: 725 });
-  expect(await layout()).toEqual({ sidebar: 242, main: 640 });
+  await expectLayout({ sidebar: 242, main: 640 });
   await page.setViewportSize({ width: 800, height: 725 });
-  expect(await layout()).toEqual({ sidebar: 216, main: 566 });
+  await expectLayout({ sidebar: 216, main: 566 });
   await page.setViewportSize({ width: 1120, height: 725 });
-  expect(await layout()).toEqual({ sidebar: 312, main: 640 });
+  await expectLayout({ sidebar: 312, main: 640 });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

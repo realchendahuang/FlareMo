@@ -29,6 +29,11 @@ export const attachments = sqliteTable(
     filename: text("filename").notNull(),
     contentType: text("content_type"),
     size: integer("size").notNull().default(0),
+    // Bytes of the derived preview object stored beside `r2Key`. Kept apart
+    // from `size` (the original file) because the public attachment DTO and
+    // Memos-compatible clients expect `size` to describe the uploaded file,
+    // while the storage quota must count both objects.
+    thumbnailSize: integer("thumbnail_size").notNull().default(0),
     state: text("state", {
       enum: ["ready", "deleting", "missing"],
     })

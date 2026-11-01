@@ -63,6 +63,9 @@ const ATTACHMENT_CLEANUP_BATCH = 100;
 // Safety bound for the drain loop: 100 batches x 100 rows = 10k rows/day.
 const MAX_ATTACHMENT_CLEANUP_BATCHES = 100;
 const DEFAULT_TRASH_RETENTION_DAYS = 30;
+// One purge query returns up to 200 rows; keep draining until the backlog is
+// empty or no row in a pass could be removed (a persistent failure).
+const MAX_TRASH_PURGE_BATCHES = 10;
 
 function parseTrashRetentionDays(value: string | undefined): number {
   const parsed = Number.parseInt(value?.trim() ?? "", 10);
@@ -279,12 +282,34 @@ export async function runScheduledMaintenance(
     const trashCutoff = new Date(
       scheduledTime - retentionDays * 24 * 60 * 60 * 1_000,
     ).toISOString();
-    const expired = await listExpiredTrashedMemos(db, trashCutoff);
-    for (const { id: memoId, userId } of expired) {
-      const owner = await getFlaremoUserById(db, userId);
-      if (!owner) continue;
-      await hardDeleteMemoWithAttachments(env, db, owner, memoId);
-      trashPurgeCount += 1;
+    for (let batch = 0; batch < MAX_TRASH_PURGE_BATCHES; batch++) {
+      const expired = await listExpiredTrashedMemos(db, trashCutoff);
+      if (expired.length === 0) break;
+      let purgedThisPass = 0;
+      for (const { id: memoId, userId } of expired) {
+        // One bad row (R2 hiccup, a missing author, a stale permission) must
+        // not abort the rest of the maintenance run — this loop used to throw
+        // before the attachment GC, counters, notifications and reminders.
+        try {
+          const owner = await getFlaremoUserById(db, userId);
+          if (!owner) continue;
+          await hardDeleteMemoWithAttachments(env, db, owner, memoId);
+          purgedThisPass += 1;
+          trashPurgeCount += 1;
+        } catch (error) {
+          console.error(
+            JSON.stringify({
+              message: "trash purge skipped a memo",
+              memoId,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          );
+        }
+      }
+      // The query only returns rows that are still trashed, so a pass that
+      // removed nothing would repeat the same failures forever.
+      if (purgedThisPass === 0) break;
+      if (expired.length < 200) break;
     }
     // Articles: soft-deleted articles past the retention window hard-delete
     // with their attachment binaries (same R2 sweep contract as memos).

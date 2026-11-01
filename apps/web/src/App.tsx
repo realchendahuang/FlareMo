@@ -97,7 +97,7 @@ export function FlareMoApp() {
 
   const {
     displayedMemosRef,
-    focusedMemoIndex,
+    focusedMemoId,
     handleArchiveRef,
     handlePinRef,
     setShowShortcutsOpen,
@@ -327,12 +327,7 @@ export function FlareMoApp() {
                 : memosQuery.isLoading
             }
             memos={displayedMemos}
-            focusedMemoId={
-              focusedMemoIndex !== null
-                ? displayedMemos[focusedMemoIndex]?.id ||
-                  displayedMemos[focusedMemoIndex]?.name
-                : null
-            }
+            focusedMemoId={focusedMemoId}
             searchQuery={searchQuery || undefined}
             sharesByMemo={sharesByMemo}
             onArchive={handleArchive}

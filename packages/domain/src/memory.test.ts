@@ -135,6 +135,29 @@ describe("memory domain services", () => {
     ).rejects.toThrow(/MEMORY_SECRET_REJECTED/);
   });
 
+  it("promotes an inferred proposal when the user writes the same fact", async () => {
+    const fields = {
+      content: "FlareMo 的部署目标是 Cloudflare Workers",
+      type: "semantic" as const,
+      kind: "fact" as const,
+      scopeType: "global" as const,
+      scopeKey: null,
+      tier: "normal" as const,
+      importance: 50,
+      confidence: 50,
+    };
+    const proposal = await createMemory(db, user, AGENT, {
+      ...fields,
+      verification: "inferred",
+    });
+    expect(proposal.memory.verification).toBe("inferred");
+
+    const confirmed = await createMemory(db, user, USER, fields);
+    expect(confirmed.duplicate).toBe(true);
+    expect(confirmed.memory.id).toBe(proposal.memory.id);
+    expect(confirmed.memory.verification).toBe("confirmed");
+  });
+
   it("forbids agents from locking, and from mutating confirmed or locked memories", async () => {
     const created = await createMemory(db, user, USER, {
       content: "发布前必须执行 pnpm verify",

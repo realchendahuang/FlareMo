@@ -33,7 +33,7 @@ pnpm format:check
 pnpm deploy:dry-run
 ```
 
-仓库带一个瘦 CI（`.github/workflows/ci.yml`：format / lint / typecheck / 单元测试，实测约 14 分钟，job 超时 30 分钟），作为兜底与外部 PR 的强制门禁。它不跑 E2E、不构建、不部署；如果维护者要求，PR 作者再在本地跑完整门禁 `pnpm verify`（含 Playwright E2E）并在 PR 里写明结果。仓库中的 `flaremo-update.yml` 只服务自部署用户自己的部署仓库，用于把上游 Release 准备成升级 PR。
+仓库**没有 CI**，push 与 PR 都不会自动跑检查，也没有自动部署。提交前请按改动在本地跑定向测试；维护者要求时再跑完整门禁 `pnpm verify`（含 Playwright E2E）并在 PR 里写明结果。
 
 依赖更新目前**由人工执行**：`renovate.json` 记录了期望的升级策略（devDependencies 的 patch 可自动合并、Cloudflare 系包保持手动），但仓库没有配套的 Renovate workflow，bot 从未启用。Dependabot 已按项目决定停用且没有配置文件。看到依赖落后时，直接手工 `pnpm update <pkg>` 并跑相关测试即可，不要指望有自动升级 PR。
 

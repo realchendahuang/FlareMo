@@ -69,6 +69,7 @@ export function ContentTab({
       {!parentName && (
         <MemoComments
           canComment={context.memo.state === "normal"}
+          key={context.memo.id}
           memoId={context.memo.id}
           mentions={context.memo.visibility !== "private"}
         />

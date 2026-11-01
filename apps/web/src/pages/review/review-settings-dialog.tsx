@@ -92,6 +92,9 @@ export function ReviewSettingsDialog({
   });
 
   const toggle = (tag: string) => {
+    // Each request sends the whole tag list; a second toggle while the first
+    // is in flight would race its snapshot and could restore the wrong set.
+    if (mutation.isPending) return;
     const covered = excluded.some(
       (item) => item !== tag && tag.startsWith(`${item}/`),
     );
@@ -151,7 +154,7 @@ export function ReviewSettingsDialog({
                           ? "cursor-default border-border bg-muted text-muted-foreground line-through decoration-muted-foreground/50"
                           : "border-border bg-card text-muted-foreground hover:border-input hover:text-foreground",
                     )}
-                    disabled={covered}
+                    disabled={covered || mutation.isPending}
                     key={tag}
                     type="button"
                     onClick={() => toggle(tag)}

@@ -298,7 +298,7 @@ export const shareDtoSchema = z.object({
 });
 
 export const createShareSchema = z.object({
-  expires_at: z.string().datetime().nullable().optional(),
+  expires_at: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export const listMemoSharesResponseSchema = z.object({

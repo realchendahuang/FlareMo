@@ -45,7 +45,11 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
+import {
+  chunkForD1,
+  d1IdsPerRepeatedBinding,
+  d1IdsPerStatement,
+} from "./d1-limits";
 import {
   ConflictError,
   ForbiddenError,
@@ -619,7 +623,12 @@ export async function finalizeFlaremoMemberRemoval(
     // outright past that count — the whole removal is one transaction body, so
     // there was no partial state to recover from either. Chunks are safe to
     // run sequentially because each one only ever narrows the same row set.
-    for (const idChunk of chunkForD1(privateMemoIds, d1IdsPerStatement(4))) {
+    // The relation delete below binds both `memo_id` and `related_memo_id`,
+    // so every id costs two parameters instead of one.
+    for (const idChunk of chunkForD1(
+      privateMemoIds,
+      d1IdsPerRepeatedBinding(2),
+    )) {
       await db.batch([
         db
           .delete(embeddingTasks)

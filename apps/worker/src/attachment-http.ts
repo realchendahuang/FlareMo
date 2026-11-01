@@ -2,6 +2,9 @@ import { thumbnailKeyFor } from "@flaremo/contracts/constants";
 import type { AttachmentRow } from "@flaremo/db";
 
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+// The client renders a 640px WebP preview (tens of KB); 1 MiB is a generous
+// ceiling that still bounds what a crafted request can add to storage.
+export const MAX_THUMBNAIL_BYTES = 1 * 1024 * 1024;
 export const MAX_INLINE_EXPORT_BYTES = 32 * 1024 * 1024;
 
 const INLINE_CONTENT_TYPES = new Set([

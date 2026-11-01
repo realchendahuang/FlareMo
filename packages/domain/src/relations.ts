@@ -2,7 +2,12 @@ import type { PatchMemoRelationsInput } from "@flaremo/contracts";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { memoRelations, memos } from "@flaremo/db";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
-import { chunkForD1, d1IdsPerStatement, d1RowsPerStatement } from "./d1-limits";
+import {
+  chunkForD1,
+  d1IdsPerRepeatedBinding,
+  d1IdsPerStatement,
+  d1RowsPerStatement,
+} from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
@@ -73,7 +78,7 @@ export async function listMemoRelationsForMemosForViewer(
   // Two bindings per id (one for each side of the relation), so the page's
   // memory ids have to be chunked before they reach D1's 100-parameter cap.
   const rows: Array<typeof memoRelations.$inferSelect> = [];
-  for (const idChunk of chunkForD1(requested, d1IdsPerStatement(2))) {
+  for (const idChunk of chunkForD1(requested, d1IdsPerRepeatedBinding(2))) {
     rows.push(
       ...(await db
         .select()
@@ -87,17 +92,26 @@ export async function listMemoRelationsForMemosForViewer(
         .orderBy(asc(memoRelations.createdAt), asc(memoRelations.memoId))),
     );
   }
-  rows.sort(
+  // A relation whose two endpoints fall into different chunks matches the
+  // `OR` in both chunk queries, so chunking can return the same row twice.
+  const seen = new Set<string>();
+  const uniqueRows = rows.filter((row) => {
+    const key = `${row.memoId}\u0000${row.relatedMemoId}\u0000${row.type}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  uniqueRows.sort(
     (a, b) =>
       a.createdAt.localeCompare(b.createdAt) ||
       a.memoId.localeCompare(b.memoId),
   );
-  if (rows.length === 0) return grouped;
+  if (uniqueRows.length === 0) return grouped;
 
   // Every id that can appear on the far side of a relation for a requested
   // memo; one probe answers readability for all of them.
   const farIds = new Set<string>();
-  for (const row of rows) {
+  for (const row of uniqueRows) {
     if (requestedIds.has(row.memoId)) farIds.add(row.relatedMemoId);
     if (requestedIds.has(row.relatedMemoId)) farIds.add(row.memoId);
   }
@@ -115,7 +129,7 @@ export async function listMemoRelationsForMemosForViewer(
     for (const row of readable) readableIds.add(row.id);
   }
 
-  for (const row of rows) {
+  for (const row of uniqueRows) {
     if (requestedIds.has(row.memoId) && readableIds.has(row.relatedMemoId)) {
       grouped.get(row.memoId)?.push(row);
     }

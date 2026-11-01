@@ -31,7 +31,7 @@ test("the owner can customize the product name and it reaches the login page", a
 
   // The branding form lives in a dialog opened from the card header.
   await ownerPage
-    .getByRole("button", { name: /^编辑$|^Edit$/ })
+    .getByRole("button", { name: /^(编辑|Edit)/ })
     .first()
     .click();
   const nameInput = ownerPage.getByLabel(/产品名称|Product name/);
@@ -76,7 +76,7 @@ test("the owner can customize the product name and it reaches the login page", a
     resetPage.getByRole("heading", { name: /品牌外观|Branding/ }).first(),
   ).toBeVisible({ timeout: 15_000 });
   await resetPage
-    .getByRole("button", { name: /^编辑$|^Edit$/ })
+    .getByRole("button", { name: /^(编辑|Edit)/ })
     .first()
     .click();
   await resetPage.getByLabel(/产品名称|Product name/).fill("");

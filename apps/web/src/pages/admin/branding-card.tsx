@@ -362,6 +362,10 @@ export function BrandingCard() {
       </SettingsSectionGroup>
       <SettingsSectionGroup title={t("admin.branding.identity")}>
         <button
+          aria-label={`${t("common.edit")}: ${
+            brandingQuery.data?.product_name ||
+            t("admin.branding.statusDefault")
+          }`}
           type="button"
           onClick={() => setEditOpen(true)}
           className="flex w-full cursor-pointer items-center gap-3 px-3.5 py-3 text-start transition-colors hover:bg-accent/40 active:bg-accent/60"

@@ -148,7 +148,9 @@ export async function startWithCleanClientState(page: Page) {
  * IME-composition and request-cancellation guards apply.
  */
 export function mobileSearchInput(page: Page) {
-  return page.getByRole("textbox", { name: /^搜索$|^Search$/i });
+  // Narrow layouts expose a trigger that opens the spotlight palette; the
+  // input inside is identified by its placeholder, not an aria-label.
+  return page.getByPlaceholder(/搜索记录|Search notes/i);
 }
 
 /**

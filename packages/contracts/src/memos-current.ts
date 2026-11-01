@@ -51,7 +51,7 @@ export const currentReactionSchema = z
     creator: z.string(),
     contentId: z.string(),
     reactionType: z.string().min(1),
-    createTime: z.string().datetime(),
+    createTime: z.string().datetime({ offset: true }),
   })
   .passthrough();
 
@@ -66,7 +66,7 @@ export const currentShortcutSchema = z
 export const currentAttachmentSchema = z
   .object({
     name: z.string(),
-    createTime: z.string().datetime().optional(),
+    createTime: z.string().datetime({ offset: true }).optional(),
     filename: z.string(),
     type: z.string(),
     size: z.string(),
@@ -85,8 +85,8 @@ export const currentMemoSchema = z
     name: z.string(),
     state: currentMemoStateSchema,
     creator: z.string(),
-    createTime: z.string().datetime(),
-    updateTime: z.string().datetime(),
+    createTime: z.string().datetime({ offset: true }),
+    updateTime: z.string().datetime({ offset: true }),
     content: z.string(),
     visibility: currentMemoVisibilitySchema,
     tags: z.array(z.string()),
@@ -176,8 +176,8 @@ export const currentListShortcutsResponseSchema = z.object({
 export const currentMemoShareSchema = z
   .object({
     name: z.string(),
-    createTime: z.string().datetime(),
-    expireTime: z.string().datetime().nullable().optional(),
+    createTime: z.string().datetime({ offset: true }),
+    expireTime: z.string().datetime({ offset: true }).nullable().optional(),
   })
   .passthrough();
 
@@ -190,8 +190,8 @@ export const currentUserSchema = z
     displayName: z.string(),
     avatarUrl: z.string().optional(),
     state: z.enum(["STATE_UNSPECIFIED", "NORMAL"]),
-    createTime: z.string().datetime(),
-    updateTime: z.string().datetime(),
+    createTime: z.string().datetime({ offset: true }),
+    updateTime: z.string().datetime({ offset: true }),
   })
   .passthrough();
 
@@ -199,9 +199,9 @@ export const currentPersonalAccessTokenSchema = z
   .object({
     name: z.string(),
     description: z.string().optional(),
-    createdAt: z.string().datetime(),
-    expiresAt: z.string().datetime().optional(),
-    lastUsedAt: z.string().datetime().optional(),
+    createdAt: z.string().datetime({ offset: true }),
+    expiresAt: z.string().datetime({ offset: true }).optional(),
+    lastUsedAt: z.string().datetime({ offset: true }).optional(),
   })
   .passthrough();
 

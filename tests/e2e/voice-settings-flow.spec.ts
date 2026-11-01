@@ -48,8 +48,10 @@ for (const mobile of [false, true]) {
     // desktop), so every string inside it appears twice in the DOM. Scope all
     // visibility assertions to the rendered branch; `visible=true` is what
     // keeps strict mode satisfied.
+    // The pane no longer draws its own heading; its first settings row is the
+    // stable marker that the permission-gated content mounted.
     const voiceTitle = page
-      .getByText(/Voice recognition settings|语音识别设置/, { exact: true })
+      .getByText(/Enable voice capture|启用语音记录/, { exact: true })
       .locator("visible=true");
     await expect(voiceTitle).toHaveCount(0);
     expect(settingsRequests).toBe(0);

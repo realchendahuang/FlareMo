@@ -6,6 +6,7 @@ import {
   assertCanManageAttachment,
   getAttachmentById,
 } from "./attachments-metadata";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
@@ -25,19 +26,29 @@ export async function bindMemoAttachments(
     parseResourceName(name, "attachments"),
   );
   const now = new Date().toISOString();
+  // The contract allows 100 attachment names; that plus the user/state
+  // predicates is already past D1's 100-parameter cap, and Connect callers
+  // can send an unvalidated list. Every statement below therefore binds one
+  // chunk at a time.
+  const idChunks = chunkForD1(ids, d1IdsPerStatement(6));
 
   if (ids.length > 0) {
-    const existing = await db
-      .select()
-      .from(attachments)
-      .where(
-        and(
-          eq(attachments.userId, user.id),
-          inArray(attachments.id, ids),
-          isNull(attachments.deletedAt),
-          eq(attachments.state, "ready"),
-        ),
+    const existing: Array<typeof attachments.$inferSelect> = [];
+    for (const idChunk of idChunks) {
+      existing.push(
+        ...(await db
+          .select()
+          .from(attachments)
+          .where(
+            and(
+              eq(attachments.userId, user.id),
+              inArray(attachments.id, idChunk),
+              isNull(attachments.deletedAt),
+              eq(attachments.state, "ready"),
+            ),
+          )),
       );
+    }
     const existingIds = new Set(existing.map((attachment) => attachment.id));
     const missing = ids.find((id) => !existingIds.has(id));
     if (missing) {
@@ -50,40 +61,31 @@ export async function bindMemoAttachments(
     .set({ memoId: null, updatedAt: now })
     .where(and(eq(attachments.memoId, normalizedMemoId)));
 
-  if (ids.length > 0) {
-    // Attachment binding is a memo mutation in upstream Memos. Keep the
-    // durable outbox write in the same D1 batch so reconnecting SSE clients do
-    // not observe a successful update without its refresh event.
-    await db.batch([
-      clearExisting,
+  // Attachment binding is a memo mutation in upstream Memos. Keep the
+  // durable outbox write in the same D1 batch so reconnecting SSE clients do
+  // not observe a successful update without its refresh event.
+  await db.batch([
+    clearExisting,
+    ...idChunks.map((idChunk) =>
       db
         .update(attachments)
         .set({ memoId: normalizedMemoId, updatedAt: now })
         .where(
-          and(eq(attachments.userId, user.id), inArray(attachments.id, ids)),
+          and(
+            eq(attachments.userId, user.id),
+            inArray(attachments.id, idChunk),
+          ),
         ),
-      insertMemosSseEvent(db, {
-        type: "memo.updated",
-        name: memo.id,
-        visibility: memo.visibility,
-        teamId: memo.teamId,
-        creatorId: memo.userId,
-        createdAt: now,
-      }),
-    ]);
-  } else {
-    await db.batch([
-      clearExisting,
-      insertMemosSseEvent(db, {
-        type: "memo.updated",
-        name: memo.id,
-        visibility: memo.visibility,
-        teamId: memo.teamId,
-        creatorId: memo.userId,
-        createdAt: now,
-      }),
-    ]);
-  }
+    ),
+    insertMemosSseEvent(db, {
+      type: "memo.updated",
+      name: memo.id,
+      visibility: memo.visibility,
+      teamId: memo.teamId,
+      creatorId: memo.userId,
+      createdAt: now,
+    }),
+  ]);
 
   return listMemoAttachments(db, user, normalizedMemoId);
 }

@@ -24,6 +24,7 @@ export const RESTORE_TABLES = [
   "memo_tags",
   "memo_revisions",
   "memo_relations",
+  "memo_review_marks",
   "reactions",
   "shortcuts",
   "memos_webhooks",

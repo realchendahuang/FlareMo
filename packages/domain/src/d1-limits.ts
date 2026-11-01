@@ -22,6 +22,19 @@ export function d1IdsPerStatement(reserve = 10): number {
   return Math.max(1, D1_MAX_BOUND_PARAMETERS - reserve);
 }
 
+/**
+ * Ids per `inArray(...)` when the same list is bound `bindings` times in one
+ * statement. Two-sided relation predicates (`memo_id IN (...) OR
+ * related_memo_id IN (...)`) bind every id twice, so sizing them with
+ * `d1IdsPerStatement` silently doubles the parameter count past D1's cap.
+ */
+export function d1IdsPerRepeatedBinding(bindings: number, reserve = 4): number {
+  return Math.max(
+    1,
+    Math.floor((D1_MAX_BOUND_PARAMETERS - reserve) / Math.max(1, bindings)),
+  );
+}
+
 /** Splits a list into batches small enough for one D1 statement each. */
 export function chunkForD1<T>(items: readonly T[], size: number): T[][] {
   const chunks: T[][] = [];

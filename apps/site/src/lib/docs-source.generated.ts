@@ -46,6 +46,10 @@ const enGithubActionDeploy: RawDocLoader = () =>
   import("../../../../docs/en/github-action-deploy.md?raw").then(
     (module) => module.default,
   );
+const enImportFromMemos: RawDocLoader = () =>
+  import("../../../../docs/en/import-from-memos.md?raw").then(
+    (module) => module.default,
+  );
 const enMemosCompatibility: RawDocLoader = () =>
   import("../../../../docs/en/memos-compatibility.md?raw").then(
     (module) => module.default,
@@ -60,6 +64,10 @@ const enUpdate: RawDocLoader = () =>
   import("../../../../docs/en/update.md?raw").then((module) => module.default);
 const githubActionDeploy: RawDocLoader = () =>
   import("../../../../docs/github-action-deploy.md?raw").then(
+    (module) => module.default,
+  );
+const importFromMemos: RawDocLoader = () =>
+  import("../../../../docs/import-from-memos.md?raw").then(
     (module) => module.default,
   );
 const maintenance: RawDocLoader = () =>
@@ -162,6 +170,11 @@ const ZH_DOCS: Record<
     group: "start",
     body: githubActionDeploy,
   },
+  "import-from-memos": {
+    title: "从 Memos 迁移到 FlareMo",
+    group: "start",
+    body: importFromMemos,
+  },
   maintenance: {
     title: "维护手册",
     group: "start",
@@ -232,6 +245,11 @@ const EN_DOCS: Record<
     title: "Deploy with GitHub Actions",
     group: "start",
     body: enGithubActionDeploy,
+  },
+  "import-from-memos": {
+    title: "Moving from Memos to FlareMo",
+    group: "start",
+    body: enImportFromMemos,
   },
   "agent-deploy": {
     title: "Agent Deployment Runbook",
@@ -336,6 +354,8 @@ const DESCRIPTIONS_ZH: Record<string, string> = {
     "Ember 设计语言：暖调中性 + 火焰品牌色，圆角、阴影与文案规则。",
   "github-action-deploy":
     "用自建部署仓库的受控 workflow_dispatch 发布，只应手动触发。",
+  "import-from-memos":
+    "把 Memos 0.31 的导出包转换成 FlareMo 可导入的 JSON，含附件与可见性映射。",
   maintenance: "运维手册：备份、灾备演练、迁移、回滚。",
   "memos-compatibility": "/api/v1 子集与四类 memo 事件的 webhook outbox 边界。",
   "memos-ecosystem": "已验证的 Memos 第三方客户端与配置示例。",
@@ -358,6 +378,8 @@ const DESCRIPTIONS_EN: Record<string, string> = {
     "Runbook for command-capable agents (Codex, Claude Code, Cursor, ...).",
   "github-action-deploy":
     "Publishing from your own deployment repository via a manually triggered workflow_dispatch.",
+  "import-from-memos":
+    "Convert a Memos 0.31 export into FlareMo's import bundle, with attachments and visibility mapping.",
   "memos-compatibility":
     "The /api/v1 subset and the four memo-event webhook outbox boundaries.",
   update: "Upgrading FlareMo: upstream sync workflow, PR flow, and rollbacks.",

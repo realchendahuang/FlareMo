@@ -123,12 +123,12 @@ test("waits for composition to finish and cancels obsolete search requests", asy
     await route.fulfill({ json: { memos: [note(q ?? "initial")] } });
   });
   await page.goto("/");
-  // The debounced inline input only exists below the `md` breakpoint; on
-  // desktop the same query goes through the spotlight dialog instead. This
-  // test is about the debounce and IME guards, which live on the inline input,
-  // so narrow the viewport to reach it.
+  // Narrow layouts expose a search trigger that opens the spotlight palette;
+  // the debounce and IME guards live on that input.
   await page.setViewportSize({ width: 480, height: 900 });
+  await page.getByRole("button", { name: /搜索记录|Search notes/i }).click();
   const search = mobileSearchInput(page);
+  await expect(search).toBeVisible();
   await search.dispatchEvent("compositionstart");
   await search.fill("输入中的文字");
   await page.waitForTimeout(400);
@@ -139,7 +139,7 @@ test("waits for composition to finish and cancels obsolete search requests", asy
   await expect.poll(() => Boolean(releaseSlow)).toBe(true);
   await search.fill("latest-query");
   await expect(
-    page.locator("article").filter({ hasText: "Workspace note latest-query" }),
+    page.getByText("Workspace note latest-query", { exact: true }),
   ).toBeVisible();
   await expect
     .poll(() => cancelled.some((url) => url.includes("slow-query")))
@@ -149,7 +149,7 @@ test("waits for composition to finish and cancels obsolete search requests", asy
     page.getByText("Workspace note slow-query", { exact: true }),
   ).toHaveCount(0);
   await search.press("Escape");
-  await expect(search).toHaveValue("");
+  await expect(search).toHaveCount(0);
   await expect
     .poll(() => new URL(page.url()).searchParams.has("q"))
     .toBe(false);

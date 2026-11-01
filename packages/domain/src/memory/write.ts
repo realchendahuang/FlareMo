@@ -7,6 +7,7 @@ import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import { createResourceId } from "../ids";
 import { assertMemoryCountQuota, type QuotaScope } from "../quotas";
 import { memoryToDto } from "./dto";
+import { confirmMemory, lockMemory } from "./lifecycle";
 import {
   appendMemoryEvent,
   appendRevision,
@@ -57,6 +58,7 @@ export async function createMemory(
     }
   }
 
+  const requestedVerification = resolveVerificationForActor(actor, input);
   const fingerprint = await computeFingerprint(
     user,
     content,
@@ -81,6 +83,17 @@ export async function createMemory(
     )
     .get();
   if (existing) {
+    // A user re-submitting the same sentence is affirming the pending
+    // proposal, not asking for a copy. Returning the inferred row untouched
+    // used to swallow the confirmation. Only the user may promote it; agents
+    // still receive the plain duplicate.
+    if (actor.type === "user" && existing.verification === "inferred") {
+      const promoted =
+        requestedVerification === "locked"
+          ? await lockMemory(db, user, actor, existing.id)
+          : await confirmMemory(db, user, actor, existing.id);
+      return { duplicate: true as const, memory: promoted };
+    }
     return { duplicate: true as const, memory: memoryToDto(existing) };
   }
 
@@ -101,7 +114,7 @@ export async function createMemory(
       type: input.type,
     }));
 
-  let targetVerification = resolveVerificationForActor(actor, input);
+  let targetVerification = requestedVerification;
   let reviewReason: string | null = null;
   let supersededExistingId: string | null = null;
 

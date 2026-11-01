@@ -204,7 +204,12 @@ function validateWebhookUrl(value: string) {
       "Webhook URL contains unsupported credentials or fragment",
     );
   }
-  const hostname = parsed.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  // A trailing dot is the same DNS name (`localhost.`); the URL parser keeps
+  // it, so strip it before the literal checks.
+  const hostname = parsed.hostname
+    .replace(/^\[|\]$/g, "")
+    .toLowerCase()
+    .replace(/\.+$/, "");
   if (
     hostname === "localhost" ||
     hostname.endsWith(".local") ||
@@ -220,6 +225,19 @@ function validateWebhookUrl(value: string) {
 
 function isReservedIpLiteral(hostname: string) {
   if (hostname.includes(":")) {
+    // IPv4 embedded in IPv6: `::ffff:127.0.0.1`, and the compressed form the
+    // URL parser normalizes it to (`::ffff:7f00:1`), plus the deprecated
+    // IPv4-compatible `::127.0.0.1` (`::7f00:1`).
+    const dotted = hostname.match(/^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/);
+    if (dotted?.[1]) return isReservedIpv4(dotted[1]);
+    const hex = hostname.match(/^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hex) {
+      const high = Number.parseInt(hex[1] ?? "0", 16);
+      const low = Number.parseInt(hex[2] ?? "0", 16);
+      return isReservedIpv4(
+        [high >> 8, high & 0xff, low >> 8, low & 0xff].join("."),
+      );
+    }
     return (
       hostname === "::" ||
       hostname === "::1" ||
@@ -231,19 +249,29 @@ function isReservedIpLiteral(hostname: string) {
       hostname.startsWith("feb")
     );
   }
+  return isReservedIpv4(hostname);
+}
+
+function isReservedIpv4(hostname: string) {
   const parts = hostname.split(".");
   if (parts.length !== 4 || parts.some((part) => !/^\d+$/.test(part))) {
     return false;
   }
-  const first = Number(parts[0]);
-  const second = Number(parts[1]);
+  const octets = parts.map(Number);
+  if (octets.some((octet) => octet > 255)) return false;
+  const [first = 0, second = 0] = octets;
   return (
     first === 0 ||
     first === 10 ||
     first === 127 ||
+    // Carrier-grade NAT, link-local (cloud metadata), private ranges,
+    // benchmarking, and multicast/reserved space.
+    (first === 100 && second >= 64 && second <= 127) ||
     (first === 169 && second === 254) ||
     (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 168)
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
   );
 }
 

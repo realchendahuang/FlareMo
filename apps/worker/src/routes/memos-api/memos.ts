@@ -53,6 +53,7 @@ import {
   attachmentObjectResponse,
   createAttachmentObjectKey,
   MAX_ATTACHMENT_BYTES,
+  MAX_THUMBNAIL_BYTES,
 } from "../../attachment-http";
 import { getRequestContext, type HonoBindings } from "../../context";
 import { jsonError } from "../../http";
@@ -370,10 +371,28 @@ export function registerMemosRoutes(app: Hono<HonoBindings>) {
         if (existing) return c.json(attachmentToDto(existing));
       }
 
-      await assertAttachmentStorageQuota(db, limits, file.size, {
-        userLimits,
-        userId: user.id,
-      });
+      const thumbnailPart = formData.get("thumbnail");
+      const hasThumbnail =
+        thumbnailPart instanceof File &&
+        thumbnailPart.size > 0 &&
+        thumbnailPart.type.startsWith("image/");
+      if (hasThumbnail && thumbnailPart.size > MAX_THUMBNAIL_BYTES) {
+        return c.json(
+          { error: { message: "Thumbnail exceeds the 1 MiB limit" } },
+          413,
+        );
+      }
+      const thumbnailBytes = hasThumbnail ? thumbnailPart.size : 0;
+
+      await assertAttachmentStorageQuota(
+        db,
+        limits,
+        file.size + thumbnailBytes,
+        {
+          userLimits,
+          userId: user.id,
+        },
+      );
 
       const objectKey = createAttachmentObjectKey(user.id, file.name);
       const object = await c.env.ATTACHMENTS.put(objectKey, file, {
@@ -384,11 +403,6 @@ export function registerMemosRoutes(app: Hono<HonoBindings>) {
       // Card preview written beside the original under a derived key. It is
       // pure derivation from `r2Key`, so serving and deleting need no schema
       // change; `payload.thumbnail` only records that the object exists.
-      const thumbnailPart = formData.get("thumbnail");
-      const hasThumbnail =
-        thumbnailPart instanceof File &&
-        thumbnailPart.size > 0 &&
-        thumbnailPart.type.startsWith("image/");
       if (hasThumbnail) {
         await c.env.ATTACHMENTS.put(thumbnailKeyFor(objectKey), thumbnailPart, {
           httpMetadata: { contentType: THUMBNAIL_CONTENT_TYPE },
@@ -409,6 +423,7 @@ export function registerMemosRoutes(app: Hono<HonoBindings>) {
           filename: file.name,
           contentType: file.type || "application/octet-stream",
           size: file.size,
+          thumbnailSize: thumbnailBytes,
           r2Key: objectKey,
           etag: object.httpEtag,
           clientId,

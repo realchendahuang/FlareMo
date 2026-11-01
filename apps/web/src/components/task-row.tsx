@@ -77,8 +77,10 @@ export function TaskRow({
         aria-label={task.title}
         checked={done}
         className="task-checkbox mt-[3px] shrink-0"
+        disabled={mutation.isPending}
         type="checkbox"
         onChange={() => {
+          if (mutation.isPending) return;
           const next = done ? "todo" : "done";
           setPending(next);
           mutation.mutate(next);

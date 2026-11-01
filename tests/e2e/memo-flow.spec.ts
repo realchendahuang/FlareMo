@@ -64,7 +64,11 @@ test("queues an offline note and saves it after connectivity returns", async ({
   await page.context().setOffline(true);
   await composer.fill(content);
   await page.getByRole("button", { name: /^(save|保存|send|发送)$/i }).click();
-  await expect(page.getByText(/offline|离线/i)).toBeVisible();
+  // The note itself contains an `#offline…` tag, so scope the banner by its
+  // status role instead of matching the word anywhere on the page.
+  await expect(
+    page.getByRole("status").filter({ hasText: /offline|离线/i }),
+  ).toBeVisible();
 
   await page.context().setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
@@ -369,25 +373,20 @@ test("edits and shares a memo", async ({ page }) => {
   await visibilityDialog
     .getByRole("button", { name: /全网公开|Public web/i })
     .click();
-  // The card flips to public; the share URL is rendered inside the dialog as a
-  // read-only input's value, so reopen it and assert on that value.
-  await expect(
-    updatedCard.getByRole("button", { name: /Public web|全网公开/i }),
-  ).toBeVisible();
-  await updatedCard.getByRole("button", { name: /actions|操作/i }).click();
-  await page
-    .getByRole("menuitem", { name: /可见性与分享|Visibility & Sharing/i })
-    .click();
-  const publicDialog = page.locator('[role="dialog"]:visible').last();
-  await expect(publicDialog.locator("input[readonly]")).toHaveValue(
+  // Choosing public keeps the dialog open precisely so the freshly created
+  // share URL is visible without reopening it.
+  await expect(visibilityDialog.locator("input[readonly]")).toHaveValue(
     /\/share\//,
   );
   // Copying the link is an action inside this dialog now, not a card-menu
   // entry; assert it is offered and labelled.
   await expect(
-    publicDialog.getByRole("button", { name: /copy link|复制链接/i }),
+    visibilityDialog.getByRole("button", { name: /copy link|复制链接/i }),
   ).toBeEnabled();
   await page.keyboard.press("Escape");
+  await expect(
+    updatedCard.getByRole("button", { name: /Public web|全网公开/i }),
+  ).toBeVisible();
 });
 
 test("archives and restores a memo", async ({ page }) => {

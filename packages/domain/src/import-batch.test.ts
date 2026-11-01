@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { importData } from "./import-export";
 import type { TeamViewer } from "./team-permissions";
 import { ensureTeamOwner } from "./test-support";
+import { createFlaremoMember } from "./users";
 
 let mf: Miniflare;
 let db: ReturnType<typeof createDb>;
@@ -141,5 +142,44 @@ describe("importData batching", () => {
       await db.select().from(memos).where(eq(memos.content, "first")),
     ).toHaveLength(1);
     expect(await db.select().from(attachments)).toHaveLength(1);
+  });
+
+  it("refuses ids owned by another account before writing anything", async () => {
+    const stranger = await createFlaremoMember(db, {
+      email: "stranger@example.com",
+      name: "Stranger",
+    });
+    const now = new Date().toISOString();
+    await db.insert(memos).values({
+      id: "memos/owned-elsewhere",
+      userId: stranger.id,
+      content: "not yours",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const bundle = importBundleSchema.parse({
+      version: 5,
+      memos: [
+        {
+          name: "memos/owned-elsewhere",
+          content: "imported copy",
+          visibility: "private",
+          state: "normal",
+          pinned: false,
+          payload: {},
+          create_time: now,
+        },
+      ],
+    });
+
+    await expect(importData(db, owner, bundle)).rejects.toThrow(
+      /owned by another account/,
+    );
+    expect(
+      await db
+        .select({ content: memos.content })
+        .from(memos)
+        .where(eq(memos.id, "memos/owned-elsewhere")),
+    ).toEqual([{ content: "not yours" }]);
   });
 });

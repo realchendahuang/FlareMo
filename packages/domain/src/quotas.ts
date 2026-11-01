@@ -131,7 +131,9 @@ export async function getAttachmentStorageBytes(
 ): Promise<number> {
   const row = await db
     .select({
-      total: sql<number>`coalesce(sum(${attachments.size}), 0)`,
+      // The preview object lives beside the original, so both bytes count
+      // against the same quota even though only `size` is public metadata.
+      total: sql<number>`coalesce(sum(${attachments.size} + ${attachments.thumbnailSize}), 0)`,
     })
     .from(attachments)
     .where(
