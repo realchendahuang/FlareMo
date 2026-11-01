@@ -56,7 +56,7 @@ async function capture(browser, viewport, path) {
   await page
     .getByRole("textbox", { name: /new note|新笔记/i })
     .fill(
-      "Memos-compatible API for clients, scripts, import/export, and automation #memos",
+      "Notes, tasks, articles and team sharing in one knowledge base #knowledge",
     );
   await page.getByRole("button", { name: /save|保存/i }).click();
   await page.addStyleTag({

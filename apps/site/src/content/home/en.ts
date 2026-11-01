@@ -1,14 +1,14 @@
 import type { HomeContent } from "../copy";
 
 export const EN_HOME: HomeContent = {
-  heroEyebrow: "Open-source · Cloudflare Edge-native · Memos-compatible",
+  heroEyebrow: "Open-source · Cloudflare-native · Knowledge Management",
   heroTitleLine1: "Zero Servers. Forever Yours.",
-  heroTitleLine2: "Your Second Brain on the Edge.",
+  heroTitleLine2: "An AI-native second brain that grows with you.",
   heroSubtitle:
-    "Minimal, never shallow. Quiet, never loud. Knowledge management built natively on Cloudflare Edge (Workers, D1, R2). Zero VPS maintenance, full Memos API ecosystem support, and persistent MCP memory for your AI copilots.",
+    "Minimal, never shallow. Quiet, never loud. An AI-native second brain on Cloudflare Edge: write it down, and let notes grow into tasks, articles and a knowledge base — plus a long-term memory your AI agents can read and write.",
   primaryCta: "Read Deploy Guide",
   secondaryCta: "GitHub Source",
-  statMemos: "~2.5M text memos",
+  statMemos: "~2.5M text notes",
   statPhotos: "~10,000 photos · $0 egress",
   statServers: "300+ edge datacenters",
   statUptime: "Multi-region persistence & backup",
@@ -20,12 +20,12 @@ export const EN_HOME: HomeContent = {
     {
       title: "Durable by default",
       description:
-        "Memos live in your Cloudflare D1 database and R2 bucket with multi-region persistence. Drive failure, power outages, and moving hardware won't touch your data.",
+        "Notes live in your Cloudflare D1 database and R2 bucket with multi-region persistence. Drive failure, power outages, and moving hardware won't touch your data.",
     },
     {
       title: "Free tier, no fine print",
       description:
-        "Cloudflare's free tier provides 5GB D1 database (~2.5 million text memos) and 10GB R2 storage (~10,000 photos). R2 has $0 egress fees so sharing notes won't surprise you with bandwidth charges.",
+        "Cloudflare's free tier provides 5GB D1 database (~2.5 million text notes) and 10GB R2 storage (~10,000 photos). R2 has $0 egress fees so sharing notes won't surprise you with bandwidth charges.",
     },
     {
       title: "Offline-First & PWA",
@@ -43,9 +43,9 @@ export const EN_HOME: HomeContent = {
         "Publish notes to your team, comment under them, and @mention each other — sharing, not project management. Owner, Admin, and Member roles with 3-tier visibility (private, team, public); safe offboarding deletes private data cleanly.",
     },
     {
-      title: "Memos Compatible & Import/Export",
+      title: "Your Data, Always Yours",
       description:
-        "Full compatibility with Memos /api/v1 endpoints and OpenAPI. Direct integration with existing third-party clients like Moe Memos, plus one-click import and export.",
+        "Export every note, task, article and attachment in one bundle; imports support conflict strategies and roll back cleanly when something fails.",
     },
     {
       title: "Notes, To-dos & Projects",
@@ -103,23 +103,23 @@ export const EN_HOME: HomeContent = {
   faqItems: [
     {
       q: "Is the free tier really enough?",
-      a: "More than enough. Cloudflare's free tier provides 5GB D1 database (~2.5 million text memos) and 10GB R2 storage (~10,000 compressed photos). Writing 100 memos every day would take 68 years to fill.",
+      a: "More than enough. Cloudflare's free tier provides 5GB D1 database (~2.5 million text notes) and 10GB R2 storage (~10,000 compressed photos). Writing 100 notes every day would take 68 years to fill.",
     },
     {
       q: "How safe is my data?",
-      a: "Data is stored on Cloudflare's enterprise-grade distributed infrastructure with multi-region replication. FlareMo also supports one-click exports to standard Memos bundles for regular offline archiving.",
+      a: "Notes live on Cloudflare's distributed infrastructure with multi-region replication. FlareMo can also export everything — notes, tasks, articles and attachments — into a single bundle you archive offline, so you always keep a second copy.",
     },
     {
-      q: "Can I migrate from Memos?",
-      a: "Yes. FlareMo imports ZIP or JSON export bundles from Memos, preserving timestamps, tags, and content while allowing custom conflict resolution.",
+      q: "Can I bring my old notes over?",
+      a: "Yes. A bundled converter turns another tool's export into a FlareMo import bundle, keeping timestamps, tags, pins and visibility. Known limits: comments become standalone records, and externally linked attachments are not migrated.",
     },
     {
-      q: "Do third-party apps and scripts still work?",
-      a: "Yes. FlareMo implements the Memos /api/v1 endpoint surface and personal access tokens (PAT). Popular iOS/Android clients like Moe Memos connect directly.",
+      q: "Can I connect my own scripts and tools?",
+      a: "Yes. An open API with revocable Personal Access Tokens covers automation; for AI workflows, the built-in CLI and MCP endpoint let clients read and write the same Agent Memory. The exact supported surface is documented in the compatibility matrix.",
     },
     {
       q: "How does single-user differ from team mode?",
-      a: "By default, it is a quiet single-user sanctuary. When team mode is enabled, admins invite members via one-time activation links. Memos can be private, team-visible, or public.",
+      a: "By default, it is a quiet single-user sanctuary. When team mode is enabled, admins invite members via one-time activation links. Notes can be private, team-visible, or public.",
     },
   ],
   ctaBadge: "Get Started",

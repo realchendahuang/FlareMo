@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Cero Servidores · Cero Costes de Mantenimiento · Disponibilidad Global 24/7 en el Edge · Control Absoluto de tus Datos</b><br>
-  Para personas: un espacio íntimo de captura de ideas y segundo cerebro con IA. Para equipos: un espacio compartido para publicarse notas entre sí, con roles detallados.
+  Un segundo cerebro nativo de IA para ti. Una base de conocimiento compartida para tu equipo.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -100,10 +99,11 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 - **Impulsado por Better Auth**: Sesiones por cookie de navegador `HttpOnly` y `SameSite=Lax`; tokens de acceso personal `memos_pat_` revocables para scripts, CLI y MCP.
 - **Protección estricta de Origin**: Las peticiones con cambio de estado exigen una lista blanca de origen exacta. Cloudflare Access sigue disponible como perímetro defensivo exterior opcional.
 
-### 8. Compatibilidad con Memos y migración sin costuras
-- **Compatibilidad con la API `/api/v1` de Memos**: Proporciona los endpoints principales de la API de Memos (camelCase por defecto, snake_case heredado vía cabecera) y el esquema OpenAPI.
-- **Listo para apps de terceros**: Funciona directamente con clientes móviles como Moe Memos.
-- **Importación y exportación bidireccionales**: paquetes de exportación completos, importación en un clic con estrategias de conflicto y un conversor para exportaciones de Memos 0.31 ([guía](./docs/en/import-from-memos.md)).
+### 8. Tus datos, siempre tuyos
+- **Exportación completa en un clic**: notas, adjuntos, tareas, proyectos, artículos y relaciones de compartición en un solo archivo que puedes archivar sin conexión cuando quieras.
+- **Importaciones sin datos a medias**: estrategias de conflicto «omitir» o «duplicar»; una importación fallida se revierte por completo y no deja un conjunto incompleto.
+- **Trae tu historial**: un conversor incluido transforma una exportación existente en un paquete de importación de FlareMo, conservando fechas, etiquetas, fijados y visibilidad ([guía de migración](./docs/en/import-from-memos.md)).
+- **Abierto por protocolo**: una capa de compatibilidad `/api/v1` con tokens personales revocables, más MCP para herramientas de IA; el alcance exacto está en la [matriz de compatibilidad](./docs/en/memos-compatibility.md).
 
 ---
 
@@ -196,10 +196,10 @@ Guías detalladas: [Guía de despliegue](./docs/en/deploy.md) · [Despliegue con
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / CLI / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

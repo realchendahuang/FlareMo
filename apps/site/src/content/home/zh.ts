@@ -1,11 +1,11 @@
 import type { HomeContent } from "../copy";
 
 export const ZH_HOME: HomeContent = {
-  heroEyebrow: "开源免费 · Cloudflare 边缘原生 · Memos 生态兼容",
+  heroEyebrow: "开源免费 · Cloudflare 原生 · 知识管理",
   heroTitleLine1: "零服务器，永久拥有",
-  heroTitleLine2: "跑在边缘网络的第二大脑",
+  heroTitleLine2: "会生长的 AI 第二大脑",
   heroSubtitle:
-    "简约，不简单；克制，不放肆。基于 Cloudflare 边缘网络（Workers + D1 + R2）原生构建的知识库：无需 VPS、免运维，完整兼容 Memos 生态，还能作为 AI Agent 的长期记忆。灵感随手记下，永久沉淀。",
+    "简约，不简单；克制，不放肆。跑在 Cloudflare 边缘上的 AI 原生第二大脑：打开即写，记录自然长成任务、文章与知识库，也是你所有 AI Agent 的长期记忆。",
   primaryCta: "快速开始部署",
   secondaryCta: "GitHub 源码",
   statMemos: "约 250 万条纯文本记录",
@@ -42,9 +42,9 @@ export const ZH_HOME: HomeContent = {
         "把便签发到团队，在原帖下评论、@ 彼此——用来分享，不做项目协作。Owner / Admin / Member 三种角色，私密、团队可见、公开三档可见性，成员离开时私密数据彻底清理。",
     },
     {
-      title: "全面兼容 Memos",
+      title: "数据随时带走",
       description:
-        "完整实现 Memos /api/v1 核心接口与 OpenAPI 规范，支持第三方客户端直接连接，Memos 数据一键无损导入导出。",
+        "记录、任务、文章与附件一键全量导出；导入支持冲突策略与失败回滚，失败不会留下半截数据。",
     },
     {
       title: "便签、长文与待办",
@@ -106,15 +106,15 @@ export const ZH_HOME: HomeContent = {
     },
     {
       q: "如何确保我的数据绝对安全？",
-      a: "记录保存在 Cloudflare 企业级分布式基础设施中，自带跨地域冗余持久化，不会因单点硬件故障丢失。同时 FlareMo 支持一键导出标准 Memos 格式备份包，随时可本地离线归档形成双重保障。",
+      a: "记录保存在 Cloudflare 分布式基础设施中，自带跨地域冗余持久化。FlareMo 还能把记录、任务、文章与附件一键打包导出，随时本地离线归档，等于永远留着一份副本。",
     },
     {
-      q: "能从 Memos 搬家过来吗？",
-      a: "可以。FlareMo 支持导入 Memos 导出的 ZIP 或 JSON 格式数据包，导入时可自由配置冲突策略，时间戳、标签与正文完整保留。",
+      q: "能把以前的笔记搬过来吗？",
+      a: "可以。仓库自带转换脚本，把旧工具的导出包转成 FlareMo 导入包，时间戳、标签、置顶与可见性都会保留。已知限制：评论会转成独立记录，外部链接附件不迁移。",
     },
     {
-      q: "现有的第三方 App 和自动化脚本还能用吗？",
-      a: "完全兼容。FlareMo 实现了 Memos 核心的 /api/v1 接口子集与可撤销的 Personal Access Token（PAT），市面上主流的 Memos 客户端（如 Moe Memos）及快捷指令脚本均可无缝连接使用。",
+      q: "能接我自己的脚本和工具吗？",
+      a: "可以。开放 API 配可撤销的 Personal Access Token，自动化脚本能直接接；AI 工作流走内置 CLI 与 MCP 端点，读写同一份 Agent Memory。具体支持范围以文档中的兼容矩阵为准。",
     },
     {
       q: "单人使用和团队使用有什么区别？",

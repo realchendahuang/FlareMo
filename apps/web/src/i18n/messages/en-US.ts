@@ -158,7 +158,7 @@ const messages = {
     "This space is read-only — you are a reader and can browse but not publish.",
   "space.expiredNotice":
     "Your reader access has expired. The team space is unavailable until it is renewed.",
-  "nav.allMemos": "Memos",
+  "nav.allMemos": "Notes",
   "nav.dailyReview": "Today's review",
   "nav.randomWalk": "Wander",
   "nav.review": "Review",

@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Zero Servers · Zero Upkeep · 24/7 Global Edge Uptime · Absolute Data Ownership</b><br>
-  For individuals: a quiet, focused thought capture space and second brain. For teams: a shared space to publish notes to each other, with fine-grained roles.
+  An AI-native second brain for you. A shared knowledge base for your team.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -43,15 +42,15 @@
 
 ## 💡 Why FlareMo?
 
-Low-friction memo capture and a distraction-free timeline have proved their value. Self-hosting a traditional note-taking setup, though, typically means paying for a VPS, configuring Docker and PostgreSQL, scripting automated backups, and dreading disk or hardware failures.
+Second brains have always come with a server: a VPS bill, Docker, PostgreSQL, a backup script, and the quiet dread of a dead disk.
 
-FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, globally accelerated knowledge base with zero server maintenance, using just a free Cloudflare account?**
+FlareMo asks a different question: **what if your second brain needed no server at all — and your AI agents could actually remember with it?**
 
-- **Truly Serverless**: Both code and static assets run on Cloudflare Workers edge nodes near you with millisecond latency.
-- **Enterprise-grade durability out of the box**: Cloudflare D1 handles notes and metadata; Cloudflare R2 stores media attachments with multi-region replication.
-- **AI-Native Second Brain**: Agent Memory hub ships a CLI and a cross-agent skill so AI agents (Claude, Cursor, Codex, ChatGPT, ZCode) can read and update your long-term preferences and memory scopes; MCP endpoints are also available.
-- **Quiet for one, powerful for many**: Default is an encrypted, private single-user sanctuary. Enable team mode to add a shared team space with roles and three-tier visibility — for sharing notes, not for running projects together.
-- **Minimal, not simplistic**: The interface stays quiet and every control earns its place — nothing decorative shouting for attention, nothing useful missing.
+- **AI-native, not bolted on**: Agent Memory ships a CLI and a cross-agent skill, so Claude, Cursor, Codex, ChatGPT and ZCode read and write the same long-term memory — preferences, decisions, project context — over MCP or the CLI.
+- **Truly serverless**: code and static assets run on the Cloudflare Workers edge node nearest you; D1 and R2 hold notes, tasks, articles and media with multi-region durability.
+- **Knowledge that grows**: a quick note becomes a task, a task becomes an article, and the whole thing settles into a searchable, linked knowledge base.
+- **Quiet for one, useful for a team**: private by default; turn on team mode for a shared space with roles and three-tier visibility.
+- **Minimal, not simplistic**: the interface stays quiet and every control earns its place.
 
 ---
 
@@ -100,10 +99,11 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 - **Better Auth powered**: HttpOnly, `SameSite=Lax` browser cookie sessions; revocable `memos_pat_` Personal Access Tokens for scripts, CLI, and MCP.
 - **Strict Origin protection**: State-changing requests enforce exact origin whitelisting. Cloudflare Access remains available as an optional outer defensive perimeter.
 
-### 8. Memos Compatibility & Seamless Migration
-- **Memos `/api/v1` compatibility**: Provides core Memos API endpoints (camelCase default, legacy snake_case via header) and OpenAPI schema.
-- **Third-party apps ready**: Works directly with mobile clients like Moe Memos.
-- **Bi-directional import & export**: Full raw export bundles, one-click import with conflict strategies, plus a converter for Memos 0.31 exports ([guide](./docs/en/import-from-memos.md)).
+### 8. Your Data, Always Yours
+- **One-click full export**: records, attachments, tasks, projects, articles and share relationships in a single bundle you can archive offline whenever you want.
+- **Imports that leave nothing half-written**: skip or duplicate conflict strategies; a failed import rolls back completely instead of leaving a partial dataset behind.
+- **Bring your history over**: a bundled converter turns an existing export into a FlareMo import bundle, keeping timestamps, tags, pins and visibility ([migration guide](./docs/en/import-from-memos.md)).
+- **Open by protocol**: an `/api/v1` compatibility layer with revocable Personal Access Tokens, plus MCP for AI tooling; the exact supported surface is in the [compatibility matrix](./docs/en/memos-compatibility.md).
 
 ---
 
@@ -196,10 +196,10 @@ Detailed guides: [Deployment Guide](./docs/en/deploy.md) · [GitHub Action deplo
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / CLI / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

@@ -1,12 +1,11 @@
 import type { HomeContent } from "../copy";
 
 export const ES_HOME: HomeContent = {
-  heroEyebrow:
-    "Cero servidores · Borde global sub-100ms · Autohospedaje gratuito",
+  heroEyebrow: "Código abierto · Cloudflare nativo · Gestión del conocimiento",
   heroTitleLine1: "Cero servidores. Tuyo para siempre.",
-  heroTitleLine2: "Tu segundo cerebro en el Edge.",
+  heroTitleLine2: "Un segundo cerebro nativo de IA que crece contigo.",
   heroSubtitle:
-    "Mínimo, nunca superficial. Sereno, nunca estridente. Sistema de gestión del conocimiento basado en Cloudflare (Workers, D1, R2). Sin mantenimiento de VPS, compatible con Memos API y memoria duradera para IA.",
+    "Mínimo, nunca superficial. Sereno, nunca estridente. Un segundo cerebro nativo de IA en Cloudflare Edge: escribe, y tus notas se convierten en tareas, artículos y una base de conocimiento — además de una memoria a largo plazo que tus agentes de IA pueden leer y escribir.",
   primaryCta: "Guía de despliegue",
   secondaryCta: "Código en GitHub",
   statMemos: "~2,5 millones de notas",
@@ -44,9 +43,9 @@ export const ES_HOME: HomeContent = {
         "Publica notas para tu equipo, comenta debajo de ellas y menciónense con @: para compartir, no para gestionar proyectos. Roles de Propietario, Administrador y Miembro con 3 niveles de visibilidad (privado, equipo, público); al salir un miembro, sus datos privados se borran de forma segura.",
     },
     {
-      title: "Compatibilidad con Memos",
+      title: "Tus datos, siempre tuyos",
       description:
-        "Compatibilidad total con la API /api/v1 de Memos y OpenAPI. Conexión directa con clientes como Moe Memos e importación/exportación.",
+        "Exporta notas, tareas, artículos y adjuntos en un solo paquete; la importación admite estrategias de conflicto y revierte limpiamente si algo falla.",
     },
     {
       title: "Notas, pendientes y proyectos",
@@ -108,15 +107,15 @@ export const ES_HOME: HomeContent = {
     },
     {
       q: "¿Están seguros mis datos?",
-      a: "Están almacenados en la infraestructura global de Cloudflare. Además, puedes exportar una copia completa en formato Memos cuando desees.",
+      a: "Las notas viven en la infraestructura distribuida de Cloudflare, con réplica en varias regiones. FlareMo también puede exportarlo todo —notas, tareas, artículos y adjuntos— en un paquete para archivar sin conexión, así siempre conservas una segunda copia.",
     },
     {
-      q: "¿Puedo migrar desde Memos?",
-      a: "Sí, sube tu archivo ZIP o JSON de exportación para importar todo conservando fechas, etiquetas y contenido.",
+      q: "¿Puedo migrar mis notas existentes?",
+      a: "Sí. Un conversor incluido transforma la exportación de otra herramienta en un paquete de importación de FlareMo, conservando fechas, etiquetas, fijados y visibilidad. Límites conocidos: los comentarios pasan a ser registros independientes y los adjuntos enlazados externamente no se migran.",
     },
     {
-      q: "¿Funcionan las apps móviles existentes?",
-      a: "Sí, FlareMo implementa los endpoints /api/v1 y tokens PAT de Memos para enlazar con clientes como Moe Memos.",
+      q: "¿Puedo conectar mis propios scripts y herramientas?",
+      a: "Sí. Una API abierta con tokens personales revocables cubre la automatización; para IA, el CLI y el endpoint MCP integrados leen y escriben la misma Agent Memory. El alcance exacto está en la matriz de compatibilidad.",
     },
     {
       q: "¿Qué diferencia hay entre modo personal y equipo?",

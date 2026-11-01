@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>بدون خوادم · تكلفة صيانة صفرية · متاح عالمياً على مدار الساعة · تحكم وسيادة كاملة في بياناتك</b><br>
-  للأفراد: مساحة هادئة لتدوين الأفكار وعقل ثانٍ مدعوم بالذكاء الاصطناعي. ولفرق العمل: مساحة مشتركة ينشر فيها الأعضاء الملاحظات لبعضهم، مع إدارة دقيقة للأدوار والصلاحيات.
+  دماغ ثانٍ بالذكاء الاصطناعي لك. وقاعدة معرفة مشتركة لفريقك.
 </p>
 
 <p align="center">
@@ -22,7 +22,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -102,10 +101,11 @@
 - **مدعوم بـ Better Auth**: جلسات كوكيز في المتصفح بخاصيتي `HttpOnly` و`SameSite=Lax`؛ ورموز وصول شخصية `memos_pat_` قابلة للإلغاء للنصوص البرمجية وواجهة سطر الأوامر وMCP.
 - **حماية صارمة للـ Origin**: تفرض الطلبات التي تعدّل الحالة قائمة سماح مطابقة تماماً للمصدر. ويبقى Cloudflare Access متاحاً كمحيط دفاعي خارجي اختياري.
 
-### 8. التوافق مع Memos والترحيل السلس
-- **توافق `/api/v1` مع Memos**: يوفر نقاط نهاية API الأساسية لـ Memos (بصيغة camelCase افتراضياً، وsnake_case القديمة عبر ترويسة) ومخطط OpenAPI.
-- **جاهز لتطبيقات الطرف الثالث**: يعمل مباشرة مع عملاء الهاتف مثل Moe Memos.
-- **استيراد وتصدير باتجاهين**: حزم تصدير خام كاملة، واستيراد بنقرة واحدة مع استراتيجيات التعارض، وسكربت تحويل لصادرات Memos 0.31 ([الدليل](./docs/en/import-from-memos.md)).
+### 8. بياناتك تبقى لك
+- **تصدير كامل بنقرة واحدة**: الملاحظات والمرفقات والمهام والمشاريع والمقالات وعلاقات المشاركة في ملف واحد يمكنك أرشفته دون اتصال في أي وقت.
+- **استيراد لا يترك بيانات ناقصة**: استراتيجيتا التعارض «تخطٍّ» أو «تكرار»؛ والاستيراد الفاشل يتراجع بالكامل دون ترك مجموعة ناقصة.
+- **انقل سجلك السابق**: سكربت تحويل مرفق يحوّل تصديراً موجوداً إلى حزمة استيراد FlareMo مع الحفاظ على التواريخ والوسوم والتثبيت ونطاق الظهور ([دليل الترحيل](./docs/en/import-from-memos.md)).
+- **مفتوح عبر البروتوكول**: طبقة توافق `/api/v1` مع رموز وصول شخصية قابلة للإلغاء، إضافة إلى MCP لأدوات الذكاء الاصطناعي؛ النطاق الدقيق في [مصفوفة التوافق](./docs/en/memos-compatibility.md).
 
 ---
 
@@ -198,10 +198,10 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / CLI / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

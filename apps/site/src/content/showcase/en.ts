@@ -40,7 +40,7 @@ export const EN_SHOWCASE: ShowcaseContent = {
     },
   ],
   ui: {
-    statsRecords: "Memos",
+    statsRecords: "Notes",
     statsTags: "Tags",
     statsDays: "Days",
     trend: "Trend",

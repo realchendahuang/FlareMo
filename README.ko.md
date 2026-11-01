@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>서버 제로 · 유지보수 비용 제로 · 24시간 글로벌 엣지 상시 가동 · 완전한 데이터 소유권</b><br>
-  개인에게는 조용하고 집중할 수 있는 생각 기록 공간이자 제2의 뇌, 팀에게는 서로에게 메모를 발행하는, 세밀한 권한 관리를 갖춘 공유 공간.
+  개인에게는 AI 네이티브 세컨드 브레인, 팀에게는 함께 쓰는 지식 베이스.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -100,10 +99,11 @@ FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하�
 - **Better Auth 기반**: `HttpOnly`, `SameSite=Lax` 브라우저 쿠키 세션과, 스크립트·CLI·MCP용으로 폐기 가능한 `memos_pat_` Personal Access Token을 제공합니다.
 - **엄격한 Origin 보호**: 상태 변경 요청에는 정확한 Origin 화이트리스트 검증을 강제합니다. Cloudflare Access는 선택적 외부 방어선으로 계속 사용할 수 있습니다.
 
-### 8. Memos 호환 & 매끄러운 이전
-- **Memos `/api/v1` 호환**: 핵심 Memos API 엔드포인트(기본 camelCase, 헤더로 legacy snake_case)와 OpenAPI 스키마를 제공합니다.
-- **서드파티 앱 대응**: Moe Memos 같은 모바일 클라이언트에서 바로 연결할 수 있습니다.
-- **양방향 가져오기/내보내기**: 전체 원본 내보내기, 충돌 처리 전략이 있는 원클릭 가져오기, Memos 0.31 내보내기 변환 스크립트([가이드](./docs/en/import-from-memos.md))를 지원합니다.
+### 8. 데이터는 언제나 내 것
+- **원클릭 전체 내보내기**: 노트, 첨부 파일, 할 일, 프로젝트, 아티클, 공유 관계를 하나의 파일로 묶어 언제든 오프라인 보관합니다.
+- **절반만 남지 않는 가져오기**: 건너뛰기와 복제 두 가지 충돌 전략을 지원하며, 실패한 가져오기는 전부 롤백되어 불완전한 데이터가 남지 않습니다.
+- **기존 기록 가져오기**: 함께 제공되는 변환 스크립트가 기존 내보내기를 FlareMo 가져오기 패키지로 바꾸고, 시각·태그·고정·공개 범위를 유지합니다([마이그레이션 가이드](./docs/en/import-from-memos.md)).
+- **프로토콜로 열기**: `/api/v1` 호환 계층과 폐기 가능한 Personal Access Token, AI 도구를 위한 MCP. 정확한 지원 범위는 [호환성 매트릭스](./docs/en/memos-compatibility.md)에 있습니다.
 
 ---
 
@@ -196,10 +196,10 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / CLI / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

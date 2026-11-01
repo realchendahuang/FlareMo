@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>サーバー不要 · 運用コストゼロ · 24時間グローバル常時稼働 · データの完全な自己所有</b><br>
-  個人では静かで集中できる思考記録スペース＆第2の脳として、チームではメンバー同士がノートを公開し合える、きめ細やかな権限を持つ共有スペースとして。
+  個人では AI ネイティブな第 2 の脳。チームでは共有ナレッジベース。
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -100,10 +99,11 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 - **Better Auth基盤**：ブラウザは `HttpOnly`・`SameSite=Lax` のクッキーセッション。スクリプト、CLI、MCP向けには失効可能な `memos_pat_` Personal Access Token を提供。
 - **厳格なOrigin保護**：状態を変更するリクエストには厳密なOriginのホワイトリストを強制。Cloudflare Accessも任意の外層防御として併用できます。
 
-### 8. Memos互換とシームレスな移行
-- **Memos `/api/v1` 互換**：Memosの主要APIエンドポイント（デフォルトはcamelCase、ヘッダーでレガシーのsnake_case）とOpenAPIスキーマを提供。
-- **サードパーティアプリ対応**：Moe Memosなどのモバイルクライアントから直接接続できます。
-- **双方向のインポート＆エクスポート**：生データ一式の完全エクスポート、競合戦略付きのワンクリックインポート、Memos 0.31 のエクスポートを変換するスクリプト（[ガイド](./docs/en/import-from-memos.md)）。
+### 8. データはいつもあなたのもの
+- **ワンクリックで完全エクスポート**：ノート、添付ファイル、タスク、プロジェクト、記事、共有関係を 1 つのファイルにまとめ、いつでもオフライン保管できます。
+- **中途半端なデータを残さないインポート**：スキップと複製の 2 つの競合戦略に対応。失敗したインポートは一括でロールバックされ、欠けたデータセットが残りません。
+- **これまでの履歴を移行**：同梱の変換スクリプトが既存のエクスポートを FlareMo のインポート形式に変換し、日時・タグ・ピン留め・公開範囲を保持します（[移行ガイド](./docs/en/import-from-memos.md)）。
+- **プロトコルで開く**：`/api/v1` 互換レイヤーと失効可能な Personal Access Token、さらに AI ツール向けの MCP。対応範囲は[互換性マトリクス](./docs/en/memos-compatibility.md)に記載しています。
 
 ---
 
@@ -196,10 +196,10 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / CLI / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

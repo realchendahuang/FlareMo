@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Ноль серверов · Ноль затрат на обслуживание · Глобальная доступность 24/7 · Полный контроль над данными</b><br>
-  Для личного использования — тихое пространство заметок и второй мозг с ИИ; для команд — общее пространство, где участники публикуют заметки друг для друга, с гибким разграничением прав.
+  AI-«второй мозг» для вас. Общая база знаний для вашей команды.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -100,10 +99,11 @@ FlareMo отвечает на более простой вопрос: **Можн
 - **На движке Better Auth**: Cookie-сессии браузера с `HttpOnly` и `SameSite=Lax`; отзываемые персональные токены доступа `memos_pat_` для скриптов, CLI и MCP.
 - **Строгая защита Origin**: Все изменяющие состояние запросы требуют точного совпадения с белым списком origin. Cloudflare Access остается доступным как опциональный внешний периметр обороны.
 
-### 8. Совместимость с Memos и бесшовная миграция
-- **Совместимость с Memos `/api/v1`**: Поддержка ключевых эндпоинтов Memos API (по умолчанию camelCase, legacy snake_case через заголовок) и OpenAPI-схемы.
-- **Готовность к сторонним приложениям**: Прямая работа с мобильными клиентами вроде Moe Memos.
-- **Двусторонний импорт и экспорт**: полные экспортные пакеты, импорт в один клик со стратегиями разрешения конфликтов и конвертер экспорта Memos 0.31 ([руководство](./docs/en/import-from-memos.md)).
+### 8. Данные всегда ваши
+- **Полный экспорт в один клик**: заметки, вложения, задачи, проекты, статьи и связи доступа — одним файлом, который можно архивировать офлайн в любой момент.
+- **Импорт без полузаписанных данных**: стратегии конфликтов «пропустить» и «дублировать»; неудачный импорт откатывается целиком, не оставляя неполный набор.
+- **Перенесите свою историю**: встроенный конвертер превращает существующий экспорт в пакет импорта FlareMo, сохраняя даты, теги, закрепления и видимость ([руководство по миграции](./docs/en/import-from-memos.md)).
+- **Открытость по протоколу**: слой совместимости `/api/v1` с отзываемыми персональными токенами и MCP для ИИ-инструментов; точный охват — в [матрице совместимости](./docs/en/memos-compatibility.md).
 
 ---
 
@@ -196,10 +196,10 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / CLI / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

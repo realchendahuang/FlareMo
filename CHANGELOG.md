@@ -1,6 +1,10 @@
 # Changelog
 
-FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
+FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
+
+## Unreleased
+
+**定位调整：FlareMo 不再以「兼容某个外部产品」作为身份，改为「跑在 Cloudflare 上的 AI 原生第二大脑，含知识管理」。** 8 语 README、官网首页与 meta、`llms.txt`、`ROADMAP`、GitHub 描述与 topics 全部撤下外部品牌；`/api/v1` 兼容层与迁移脚本保留，但降级为迁移与开发文档里的说明，不再作为卖点。同时修正了官网 FAQ 中「完全兼容某客户端」的过度承诺。代码、数据模型与 Cloudflare 资源均无变化，无需迁移。
 
 ## v0.25.0
 
