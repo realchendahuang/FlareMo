@@ -15,8 +15,8 @@ export const ECOSYSTEM_CONTENT: Record<
 > = {
   zh: {
     badge: "接入你的工具链",
-    heading: "三种方式，接进你的日常",
-    subtitle: "CLI、MCP 与开放 API，把同一份知识库接到你已经在用的工作流里。",
+    heading: "把 FlareMo 接进你的日常",
+    subtitle: "把同一份知识库，接到你已经在用的工作流里。",
     clients: [
       {
         title: "AI Agents",
@@ -26,25 +26,24 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "flaremo CLI",
         tag: "终端",
-        desc: "在任意终端里检索、写入、做检查点；脚本与 Agent 共用一套命令。",
+        desc: "在任意终端里检索、写入、打检查点；脚本与 Agent 共用一套命令。",
       },
       {
         title: "Telegram Bot",
         tag: "即时捕捉",
-        desc: "把文字、图片与语音发给专属 Bot，几秒内完成入库。",
+        desc: "仓库自带示例机器人：把想法发给 Bot，直接收进知识库。",
       },
       {
         title: "Open API & PAT",
         tag: "自动化",
-        desc: "可撤销的个人访问令牌，接你自己的脚本与定时任务。",
+        desc: "可撤销的个人访问令牌，接进你自己的脚本与定时任务。",
       },
     ],
   },
   en: {
     badge: "Bring Your Own Tools",
-    heading: "Three Ways Into Your Daily Flow",
-    subtitle:
-      "CLI, MCP and an open API — one knowledge base, wired into the tools you already use.",
+    heading: "Wire FlareMo Into Your Daily Flow",
+    subtitle: "One knowledge base, wired into the workflows you already use.",
     clients: [
       {
         title: "AI Agents",
@@ -59,7 +58,7 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Telegram Bot",
         tag: "Instant Capture",
-        desc: "Send text, photos or voice to your own bot and land them in seconds.",
+        desc: "A bundled example bot that files what you send straight into your knowledge base.",
       },
       {
         title: "Open API & PAT",
@@ -70,9 +69,8 @@ export const ECOSYSTEM_CONTENT: Record<
   },
   ja: {
     badge: "既存ツールとつながる",
-    heading: "日常に組み込む、3 つの入口",
-    subtitle:
-      "CLI、MCP、オープン API。同じナレッジベースを、使い慣れたワークフローへ。",
+    heading: "日常のワークフローに組み込む",
+    subtitle: "同じナレッジベースを、使い慣れたワークフローへ。",
     clients: [
       {
         title: "AI Agents",
@@ -87,7 +85,7 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Telegram Bot",
         tag: "即時キャプチャ",
-        desc: "テキストも写真も音声も、専用 Bot に送れば数秒で記録できます。",
+        desc: "同梱のサンプル Bot に送るだけで、そのままナレッジベースに記録されます。",
       },
       {
         title: "Open API & PAT",
@@ -98,9 +96,8 @@ export const ECOSYSTEM_CONTENT: Record<
   },
   fr: {
     badge: "Vos outils, connectés",
-    heading: "Trois façons d'entrer dans votre quotidien",
-    subtitle:
-      "CLI, MCP et API ouverte : une seule base de connaissances, branchée sur vos outils.",
+    heading: "Branchez FlareMo sur votre quotidien",
+    subtitle: "Une seule base de connaissances, branchée sur vos outils.",
     clients: [
       {
         title: "Agents IA",
@@ -115,7 +112,7 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Bot Telegram",
         tag: "Capture instantanée",
-        desc: "Envoyez texte, photos ou voix à votre bot : les notes arrivent en quelques secondes.",
+        desc: "Un bot d'exemple fourni : ce que vous lui envoyez arrive directement dans votre base de connaissances.",
       },
       {
         title: "API ouverte et PAT",
@@ -126,9 +123,8 @@ export const ECOSYSTEM_CONTENT: Record<
   },
   es: {
     badge: "Tus herramientas, conectadas",
-    heading: "Tres formas de entrar en tu día a día",
-    subtitle:
-      "CLI, MCP y API abierta: una sola base de conocimiento, conectada a tus herramientas.",
+    heading: "Conecta FlareMo con tu día a día",
+    subtitle: "Una sola base de conocimiento, conectada a tus herramientas.",
     clients: [
       {
         title: "Agentes de IA",
@@ -143,7 +139,7 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Bot de Telegram",
         tag: "Captura instantánea",
-        desc: "Envía texto, fotos o voz a tu bot y las notas llegan en segundos.",
+        desc: "Un bot de ejemplo incluido: lo que le envíes llega directo a tu base de conocimiento.",
       },
       {
         title: "API abierta y PAT",
@@ -154,9 +150,8 @@ export const ECOSYSTEM_CONTENT: Record<
   },
   ko: {
     badge: "쓰던 도구와 연결",
-    heading: "일상으로 들어가는 세 가지 길",
-    subtitle:
-      "CLI, MCP, 오픈 API. 하나의 지식 베이스를 이미 쓰는 워크플로에 연결하세요.",
+    heading: "일상 워크플로에 연결하세요",
+    subtitle: "하나의 지식 베이스를 이미 쓰는 워크플로에 연결하세요.",
     clients: [
       {
         title: "AI Agents",
@@ -171,7 +166,7 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Telegram Bot",
         tag: "즉각 기록",
-        desc: "텍스트, 사진, 음성을 전용 봇에 보내면 몇 초 만에 저장됩니다.",
+        desc: "함께 제공되는 예제 봇에 보내면 바로 지식 베이스에 저장됩니다.",
       },
       {
         title: "Open API & PAT",
@@ -182,9 +177,8 @@ export const ECOSYSTEM_CONTENT: Record<
   },
   ru: {
     badge: "Ваши инструменты",
-    heading: "Три способа встроиться в ваш день",
-    subtitle:
-      "CLI, MCP и открытый API: одна база знаний — в привычных инструментах.",
+    heading: "Встройте FlareMo в свой день",
+    subtitle: "Одна база знаний — в привычных вам инструментах.",
     clients: [
       {
         title: "ИИ-агенты",
@@ -199,7 +193,7 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Telegram Bot",
         tag: "Быстрый сбор",
-        desc: "Отправьте текст, фото или голос своему боту — заметка появится за секунды.",
+        desc: "Пример бота в комплекте: отправленное сразу попадает в базу знаний.",
       },
       {
         title: "Открытый API и PAT",
@@ -210,9 +204,8 @@ export const ECOSYSTEM_CONTENT: Record<
   },
   ar: {
     badge: "أدواتك، متصلة",
-    heading: "ثلاث طرق إلى يومك",
-    subtitle:
-      "CLI وMCP وواجهة برمجية مفتوحة: قاعدة معرفة واحدة داخل أدواتك المعتادة.",
+    heading: "اربط FlareMo بيومك",
+    subtitle: "قاعدة معرفة واحدة داخل أدواتك المعتادة.",
     clients: [
       {
         title: "AI Agents",
@@ -227,7 +220,7 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Telegram Bot",
         tag: "التقاط فوري",
-        desc: "أرسل النص أو الصور أو الصوت إلى روبوتك لتصل في ثوانٍ.",
+        desc: "روبوت تجريبي مرفق: ما ترسله يصل مباشرة إلى قاعدة معرفتك.",
       },
       {
         title: "API مفتوح وPAT",

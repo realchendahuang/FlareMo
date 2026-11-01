@@ -5,11 +5,11 @@ export const FR_HOME: HomeContent = {
   heroTitleLine1: "Zéro serveur. Pour toujours à vous.",
   heroTitleLine2: "Un second cerveau natif IA qui grandit avec vous.",
   heroSubtitle:
-    "Minimal, jamais superficiel. Discret, jamais criard. Un second cerveau natif IA sur Cloudflare Edge : écrivez, et vos notes deviennent tâches, articles et base de connaissances — plus une mémoire à long terme que vos agents IA peuvent lire et écrire.",
+    "Minimal, jamais superficiel. Discret, jamais criard. Écrivez librement sur Cloudflare Edge : vos notes deviennent tâches, articles et base de connaissances, plus une mémoire à long terme partagée par vos agents IA.",
   primaryCta: "Guide de déploiement",
   secondaryCta: "Code source GitHub",
   statMemos: "~2,5 millions de notes",
-  statPhotos: "10 000 photos · 0$ trafic",
+  statPhotos: "10 000 photos compressées · 0$ trafic",
   statServers: "Ultra-basse latence 24/7",
   statUptime: "Réplication multi-régions",
   featuresBadge: "Atouts clés",
@@ -40,7 +40,7 @@ export const FR_HOME: HomeContent = {
     {
       title: "Un espace d'équipe pour partager",
       description:
-        "Publiez vos notes auprès de l'équipe, commentez-les et mentionnez-vous avec @ : un lieu de partage, pas un outil de gestion de projet. Rôles Propriétaire, Admin et Membre avec 3 niveaux de visibilité (privé, équipe, public) ; suppression propre des données privées lors d'un départ.",
+        "Publiez vos notes auprès de l'équipe, commentez-les et mentionnez-vous avec @ : un lieu de partage, pas un outil de gestion de projet. Rôles Propriétaire, Admin, Membre et Lecteur avec 3 niveaux de visibilité (privé, équipe, public) ; suppression propre des données privées lors d'un départ.",
     },
     {
       title: "Vos données, toujours à vous",
@@ -119,7 +119,7 @@ export const FR_HOME: HomeContent = {
     },
     {
       q: "Quelle différence entre mode solo et équipe ?",
-      a: "Par défaut, c'est un carnet personnel confidentiel. En activant le mode équipe, vous pouvez inviter des membres et partager des notes sélectivement.",
+      a: "Par défaut, c'est un carnet personnel confidentiel. En activant le mode équipe, vous invitez des membres par lien à usage unique ; chaque note peut être privée (vous seul), visible par l'équipe (lecture et commentaires) ou publique.",
     },
   ],
   ctaBadge: "C'est parti",

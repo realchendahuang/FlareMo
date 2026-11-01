@@ -50,7 +50,7 @@ FlareMo asks a different question: **what if your second brain needed no server 
 - **Truly serverless**: code and static assets run on the Cloudflare Workers edge node nearest you; D1 and R2 hold notes, tasks, articles and media with multi-region durability.
 - **Knowledge that grows**: a quick note becomes a task, a task becomes an article, and the whole thing settles into a searchable, linked knowledge base.
 - **Quiet for one, useful for a team**: private by default; turn on team mode for a shared space with roles and three-tier visibility.
-- **Minimal, not simplistic**: the interface stays quiet and every control earns its place.
+- **Minimal, never shallow**: the interface stays quiet and every control earns its place.
 
 ---
 
@@ -101,8 +101,8 @@ FlareMo asks a different question: **what if your second brain needed no server 
 
 ### 8. Your Data, Always Yours
 - **One-click full export**: records, attachments, tasks, projects, articles and share relationships in a single bundle you can archive offline whenever you want.
-- **Imports that leave nothing half-written**: skip or duplicate conflict strategies; a failed import rolls back completely instead of leaving a partial dataset behind.
-- **Bring your history over**: a bundled converter turns an existing export into a FlareMo import bundle, keeping timestamps, tags, pins and visibility ([migration guide](./docs/en/import-from-memos.md)).
+- **Imports that leave nothing half-written**: choose to skip or duplicate on conflict; a failed import rolls back completely instead of leaving a half-written dataset.
+- **Bring your history with you**: a bundled converter turns an existing export into a FlareMo import bundle, keeping timestamps, tags, pins and visibility ([migration guide](./docs/en/import-from-memos.md)).
 - **Open by protocol**: an `/api/v1` compatibility layer with revocable Personal Access Tokens, plus MCP for AI tooling; the exact supported surface is in the [compatibility matrix](./docs/en/memos-compatibility.md).
 
 ---

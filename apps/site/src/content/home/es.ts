@@ -5,11 +5,11 @@ export const ES_HOME: HomeContent = {
   heroTitleLine1: "Cero servidores. Tuyo para siempre.",
   heroTitleLine2: "Un segundo cerebro nativo de IA que crece contigo.",
   heroSubtitle:
-    "Mínimo, nunca superficial. Sereno, nunca estridente. Un segundo cerebro nativo de IA en Cloudflare Edge: escribe, y tus notas se convierten en tareas, artículos y una base de conocimiento — además de una memoria a largo plazo que tus agentes de IA pueden leer y escribir.",
+    "Mínimo, nunca superficial. Sereno, nunca estridente. Escribe con libertad en Cloudflare Edge: tus notas se convierten en tareas, artículos y una base de conocimiento, además de una memoria a largo plazo compartida por tus agentes de IA.",
   primaryCta: "Guía de despliegue",
   secondaryCta: "Código en GitHub",
   statMemos: "~2,5 millones de notas",
-  statPhotos: "10.000 fotos · 0$ tráfico",
+  statPhotos: "10.000 fotos comprimidas · 0$ tráfico",
   statServers: "Latencia ultrabaja 24/7",
   statUptime: "Replicación multirregional",
   featuresBadge: "Funciones clave",
@@ -40,7 +40,7 @@ export const ES_HOME: HomeContent = {
     {
       title: "Un espacio de equipo para compartir",
       description:
-        "Publica notas para tu equipo, comenta debajo de ellas y menciónense con @: para compartir, no para gestionar proyectos. Roles de Propietario, Administrador y Miembro con 3 niveles de visibilidad (privado, equipo, público); al salir un miembro, sus datos privados se borran de forma segura.",
+        "Publica notas para tu equipo, comenta debajo de ellas y menciónense con @: para compartir, no para gestionar proyectos. Roles de Propietario, Administrador, Miembro y Lector con 3 niveles de visibilidad (privado, equipo, público); al salir un miembro, sus datos privados se borran de forma segura.",
     },
     {
       title: "Tus datos, siempre tuyos",
@@ -119,7 +119,7 @@ export const ES_HOME: HomeContent = {
     },
     {
       q: "¿Qué diferencia hay entre modo personal y equipo?",
-      a: "Por defecto es un diario personal cifrado. Al activar el modo de equipo, puedes invitar a colegas y compartir notas de manera selectiva.",
+      a: "Por defecto es un diario personal cifrado. Al activar el modo de equipo, invitas a colegas con enlaces de un solo uso; cada nota puede ser privada (solo tú), visible para el equipo (lectura y comentarios) o pública.",
     },
   ],
   ctaBadge: "Empieza ahora",
