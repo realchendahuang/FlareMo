@@ -234,29 +234,38 @@ export async function buildTodayReview(
       .orderBy(asc(memos.createdAt))
       .limit(YEAR_SCAN_LIMIT),
   );
-  const [onThisDayGroups, ...bands] = await Promise.all([
-    Promise.all(onThisDayQueries),
-    ...LADDER_BANDS.map(([nearest, furthest]) =>
-      db
-        .select({ id: memos.id, createdAt: memos.createdAt })
-        .from(memos)
-        .where(
-          and(
-            ownNormal,
-            gte(
-              memos.createdAt,
-              localDayStartUtc(shiftDay(date, -furthest), tzOffset),
-            ),
-            lt(
-              memos.createdAt,
-              localDayStartUtc(shiftDay(date, -nearest + 1), tzOffset),
-            ),
+  const bandQueries = LADDER_BANDS.map(([nearest, furthest]) =>
+    db
+      .select({ id: memos.id, createdAt: memos.createdAt })
+      .from(memos)
+      .where(
+        and(
+          ownNormal,
+          gte(
+            memos.createdAt,
+            localDayStartUtc(shiftDay(date, -furthest), tzOffset),
           ),
-        )
-        .orderBy(asc(memos.createdAt))
-        .limit(BAND_SCAN_LIMIT),
-    ),
-  ]);
+          lt(
+            memos.createdAt,
+            localDayStartUtc(shiftDay(date, -nearest + 1), tzOffset),
+          ),
+        ),
+      )
+      .orderBy(asc(memos.createdAt))
+      .limit(BAND_SCAN_LIMIT),
+  );
+  // One D1 batch instead of 24 concurrent round trips. The windows stay
+  // separate statements so each year keeps its own LIMIT, but the server sees
+  // a single request and the 6-connection ceiling no longer queues them.
+  const batched = await db.batch([
+    ...onThisDayQueries,
+    ...bandQueries,
+  ] as unknown as Parameters<FlareMoDb["batch"]>[0]);
+  const onThisDayGroups = batched.slice(
+    0,
+    onThisDayQueries.length,
+  ) as Candidate[][];
+  const bands = batched.slice(onThisDayQueries.length) as Candidate[][];
 
   // Group "on this day" by how many years back, keeping only whole years.
   const years = new Map<number, Candidate[]>();
@@ -362,6 +371,25 @@ export async function buildTodayReview(
       ? [{ memo, reason: item.reason, reviewed: readToday.has(item.id) }]
       : [];
   });
+}
+
+/**
+ * The timeline banner only needs a count. Building the deck still selects the
+ * seven notes, but skipping memo/attachment hydration keeps the home page from
+ * paying the review page's serialization cost.
+ */
+export async function buildTodayReviewSummary(
+  db: FlareMoDb,
+  user: UserRow,
+  input: { date: string; tzOffset?: number },
+): Promise<{ total: number; reviewed: number; remaining: number }> {
+  const entries = await buildTodayReview(db, user, input);
+  const reviewed = entries.filter((entry) => entry.reviewed).length;
+  return {
+    total: entries.length,
+    reviewed,
+    remaining: entries.length - reviewed,
+  };
 }
 
 async function ownMemoId(db: FlareMoDb, user: UserRow, memoName: string) {

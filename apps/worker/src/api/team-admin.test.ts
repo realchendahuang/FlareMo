@@ -461,6 +461,60 @@ describe("FlareMo team and admin API", () => {
     );
   });
 
+  it("refuses member-credential minting from a personal access token", async () => {
+    const member = await createActivatedMember(
+      "pat-reset-target@example.com",
+      "Pat Reset Target",
+    );
+    const created = await json<{ token: string }>(
+      await app.fetch(
+        new Request(
+          "http://flaremo.test/api/app/account/personal-access-tokens",
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              cookie: sessionCookie,
+              origin: "http://flaremo.test",
+            },
+            body: JSON.stringify({ name: "Owner CLI", expires_in_days: 30 }),
+          },
+        ),
+        env,
+      ),
+    );
+
+    // A leaked admin PAT must not be able to mint a password-reset link…
+    const reset = await app.fetch(
+      new Request(
+        `http://flaremo.test/api/app/admin/users/${encodeURIComponent(member.id)}/reset-password`,
+        {
+          method: "POST",
+          headers: { authorization: `Bearer ${created.token}` },
+        },
+      ),
+      env,
+    );
+    expect(reset.status).toBe(401);
+
+    // …nor create a new member with an activation link.
+    const createUser = await app.fetch(
+      new Request("http://flaremo.test/api/app/admin/users", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${created.token}`,
+        },
+        body: JSON.stringify({
+          email: "pat-created@example.com",
+          name: "Pat Created",
+        }),
+      }),
+      env,
+    );
+    expect(createUser.status).toBe(401);
+  });
+
   it("invalidates a removed member's personal access token", async () => {
     const member = await createActivatedMember(
       "pat-member@example.com",

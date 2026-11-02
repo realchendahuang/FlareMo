@@ -1,21 +1,15 @@
 /**
  * Inline body images reference attachments through the Memos-compatible
- * `/file/attachments/{id}/{filename}` bridge. The path is context-portable by
- * design: same-origin cookie auth renders it inside the app, and the public
- * share page appends `?share_token=` for anonymous visitors. These helpers
- * parse such references out of a memo body.
+ * `/file/attachments/{id}/{filename}` bridge. The parsing and token-injection
+ * helpers live in `@flaremo/contracts` so the app, the share renderer, and the
+ * article renderer cannot drift.
  */
+import { extractReferencedAttachmentIds } from "@flaremo/contracts";
 
-/** Resolves to the bare attachment id referenced by a `/file/attachments/` URL. */
-const ATTACHMENT_REF = /\/file\/attachments\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
-
-export function extractReferencedAttachmentIds(content: string): Set<string> {
-  const ids = new Set<string>();
-  for (const match of content.matchAll(ATTACHMENT_REF)) {
-    ids.add(match[1]);
-  }
-  return ids;
-}
+export {
+  extractReferencedAttachmentIds,
+  injectShareTokenIntoFileUrls,
+} from "@flaremo/contracts";
 
 /**
  * Intrinsic pixel dimensions reported at upload time (see
@@ -56,7 +50,7 @@ export function createImageDimensionResolver<
   }
   return (src: string) => {
     // Non-global copy: a global regex's exec is stateful (lastIndex), and the
-    // shared ATTACHMENT_REF above is owned by matchAll callers.
+    // shared matcher is owned by matchAll callers.
     const match = /\/file\/attachments\/([A-Za-z0-9][A-Za-z0-9._-]*)/.exec(src);
     return match ? byId.get(match[1]) : undefined;
   };
@@ -76,32 +70,4 @@ export function filterUnreferencedAttachments<T extends { name: string }>(
     (attachment) =>
       !referenced.has(attachment.name.replace(/^attachments\//, "")),
   );
-}
-
-/**
- * Appends the share token to `/file/attachments/` targets so the public share
- * page can fetch body images anonymously. Only markdown link/image destinations
- * are touched, fenced code is skipped, and URLs that already carry a query get
- * `&` instead of `?`.
- */
-export function injectShareTokenIntoFileUrls(
-  content: string,
-  token: string,
-): string {
-  let inFence = false;
-  return content
-    .split("\n")
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) {
-        inFence = !inFence;
-        return line;
-      }
-      if (inFence) return line;
-      return line.replace(/(\]\(\/file\/attachments\/[^\s)]*)/g, (target) =>
-        target.includes("?")
-          ? `${target}&share_token=${token}`
-          : `${target}?share_token=${token}`,
-      );
-    })
-    .join("\n");
 }

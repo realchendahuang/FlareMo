@@ -27,6 +27,7 @@ import {
   updateMemo,
 } from "../memos";
 import { extractTags, normalizeMemoTags } from "../tags";
+import { canPublishTeamMemo } from "../team-permissions";
 import { type ImportAuditTable, importAuditStatement } from "./audit";
 
 /** A prepared Drizzle statement awaiting one `db.batch` slice. */
@@ -36,6 +37,13 @@ const IMPORT_INSERT_BATCH = 100;
 // Checkpointed groups are [insert, audit] pairs (or [insert, children, audit]);
 // flushing whole groups keeps the ledger row and its record in one batch.
 const IMPORT_GROUP_BATCH = 40;
+
+/** Decoded byte length of a base64 payload, without allocating the bytes. */
+function decodedBase64Bytes(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return Math.floor((value.length * 3) / 4) - padding;
+}
 
 /** Flush [record, ledger] groups whole, so a committed record always has its
  *  checkpoint row in the same D1 transaction. */
@@ -176,6 +184,10 @@ function resolveImportedTeamId(
   memo: ImportBundle["memos"][number],
 ): string | null {
   if (memo.visibility === "private") return null;
+  // Readers may restore their own data, but they cannot publish into the team
+  // space. Downgrade imported team/public memos to private rather than
+  // rejecting the whole bundle.
+  if (!canPublishTeamMemo(user)) return null;
   const exportedTeamId = memo.team_id ?? null;
   const receiverTeamId = user.teamOrganizationId ?? null;
   if (exportedTeamId) {
@@ -405,6 +417,7 @@ export async function importData(
       id: string;
       r2Key: string;
       state: NonNullable<typeof attachments.$inferSelect.state>;
+      size: number;
     }
   >();
   for (
@@ -417,6 +430,7 @@ export async function importData(
         id: attachments.id,
         r2Key: attachments.r2Key,
         state: attachments.state,
+        size: attachments.size,
       })
       .from(attachments)
       .where(
@@ -459,6 +473,10 @@ export async function importData(
     // the other. Only an overwrite keeps the existing object by design.
     const reuseExistingObject =
       Boolean(existing) && !objectKey && conflict === "overwrite";
+    // `size` is client-declared metadata, but it is also the quota ledger.
+    // Always record the bytes the bundle actually carried; otherwise a bundle
+    // can declare 0 and store 25 MiB per attachment, then repeat forever.
+    const actualSize = decodedBase64Bytes(attachment.data_base64);
     const attachmentValues = {
       id: importedId,
       userId: user.id,
@@ -470,7 +488,9 @@ export async function importData(
           : `imports/${user.id}/missing/${crypto.randomUUID()}`),
       filename: attachment.filename,
       contentType: attachment.content_type,
-      size: attachment.size,
+      size:
+        actualSize ??
+        (reuseExistingObject && existing ? existing.size : attachment.size),
       state: objectKey
         ? ("ready" as const)
         : reuseExistingObject

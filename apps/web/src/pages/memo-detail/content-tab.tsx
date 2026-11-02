@@ -1,10 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { CornerUpLeftIcon } from "lucide-react";
 import type { MemoContext, RelatedMemo } from "@/api";
-import {
-  MemoTaskBadge,
-  useMemoTasks,
-} from "@/components/memo-card/memo-task-badge";
+import { MemoTaskBadge } from "@/components/memo-card/memo-task-badge";
+import { useMemoTasks } from "@/components/memo-card/memo-task-context";
 import { MemoComments } from "@/components/memo-comments";
 import { MemoReadingView } from "@/components/reading/memo-reading-view";
 import { Badge } from "@/components/ui/badge";

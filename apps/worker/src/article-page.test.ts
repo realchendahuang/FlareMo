@@ -124,6 +124,10 @@ describe("Article page (standalone SEO HTML)", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(response.headers.get("cache-control")).toContain("max-age=300");
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
 
     const html = await response.text();
     expect(html).toContain(

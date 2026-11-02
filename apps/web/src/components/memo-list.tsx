@@ -45,6 +45,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { getMemoResourceId } from "@/lib/memo";
 import { MemoCard } from "./memo-card";
+import { MemoTaskProvider } from "./memo-card/memo-task-context";
 
 // The share-image dialog pulls in html-to-image and the plugin card registry;
 // keep it out of the entry chunk — it only downloads on first open.
@@ -497,7 +498,7 @@ export const MemoList = memo(function MemoList({
   ) : null;
 
   return (
-    <>
+    <MemoTaskProvider memoIds={memos.map((memo) => memo.name)}>
       {!isPaginationError && retryNotice}
       {isUpdating && (
         <div role="status" className="sr-only">
@@ -659,6 +660,6 @@ export const MemoList = memo(function MemoList({
           share={sharesByMemo.get(visibilityMemo.name)}
         />
       )}
-    </>
+    </MemoTaskProvider>
   );
 });

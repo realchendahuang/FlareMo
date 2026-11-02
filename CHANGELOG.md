@@ -4,7 +4,52 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## Unreleased
 
-**定位调整：FlareMo 不再以「兼容某个外部产品」作为身份，改为「跑在 Cloudflare 上的 AI 原生第二大脑，含知识管理」。** 8 语 README、官网首页与 meta、`llms.txt`、`ROADMAP`、GitHub 描述与 topics 全部撤下外部品牌；`/api/v1` 兼容层与迁移脚本保留，但降级为迁移与开发文档里的说明，不再作为卖点。同时修正了官网 FAQ 中「完全兼容某客户端」的过度承诺。代码、数据模型与 Cloudflare 资源均无变化，无需迁移。
+（暂无）
+
+## v0.26.0
+
+**安全与一致性修复版本。无 migration、无 Cloudflare 资源变化；升级后不需要迁移数据。** 公开分享页与文章页新增更严格的 CSP；导入的资源名与附件大小改为服务端校验；只读席位（reader）的发布边界补齐评论与导入两条路径；管理员凭据类接口改为仅接受浏览器会话。
+
+### 升级步骤
+
+1. 照常备份 D1 与 R2。
+2. `pnpm deploy`：无 migration，直接发布 Worker。
+3. 部署后检查登录、时间线、分享页、文章页、任务侧栏与成员管理各一次。
+
+### 行为变化
+
+- **管理员 PAT 不能再铸造凭据**：`POST /api/app/admin/users` 与 `POST /api/app/admin/users/:id/reset-password` 现在只接受浏览器会话；用 PAT 调用会返回 401。按邮箱幂等开通读者的 `PUT /api/app/admin/team/reader` 仍保留 PAT 通道，供支付回调或脚本使用。
+- **标签解析统一**：web 端改用与服务端相同的解析器，标签段会 trim 并转小写；URL 里的 `#fragment` 不再被误认为标签。
+- 时间线首页的回顾横幅改为请求 count-only 的 `/api/app/review/today/summary`；侧栏提醒改用 `/api/app/tasks/reminders`；记录卡片上的任务徽标改用 `/api/app/tasks/badges`，不再拉取全部任务。
+- 公开分享页与文章页响应新增 `Content-Security-Policy` 与 `X-Content-Type-Options: nosniff`。
+
+### 安全
+
+- **修复公开页附件 ID 的存储型 XSS**：导入的附件 ID 此前只校验为任意字符串，分享页/文章页又把它直接拼进 `src`/`href`。现在导入侧只接受安全字符集，渲染侧对 ID 与 URL 双重编码/转义，公开页再套严格 CSP。
+- **修复导入附件配额绕过**：`attachments.size` 此前直接采用 bundle 声明值，声明 0 字节即可让配额账本永远为 0。现在按 base64 实际解码长度记账；覆盖导入且无二进制时保留原大小。
+- **只读席位边界补齐**：reader 不能再通过评论把内容发布进团队空间（父记录非 private 时拒绝），导入的 team/public 记录会降级为 private。
+- **D1 参数上限再修四处**：附件与表情水合、语义搜索、评论水合在满页（100 个 id）时会把 98/96 个 id 加上 `memoReadScope` 的绑定数推到 100 以上，直接触发 `too many SQL variables`。预留值统一提高，并新增 100 条记录的回归测试。
+
+### 修复
+
+- **头像切换格式后仍返回旧图**：上传只写新后缀、不删旧后缀，读取顺序固定 `webp → png → jpg → gif`，导致 PNG 换 JPEG 后永远显示旧 PNG。现在写入新图后会清理其余后缀。
+- **校验失败不再把 Zod 原始 JSON 弹给用户**：全部路由改用统一的 `zValidator` 包装，返回 `{ error: { message } }`，与 `jsonError` 一致。
+- **补充全局 `app.onError`**：未包 try/catch 的路由或中间件异常现在也返回 JSON，不再落到 Hono 默认的 text/plain 500。
+- **文章 sitemap 与 RSS 的可见性规则下沉 domain**：路由层不再手写第二份 `published + not deleted` 查询。
+
+### 性能
+
+- 每日回顾的 20 个“往年今日”窗口与 4 个年龄档查询合并为一次 `db.batch`，首页横幅不再水合记录与附件。
+- 记录卡片的任务徽标按当前页 memo id 批量查询（每 100 个 id 一个请求），不再为每个卡片订阅最多 20 页的全量任务缓存。
+- 侧栏提醒改为一条聚合 count 查询。
+
+### 工程
+
+- 标签解析、附件引用解析、品牌色白名单收敛到 `@flaremo/contracts`，删掉 web/worker/domain 三处“保持同步”的复制实现。
+
+### 文档
+
+- **定位调整：FlareMo 不再以「兼容某个外部产品」作为身份，改为「跑在 Cloudflare 上的 AI 原生第二大脑，含知识管理」。** 8 语 README、官网首页与 meta、`llms.txt`、`ROADMAP`、GitHub 描述与 topics 全部撤下外部品牌；`/api/v1` 兼容层与迁移脚本保留，但降级为迁移与开发文档里的说明，不再作为卖点。同时修正了官网 FAQ 中「完全兼容某客户端」的过度承诺。
 
 ## v0.25.0
 

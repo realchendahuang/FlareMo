@@ -1,4 +1,23 @@
+import {
+  BRANDING_ACCENT_PRESETS,
+  type BrandingAccent,
+  CUSTOM_BRANDING_ACCENT,
+  DEFAULT_BRANDING_ACCENT,
+  normalizeBrandingAccent,
+  normalizeBrandingAccentHex,
+} from "@flaremo/contracts";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
+
+export {
+  BRANDING_ACCENT_HEX_PATTERN,
+  BRANDING_ACCENT_PRESETS,
+  type BrandingAccent,
+  CUSTOM_BRANDING_ACCENT,
+  DEFAULT_BRANDING_ACCENT,
+  normalizeBrandingAccent,
+  normalizeBrandingAccentHex,
+} from "@flaremo/contracts";
+
 import { OWNER_FLAREMO_USER_ID } from "./auth";
 import { NotFoundError, ValidationError } from "./errors";
 import { getStoredSetting, upsertStoredSetting } from "./settings";
@@ -24,52 +43,6 @@ export const BRANDING_MARK_CONTENT_TYPES = [
 ] as const;
 export const BRANDING_PRODUCT_NAME_MAX_CHARS = 40;
 export const DEFAULT_FLAREMO_PRODUCT_NAME = "FlareMo";
-
-/**
- * Curated accent presets the instance can pick from, plus "custom": a seed
- * hex (stored alongside as `accent_hex`) from which the web app derives a
- * full ramp at load time. Preset ramps live in the web app's CSS
- * (`:root[data-accent=...]` blocks, Radix Colors–derived). The server only
- * carries the id + seed and always falls back to the default on unknown or
- * inconsistent values so hand-edited settings can't break the UI.
- */
-export const BRANDING_ACCENT_PRESETS = [
-  "flame",
-  "ocean",
-  "indigo",
-  "iris",
-  "jade",
-  "teal",
-  "crimson",
-  "amber",
-] as const;
-export const CUSTOM_BRANDING_ACCENT = "custom";
-export type BrandingAccent =
-  | (typeof BRANDING_ACCENT_PRESETS)[number]
-  | typeof CUSTOM_BRANDING_ACCENT;
-export const DEFAULT_BRANDING_ACCENT: BrandingAccent = "flame";
-
-export const BRANDING_ACCENT_HEX_PATTERN = /^#[0-9a-f]{6}$/i;
-
-export function normalizeBrandingAccentHex(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const hex = value.trim().toLowerCase();
-  return BRANDING_ACCENT_HEX_PATTERN.test(hex) ? hex : null;
-}
-
-export function normalizeBrandingAccent(
-  accent: unknown,
-  accentHex: unknown,
-): BrandingAccent {
-  if (accent === CUSTOM_BRANDING_ACCENT) {
-    return normalizeBrandingAccentHex(accentHex)
-      ? CUSTOM_BRANDING_ACCENT
-      : DEFAULT_BRANDING_ACCENT;
-  }
-  return BRANDING_ACCENT_PRESETS.some((preset) => preset === accent)
-    ? (accent as BrandingAccent)
-    : DEFAULT_BRANDING_ACCENT;
-}
 
 export type BrandingMarkVariant = "light" | "dark";
 

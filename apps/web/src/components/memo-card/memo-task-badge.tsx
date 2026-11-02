@@ -10,20 +10,7 @@ import { listProjects, type Task } from "@/api";
 import { formatScheduleDay } from "@/components/composer/composer-schedule-menu";
 import { useI18n } from "@/i18n";
 import { todayKey } from "@/lib/calendar-date";
-import { useAllTasks } from "@/lib/task-views";
 import { cn, stripResourceName } from "@/lib/utils";
-
-/** The tasks a memo was scheduled into, read from the shared task cache. */
-export function useMemoTasks(memoName: string, enabled = true): Task[] {
-  const query = useAllTasks({ enabled });
-  return useMemo(
-    () =>
-      (query.data?.tasks ?? []).filter(
-        (task) => task.source_memo_id === memoName,
-      ),
-    [query.data, memoName],
-  );
-}
 
 /**
  * "This note is on the to-do list": progress, the earliest open due day and

@@ -20,13 +20,13 @@ import {
   updateDataTask,
 } from "@flaremo/domain";
 import { parseAttachmentsResourceName } from "@flaremo/memos";
-import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Hono } from "hono";
 import { MAX_INLINE_EXPORT_BYTES } from "../../attachment-http";
 import { getRequestContext, type HonoBindings } from "../../context";
 import { runDataExportTask } from "../../export-task";
 import { jsonError } from "../../http";
+import { zValidator } from "../../validated";
 import {
   arrayBufferToBase64,
   bundleAttachmentBytes,

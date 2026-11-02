@@ -1,4 +1,10 @@
 import {
+  BRANDING_ACCENT_PRESETS,
+  type BrandingAccent,
+  CUSTOM_BRANDING_ACCENT,
+  normalizeBrandingAccent,
+} from "@flaremo/contracts";
+import {
   createContext,
   type ReactNode,
   useContext,
@@ -13,16 +19,8 @@ import {
 } from "@/components/theme-provider";
 import { buildCustomRamp, normalizeHexColor } from "@/lib/brand-ramp";
 
-export type BrandingAccent =
-  | "flame"
-  | "ocean"
-  | "indigo"
-  | "iris"
-  | "jade"
-  | "teal"
-  | "crimson"
-  | "amber"
-  | "custom";
+export type { BrandingAccent } from "@flaremo/contracts";
+export { normalizeBrandingAccent } from "@flaremo/contracts";
 
 export type Branding = {
   product: string;
@@ -44,37 +42,13 @@ export const DEFAULT_BRANDING: Branding = {
 
 const BrandingContext = createContext<Branding>(DEFAULT_BRANDING);
 
-/** Instance accent presets, mirrored from @flaremo/domain's whitelist. */
-export const BRANDING_ACCENTS: Exclude<BrandingAccent, "custom">[] = [
-  "flame",
-  "ocean",
-  "indigo",
-  "iris",
-  "jade",
-  "teal",
-  "crimson",
-  "amber",
-];
+export const BRANDING_ACCENTS = BRANDING_ACCENT_PRESETS;
 
 /** Swatch order for the admin picker: presets, then the custom seed option. */
 export const BRANDING_ACCENT_CHOICES: BrandingAccent[] = [
-  ...BRANDING_ACCENTS,
-  "custom",
+  ...BRANDING_ACCENT_PRESETS,
+  CUSTOM_BRANDING_ACCENT,
 ];
-
-export function normalizeBrandingAccent(
-  value: unknown,
-  hex?: unknown,
-): BrandingAccent {
-  if (value === "custom") {
-    return typeof hex === "string" && normalizeHexColor(hex)
-      ? "custom"
-      : DEFAULT_BRANDING.accent;
-  }
-  return BRANDING_ACCENTS.some((preset) => preset === value)
-    ? (value as Exclude<BrandingAccent, "custom">)
-    : DEFAULT_BRANDING.accent;
-}
 
 const CUSTOM_RAMP_VARS = [
   "--brand-50",

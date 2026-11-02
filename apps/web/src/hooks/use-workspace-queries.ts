@@ -5,7 +5,7 @@ import {
   getCurrentFlareMoUser,
   getMemoStats,
   getTagHierarchy,
-  getTodayReview,
+  getTodayReviewSummary,
   getVectorUsage,
   listMemos,
   type MemoSpace,
@@ -193,8 +193,8 @@ export function useWorkspaceQueries({
   const canPublishTeam = Boolean(sharedTeam) && !isReader;
   const teamExpired = Boolean(currentUserQuery.data?.team_expired);
   // "On this day" teaser for the timeline top: notes from past years dated
-  // today. The query shares the daily-review page's cache entry, so landing
-  // on the banner costs nothing extra.
+  // today. Only the remaining count crosses the wire here; the review page
+  // owns the full deck.
   const [today, tzOffset] = useMemo(
     () => [todayKey(), -new Date().getTimezoneOffset()],
     [],
@@ -211,14 +211,13 @@ export function useWorkspaceQueries({
   // The banner counts what is left of today's review stack, so it goes away
   // once the stack is read (on any device).
   const onThisDayQuery = useQuery({
-    queryKey: queryKeys.review.today(today, tzOffset),
+    queryKey: queryKeys.review.summary(today, tzOffset),
     enabled: onThisDayEnabled,
-    queryFn: () => getTodayReview(today, tzOffset),
+    queryFn: () => getTodayReviewSummary(today, tzOffset),
     staleTime: 60_000,
     retry: false,
   });
-  const reviewRemaining =
-    onThisDayQuery.data?.items.filter((item) => !item.reviewed).length ?? 0;
+  const reviewRemaining = onThisDayQuery.data?.remaining ?? 0;
   const showOnThisDayBanner = onThisDayEnabled && reviewRemaining > 0;
 
   const memos = useMemo(

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, BrainIcon, FileTextIcon, PinIcon } from "lucide-react";
 import type { Memo, MemoContext, RelatedMemo } from "@/api";
+import { MemoTaskProvider } from "@/components/memo-card/memo-task-context";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -288,12 +289,14 @@ function MemoDetail({
               <TabsTrigger value="sharing">{t("detail.sharing")}</TabsTrigger>
             )}
           </TabsList>
-          <ContentTab
-            context={context}
-            related={related}
-            relatedPending={relatedPending}
-            taskInteraction={taskInteraction}
-          />
+          <MemoTaskProvider memoIds={[context.memo.name]}>
+            <ContentTab
+              context={context}
+              related={related}
+              relatedPending={relatedPending}
+              taskInteraction={taskInteraction}
+            />
+          </MemoTaskProvider>
           <RelationsTab
             canManage={canManage}
             candidates={candidates}

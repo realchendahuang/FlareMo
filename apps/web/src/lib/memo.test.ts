@@ -57,8 +57,9 @@ describe("formatMemoRelativeTime", () => {
 // server-side rules (`packages/domain/src/tags.ts`), code blocks included.
 describe("extractTags", () => {
   it("extracts plain and hierarchical tags", () => {
+    // Canonical form matches the server: segments are trimmed and lowercased.
     expect(extractTags("今日 #工作/项目A 推进，#生活 也坚持了")).toEqual([
-      "工作/项目A",
+      "工作/项目a",
       "生活",
     ]);
   });

@@ -1,4 +1,6 @@
 export * from "./articles";
+export * from "./attachment-refs";
+export * from "./branding";
 export * from "./calendar";
 export * from "./capture";
 export * from "./constants";
@@ -8,6 +10,7 @@ export * from "./memos";
 export * from "./memos-current";
 export * from "./projects";
 export * from "./search-query";
+export * from "./tags";
 
 // The OpenAPI documents are deliberately NOT re-exported here. Together they
 // are two thousand lines of literal path objects, and every consumer of this

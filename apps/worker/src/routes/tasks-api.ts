@@ -1,7 +1,9 @@
 import {
   createTaskSchema,
   listTasksQuerySchema,
+  memoTaskSummariesQuerySchema,
   reorderTasksSchema,
+  taskReminderCountsQuerySchema,
   updateTaskSchema,
 } from "@flaremo/contracts";
 import type { TaskActor } from "@flaremo/domain";
@@ -9,14 +11,16 @@ import {
   createTask,
   deleteTask,
   getTask,
+  getTaskReminderCounts,
   listTaskActivity,
   listTasks,
+  listTasksForSourceMemos,
   parseResourceName,
   reorderTasks,
   restoreTask,
   updateTask,
+  ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import {
@@ -26,6 +30,7 @@ import {
 } from "../context";
 import { jsonError } from "../http";
 import { rateLimitGuard } from "../rate-limit";
+import { zValidator } from "../validated";
 
 export const tasksApi = new Hono<HonoBindings>();
 
@@ -116,6 +121,46 @@ tasksApi.post("/reorder", zValidator("json", reorderTasksSchema), async (c) => {
     return jsonError(c, error);
   }
 });
+
+// Static routes must be registered before `/:id` or Hono treats "reminders"
+// and "badges" as task ids.
+tasksApi.get(
+  "/reminders",
+  zValidator("query", taskReminderCountsQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      return c.json(
+        await getTaskReminderCounts(db, user, c.req.valid("query").date),
+      );
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+tasksApi.get(
+  "/badges",
+  zValidator("query", memoTaskSummariesQuerySchema),
+  async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      const memoIds = c.req
+        .valid("query")
+        .memo_ids.split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      if (memoIds.length > 100) {
+        throw new ValidationError("At most 100 memo ids are allowed.");
+      }
+      return c.json({
+        tasks: await listTasksForSourceMemos(db, user, memoIds),
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 tasksApi.get("/:id", async (c) => {
   try {

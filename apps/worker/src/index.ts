@@ -12,6 +12,7 @@ import {
 } from "@flaremo/domain";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { getTrustedOrigins } from "./auth-env";
 import {
   assertTrustedCookieMutation,
@@ -113,6 +114,19 @@ export function createFlareMoApp(
   const { resolvePlanLimits, resolveUserPlanLimits } =
     resolveFlareMoOptions(options);
   const app = new Hono<HonoBindings>();
+
+  // Last-resort handler: routes that forgot a try/catch (or middleware that
+  // throws) must still answer JSON, not Hono's text/plain default. HTTPException
+  // keeps its own status; everything else goes through the shared error shape.
+  app.onError((error, c) => {
+    if (error instanceof HTTPException) {
+      return c.json(
+        { error: { message: error.message || "Request failed" } },
+        error.status,
+      );
+    }
+    return jsonError(c, error);
+  });
 
   app.use("*", async (c, next) => {
     c.set("planLimits", await resolvePlanLimits(c.env));

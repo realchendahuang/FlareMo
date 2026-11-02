@@ -229,7 +229,7 @@ export async function listReactionsForMemosForViewer(
   // Same 100-parameter ceiling as the attachment hydration: one binding per
   // requested memo id inside the readability subquery.
   const rows: Array<typeof reactions.$inferSelect> = [];
-  for (const idChunk of chunkForD1(memoIds, d1IdsPerStatement(2))) {
+  for (const idChunk of chunkForD1(memoIds, d1IdsPerStatement(12))) {
     const allowedMemoIds = db
       .select({ id: memos.id })
       .from(memos)

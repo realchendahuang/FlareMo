@@ -34,13 +34,13 @@ import {
   updateUserNotification,
 } from "@flaremo/domain";
 import { memosToListResponse, memoToDto } from "@flaremo/memos";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { getRequestContext, type HonoBindings } from "../../context";
 import { jsonError } from "../../http";
 import { buildMemoContext } from "../../memo-context";
 import { hardDeleteMemoWithAttachments } from "../../memo-hard-delete";
+import { zValidator } from "../../validated";
 
 function appNotificationToDto(notification: UserNotificationDto) {
   return {

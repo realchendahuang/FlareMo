@@ -23,7 +23,12 @@ import {
 } from "../../context";
 import { createEmbeddingProvider, createVectorIndex } from "../../embedding";
 import { jsonError } from "../../http";
-import { ownerContext, teamAdminContext, teamMembershipInfo } from "./context";
+import {
+  ownerContext,
+  teamAdminContext,
+  teamAdminSessionContext,
+  teamMembershipInfo,
+} from "./context";
 
 export function registerMaintenanceRoutes(app: Hono<HonoBindings>) {
   app.delete("/users/:id", async (c) => {
@@ -165,7 +170,8 @@ export function registerMaintenanceRoutes(app: Hono<HonoBindings>) {
 
   app.post("/users/:id/reset-password", async (c) => {
     try {
-      const context = await teamAdminContext(c);
+      // Mints a password-reset token; browser session only.
+      const context = await teamAdminSessionContext(c);
       const id = c.req.param("id");
       const member = await getFlaremoUserById(context.db, id);
       if (member?.status !== "active") {

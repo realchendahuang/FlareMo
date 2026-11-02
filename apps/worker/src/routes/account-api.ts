@@ -14,7 +14,6 @@ import {
   updateMemberRemovalJob,
   ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { cleanupFlaremoArtifacts } from "../artifact-cleanup";
@@ -29,6 +28,7 @@ import {
   sendEmailChangeVerificationEmail,
 } from "../email";
 import { jsonError } from "../http";
+import { zValidator } from "../validated";
 
 export const accountApi = new Hono<HonoBindings>();
 

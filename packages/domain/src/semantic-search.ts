@@ -77,7 +77,7 @@ export async function semanticSearchMemos(
   // the read. Candidate ids come from every queried namespace, so the list can
   // exceed D1's per-statement binding cap and has to be chunked.
   const allowed = new Set<string>();
-  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(4))) {
+  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(12))) {
     const rows = await db
       .select({ id: memos.id })
       .from(memos)
@@ -124,7 +124,7 @@ export async function getSemanticSearchMemos(
 ): Promise<MemoRow[]> {
   if (candidateIds.length === 0) return [];
   const byId = new Map<string, MemoRow>();
-  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(4))) {
+  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(12))) {
     const rows = await db
       .select()
       .from(memos)

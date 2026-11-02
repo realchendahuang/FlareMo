@@ -8,6 +8,7 @@ import {
 } from "@flaremo/contracts";
 import {
   buildTodayReview,
+  buildTodayReviewSummary,
   getRandomMemo,
   getReviewSettings,
   getWalkNextMemo,
@@ -17,10 +18,10 @@ import {
   type ReviewSettings,
   updateReviewSettings,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../../context";
 import { jsonError } from "../../http";
+import { zValidator } from "../../validated";
 import { parseExcludeParam, serializeMemosWithAttachments } from "./helpers";
 
 function serializeSettings(settings: ReviewSettings) {
@@ -31,6 +32,23 @@ function serializeSettings(settings: ReviewSettings) {
 }
 
 export function registerReviewRoutes(app: Hono<HonoBindings>) {
+  // Count-only variant for the timeline banner: same deck selection, no memo
+  // or attachment serialization.
+  app.get(
+    "/review/today/summary",
+    zValidator("query", dailyReviewQuerySchema),
+    async (c) => {
+      try {
+        const { db, user } = await getRequestContext(c);
+        const query = c.req.valid("query");
+        const summary = await buildTodayReviewSummary(db, user, query);
+        return c.json({ date: query.date, ...summary });
+      } catch (error) {
+        return jsonError(c, error);
+      }
+    },
+  );
+
   app.get(
     "/review/today",
     zValidator("query", dailyReviewQuerySchema),

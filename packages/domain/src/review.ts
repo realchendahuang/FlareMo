@@ -343,7 +343,7 @@ export async function listRelatedMemos(
       .orderBy(desc(sql`count(*)`), desc(memoTags.memoId))
       .limit(RELATED_TAG_CANDIDATE_LIMIT);
     const rankedIds = ranked.map((row) => row.memoId);
-    for (const idChunk of chunkForD1(rankedIds, d1IdsPerStatement(2))) {
+    for (const idChunk of chunkForD1(rankedIds, d1IdsPerStatement(4))) {
       const tagRows = await db
         .select({ memoId: memoTags.memoId, tag: memoTags.tag })
         .from(memoTags)
@@ -391,7 +391,7 @@ export async function listRelatedMemos(
   ];
   if (candidateIds.length === 0) return [];
   const candidateRows: MemoRow[] = [];
-  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(2))) {
+  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(4))) {
     candidateRows.push(
       ...(await db
         .select()

@@ -5,11 +5,11 @@ import {
   savePushSubscription,
   ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { getRequestContext, type HonoBindings } from "../../context";
 import { jsonError } from "../../http";
+import { zValidator } from "../../validated";
 
 /** Both VAPID keys must be present for push to be enabled. */
 function resolvePushKeys(env: HonoBindings["Bindings"]): PushKeys | null {

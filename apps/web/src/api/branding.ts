@@ -1,15 +1,6 @@
 import { apiRequest } from "./client";
 
-export type BrandingAccent =
-  | "flame"
-  | "ocean"
-  | "indigo"
-  | "iris"
-  | "jade"
-  | "teal"
-  | "crimson"
-  | "amber"
-  | "custom";
+export type { BrandingAccent } from "@flaremo/contracts";
 
 export type BrandingInfo = {
   product: string;

@@ -95,6 +95,21 @@ export async function listTasks(
   );
 }
 
+/** Two counts for the sidebar strip; no task rows cross the wire. */
+export async function getTaskReminderCounts(date: string) {
+  return apiRequest<{ due_today: number; overdue: number }>(
+    `/api/app/tasks/reminders?date=${encodeURIComponent(date)}`,
+  );
+}
+
+/** Tasks attached to the memos currently on screen, one request per page. */
+export async function listTasksForSourceMemos(memoIds: string[]) {
+  const query = new URLSearchParams({ memo_ids: memoIds.join(",") });
+  return apiRequest<{ tasks: Task[] }>(
+    `/api/app/tasks/badges?${query.toString()}`,
+  );
+}
+
 /**
  * Every live task matching the filter, following the cursor. A single page
  * holds 30 rows by default, which silently dropped tasks from the board, the

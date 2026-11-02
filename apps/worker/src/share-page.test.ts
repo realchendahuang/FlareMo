@@ -147,6 +147,38 @@ describe("Share page (standalone SEO HTML)", () => {
     ).toHaveLength(0);
   });
 
+  it("sends a strict CSP on public share documents", async () => {
+    await seedShare();
+    const response = await shareRequest();
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("encodes uploaded attachment ids before writing them into HTML", async () => {
+    await seedShare();
+    const db = createDb(env.DB);
+    await db.insert(attachments).values({
+      id: 'attachments/x" onerror="alert(1)',
+      userId: "users/e2e-share-owner",
+      memoId: "memos/e2e-share-memo",
+      r2Key: "attachments/e2e-share-malicious",
+      filename: "evil.png",
+      contentType: "image/png",
+      size: 1,
+      state: "ready",
+      etag: "e2e",
+      payload: {},
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    });
+
+    const html = await shareRequest().then((r) => r.text());
+    expect(html).not.toContain('onerror="alert(1)"');
+    expect(html).toContain("%22%20onerror%3D%22alert(1)/blob?preview=1");
+  });
+
   it("renders markdown server-side like the web app, sanitized", async () => {
     await seedShare();
     const html = await shareRequest().then((r) => r.text());

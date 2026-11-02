@@ -12,12 +12,12 @@ import {
   readPluginPackage,
   sha256Hex,
 } from "@flaremo/plugins/package";
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getBrowserRequestContext, type HonoBindings } from "../context";
 import { jsonError } from "../http";
 import { invalidatePluginSettingsCache } from "../settings-cache";
+import { zValidator } from "../validated";
 
 /**
  * Owner-only plugin store: browse directory sources, install/uninstall

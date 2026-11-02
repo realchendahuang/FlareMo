@@ -1,10 +1,11 @@
-import { articles, users } from "@flaremo/db";
+import { extractReferencedAttachmentIds } from "@flaremo/contracts";
 import {
   getBranding,
   getPublicArticleBySlug,
+  listPublishedArticlesForFeed,
+  listPublishedArticlesForSitemap,
   type PublicArticle,
 } from "@flaremo/domain";
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { Feed } from "feed";
 import type { Context, Hono } from "hono";
 import { gfmHeadingId } from "marked-gfm-heading-id";
@@ -25,6 +26,7 @@ import {
   paperDateZh,
   paperPostmark,
 } from "./paper-page-styles";
+import { PUBLIC_PAGE_SECURITY_HEADERS } from "./public-page-security";
 import {
   highlightArticleCode,
   initArticleHighlighter,
@@ -77,8 +79,6 @@ function formatBytes(size: number): string {
 // with GFM heading ids and Shiki code highlighting.
 // ---------------------------------------------------------------------------
 
-const ATTACHMENT_REF = /\/file\/attachments\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
-
 /**
  * Body attachment references point at the authenticated `/file/` surface;
  * the public page rewrites them to the article's anonymous blob contract
@@ -113,7 +113,7 @@ export function rewriteArticleFileUrls(
         const query = match.includes("?")
           ? `?${match.split("?").slice(1).join("?")}`
           : "";
-        return `](${base}/api/public/articles/${encodeURIComponent(slug)}/attachments/${id}/blob${query}`;
+        return `](${base}/api/public/articles/${encodeURIComponent(slug)}/attachments/${encodeURIComponent(id)}/blob${query}`;
       });
     })
     .join("\n");
@@ -148,7 +148,10 @@ function createArticleMarked(
 // ---------------------------------------------------------------------------
 
 function articleBlobUrl(slug: string, attachmentId: string): string {
-  return `/api/public/articles/${encodeURIComponent(slug)}/attachments/${attachmentId}/blob`;
+  // Attachment ids come from user data (imports included). Encode both
+  // segments so a quote or slash can never break out of the HTML attribute
+  // this URL is written into.
+  return `/api/public/articles/${encodeURIComponent(slug)}/attachments/${encodeURIComponent(attachmentId)}/blob`;
 }
 
 function renderUnreferencedAttachments(data: ArticlePageData): string {
@@ -169,23 +172,17 @@ function renderUnreferencedAttachments(data: ArticlePageData): string {
       const sizeAttributes = dimensions
         ? ` width="${dimensions.width}" height="${dimensions.height}"`
         : ' loading="lazy" decoding="async"';
-      return `<figure class="gallery-item"><img src="${url}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
+      return `<figure class="gallery-item"><img src="${escapeHtml(url)}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
     }
     if (attachment.contentType?.startsWith("audio/")) {
-      return `<audio controls preload="none" src="${url}"></audio>`;
+      return `<audio controls preload="none" src="${escapeHtml(url)}"></audio>`;
     }
-    return `<p><a href="${url}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
+    return `<p><a href="${escapeHtml(url)}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
   });
   return `<hr />${items.join("\n")}`;
 }
 
-export function extractReferencedAttachmentIds(content: string): Set<string> {
-  const ids = new Set<string>();
-  for (const match of content.matchAll(ATTACHMENT_REF)) {
-    ids.add(match[1] ?? "");
-  }
-  return ids;
-}
+export { extractReferencedAttachmentIds } from "@flaremo/contracts";
 
 function metaTag(attr: string, attrValue: string, content: string): string {
   return `<meta ${attr}="${escapeHtml(attrValue)}" content="${escapeHtml(content)}" />`;
@@ -408,6 +405,7 @@ const ARTICLE_RESPONSE_INIT = {
   headers: {
     "content-type": "text/html; charset=utf-8",
     "cache-control": ARTICLE_HTML_CACHE_CONTROL,
+    ...PUBLIC_PAGE_SECURITY_HEADERS,
   },
 } as const;
 
@@ -455,18 +453,7 @@ export function registerArticlePage(app: Hono<HonoBindings>): void {
   app.get("/sitemap-articles.xml", async (c) => {
     const db = getFlareMoDb(c.env);
     const origin = publicOrigin(c.env, c.req.raw);
-    const rows = await db
-      .select({ slug: articles.slug, updatedAt: articles.updatedAt })
-      .from(articles)
-      .where(
-        and(
-          eq(articles.status, "published"),
-          isNull(articles.deletedAt),
-          isNotNull(articles.publishedAt),
-        ),
-      )
-      .orderBy(desc(articles.publishedAt))
-      .limit(2000);
+    const rows = await listPublishedArticlesForSitemap(db);
     // The package throws EmptySitemap on a zero-entry stream; an instance
     // with no published articles must still answer a valid empty urlset.
     let xml =
@@ -502,19 +489,7 @@ export function registerArticlePage(app: Hono<HonoBindings>): void {
     } catch {
       // Default branding is fine for a feed.
     }
-    const rows = await db
-      .select({ article: articles, authorName: users.name })
-      .from(articles)
-      .innerJoin(users, eq(articles.userId, users.id))
-      .where(
-        and(
-          eq(articles.status, "published"),
-          isNull(articles.deletedAt),
-          isNotNull(articles.publishedAt),
-        ),
-      )
-      .orderBy(desc(articles.publishedAt))
-      .limit(FEED_SIZE);
+    const rows = await listPublishedArticlesForFeed(db, FEED_SIZE);
     const feed = new Feed({
       title: product,
       description: `${product} 发布的文章`,

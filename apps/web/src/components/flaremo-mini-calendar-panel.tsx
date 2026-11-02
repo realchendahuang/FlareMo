@@ -1,49 +1,31 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useMemo } from "react";
+import { getTaskReminderCounts } from "@/api";
 import { useI18n } from "@/i18n";
-import {
-  buildMonthGrid,
-  monthOf,
-  todayKey,
-  type WeekStart,
-} from "@/lib/calendar-date";
-import { useAllTasks } from "@/lib/task-views";
+import { todayKey } from "@/lib/calendar-date";
+import { queryKeys } from "@/lib/query-keys";
 
 // Reminders shown above the time horizon in the explorer: open tasks due today
 // or overdue. Deep-links straight to /projects where the user can manage and
 // resolve them.
 
-function useOpenTasks(rangeStart: string, rangeEnd: string) {
-  const today = useMemo(() => todayKey(), []);
-  const tasksQuery = useAllTasks();
-  return useMemo(() => {
-    const map = new Map<string, number>();
-    let overdue = 0;
-    let dueToday = 0;
-    for (const task of tasksQuery.data?.tasks ?? []) {
-      if (!task.due_at || task.status === "done") continue;
-      if (task.due_at < rangeStart || task.due_at > rangeEnd) continue;
-      map.set(task.due_at, (map.get(task.due_at) ?? 0) + 1);
-      if (task.due_at < today) overdue += 1;
-      if (task.due_at === today) dueToday += 1;
-    }
-    return { dueToday, map, overdue };
-  }, [tasksQuery.data, rangeStart, rangeEnd, today]);
-}
-
-function currentMonthGrid(locale: string, today: string) {
-  const weekStart: WeekStart = locale.startsWith("en") ? "sunday" : "monday";
-  return buildMonthGrid(monthOf(today), weekStart, true);
+function useOpenTasks(today: string) {
+  const query = useQuery({
+    queryKey: queryKeys.tasks.reminders(today),
+    queryFn: () => getTaskReminderCounts(today),
+    staleTime: 60_000,
+  });
+  return {
+    dueToday: query.data?.due_today ?? 0,
+    overdue: query.data?.overdue ?? 0,
+  };
 }
 
 export function MiniCalendarReminders() {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const today = useMemo(() => todayKey(), []);
-  const grid = useMemo(() => currentMonthGrid(locale, today), [locale, today]);
-  const { dueToday, overdue } = useOpenTasks(
-    grid[0].key,
-    grid[grid.length - 1].key,
-  );
+  const { dueToday, overdue } = useOpenTasks(today);
 
   if (dueToday <= 0 && overdue <= 0) return null;
   // One quiet line per reminder, styled like a sidebar row: a coloured dot

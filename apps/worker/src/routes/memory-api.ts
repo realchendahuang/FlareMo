@@ -31,11 +31,11 @@ import {
   unpinMemory,
   updateMemory,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getBrowserRequestContext, type HonoBindings } from "../context";
 import { jsonError } from "../http";
+import { zValidator } from "../validated";
 
 export const memoryApi = new Hono<HonoBindings>();
 

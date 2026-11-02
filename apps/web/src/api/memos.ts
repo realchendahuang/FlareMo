@@ -13,6 +13,7 @@ import type {
   ReviewSettingsUpdate,
   TagHierarchyResponse,
   TodayReviewResponse,
+  TodayReviewSummaryResponse,
   WalkNextResponse,
 } from "@flaremo/contracts";
 import { apiRequest } from "./client";
@@ -154,6 +155,20 @@ export async function getTodayReview(date: string, tzOffsetMinutes: number) {
   });
   return apiRequest<TodayReviewResponse>(
     `/api/app/review/today?${query.toString()}`,
+  );
+}
+
+/** Count-only variant of the review deck, used by the timeline banner. */
+export async function getTodayReviewSummary(
+  date: string,
+  tzOffsetMinutes: number,
+) {
+  const query = new URLSearchParams({
+    date,
+    tzOffset: String(tzOffsetMinutes),
+  });
+  return apiRequest<TodayReviewSummaryResponse>(
+    `/api/app/review/today/summary?${query.toString()}`,
   );
 }
 

@@ -4,7 +4,6 @@ import {
   deriveUniqueUsername,
   listFlaremoUsersWithMemberships,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import {
   type getBrowserRequestContext,
@@ -12,7 +11,13 @@ import {
   loadAuthFactory,
 } from "../../context";
 import { jsonError } from "../../http";
-import { createUserSchema, readerExpiresAt, teamAdminContext } from "./context";
+import { zValidator } from "../../validated";
+import {
+  createUserSchema,
+  readerExpiresAt,
+  teamAdminContext,
+  teamAdminSessionContext,
+} from "./context";
 
 /**
  * Create a Better Auth identity, the domain user, the link, and the default
@@ -91,7 +96,8 @@ export function registerUsersRoutes(app: Hono<HonoBindings>) {
 
   app.post("/users", zValidator("json", createUserSchema), async (c) => {
     try {
-      const context = await teamAdminContext(c);
+      // Returns an activation link, so a browser session is required.
+      const context = await teamAdminSessionContext(c);
       const input = c.req.valid("json");
       const { member, username, activationToken } = await createMemberAccount(
         c,

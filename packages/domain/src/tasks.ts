@@ -7,7 +7,20 @@ import type {
 } from "@flaremo/contracts";
 import type { FlareMoDb, TaskActivityRow, TaskRow, UserRow } from "@flaremo/db";
 import { taskActivity, tasks } from "@flaremo/db";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
 import { setMemoTaskLineState } from "./memo-task-sync";
@@ -273,6 +286,75 @@ export async function listTasks(
         })
       : undefined,
   };
+}
+
+/**
+ * Counts for the sidebar reminder strip. One grouped query instead of
+ * hydrating every open task: the strip only renders two integers.
+ */
+export async function getTaskReminderCounts(
+  db: FlareMoDb,
+  user: UserRow,
+  date: string,
+): Promise<{ due_today: number; overdue: number }> {
+  const next = nextDayKey(date);
+  const row = await db
+    .select({
+      due_today: sql<number>`coalesce(sum(case when ${tasks.dueAt} >= ${date} and ${tasks.dueAt} < ${next} then 1 else 0 end), 0)`,
+      overdue: sql<number>`coalesce(sum(case when ${tasks.dueAt} < ${date} then 1 else 0 end), 0)`,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, user.id),
+        isNull(tasks.deletedAt),
+        isNotNull(tasks.dueAt),
+        // `done` is the only closed state; todo/in_progress both count.
+        inArray(tasks.status, ["todo", "in_progress"]),
+      ),
+    )
+    .get();
+  return {
+    due_today: Number(row?.due_today ?? 0),
+    overdue: Number(row?.overdue ?? 0),
+  };
+}
+
+/**
+ * Tasks linked to a page of memos, fetched once for the whole page instead of
+ * every card subscribing to the all-tasks cache. Chunked because the memo
+ * page can be 100 ids and D1 binds 100 parameters per statement.
+ */
+export async function listTasksForSourceMemos(
+  db: FlareMoDb,
+  user: UserRow,
+  memoIds: readonly string[],
+): Promise<TaskDto[]> {
+  const ids = [
+    ...new Set(
+      memoIds
+        .map((memoId) => normalizeSourceMemoId(memoId))
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+  if (ids.length === 0) return [];
+  const rows: TaskRow[] = [];
+  for (const chunk of chunkForD1(ids, d1IdsPerStatement(2))) {
+    rows.push(
+      ...(await db
+        .select()
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.userId, user.id),
+            isNull(tasks.deletedAt),
+            inArray(tasks.sourceMemoId, chunk),
+          ),
+        )
+        .orderBy(asc(tasks.sortOrder), asc(tasks.createdAt), asc(tasks.id))),
+    );
+  }
+  return rows.map(taskToDto);
 }
 
 // A reorder is a project-scoped event and is the only writer that shifts many

@@ -26,7 +26,11 @@ import { findMentionedUsers, insertMemoNotification } from "./memos-user";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
 import { assertMemoCountQuota, type QuotaScope } from "./quotas";
 import { extractTags, normalizeMemoTags } from "./tags";
-import { isActiveTeamMember, memoReadScope } from "./team-permissions";
+import {
+  canPublishTeamMemo,
+  isActiveTeamMember,
+  memoReadScope,
+} from "./team-permissions";
 
 export type CreateMemoCommentInput = {
   parentMemoName?: string;
@@ -91,6 +95,13 @@ export async function createMemoComment(
       : parentMemoOrInput.parentMemoName;
   const parentId = parseResourceName(parentMemoId, "memos");
   const parent = await getMemoById(db, user, parentId);
+  // A comment is a memo and inherits the parent's visibility. When that
+  // visibility is anything but private, the comment lands in the team (or
+  // public) space, so the read-only seat must be denied here too — this path
+  // does not go through resolveMemoTeamId.
+  if (parent.visibility !== "private" && !canPublishTeamMemo(user)) {
+    throw new ForbiddenError("Read-only members cannot publish comments.");
+  }
   const content = effectiveInput.comment?.content ?? effectiveInput.content;
   if (typeof content !== "string" || !content.trim()) {
     throw new ValidationError("Comment content is required");
@@ -526,7 +537,7 @@ export async function countMemoComments(
     ...new Set(parentIds.map((id) => parseResourceName(id, "memos"))),
   ];
   const counts = new Map<string, number>();
-  for (const idChunk of chunkForD1(ids, d1IdsPerStatement(4))) {
+  for (const idChunk of chunkForD1(ids, d1IdsPerStatement(12))) {
     const rows = await db
       .select({
         parentId: memoRelations.relatedMemoId,

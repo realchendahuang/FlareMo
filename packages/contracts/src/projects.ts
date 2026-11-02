@@ -150,6 +150,15 @@ export const listTasksResponseSchema = z.object({
   next_page_token: z.string().optional(),
 });
 
+export const taskReminderCountsQuerySchema = z.object({
+  date: dateKey,
+});
+
+export const memoTaskSummariesQuerySchema = z.object({
+  /** Comma-separated memo resource names, at most 100 per request. */
+  memo_ids: z.string().trim().min(1).max(25_700),
+});
+
 export const reorderTasksSchema = z.object({
   project_id: z.string().trim().min(1).max(256),
   // Bounded so a single request cannot fan out into an unbounded write batch.

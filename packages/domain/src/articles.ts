@@ -564,3 +564,43 @@ export async function getPublicArticleAttachment(
   if (!attachment) throw new NotFoundError("Attachment not found");
   return { article, attachment };
 }
+
+/** Published, not deleted: the one visibility rule shared by page/sitemap/feed. */
+function publishedArticlesFilter() {
+  return and(
+    eq(articles.status, "published"),
+    isNull(articles.deletedAt),
+    isNotNull(articles.publishedAt),
+  );
+}
+
+/**
+ * Enumerable article surface for the sitemap. Route code used to hand-write
+ * the published filter, which meant a future visibility change had to be
+ * mirrored in three places.
+ */
+export async function listPublishedArticlesForSitemap(
+  db: FlareMoDb,
+  limit = 2000,
+) {
+  return db
+    .select({ slug: articles.slug, updatedAt: articles.updatedAt })
+    .from(articles)
+    .where(publishedArticlesFilter())
+    .orderBy(desc(articles.publishedAt))
+    .limit(limit);
+}
+
+/** Published articles with their author name, for the RSS feed. */
+export async function listPublishedArticlesForFeed(
+  db: FlareMoDb,
+  limit: number,
+) {
+  return db
+    .select({ article: articles, authorName: users.name })
+    .from(articles)
+    .innerJoin(users, eq(articles.userId, users.id))
+    .where(publishedArticlesFilter())
+    .orderBy(desc(articles.publishedAt))
+    .limit(limit);
+}

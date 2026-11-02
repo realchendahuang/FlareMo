@@ -22,12 +22,12 @@ import {
   upsertBrandingMark,
   ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { HonoBindings } from "../../context";
 import { jsonError } from "../../http";
 import { invalidateBrandingCache } from "../../settings-cache";
+import { zValidator } from "../../validated";
 import { ownerContext } from "./context";
 
 const updateBrandingSchema = z.object({

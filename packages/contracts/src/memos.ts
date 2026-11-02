@@ -357,10 +357,29 @@ export const exportAttachmentSchema = attachmentDtoSchema
     data_base64: z.string().max(48_000_000).optional(),
   });
 
-const importAttachmentSchema = exportAttachmentSchema.partial({
-  state: true,
-  etag: true,
-});
+/**
+ * Imported resource names become D1 keys and, for attachments, URL path
+ * segments in the public share/article renderers. Only accept the character
+ * set our own ids use (plus the optional `prefix/`), so a bundle cannot smuggle
+ * a quote, slash, or whitespace into an id that is later interpolated into
+ * HTML.
+ */
+const importedResourceName = (prefix: "memos" | "attachments") =>
+  z
+    .string()
+    .regex(
+      new RegExp(`^(?:${prefix}/)?[A-Za-z0-9][A-Za-z0-9._~:-]{0,127}$`),
+      `Invalid ${prefix} resource name.`,
+    );
+
+const importAttachmentSchema = exportAttachmentSchema
+  .partial({
+    state: true,
+    etag: true,
+  })
+  .extend({
+    name: importedResourceName("attachments"),
+  });
 
 const importShareSchema = shareDtoSchema.partial({
   update_time: true,
@@ -401,6 +420,7 @@ export const importBundleSchema = z.object({
           display_time: true,
         })
         .extend({
+          name: importedResourceName("memos"),
           source: z.string().max(64).optional(),
           // v6: team-visible memos carry their organization id. Older bundles
           // omit it and import into the receiver's own team when possible.
@@ -670,6 +690,12 @@ export type TodayReviewItem = {
   reviewed: boolean;
 };
 export type TodayReviewResponse = { date: string; items: TodayReviewItem[] };
+export type TodayReviewSummaryResponse = {
+  date: string;
+  total: number;
+  reviewed: number;
+  remaining: number;
+};
 export type ReviewSettingsResponse = {
   excluded_tags: string[];
   muted_count: number;

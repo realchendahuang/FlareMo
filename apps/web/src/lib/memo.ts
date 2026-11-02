@@ -5,86 +5,10 @@ export function getMemoResourceId(memo: Memo) {
   return stripResourceName(memo.name, "memos");
 }
 
-/**
- * Tag syntax mirrors the server-side extractor in
- * `packages/domain/src/tags.ts`. The composer computes `payload.tags` for new
- * memos and the server trusts those values, so both sides must agree on the
- * charset and on what counts as code (issue #152): a `#comment` inside a
- * fenced block or an inline code span is not a tag. Keep the two in sync.
- */
-const TAG_PATTERN = /(^|[^\p{L}\p{N}_\-/])#([\p{L}\p{N}_\-/]+)/gu;
+// The composer and the server share one tag parser (contracts).
+import { TAG_PATTERN } from "@flaremo/contracts";
 
-export function extractTags(content: string) {
-  const tags = new Set<string>();
-  for (const match of maskMarkdownLiteralCode(content).matchAll(TAG_PATTERN)) {
-    const raw = match[2];
-    if (raw) tags.add(raw);
-  }
-  return [...tags];
-}
-
-/**
- * Replace fenced code blocks and inline code spans with spaces (newlines are
- * kept) so tag boundaries match on the prose that remains. Mirrors the
- * literal-segment rules in `packages/domain/src/tags.ts`.
- */
-function maskMarkdownLiteralCode(content: string) {
-  const masked: string[] = [];
-  let inFence = false;
-  let fenceChar = "";
-  let fenceLength = 0;
-  for (const line of content.split(/(?<=\n)/)) {
-    if (inFence) {
-      masked.push(maskLine(line));
-      // Closing fence: same character, at least as long, nothing after it.
-      const marker = line.trimEnd().match(/^[ \t]*(~{3,}|`{3,})[ \t]*$/)?.[1];
-      if (marker && marker[0] === fenceChar && marker.length >= fenceLength) {
-        inFence = false;
-        fenceChar = "";
-        fenceLength = 0;
-      }
-      continue;
-    }
-    const opening = line.match(/^[ \t]*(~{3,}|`{3,})/)?.[1];
-    if (opening) {
-      inFence = true;
-      fenceChar = opening[0] ?? "";
-      fenceLength = opening.length;
-      masked.push(maskLine(line));
-      continue;
-    }
-    masked.push(maskInlineCode(line));
-  }
-  return masked.join("");
-}
-
-function maskLine(line: string) {
-  return line.replace(/[^\n]/g, " ");
-}
-
-function maskInlineCode(line: string) {
-  let masked = "";
-  let cursor = 0;
-  let index = 0;
-  while (index < line.length) {
-    if (line[index] !== "`") {
-      index += 1;
-      continue;
-    }
-    let run = 0;
-    while (line[index + run] === "`") run += 1;
-    const close = line.indexOf("`".repeat(run), index + run);
-    if (close === -1) {
-      index += run;
-      continue;
-    }
-    masked += maskLine(line.slice(cursor, index));
-    masked += maskLine(line.slice(index, close + run));
-    cursor = close + run;
-    index = cursor;
-  }
-  return masked + line.slice(cursor);
-}
+export { extractTags } from "@flaremo/contracts";
 
 /**
  * Formatter caches. Constructing `Intl` objects is one of the more expensive

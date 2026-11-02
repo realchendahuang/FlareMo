@@ -47,7 +47,6 @@ import {
   parseMemosResourceName,
   shareToDto,
 } from "@flaremo/memos";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import {
   attachmentObjectResponse,
@@ -60,6 +59,7 @@ import { jsonError } from "../../http";
 import { buildMemoContext } from "../../memo-context";
 import { hardDeleteMemoWithAttachments } from "../../memo-hard-delete";
 import { deleteMemosAttachment } from "../../memos-compat/attachment-delete";
+import { zValidator } from "../../validated";
 
 export function registerMemosRoutes(app: Hono<HonoBindings>) {
   app.get("/memos", zValidator("query", listMemosQuerySchema), async (c) => {

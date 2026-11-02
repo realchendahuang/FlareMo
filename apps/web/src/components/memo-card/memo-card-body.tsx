@@ -16,7 +16,8 @@ import { extractTags } from "@/lib/memo";
 import { countTaskItems } from "@/lib/memo-tasks";
 import { cn } from "@/lib/utils";
 import { stateLabel } from "./memo-card-badges";
-import { MemoTaskBadge, useMemoTasks } from "./memo-task-badge";
+import { MemoTaskBadge } from "./memo-task-badge";
+import { useMemoTasks } from "./memo-task-context";
 import type { MemoTaskInteraction } from "./use-memo-card-actions";
 
 /** Bodies beyond this size collapse in the timeline. */

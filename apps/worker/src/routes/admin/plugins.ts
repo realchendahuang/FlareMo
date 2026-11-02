@@ -3,12 +3,12 @@ import {
   PLUGIN_LIST_LIMIT,
   setPluginSettings,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { HonoBindings } from "../../context";
 import { jsonError } from "../../http";
 import { invalidatePluginSettingsCache } from "../../settings-cache";
+import { zValidator } from "../../validated";
 import { ownerContext } from "./context";
 
 const pluginIdSchema = z

@@ -1,3 +1,7 @@
+import {
+  extractReferencedAttachmentIds,
+  injectShareTokenIntoFileUrls,
+} from "@flaremo/contracts";
 import { getBranding, getPublicShareByToken } from "@flaremo/domain";
 import type { Context, Hono } from "hono";
 import { SitemapIndexStream, streamToPromise } from "sitemap";
@@ -16,6 +20,7 @@ import {
   paperDateZh,
   paperPostmark,
 } from "./paper-page-styles";
+import { PUBLIC_PAGE_SECURITY_HEADERS } from "./public-page-security";
 
 /**
  * Public memo share pages (`/share/:token`) as standalone lightweight HTML
@@ -60,43 +65,10 @@ type SharePageData = Awaited<ReturnType<typeof getPublicShareByToken>>;
 type ShareAttachment = SharePageData["attachments"][number];
 
 // ---------------------------------------------------------------------------
-// Attachment references. Mirrors apps/web/src/lib/attachment-refs.ts — the
-// worker cannot import from the web app, so keep the two in sync (a parity
-// case lives in share-page.test.ts).
+// Attachment references (shared with the web app and article renderer).
 // ---------------------------------------------------------------------------
 
-const ATTACHMENT_REF = /\/file\/attachments\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
-
-export function extractReferencedAttachmentIds(content: string): Set<string> {
-  const ids = new Set<string>();
-  for (const match of content.matchAll(ATTACHMENT_REF)) {
-    ids.add(match[1] ?? "");
-  }
-  return ids;
-}
-
-/** Mirrors the web helper: only markdown link destinations, fences skipped. */
-export function injectShareTokenIntoFileUrls(
-  content: string,
-  token: string,
-): string {
-  let inFence = false;
-  return content
-    .split("\n")
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) {
-        inFence = !inFence;
-        return line;
-      }
-      if (inFence) return line;
-      return line.replace(/(\]\(\/file\/attachments\/[^\s)]*)/g, (target) =>
-        target.includes("?")
-          ? `${target}&share_token=${token}`
-          : `${target}?share_token=${token}`,
-      );
-    })
-    .join("\n");
-}
+export { extractReferencedAttachmentIds, injectShareTokenIntoFileUrls };
 
 // ---------------------------------------------------------------------------
 // Markdown rendering (shared sanitized pipeline in markdown-render.ts).
@@ -122,7 +94,10 @@ function renderMarkdown(input: {
 
 function publicBlobUrl(token: string, attachment: ShareAttachment): string {
   const id = attachment.id.replace(/^attachments\//, "");
-  return `/api/public/shares/${token}/attachments/${id}/blob`;
+  // Attachment ids come from user data (imports included). Encode both
+  // segments so a quote or slash can never break out of the HTML attribute
+  // this URL is written into.
+  return `/api/public/shares/${encodeURIComponent(token)}/attachments/${encodeURIComponent(id)}/blob`;
 }
 
 function renderUnreferencedAttachments(
@@ -144,12 +119,12 @@ function renderUnreferencedAttachments(
       const sizeAttributes = dimensions
         ? ` width="${dimensions.width}" height="${dimensions.height}"`
         : ' loading="lazy" decoding="async"';
-      return `<figure class="gallery-item"><img src="${url}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
+      return `<figure class="gallery-item"><img src="${escapeHtml(url)}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
     }
     if (attachment.contentType?.startsWith("audio/")) {
-      return `<audio controls preload="none" src="${url}"></audio>`;
+      return `<audio controls preload="none" src="${escapeHtml(url)}"></audio>`;
     }
-    return `<p><a href="${url}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
+    return `<p><a href="${escapeHtml(url)}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
   });
   return `<hr />${items.join("\n")}`;
 }
@@ -375,6 +350,7 @@ const SHARE_RESPONSE_INIT = {
   headers: {
     "content-type": "text/html; charset=utf-8",
     "cache-control": SHARE_HTML_CACHE_CONTROL,
+    ...PUBLIC_PAGE_SECURITY_HEADERS,
   },
 } as const;
 

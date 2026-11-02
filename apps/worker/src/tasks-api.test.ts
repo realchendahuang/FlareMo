@@ -566,6 +566,52 @@ describe("FlareMo tasks API", () => {
     );
     expect(view.tasks).toHaveLength(0);
   });
+
+  it("serves reminder counts and per-page memo badges", async () => {
+    const memoName = "memos/badge-page";
+    await createTask(undefined, "overdue", {
+      due_at: "2026-03-14",
+      source_memo_id: memoName,
+    });
+    await createTask(undefined, "today", {
+      due_at: "2026-03-15",
+      source_memo_id: memoName,
+    });
+    await createTask(undefined, "done", {
+      due_at: "2026-03-15",
+      status: "done",
+      source_memo_id: memoName,
+    });
+    await createTask(undefined, "other memo", {
+      due_at: "2026-03-15",
+      source_memo_id: "memos/another-page",
+    });
+
+    const reminders = await json<{ due_today: number; overdue: number }>(
+      await fetchApp(
+        "http://flaremo.test/api/app/tasks/reminders?date=2026-03-15",
+      ),
+    );
+    expect(reminders).toEqual({ due_today: 2, overdue: 1 });
+
+    const badges = await json<{ tasks: Array<{ title: string }> }>(
+      await fetchApp(
+        `http://flaremo.test/api/app/tasks/badges?memo_ids=${encodeURIComponent(memoName)}`,
+      ),
+    );
+    expect(badges.tasks.map((task) => task.title).sort()).toEqual([
+      "done",
+      "overdue",
+      "today",
+    ]);
+
+    const empty = await json<{ tasks: unknown[] }>(
+      await fetchApp(
+        "http://flaremo.test/api/app/tasks/badges?memo_ids=memos/no-tasks",
+      ),
+    );
+    expect(empty.tasks).toEqual([]);
+  });
 });
 
 async function createTask(

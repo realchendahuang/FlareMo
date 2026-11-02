@@ -111,6 +111,52 @@ describe("importData batching", () => {
     expect(await db.select().from(shares)).toHaveLength(25);
   });
 
+  it("records the bytes the bundle actually carried, not the declared size", async () => {
+    const bundle = importBundleSchema.parse({
+      version: 6,
+      memos: [
+        {
+          name: "memos/size-check",
+          content: "note",
+          visibility: "private",
+          state: "normal",
+          pinned: false,
+          payload: {},
+          create_time: "2024-01-01T00:00:00.000Z",
+        },
+      ],
+      attachments: [
+        {
+          name: "attachments/size-check",
+          id: "attachments/size-check",
+          memo: "memos/size-check",
+          filename: "payload.txt",
+          content_type: "text/plain",
+          // A lying bundle: declares zero bytes but carries eleven.
+          size: 0,
+          payload: {},
+          data_base64: Buffer.from("hello world").toString("base64"),
+          create_time: "2024-01-03T00:00:00.000Z",
+          update_time: "2024-01-03T00:00:00.000Z",
+        },
+      ],
+    });
+
+    await importData(db, owner, bundle, {
+      attachmentR2Keys: new Map([
+        ["attachments/size-check", "imports/size-check/payload.txt"],
+      ]),
+    });
+
+    const row = await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.id, "attachments/size-check"))
+      .get();
+    expect(row?.size).toBe(11);
+    expect(row?.state).toBe("ready");
+  });
+
   it("re-importing with overwrite replaces rather than duplicates", async () => {
     const bundle = importBundleSchema.parse({
       version: 5,

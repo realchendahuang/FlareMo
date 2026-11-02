@@ -12,6 +12,9 @@ export const queryKeys = {
     all: ["tasks"] as const,
     byProject: (projectId: string) => ["tasks", projectId] as const,
     trash: () => ["tasks", "trash"] as const,
+    reminders: (date: string) => ["tasks", "reminders", date] as const,
+    badges: (memoIds: readonly string[]) =>
+      ["tasks", "badges", ...memoIds] as const,
   },
   /**
    * Timeline pages. The leading "memos" segment is the invalidation anchor:
@@ -55,6 +58,8 @@ export const queryKeys = {
     all: ["review-today"] as const,
     today: (date: string, tzOffset: number) =>
       ["review-today", date, tzOffset] as const,
+    summary: (date: string, tzOffset: number) =>
+      ["review-today", "summary", date, tzOffset] as const,
     settings: ["review-settings"] as const,
   },
   currentUser: ["current-flaremo-user"] as const,

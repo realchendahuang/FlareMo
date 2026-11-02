@@ -370,7 +370,7 @@ export async function listAttachmentsForMemosForViewer(
   // the 100-parameter cap; chunking keeps every statement legal and the merge
   // preserves the single-query ordering.
   const rows: Array<typeof attachments.$inferSelect> = [];
-  for (const idChunk of chunkForD1(memoIds, d1IdsPerStatement(2))) {
+  for (const idChunk of chunkForD1(memoIds, d1IdsPerStatement(12))) {
     const allowedMemoIds = db
       .select({ id: memos.id })
       .from(memos)
