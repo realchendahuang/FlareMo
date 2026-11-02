@@ -39,7 +39,7 @@ The first version does not implement:
 - Per-resource member lists or complex ACLs;
 - Open registration, email verification, or email invitation flows for team mode;
 - SSO, SCIM, approval flows, or heavy auditing;
-- Team projects, team tasks, or shared Agent Memory;
+- Team projects or team tasks;
 - Freeze periods or personal-data export after removal.
 
 ## Members and roles
@@ -210,7 +210,7 @@ When a team administrator removes a member:
 2. Revoke every session, PAT, and application credential, and delete the membership row;
 3. Delete all of the member's personal notes and attachments;
 4. Delete the corresponding R2 objects and Vectorize derived indexes;
-5. Delete the member's personal projects, tasks, and Agent Memory;
+5. Delete the member's personal projects and tasks;
 6. The member's team-visible and world-public notes are claimed by the owner account (content and visibility unchanged, historical author names preserved);
 7. Keep the historical author record;
 8. Revoke share links the member created.

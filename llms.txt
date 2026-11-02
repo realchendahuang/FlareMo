@@ -1,6 +1,6 @@
 # FlareMo
 
-FlareMo 是跑在 Cloudflare 上的 AI 原生第二大脑：零服务器、零运维，速记、任务、文章与团队共享沉淀成你自己的知识库，也是 AI Agent 的长期记忆。
+FlareMo 是跑在 Cloudflare 上的 AI 原生第二大脑：零服务器、零运维，速记、任务、文章与团队共享沉淀成你自己的知识库；Agent 通过 MCP 直接读写你的笔记。
 
 ## 必读
 
@@ -9,9 +9,9 @@ FlareMo 是跑在 Cloudflare 上的 AI 原生第二大脑：零服务器、零�
 - 架构: ./docs/architecture-notes.md
 - 部署: ./docs/deploy.md
 - Agent 部署: ./docs/agent-deploy.md
-- Agent Memory: ./docs/agent-memory.md
-- Agent Memory CLI: ./bin/flaremo（npm install -g . 后可用；lens/recall/remember/checkpoint/status/seed）
-- Agent Memory Skill: ./skills/flaremo-memory/SKILL.md
+- 笔记 MCP: /mcp（Streamable HTTP，工具名 memo_*）
+- 旧 MCP: /api/v1/mcp（JSON-RPC 子集）
+- 笔记 Skill: ./skills/flaremo-notes/SKILL.md
 - 发版: ./docs/release.md
 - 维护: ./docs/maintenance.md
 - Memos 兼容矩阵: ./docs/memos-compatibility.md

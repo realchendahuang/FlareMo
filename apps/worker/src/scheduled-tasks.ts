@@ -35,7 +35,6 @@ import {
   pushNotificationToUser,
   recalibrateAllHourlyCounts,
   requeueStaleMemberRemovalJobs,
-  runMemoryLedgerMaintenance,
   SELF_HOST_UNLIMITED,
   type UserPlanLimits,
   updateMemberRemovalJob,
@@ -46,7 +45,6 @@ import { createEmbeddingProvider, createVectorIndex } from "./embedding";
 import type { FlareMoEnv } from "./env";
 import { runDataExportTask } from "./export-task";
 import { hardDeleteMemoWithAttachments } from "./memo-hard-delete";
-import { runMemoryConflictPatrol, runMemoryDreaming } from "./memory-dreaming";
 
 /**
  * Cron / queue maintenance surface, moved verbatim from the former inline
@@ -191,40 +189,6 @@ export async function runScheduledMaintenance(
     : (await listQueuedDataExportTasks(db)).map((task) => task.id);
   await runExportTasks(env, db, exportTaskIds, Boolean(options.exportTaskIds));
   await dispatchMemosWebhookOutbox(db);
-  // Memory-ledger upkeep runs before the embedding outbox so the vector work it
-  // queues is drained by the same pass: stale conjectures retire, and rows whose
-  // validity window or expiry has passed leave the index instead of being ranked
-  // on every recall and filtered out afterwards.
-  await runMemoryLedgerMaintenance(db, new Date(scheduledTime));
-  // Dreaming (§VI.8) runs after the ledger upkeep and *before* the embedding
-  // outbox, so the inferred proposals it isolates — and the vectors it does
-  // not index — are consistently accounted for in the same pass. It is an
-  // LLM pass, deliberately last of the deterministic sweeps.
-  try {
-    const dreaming = await runMemoryDreaming(env, new Date(scheduledTime));
-    if (dreaming.proposals > 0) {
-      console.log(
-        JSON.stringify({ message: "memory dreaming proposals", ...dreaming }),
-      );
-    }
-    const patrol = await runMemoryConflictPatrol(env, new Date(scheduledTime));
-    if (patrol.proposals > 0) {
-      console.log(
-        JSON.stringify({
-          message: "memory conflict patrol proposals",
-          ...patrol,
-        }),
-      );
-    }
-  } catch (error) {
-    // Dreaming must never take the whole maintenance window down.
-    console.error(
-      JSON.stringify({
-        message: "memory dreaming failed",
-        error: error instanceof Error ? error.message : String(error),
-      }),
-    );
-  }
   // SSE replay events have a one-week retention; the bounded chunk keeps the
   // daily sweep from one giant delete.
   const ssePruned = await pruneMemosSseEvents(
@@ -234,7 +198,8 @@ export async function runScheduledMaintenance(
   await dispatchEmbeddingOutbox(db, {
     provider: createEmbeddingProvider(env),
     memosIndex: createVectorIndex(env, "memo"),
-    memoriesIndex: createVectorIndex(env, "memory"),
+    // Agent Memory is gone; no new memory vectors are produced.
+    memoriesIndex: null,
     limits: options.limits ?? SELF_HOST_UNLIMITED,
     userLimits:
       options.userLimits === undefined

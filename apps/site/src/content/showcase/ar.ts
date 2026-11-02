@@ -47,7 +47,6 @@ export const AR_SHOWCASE: ShowcaseContent = {
     trash: "سلة المهملات",
     dailyReview: "المراجعة اليومية",
     randomWalk: "جولة عشوائية",
-    memory: "الذاكرة",
     calendarView: "الجدول",
     projects: "المهام",
     tagIndex: "فهرس الوسوم",

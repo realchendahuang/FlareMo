@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeftIcon, BrainIcon, FileTextIcon, PinIcon } from "lucide-react";
+import { ArrowLeftIcon, FileTextIcon, PinIcon } from "lucide-react";
 import type { Memo, MemoContext, RelatedMemo } from "@/api";
 import { MemoTaskProvider } from "@/components/memo-card/memo-task-context";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -31,7 +31,6 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
     revokeMutation,
     restoreMutation,
     relationMutation,
-    rememberMutation,
     taskInteraction,
   } = useMemoDetail(memoId);
 
@@ -164,9 +163,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
               })
             }
             onRevoke={(share) => revokeMutation.mutate(share)}
-            onRemember={() => rememberMutation.mutate()}
             taskInteraction={taskInteraction}
-            rememberPending={rememberMutation.isPending}
             relationPending={relationMutation.isPending}
             restorePending={restoreMutation.isPending}
             revokePending={revokeMutation.isPending}
@@ -192,11 +189,9 @@ function MemoDetail({
   setRelatedMemo,
   onAddRelation,
   onCreateShare,
-  onRemember,
   onRestore,
   onRemoveRelation,
   onRevoke,
-  rememberPending,
   relationPending,
   restorePending,
   revokePending,
@@ -215,11 +210,9 @@ function MemoDetail({
   setRelatedMemo: (value: string) => void;
   onAddRelation: (name: string) => void;
   onCreateShare: () => void;
-  onRemember: () => void;
   onRestore: (revision: string) => void;
   onRemoveRelation: (name: string) => void;
   onRevoke: (share: string) => void;
-  rememberPending: boolean;
   relationPending: boolean;
   restorePending: boolean;
   revokePending: boolean;
@@ -262,15 +255,6 @@ function MemoDetail({
                 {t(`visibility.${context.memo.visibility}`)}
               </Badge>
             )}
-            <Button
-              disabled={rememberPending}
-              size="sm"
-              variant="ghost"
-              onClick={onRemember}
-            >
-              <BrainIcon data-icon="inline-start" />
-              {t("memory.newMemory")}
-            </Button>
           </div>
         </div>
       </CardHeader>

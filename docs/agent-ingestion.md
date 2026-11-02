@@ -81,6 +81,6 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
 AI 摘要、正文抓取和标签提取属于可选派生步骤。即使模型失败，也应该允许保存原始文本或链接；AI 返回内容不得绕过 Access，也不得成为 D1 之外的权威数据源。
 
 
-## 记忆账本（长结论走这里，不进 memo 流）
+## 长期结论也写进 memo
 
-本文档只覆盖 **memo（记录流）** 的写入通道。AI 应长期记住的原子结论——偏好、项目决策、约束、教训——走另一条账本：**Agent Memory**。最佳实践是 CLI + Skills（`flaremo remember` / `flaremo checkpoint`），不要把长期结论灌进 memo 时间线；接入方式、退出码契约与权限模型见 [Agent Memory](./agent-memory.md)。
+本文档只覆盖 **memo（记录流）** 的写入通道，也是 Agent 唯一的知识落点。FlareMo 不再提供独立的 AI 记忆账本；需要跨会话保留的偏好、项目决策、约束或教训，直接写成一条 memo（或通过 `/mcp` 创建/更新），由用户自己的笔记承担事实源。写入规约见 `skills/flaremo-notes/SKILL.md`。

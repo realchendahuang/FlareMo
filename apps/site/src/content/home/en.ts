@@ -5,7 +5,7 @@ export const EN_HOME: HomeContent = {
   heroTitleLine1: "Zero Servers. Forever Yours.",
   heroTitleLine2: "An AI-native second brain that grows with you.",
   heroSubtitle:
-    "Minimal, never shallow. Quiet, never loud. Write freely on Cloudflare Edge — where notes grow into tasks, articles and a knowledge base, plus shared long-term memory for your AI agents.",
+    "Minimal, never shallow. Quiet, never loud. Write freely on Cloudflare Edge — where notes grow into tasks, articles and a knowledge base, with MCP access for your AI agents.",
   primaryCta: "Read Deploy Guide",
   secondaryCta: "View on GitHub",
   statMemos: "~2.5M text notes",
@@ -33,9 +33,9 @@ export const EN_HOME: HomeContent = {
         "Installable PWA for iOS, Android, and desktop. Write offline on planes or subways. Drafts save locally as you type and sync in order once you're back online.",
     },
     {
-      title: "AI-Native Long-Term Memory",
+      title: "AI Works on Your Notes",
       description:
-        "A built-in Model Context Protocol (MCP) endpoint lets AI agents (Claude, Cursor, Codex) read and update your preferences and memory scopes—while you inspect every change.",
+        "A built-in Model Context Protocol (MCP) endpoint lets AI agents (Claude, Cursor, Codex) search, read and write your own notes. Nothing is auto-summarized into a separate memory store.",
     },
     {
       title: "A Team Space for Sharing",
@@ -115,7 +115,7 @@ export const EN_HOME: HomeContent = {
     },
     {
       q: "Can I connect my own scripts and tools?",
-      a: "Yes. Revocable Personal Access Tokens back the open API for your scripts. For AI workflows, the built-in CLI and MCP endpoint read and write the same Agent Memory. See the compatibility matrix for the full supported surface.",
+      a: "Yes. Revocable Personal Access Tokens back the open API for your scripts. For AI workflows, the built-in `/mcp` endpoint exposes list, search, read, create, update and delete over your notes, and the `flaremo-notes` skill covers the usage rules.",
     },
     {
       q: "How does single-user differ from team mode?",

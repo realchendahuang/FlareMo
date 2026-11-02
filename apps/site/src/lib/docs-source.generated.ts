@@ -18,10 +18,6 @@ const agentIngestion: RawDocLoader = () =>
   import("../../../../docs/agent-ingestion.md?raw").then(
     (module) => module.default,
   );
-const agentMemory: RawDocLoader = () =>
-  import("../../../../docs/agent-memory.md?raw").then(
-    (module) => module.default,
-  );
 const architectureNotes: RawDocLoader = () =>
   import("../../../../docs/architecture-notes.md?raw").then(
     (module) => module.default,
@@ -34,10 +30,6 @@ const designSystem: RawDocLoader = () =>
   );
 const enAgentDeploy: RawDocLoader = () =>
   import("../../../../docs/en/agent-deploy.md?raw").then(
-    (module) => module.default,
-  );
-const enAgentMemory: RawDocLoader = () =>
-  import("../../../../docs/en/agent-memory.md?raw").then(
     (module) => module.default,
   );
 const enDeploy: RawDocLoader = () =>
@@ -144,11 +136,6 @@ const ZH_DOCS: Record<
     title: "Agent 与 IM 渠道写入",
     group: "agent",
     body: agentIngestion,
-  },
-  "agent-memory": {
-    title: "Agent Memory：AI 长期记忆中枢",
-    group: "agent",
-    body: agentMemory,
   },
   "architecture-notes": {
     title: "FlareMo 架构设计",
@@ -285,11 +272,6 @@ const EN_DOCS: Record<
     body: agentIngestion,
     fallbackFromZh: true,
   },
-  "agent-memory": {
-    title: "Agent Memory",
-    group: "agent",
-    body: enAgentMemory,
-  },
   "architecture-notes": {
     title: "FlareMo Architecture",
     group: "concept",
@@ -345,8 +327,6 @@ const DESCRIPTIONS_ZH: Record<string, string> = {
     "写给 Codex / Claude Code / Cursor Agent 等可执行命令的 Agent 用的部署 runbook。",
   "agent-ingestion":
     "让 Agent、Telegram、IM 渠道直接写入 FlareMo 的设计、字段与冲突策略。",
-  "agent-memory":
-    "AI 跨 session 长期记忆：六工具、权限层级、与 memo 的双向连接。",
   "architecture-notes":
     "事实源、兼容层、认证边界、Worker 与 D1 / R2 / Vectorize 的职责划分。",
   deploy: "Agent 部署、手动部署两种路径，以及预部署清单。",
@@ -389,8 +369,6 @@ const DESCRIPTIONS_EN: Record<string, string> = {
     "Team collaboration model: owner/admin/member roles, 3-tier visibility, time-boxed reader seats, and the machine provisioning API.",
   "agent-ingestion":
     "Designing Agent, Telegram, and IM capture paths and conflict policies. (Chinese source; English translation pending.)",
-  "agent-memory":
-    "Long-term AI memory across sessions: CLI + Skills integration, seven tools, permission tiers, memo links.",
   "architecture-notes":
     "Source of truth, compatibility layer, auth boundary. (Chinese source; English translation pending.)",
   "design-system":

@@ -6,7 +6,6 @@ import {
   exportMemoryResourceLinkSchema,
   exportMemoryRevisionSchema,
   importMemorySchema,
-  memoryDtoSchema,
 } from "./memory";
 import {
   projectStatusSchema,
@@ -342,7 +341,6 @@ export const memoContextResponseSchema = z.object({
   relations: z.array(memoRelationContextSchema),
   backlinks: z.array(memoRelationContextSchema),
   revisions: z.array(memoRevisionDtoSchema),
-  memories: z.array(memoryDtoSchema),
 });
 
 export const publicShareDtoSchema = z.object({

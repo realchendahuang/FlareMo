@@ -48,7 +48,7 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 
 - **Véritablement Serverless** : Le code et les fichiers statiques s'exécutent sur les nœuds edge Cloudflare les plus proches de vous, avec une latence en millisecondes.
 - **Durabilité de classe entreprise dès l'installation** : Cloudflare D1 gère les notes et les métadonnées ; Cloudflare R2 stocke les pièces jointes avec réplication multi-régions.
-- **Second cerveau pensé pour l'IA** : le hub « Agent Memory » embarque un CLI et un skill multi-agents permettant à vos agents IA (Claude, Cursor, Codex, ChatGPT, ZCode) de lire et mettre à jour vos préférences et votre mémoire à long terme ; des endpoints MCP restent également disponibles.
+- **Second cerveau pensé pour l'IA** : un endpoint MCP de notes et le skill `flaremo-notes` permettent à Claude, Cursor, Codex, ChatGPT et ZCode de chercher, lire et écrire vos propres notes. Pas de stockage de mémoire IA séparé, pas de second carnet à entretenir.
 - **Discret pour un seul, puissant pour une équipe** : Par défaut, un sanctuaire personnel chiffré et privé. Activez le mode équipe pour ajouter un espace d'équipe partagé avec rôles et visibilité à trois niveaux — pour partager des notes, pas pour mener des projets ensemble.
 - **Minimal, pas simplifié** : L'interface reste silencieuse et chaque commande mérite sa place — rien de décoratif qui crie, rien d'utile qui manque.
 
@@ -65,10 +65,10 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 - **Activation de la pensée** : **Revue quotidienne** (ce jour-là dans l'histoire), **Balade aléatoire** (dérive dans les graphes d'étiquettes et de liens retour, avec résumés en carte postale) et suggestions de notes connexes.
 - **Historique des versions** : Diff complet des versions et restauration historique en un clic.
 
-### 2. Mémoire IA à long terme (CLI + Skills)
-- **Agent Memory** : Livré avec le CLI `flaremo` et le skill `flaremo-memory` — vos agents IA enregistrent et mettent à jour une mémoire à long terme transversale aux sessions (préférences, décisions de projet, contraintes, leçons) sur une base REST commune.
-- **Contrôle humain** : Consultez, vérifiez, verrouillez ou corrigez les souvenirs enregistrés par l'IA sur la page `/memory`.
-- **Écosystème ouvert** : La voie recommandée est CLI + Skills ; les endpoints `/memory/mcp` (Streamable HTTP MCP) et `/mcp` restent disponibles pour les clients MCP existants.
+### 2. L'IA travaille sur vos notes (MCP + Skill)
+- **MCP de notes** : `/mcp` expose la liste, la recherche, la lecture, la création, la modification et la suppression de vos notes, authentifiées par un jeton révocable `memos_pat_`.
+- **Un skill** : `skills/flaremo-notes` apprend à chaque agent à chercher avant d'écrire, à respecter votre formulation et à renvoyer l'ID de la note modifiée.
+- **Pas de mémoire séparée** : les agents lisent vos notes à la demande ; rien n'est extrait en arrière-plan vers un second registre.
 
 ### 3. Tâches et projets
 - **Planifiez une note** : Choisissez un jour et un projet pour une note ; chaque case à cocher non cochée qu'elle contient devient une tâche. La cocher dans la note ou sur la page des tâches reste synchronisé dans les deux sens.
@@ -96,7 +96,7 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 - **Dictée vocale en direct** : Le bouton micro de l'éditeur transcrit la parole en temps réel (ASR) directement dans le brouillon.
 
 ### 7. Sécurité applicative Better Auth
-- **Propulsé par Better Auth** : Sessions par cookies `HttpOnly` et `SameSite=Lax` pour le navigateur ; jetons d'accès personnels révocables (`memos_pat_`) pour les scripts, le CLI et MCP.
+- **Propulsé par Better Auth** : Sessions par cookies `HttpOnly` et `SameSite=Lax` pour le navigateur ; jetons d'accès personnels révocables (`memos_pat_`) pour les scripts et MCP.
 - **Protection stricte de l'Origin** : Les requêtes modifiant l'état imposent une liste blanche d'origines exactes. Cloudflare Access reste disponible comme périmètre défensif externe optionnel.
 
 ### 8. Vos données, toujours à vous
@@ -196,7 +196,7 @@ Guides détaillés : [Guide de déploiement](./docs/en/deploy.md) · [Déploieme
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Scripts / CLI / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
   Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]

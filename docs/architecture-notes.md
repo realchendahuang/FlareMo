@@ -50,12 +50,12 @@ FlareMo 的实际目标不是“能导入 Memos 数据的普通笔记 App”，�
 
 ## 产品定位与兼容边界
 
-FlareMo 的产品目标是 **AI native 的个人知识管理**：一个人用是安静的私人笔记，一个团队用是共享知识库，语义检索、AI 记忆、Agent 读写是产品的原生部分而不是外挂。这与 Memos 的目标不同，因此 **FlareMo 不以「完全兼容 Memos」为目标**。
+FlareMo 的产品目标是 **AI native 的个人知识管理**：一个人用是安静的私人笔记，一个团队用是共享知识库，语义检索、Agent 读写笔记是产品的原生部分而不是外挂。这与 Memos 的目标不同，因此 **FlareMo 不以「完全兼容 Memos」为目标**。
 
 Memos 在这里的角色是**生态底座**，不是要复刻的对象：
 
 - **兼容是手段，不是目标。** 复用 Memos 的领域模型、资源命名、`/api/v1` 协议、OpenAPI、导入导出和 MCP 方向，是为了直接接上它的客户端、脚本和周边工具生态，少走弯路。
-- **允许并预期超出上游。** Agent Memory、语义检索与「找一找」、项目与任务、音频文稿阅读等能力在 Memos 中没有对应物，属 FlareMo 原生面（`/api/app/*`），由 FlareMo 自己的需求定义，不受上游形态约束。`AIService.Transcribe` 等上游接口在 FlareMo 明确返回 `501`，也说明 AI 是 FlareMo 的独立赛道而非兼容目标。
+- **允许并预期超出上游。** 语义检索与「找一找」、Agent 读写笔记、项目与任务、音频文稿阅读等能力在 Memos 中没有对应物，属 FlareMo 原生面（`/api/app/*`），由 FlareMo 自己的需求定义，不受上游形态约束。`AIService.Transcribe` 等上游接口在 FlareMo 明确返回 `501`，也说明 AI 是 FlareMo 的独立赛道而非兼容目标。
 - **上游能力按需兼容。** 只在我们需要、且语义说得通的时候接入，不为了对齐而实现无业务价值的上游资源。
 - **与上游分叉是预期结果。** 底座借它的形，路自己走；兼容面不构成产品演进的约束。
 
@@ -295,12 +295,12 @@ FlareMo 自己的前端 API。
 
 这一层可以更简单、更贴近 Cloudflare 运行时，但必须复用同一套 domain services 和 Drizzle-backed repositories。不能维护两套业务实现。
 
-原生面包含 Agent Memory 管理、语义搜索、branding、通知与推送订阅等资源；projects 与 tasks 是其中两大一等资源：
+原生面包含语义搜索、Agent 读写笔记、branding、通知与推送订阅等资源；projects 与 tasks 是其中两大一等资源：
 
 - `/api/app/projects` 与 `/api/app/tasks`：项目的 CRUD 与任务管理（看板状态、优先级、手动排序、`due_at`）。tasks 为 owner 私有资源，cookie session 与 PAT 均可读写——这是 Memos 兼容面之外的第二个对外写入口。
 - **软删与回收站**：任务删除先入回收站（`deleted_at` 标记，列表默认排除），可还原，到期由每日 TTL 清理任务硬删；项目删除遵循同一回收站语义。
 - **`due_at` 约定**：格式为 `YYYY-MM-DD` 的本地日历日（与 UI 日期输入一致），不带时区与时间部分；日历聚合、逾期 cron 与日期范围过滤均按该格式做字符串比较，写入其他格式会静默脱离日历与逾期提醒。
-- **MCP 任务工具为远期候选**：`/mcp` 目前只暴露 memo 工具、`/memory/mcp` 只暴露 memory 工具；是否向 MCP 暴露任务读写工具，等 tasks/projects 的归属语义（含团队共享的可能形态）稳定后再定契约，避免返工。第三方客户端管理任务暂经 `/api/app/tasks` + PAT。
+- **MCP 任务工具为远期候选**：`/mcp` 目前只暴露 memo 工具；是否向 MCP 暴露任务读写工具，等 tasks/projects 的归属语义（含团队共享的可能形态）稳定后再定契约，避免返工。第三方客户端管理任务暂经 `/api/app/tasks` + PAT。
 
 ## 数据模型
 

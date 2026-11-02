@@ -99,13 +99,6 @@ export type FlareMoEnv = Env & {
   // hard-deleted (with their R2 attachments) by the daily sweep. Unset = 30;
   // 0 disables the purge entirely.
   FLAREMO_TRASH_RETENTION_DAYS?: string;
-  // Memory dreaming (see docs/memory-ledger-design.md §VI.8). The daily
-  // extraction runs on the Workers AI binding; "off" disables it. The model
-  // is optional (default @cf/meta/llama-3.1-8b-instruct) and the daily
-  // proposal quota defaults to 5 notes.
-  FLAREMO_MEMORY_DREAMING?: string;
-  FLAREMO_MEMORY_DREAMING_MODEL?: string;
-  FLAREMO_MEMORY_PROPOSAL_DAILY_LIMIT?: string;
   // Optional Cloudflare account analytics for the owner usage panel (see
   // src/cf-analytics.ts). Written by `pnpm setup:usage`; token needs only the
   // "Account Analytics: Read" permission. Queries are filtered down to this

@@ -47,7 +47,6 @@ export const ZH_SHOWCASE: ShowcaseContent = {
     trash: "回收站",
     dailyReview: "每日回顾",
     randomWalk: "随机漫步",
-    memory: "记忆",
     calendarView: "日程",
     projects: "待办",
     tagIndex: "标签索引",

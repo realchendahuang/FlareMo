@@ -289,6 +289,16 @@ describe("Unknown-path status semantics (P0-5)", () => {
     // The shell still renders so the SPA shows its not-found UI.
     expect(await unknown.text()).toContain("<title>FlareMo</title>");
 
+    // Agent Memory is gone: neither the SPA page nor its API/MCP surface
+    // should answer any more.
+    for (const path of ["/memory", "/memory/mcp", "/api/app/memory"]) {
+      const removed = await app.fetch(
+        new Request(`https://flaremo.example${path}`),
+        env,
+      );
+      expect(removed.status, path).toBe(404);
+    }
+
     const trailingSlash = await app.fetch(
       new Request("https://flaremo.example/login/"),
       env,

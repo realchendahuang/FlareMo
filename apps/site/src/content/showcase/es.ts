@@ -50,7 +50,6 @@ export const ES_SHOWCASE: ShowcaseContent = {
     trash: "Papelera",
     dailyReview: "Repaso diario",
     randomWalk: "Paseo aleatorio",
-    memory: "Memoria",
     calendarView: "Agenda",
     projects: "Pendientes",
     tagIndex: "Etiquetas",

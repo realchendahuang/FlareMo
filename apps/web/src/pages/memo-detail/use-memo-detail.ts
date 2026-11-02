@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-  createMemoryFromMemo,
   createShare,
   createTask,
   getMemoContext,
@@ -111,28 +110,6 @@ export function useMemoDetail(memoId: string) {
       toast.error(errorMessage(error, t("toast.requestFailed"))),
   });
 
-  const rememberMutation = useMutation({
-    mutationFn: () =>
-      createMemoryFromMemo(contextQuery.data?.memo.name ?? memoId, {
-        type: "semantic",
-        kind: "fact",
-        scope_type: "global",
-        tier: "normal",
-        importance: 50,
-      }),
-    onSuccess: async (result) => {
-      toast.success(
-        result.duplicate ? t("toast.memoryConfirmed") : t("toast.saved"),
-      );
-      await queryClient.invalidateQueries({ queryKey });
-      // The memory page caches under ["memories"]; without this the new
-      // memory stays invisible there until an unrelated action.
-      await queryClient.invalidateQueries({ queryKey: ["memories"] });
-    },
-    onError: (error) =>
-      toast.error(errorMessage(error, t("toast.requestFailed"))),
-  });
-
   // D2: the read view's to-dos are live. A checkbox click rewrites its one
   // Markdown line (optimistic on the detail cache); a to-do line can be
   // upgraded into a task linked back to this memo.
@@ -212,7 +189,6 @@ export function useMemoDetail(memoId: string) {
     revokeMutation,
     restoreMutation,
     relationMutation,
-    rememberMutation,
     taskInteraction,
   };
 }

@@ -37,8 +37,6 @@ export type UserPlanLimits = {
   semanticSearchQueriesPerMonth: PlanLimitValue;
   /** Stock count of living memos (normal + archived; trash excluded). */
   maxMemosPerUser: PlanLimitValue;
-  /** Stock count of living memories (active + archived). */
-  maxMemoryItemsPerUser: PlanLimitValue;
 };
 
 /**
@@ -77,14 +75,12 @@ export function parseUserPlanLimits(
   const aiEmbeddingTokensPerMonth = read("aiEmbeddingTokensPerMonth");
   const semanticSearchQueriesPerMonth = read("semanticSearchQueriesPerMonth");
   const maxMemosPerUser = read("maxMemosPerUser");
-  const maxMemoryItemsPerUser = read("maxMemoryItemsPerUser");
   if (
     known === 0 ||
     attachmentStorageBytes === undefined ||
     aiEmbeddingTokensPerMonth === undefined ||
     semanticSearchQueriesPerMonth === undefined ||
-    maxMemosPerUser === undefined ||
-    maxMemoryItemsPerUser === undefined
+    maxMemosPerUser === undefined
   ) {
     return null;
   }
@@ -93,6 +89,5 @@ export function parseUserPlanLimits(
     aiEmbeddingTokensPerMonth,
     semanticSearchQueriesPerMonth,
     maxMemosPerUser,
-    maxMemoryItemsPerUser,
   };
 }

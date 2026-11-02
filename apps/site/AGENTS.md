@@ -27,7 +27,7 @@
 pnpm --filter @flaremo/site build
 ```
 
-确保新 slug 出现在 `src/lib/docs-source.generated.ts` 的 `ZH_DOCS`/`EN_DOCS` 元数据条目（正文 loader 使用 `?raw`），以及 `scripts/build.mjs` 顶部的 `DOC_SLUGS`。后者是 SSG 的唯一预渲染 slug 清单，`getAllPaths()` 会将 16 个 slug 展开到 8 个 locale，当前总计 162 条路径。英文条目加 `fallbackFromZh: true` 时回退中文正文，详情页顶部显示"翻译待补"提示条（`src/pages/docs-detail-page.tsx`）。
+确保新 slug 出现在 `src/lib/docs-source.generated.ts` 的 `ZH_DOCS`/`EN_DOCS` 元数据条目（正文 loader 使用 `?raw`），以及 `scripts/build.mjs` 顶部的 `DOC_SLUGS`。后者是 SSG 的唯一预渲染 slug 清单，`getAllPaths()` 会将全部 slug 展开到 8 个 locale。英文条目加 `fallbackFromZh: true` 时回退中文正文，详情页顶部显示"翻译待补"提示条（`src/pages/docs-detail-page.tsx`）。
 
 ## SEO
 

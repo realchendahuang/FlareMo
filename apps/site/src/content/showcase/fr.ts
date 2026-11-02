@@ -50,7 +50,6 @@ export const FR_SHOWCASE: ShowcaseContent = {
     trash: "Corbeille",
     dailyReview: "Revue du jour",
     randomWalk: "Exploration",
-    memory: "Mémoire",
     calendarView: "Agenda",
     projects: "Tâches",
     tagIndex: "Index des tags",

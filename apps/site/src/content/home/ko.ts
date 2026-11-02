@@ -5,7 +5,7 @@ export const KO_HOME: HomeContent = {
   heroTitleLine1: "서버 제로, 영구 소유.",
   heroTitleLine2: "생각과 함께 자라는 AI 세컨드 브레인.",
   heroSubtitle:
-    "심플하게, 얕지 않게. 조용하게, 과하지 않게. Cloudflare 엣지에서 자유롭게 쓰면 노트가 할 일과 아티클, 지식 베이스로 자라고, 모든 AI 에이전트가 함께 쓰는 장기 기억이 됩니다.",
+    "심플하게, 얕지 않게. 조용하게, 과하지 않게. Cloudflare 엣지에서 자유롭게 쓰면 노트가 할 일과 아티클, 지식 베이스로 자라고, 모든 AI 에이전트가 직접 읽고 쓸 수 있는 노트 저장소가 됩니다.",
   primaryCta: "배포 가이드 읽기",
   secondaryCta: "GitHub 소스코드",
   statMemos: "약 250만 건의 메모",
@@ -33,9 +33,9 @@ export const KO_HOME: HomeContent = {
         "설치 가능한 PWA. 비행기나 지하철에서도 원활하게 작성하세요. 작성된 메모는 로컬에 보관 후 온라인 복구 시 자동 제출됩니다.",
     },
     {
-      title: "AI 네이티브 장기 기억",
+      title: "AI가 내 노트를 읽고 쓰기",
       description:
-        "/memory/mcp 엔드포인트를 통해 Claude, Cursor 등의 AI 에이전트가 사용자의 영구 기억과 개인 맥락을 안전하게 읽고 씁니다.",
+        "MCP 엔드포인트를 통해 Claude, Cursor 등의 AI 에이전트가 사용자의 노트를 검색·읽기·쓰기합니다. 별도의 AI 기억 저장소는 만들지 않습니다.",
     },
     {
       title: "공유를 위한 팀 공간",
@@ -114,7 +114,7 @@ export const KO_HOME: HomeContent = {
     },
     {
       q: "내 스크립트와 도구를 연결할 수 있나요?",
-      a: "네. 폐기 가능한 개인 액세스 토큰이 있는 오픈 API로 자동화를 연결합니다. AI 워크플로는 내장 CLI와 MCP 엔드포인트로 같은 Agent Memory를 읽고 씁니다. 정확한 지원 범위는 호환성 매트릭스에 있습니다.",
+      a: "네. 폐기 가능한 개인 액세스 토큰이 있는 오픈 API로 자동화를 연결합니다. AI 워크플로는 `/mcp` 노트 도구와 `flaremo-notes` Skill로 노트를 직접 읽고 씁니다. 정확한 지원 범위는 호환성 매트릭스에 있습니다.",
     },
     {
       q: "개인용과 팀용의 차이는 무엇인가요?",

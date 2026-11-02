@@ -48,7 +48,7 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 
 - **真のサーバーレス**：コードも静的アセットも、ユーザーの近くにあるCloudflare Workersのエッジノード上でミリ秒応答。
 - **最初からエンタープライズ級の耐久性**：ノートとメタデータはCloudflare D1が担当し、メディア添付ファイルはマルチリージョンレプリケーション付きのCloudflare R2に保存。
-- **AIネイティブな第2の脳**：Agent MemoryハブにCLIとクロスエージェントSkillを同梱。AIエージェント（Claude、Cursor、Codex、ChatGPT、ZCode）が長期的な好みや記憶スコープを読み取り・更新できます。MCPエンドポイントも利用可能です。
+- **AIネイティブな第2の脳**：ノートMCPエンドポイントと `flaremo-notes` Skillを同梱。Claude、Cursor、Codex、ChatGPT、ZCodeがあなた自身のノートを検索・読み取り・書き込みできます。独立したAIメモリや、管理すべき2冊目のノートはありません。
 - **一人には静かに、大勢には強力に**：デフォルトは暗号化された一人用のプライベートな空間。チームモードを有効にすると、ロールと3段階の公開範囲を備えたチーム共有スペースが加わります — ノートを共有するための場所であり、プロジェクトを共同で進めるためのものではありません。
 - **シンプル、でも粗削りではない**：インターフェースは静かに保たれ、すべての操作に存在する理由がある — 見せびらかす装飾はなく、役に立つものの欠落もありません。
 
@@ -65,10 +65,10 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 - **思考を呼び起こす**：内蔵の**デイリーレビュー**（この日の記録）、**ランダムウォーク**（タグやバックリンクのグラフをポストカード風の要約とともに散策）、関連ノートのおすすめ。
 - **改訂履歴**：全バージョンの差分表示とワンクリックでの過去バージョン復元。
 
-### 2. AI長期記憶（CLI + Skills）
-- **Agent Memory**：`flaremo` CLIと`flaremo-memory` Skillを同梱。AIエージェントが共通のREST基盤を通じてセッションを跨いだ長期記憶（好み、プロジェクトの決定事項、制約、教訓）を記録・更新できます。
-- **人間が最終確認**：`/memory` 画面でAIが記録した記憶を確認・検証・ロック・修正できます。
-- **オープンなエコシステム**：推奨パスはCLI + Skills。既存のMCPクライアント向けに `/memory/mcp`（Streamable HTTP MCP）と `/mcp` エンドポイントも提供。
+### 2. AIがあなたのノートを読み書き（MCP + Skill）
+- **ノートMCP**：`/mcp` でノートの一覧・検索・取得・作成・更新・削除を提供。失効可能な `memos_pat_` トークンで認証します。
+- **1つのSkill**：`skills/flaremo-notes` が、書く前に検索する・原文を保つ・変更したノートIDを返す、という規約を各エージェントに教えます。
+- **独立メモリなし**：エージェントは必要なときにノートを読むだけで、バックグラウンドで第2の台帳に抽出することはありません。
 
 ### 3. TODOとプロジェクト
 - **ノートに日付を入れる**：ノートに日付とプロジェクトを設定すると、その中の未完了のTODOがそれぞれタスクになります。ノート上でもTODOページでも、チェックを入れると双方向に同期します。
@@ -96,7 +96,7 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 - **ライブ音声入力**：入力欄のマイクボタンを押すと、話した内容がリアルタイムに文字起こし（ASR）され下書きに入ります。
 
 ### 7. Secure Better Authによるアプリケーションセキュリティ
-- **Better Auth基盤**：ブラウザは `HttpOnly`・`SameSite=Lax` のクッキーセッション。スクリプト、CLI、MCP向けには失効可能な `memos_pat_` Personal Access Token を提供。
+- **Better Auth基盤**：ブラウザは `HttpOnly`・`SameSite=Lax` のクッキーセッション。スクリプト、MCP向けには失効可能な `memos_pat_` Personal Access Token を提供。
 - **厳格なOrigin保護**：状態を変更するリクエストには厳密なOriginのホワイトリストを強制。Cloudflare Accessも任意の外層防御として併用できます。
 
 ### 8. データはいつもあなたのもの
@@ -196,7 +196,7 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Scripts / CLI / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
   Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]

@@ -48,7 +48,7 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 
 - **Auténtico serverless**: El código y los archivos estáticos se ejecutan en los nodos perimetrales (edge) de Cloudflare Workers más cercanos a ti, con latencia de milisegundos.
 - **Durabilidad de nivel empresarial desde el primer minuto**: Cloudflare D1 almacena notas y metadatos; Cloudflare R2 guarda los archivos adjuntos con replicación multirregional.
-- **Segundo cerebro nativo de IA**: El centro «Agent Memory» incluye un CLI y un skill multiagente para que los agentes de IA (Claude, Cursor, Codex, ChatGPT, ZCode) lean y actualicen tus preferencias y ámbitos de memoria a largo plazo; también hay endpoints MCP disponibles.
+- **Segundo cerebro nativo de IA**: un endpoint MCP de notas y el skill `flaremo-notes` permiten a Claude, Cursor, Codex, ChatGPT y ZCode buscar, leer y escribir tus propias notas. Sin almacén de memoria de IA ni un segundo cuaderno que mantener.
 - **Silencioso para uno, potente para muchos**: Por defecto es un santuario privado y cifrado de usuario único. Activa el modo de equipo para añadir un espacio de equipo compartido con roles y tres niveles de visibilidad — pensado para compartir notas, no para gestionar proyectos en conjunto.
 - **Mínimo, no simplificado**: La interfaz serena y cada control se gana su lugar — nada de decoración estridente, ninguna función útil ausente.
 
@@ -65,10 +65,10 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 - **Reactivación de ideas**: **Revisión diaria** (un día como hoy), **Paseo aleatorio** (deambular por los grafos de etiquetas y enlaces con resúmenes tipo postal) y sugerencias de notas relacionadas.
 - **Historial de versiones**: Comparación completa de versiones y restauración histórica con un solo clic.
 
-### 2. Memoria de IA a largo plazo (CLI + Skills)
-- **Agent Memory**: Incluye el CLI `flaremo` y el skill `flaremo-memory` — los agentes de IA registran y actualizan memoria a largo plazo entre sesiones (preferencias, decisiones de proyecto, restricciones, lecciones) sobre una base REST común.
-- **Humano en el bucle**: En `/memory` puedes revisar, verificar, fijar o corregir las memorias registradas por la IA.
-- **Ecosistema abierto**: La vía recomendada es CLI + Skills; los endpoints `/memory/mcp` (MCP por HTTP en streaming) y `/mcp` siguen disponibles para clientes MCP existentes.
+### 2. La IA trabaja sobre tus notas (MCP + Skill)
+- **MCP de notas**: `/mcp` expone listar, buscar, leer, crear, actualizar y eliminar tus notas, con autenticación mediante un token revocable `memos_pat_`.
+- **Un skill**: `skills/flaremo-notes` enseña a cada agente a buscar antes de escribir, respetar tu redacción y devolver el ID de la nota que tocó.
+- **Sin memoria aparte**: los agentes leen tus notas cuando hace falta; nada se extrae en segundo plano a un segundo registro.
 
 ### 3. Pendientes y proyectos
 - **Programa una nota**: Elige un día y un proyecto para una nota; cada pendiente sin marcar se convierte en una tarea. Marcarlo en la nota o en la página de pendientes se sincroniza en ambos sentidos.
@@ -96,7 +96,7 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 - **Dictado por voz en vivo**: El botón de micrófono del editor transcribe la voz en tiempo real (ASR) directamente en el borrador.
 
 ### 7. Seguridad robusta con Better Auth
-- **Impulsado por Better Auth**: Sesiones por cookie de navegador `HttpOnly` y `SameSite=Lax`; tokens de acceso personal `memos_pat_` revocables para scripts, CLI y MCP.
+- **Impulsado por Better Auth**: Sesiones por cookie de navegador `HttpOnly` y `SameSite=Lax`; tokens de acceso personal `memos_pat_` revocables para scripts y MCP.
 - **Protección estricta de Origin**: Las peticiones con cambio de estado exigen una lista blanca de origen exacta. Cloudflare Access sigue disponible como perímetro defensivo exterior opcional.
 
 ### 8. Tus datos, siempre tuyos
@@ -196,7 +196,7 @@ Guías detalladas: [Guía de despliegue](./docs/en/deploy.md) · [Despliegue con
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Scripts / CLI / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
   Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]

@@ -53,11 +53,11 @@ describe("dev:hot worker proxy", () => {
   });
 
   it("does not shadow frontend routes that share a prefix", () => {
-    // "/article/…" is SSR while "/articles" is the SPA; "/memory/…" is the MCP
-    // endpoint while "/memory" is the SPA. A proxy key without the separator
-    // would serve both from the build the dev server is meant to replace.
+    // "/article/…" is SSR while "/articles" is the SPA. A proxy key without the
+    // separator would serve both from the build the dev server is meant to
+    // replace.
     const paths = proxyPaths(viteConfigSource);
-    const spaPaths = ["/articles", "/memory", "/memo/x", "/projects"];
+    const spaPaths = ["/articles", "/memo/x", "/projects"];
     for (const spaPath of spaPaths) {
       expect(paths.some((path) => spaPath.startsWith(path))).toBe(false);
     }

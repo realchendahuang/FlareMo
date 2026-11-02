@@ -47,7 +47,6 @@ export const JA_SHOWCASE: ShowcaseContent = {
     trash: "ゴミ箱",
     dailyReview: "振り返り",
     randomWalk: "散歩",
-    memory: "記憶",
     calendarView: "予定",
     projects: "TODO",
     tagIndex: "タグ一覧",

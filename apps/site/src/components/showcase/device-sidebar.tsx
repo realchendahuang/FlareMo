@@ -1,6 +1,5 @@
 import {
   Archive,
-  Brain,
   CalendarDays,
   Footprints,
   Inbox,
@@ -287,7 +286,6 @@ function QuickViews({
   const items = [
     { icon: Zap, label: showcase.ui.dailyReview },
     { icon: Footprints, label: showcase.ui.randomWalk },
-    { icon: Brain, label: showcase.ui.memory },
     { icon: CalendarDays, label: showcase.ui.calendarView },
     { icon: ListChecks, label: showcase.ui.projects },
   ];

@@ -1,5 +1,0 @@
-{
-  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
-  "name": "flaremo-memory",
-  "description": "FlareMo memory ledger: lens injection on first invocation, wrap-up nudge on stop; CLI + lifecycle hooks, no MCP."
-}

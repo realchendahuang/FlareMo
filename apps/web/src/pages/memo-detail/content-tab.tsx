@@ -5,7 +5,6 @@ import { MemoTaskBadge } from "@/components/memo-card/memo-task-badge";
 import { useMemoTasks } from "@/components/memo-card/memo-task-context";
 import { MemoComments } from "@/components/memo-comments";
 import { MemoReadingView } from "@/components/reading/memo-reading-view";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TabsContent } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
@@ -71,27 +70,6 @@ export function ContentTab({
           memoId={context.memo.id}
           mentions={context.memo.visibility !== "private"}
         />
-      )}
-      {context.memories.length > 0 && (
-        <section className="flex flex-col gap-2 border-t border-border/60 pt-4">
-          <h2 className="text-sm font-medium">{t("memory.title")}</h2>
-          {context.memories.map((memory) => (
-            <div className="rounded-lg border p-3 text-sm" key={memory.id}>
-              <div className="whitespace-pre-wrap">{memory.content}</div>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                <Badge variant="outline">
-                  {t(`memory.type.${memory.type}`)}
-                </Badge>
-                <Badge variant="outline">
-                  {t(`memory.kind.${memory.kind}`)}
-                </Badge>
-                <Badge variant="brand">
-                  {t(`memory.verification.${memory.verification}`)}
-                </Badge>
-              </div>
-            </div>
-          ))}
-        </section>
       )}
       {relatedPending && (
         <section className="flex flex-col gap-2 border-t border-border/60 pt-4">

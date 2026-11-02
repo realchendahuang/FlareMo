@@ -78,14 +78,12 @@ export const planUsageReportSchema = z.object({
         aiEmbeddingTokensPerMonth: planLimitValueSchema,
         semanticSearchQueriesPerMonth: planLimitValueSchema,
         maxMemosPerUser: planLimitValueSchema,
-        maxMemoryItemsPerUser: planLimitValueSchema,
       }),
       usage: z.object({
         attachmentStorageBytes: z.number().int(),
         aiEmbeddingTokensPerMonth: z.number().int(),
         semanticSearchQueriesPerMonth: z.number().int(),
         maxMemosPerUser: z.number().int(),
-        maxMemoryItemsPerUser: z.number().int(),
       }),
     })
     .optional(),

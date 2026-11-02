@@ -8,7 +8,10 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { users } from "./auth";
 
-// Agent Memory keeps AI-contributed long-term knowledge separate from the
+// Legacy Agent Memory tables. The product feature was removed; these tables
+// stay for one release so the migration is non-destructive, then drop.
+//
+// Agent Memory kept AI-contributed long-term knowledge separate from the
 // user's memo timeline. Each memory is an atomic conclusion (see
 // docs/product-requirements.md and the Agent Memory Ledger design); long-form content
 // belongs in a memo, and a memory's `content` only stores the conclusion.

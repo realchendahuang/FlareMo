@@ -4,9 +4,6 @@
   "version": "0.26.0",
   "private": true,
   "type": "module",
-  "bin": {
-    "flaremo": "./bin/flaremo"
-  },
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "pnpm --filter @flaremo/web build && pnpm --filter @flaremo/worker dev",
@@ -17,12 +14,11 @@
     "build": "pnpm -r build",
     "build:site": "pnpm plugins:build && pnpm --filter @flaremo/site build",
     "check": "pnpm --filter @flaremo/site check && pnpm --filter @flaremo/telegram-bot-example check && pnpm --filter @flaremo/web check && pnpm --filter @flaremo/worker check && pnpm --filter @flaremo/contracts check && pnpm --filter @flaremo/db check && pnpm --filter @flaremo/domain check && pnpm --filter @flaremo/memos check && pnpm --filter @flaremo/plugins check",
-    "lint": "biome check AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md README.*.md ROADMAP.md SECURITY.md SUPPORT.md llms.txt package.json tsconfig.json tsconfig.base.json vitest.config.ts playwright.config.ts drizzle.config.ts wrangler.jsonc docs scripts harness apps packages plugins tests",
+    "lint": "biome check AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md README.*.md ROADMAP.md SECURITY.md SUPPORT.md llms.txt package.json tsconfig.json tsconfig.base.json vitest.config.ts playwright.config.ts drizzle.config.ts wrangler.jsonc docs scripts apps packages plugins tests",
     "format": "pnpm lint --write",
-    "format:check": "biome ci AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md README.*.md ROADMAP.md SECURITY.md SUPPORT.md llms.txt package.json tsconfig.json tsconfig.base.json vitest.config.ts playwright.config.ts drizzle.config.ts wrangler.jsonc docs scripts harness apps packages plugins tests",
+    "format:check": "biome ci AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md README.*.md ROADMAP.md SECURITY.md SUPPORT.md llms.txt package.json tsconfig.json tsconfig.base.json vitest.config.ts playwright.config.ts drizzle.config.ts wrangler.jsonc docs scripts apps packages plugins tests",
     "typecheck": "pnpm --filter @flaremo/site typecheck && pnpm --filter @flaremo/telegram-bot-example typecheck && pnpm --filter @flaremo/web typecheck && pnpm --filter @flaremo/worker typecheck && pnpm --filter @flaremo/contracts typecheck && pnpm --filter @flaremo/db typecheck && pnpm --filter @flaremo/domain typecheck && pnpm --filter @flaremo/memos typecheck && pnpm --filter @flaremo/plugins typecheck",
-    "test": "pnpm test:root && pnpm -r test",
-    "test:root": "vitest run --config ./vitest.config.ts tests/harness",
+    "test": "pnpm -r test",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "verify": "node ./scripts/preflight.mjs",

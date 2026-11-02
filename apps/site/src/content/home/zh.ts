@@ -5,7 +5,7 @@ export const ZH_HOME: HomeContent = {
   heroTitleLine1: "零服务器，永久拥有",
   heroTitleLine2: "会生长的 AI 第二大脑",
   heroSubtitle:
-    "简约，不简单；克制，不放肆。打开即写，记录在 Cloudflare 边缘自然长成任务、文章与知识库，也是你所有 AI Agent 共享的长期记忆。",
+    "简约，不简单；克制，不放肆。打开即写，记录在 Cloudflare 边缘自然长成任务、文章与知识库，也是你所有 AI Agent 可以直接读写的笔记库。",
   primaryCta: "快速开始部署",
   secondaryCta: "GitHub 源码",
   statMemos: "约 250 万条纯文本记录",
@@ -32,9 +32,9 @@ export const ZH_HOME: HomeContent = {
         "可安装为本地应用。断网或在地铁里照常写，草稿先存本地，联网后按顺序补交，一条不漏。",
     },
     {
-      title: "AI 原生，跨会话长期记忆",
+      title: "AI 原生，直接读写你的笔记",
       description:
-        "内置标准 MCP 端点，Claude Desktop、Cursor、Codex 等 AI 助手可把这套知识库当作长期记忆，随时读写。",
+        "内置标准 MCP 端点，Claude Desktop、Cursor、Codex 等 AI 助手可以搜索、读取和写入你的笔记；不另建独立的 AI 记忆账本。",
     },
     {
       title: "团队空间，只做分享",
@@ -114,7 +114,7 @@ export const ZH_HOME: HomeContent = {
     },
     {
       q: "能接我自己的脚本和工具吗？",
-      a: "可以。开放 API 配可撤销的 Personal Access Token，自动化脚本能直接接；AI 工作流走内置 CLI 与 MCP 端点，读写同一份 Agent Memory。具体支持范围以文档中的兼容矩阵为准。",
+      a: "可以。开放 API 配可撤销的 Personal Access Token，自动化脚本能直接接；AI 工作流走内置 `/mcp` 笔记工具与 `flaremo-notes` Skill，直接读写你的 memo。具体支持范围以文档中的兼容矩阵为准。",
     },
     {
       q: "单人使用和团队使用有什么区别？",

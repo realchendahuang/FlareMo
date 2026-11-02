@@ -1,10 +1,9 @@
 import type { FlareMoDb } from "@flaremo/db";
-import { attachments, memoryItems, usageCounters, users } from "@flaremo/db";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { attachments, usageCounters, users } from "@flaremo/db";
+import { and, eq, sql } from "drizzle-orm";
 import { QuotaExceededError } from "./errors";
 import type { PlanLimits, PlanLimitValue, UserPlanLimits } from "./limits";
 import { readHourlyCountTotals } from "./memo-hourly-counts";
-import { sinkDormantObservedMemories } from "./memory/maintenance";
 import type { UsageMetric } from "./usage";
 import { currentMonthKey } from "./usage";
 
@@ -191,24 +190,6 @@ export async function countUserMemos(
   return totals.normal + totals.archived;
 }
 
-/** Stock memory count for one user: active + archived. */
-export async function countUserMemories(
-  db: FlareMoDb,
-  userId: string,
-): Promise<number> {
-  const row = await db
-    .select({ total: sql<number>`count(*)` })
-    .from(memoryItems)
-    .where(
-      and(
-        eq(memoryItems.userId, userId),
-        inArray(memoryItems.status, ["active", "archived"]),
-      ),
-    )
-    .get();
-  return row?.total ?? 0;
-}
-
 /**
  * Throws when the user's living-memo stock (plus `additional` about to be
  * written, e.g. an import bundle) would reach the per-user cap.
@@ -231,30 +212,6 @@ export async function assertMemoCountQuota(
   if (used + additionalCount > limit) {
     throw new QuotaExceededError(
       `Memo count quota exceeded (${limit} notes per user)`,
-    );
-  }
-}
-
-/** Same as assertMemoCountQuota for the Agent Memory stock. */
-export async function assertMemoryCountQuota(
-  db: FlareMoDb,
-  userLimits: UserPlanLimits | null | undefined,
-  userId: string,
-  additionalCount = 1,
-): Promise<void> {
-  const limit = userLimits?.maxMemoryItemsPerUser ?? null;
-  if (limit === null) return;
-  const used = await countUserMemories(db, userId);
-  if (used + additionalCount <= limit) return;
-
-  // Over the cap, the ledger first sinks its own AI assets (§VI.12): dormant
-  // observations archive before a write is refused — a quota rejection after
-  // cleanup is explicit, never a silent drop.
-  await sinkDormantObservedMemories(db, new Date(), 100);
-  const afterSink = await countUserMemories(db, userId);
-  if (afterSink + additionalCount > limit) {
-    throw new QuotaExceededError(
-      `Memory count quota exceeded (${limit} memories per user); dormant AI observations were archived first and more space is needed`,
     );
   }
 }
@@ -300,7 +257,6 @@ export type UserPlanUsageReport = {
     aiEmbeddingTokensPerMonth: number;
     semanticSearchQueriesPerMonth: number;
     maxMemosPerUser: number;
-    maxMemoryItemsPerUser: number;
   };
 };
 
@@ -344,7 +300,6 @@ export async function reportPlanUsage(
           "search_queries",
         ),
         maxMemosPerUser: await countUserMemos(db, scope.userId),
-        maxMemoryItemsPerUser: await countUserMemories(db, scope.userId),
       },
     };
   }

@@ -11,7 +11,6 @@ import {
   getRelatedMemos,
   getTodayReview,
   listArticles,
-  listMemories,
   listProjects,
 } from "@/api";
 import { Toaster } from "@/components/ui/sonner";
@@ -98,11 +97,6 @@ const DailyReviewPage = lazy(() =>
 const RandomWalkPage = lazy(() =>
   import("@/pages/random-walk-page").then((module) => ({
     default: module.RandomWalkPage,
-  })),
-);
-const MemoryPage = lazy(() =>
-  import("@/pages/memory-page").then((module) => ({
-    default: module.MemoryPage,
   })),
 );
 const ProjectsPage = lazy(() =>
@@ -358,24 +352,6 @@ const randomWalkRoute = createRoute({
   component: RandomWalkRoutePage,
 });
 
-function MemoryRoutePage() {
-  return <MemoryPage />;
-}
-
-const memoryRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: "/memory",
-  component: MemoryRoutePage,
-  loader: ({ context }) => {
-    warmQuery(
-      context.queryClient.ensureQueryData({
-        queryKey: ["memories", "list"],
-        queryFn: () => listMemories(),
-      }),
-    );
-  },
-});
-
 function ProjectsRoutePage() {
   return <ProjectsPage />;
 }
@@ -455,7 +431,6 @@ const router = createRouter({
       memoRoute,
       dailyReviewRoute,
       randomWalkRoute,
-      memoryRoute,
       projectsRoute,
       articlesRoute,
     ]),

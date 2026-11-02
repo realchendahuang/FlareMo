@@ -1,7 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   ArchiveIcon,
-  BrainIcon,
   CalendarDaysIcon,
   ChevronRightIcon,
   FileTextIcon,
@@ -182,15 +181,6 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
         >
           <CalendarDaysIcon />
           <span className="min-w-0 flex-1 truncate">{t("nav.review")}</span>
-        </Link>
-        <Link
-          activeProps={NAV_ACTIVE}
-          className={NAV_ITEM}
-          onClick={onNavigate}
-          to="/memory"
-        >
-          <BrainIcon />
-          <span className="min-w-0 flex-1 truncate">{t("nav.memory")}</span>
         </Link>
         <Link
           activeProps={NAV_ACTIVE}

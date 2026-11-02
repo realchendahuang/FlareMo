@@ -5,7 +5,7 @@ export const FR_HOME: HomeContent = {
   heroTitleLine1: "Zéro serveur. Pour toujours à vous.",
   heroTitleLine2: "Un second cerveau natif IA qui grandit avec vous.",
   heroSubtitle:
-    "Minimal, jamais superficiel. Discret, jamais criard. Écrivez librement sur Cloudflare Edge : vos notes deviennent tâches, articles et base de connaissances, plus une mémoire à long terme partagée par vos agents IA.",
+    "Minimal, jamais superficiel. Discret, jamais criard. Écrivez librement sur Cloudflare Edge : vos notes deviennent tâches, articles et base de connaissances, avec un accès MCP pour vos agents IA.",
   primaryCta: "Guide de déploiement",
   secondaryCta: "Code source GitHub",
   statMemos: "~2,5 millions de notes",
@@ -33,9 +33,9 @@ export const FR_HOME: HomeContent = {
         "PWA installable. Rédigez en avion ou dans le métro. Vos brouillons se synchronisent automatiquement au retour de la connexion.",
     },
     {
-      title: "Mémoire IA à long terme",
+      title: "L'IA travaille sur vos notes",
       description:
-        "Grâce au point d'accès /memory/mcp, vos agents IA (Claude, Cursor) lisent et enrichissent votre mémoire persistante en toute sécurité.",
+        "Un endpoint MCP intégré permet à vos agents IA (Claude, Cursor, Codex) de chercher, lire et écrire vos propres notes. Rien n'est résumé automatiquement dans un stockage de mémoire séparé.",
     },
     {
       title: "Un espace d'équipe pour partager",
@@ -115,7 +115,7 @@ export const FR_HOME: HomeContent = {
     },
     {
       q: "Puis-je connecter mes propres scripts et outils ?",
-      a: "Oui. Une API ouverte avec jetons personnels révocables couvre l'automatisation ; pour l'IA, le CLI et le point MCP intégrés lisent et écrivent la même Agent Memory. La surface exacte est documentée dans la matrice de compatibilité.",
+      a: "Oui. Une API ouverte avec jetons personnels révocables couvre l'automatisation ; pour l'IA, l'endpoint `/mcp` expose la liste, la recherche, la lecture, la création, la modification et la suppression de vos notes, et le skill `flaremo-notes` couvre les règles d'usage. La surface exacte est documentée dans la matrice de compatibilité.",
     },
     {
       q: "Quelle différence entre mode solo et équipe ?",

@@ -44,9 +44,9 @@
 
 第二大脑一直是有门槛的：一台按月续费的 VPS、Docker、PostgreSQL、定时备份脚本，还有随时可能坏掉的那块硬盘。
 
-FlareMo 想回答的是另一个问题：**如果第二大脑根本不需要服务器，而且你的 AI Agent 真的能靠它记住事情呢？**
+FlareMo 想回答的是另一个问题：**如果第二大脑根本不需要服务器，而且你的 AI Agent 可以直接在你的笔记上工作呢？**
 
-- **AI 原生，不是事后外挂**：Agent Memory 自带 CLI 与跨 Agent Skill，Claude、Cursor、Codex、ChatGPT、ZCode 通过 MCP 或命令行读写同一份长期记忆——偏好、决策、项目上下文。
+- **AI 原生，不是事后外挂**：提供笔记 MCP 端点与 `flaremo-notes` Skill，Claude、Cursor、Codex、ChatGPT、ZCode 可以搜索、读取和写入你自己的笔记。没有独立的 AI 记忆库，也没有第二本需要你打理的笔记本。
 - **真正的 Serverless**：代码与静态前端跑在离你最近的 Cloudflare Workers 边缘节点；D1 与 R2 承载记录、任务、文章与媒体，自带多地域持久化。
 - **知识会生长**：一条速记长成任务，任务长成文章，最后沉淀成可搜索、可关联的知识库。
 - **一人安静，多人有用**：默认私密；开启团队模式后多一个带角色与三级可见性的共享空间。
@@ -65,10 +65,10 @@ FlareMo 想回答的是另一个问题：**如果第二大脑根本不需要服�
 - **灵感激活**：内置**每日回顾**（那年今日）、**随机漫步**（在标签与反向链接图中游走，附明信片式总结）和相关笔记推荐。
 - **版本回溯**：完整的版本差异对比，一键还原历史版本。
 
-### 2. AI 长期记忆（CLI + Skills）
-- **Agent Memory**：自带 `flaremo` CLI 与 `flaremo-memory` Skill——AI Agent 通过同一 REST 基底记录并更新跨会话的长期记忆（偏好、项目决策、约束、教训）。
-- **人机协同**：在 `/memory` 界面审阅、确认、锁定或纠正 AI 沉淀的记忆。
-- **开放生态**：推荐路径是 CLI + Skills；同时提供 `/memory/mcp`（Streamable HTTP MCP）与 `/mcp` 端点，兼容既有 MCP 客户端。
+### 2. AI 读写你的笔记（MCP + Skill）
+- **笔记 MCP**：`/mcp` 提供笔记的列表、搜索、读取、创建、修改与删除，使用可撤销的 `memos_pat_` 令牌鉴权。
+- **一个 Skill**：`skills/flaremo-notes` 教会每个 Agent 先搜索再写入、保留你的原文，并返回它改动的笔记 ID。
+- **没有独立记忆**：Agent 按需读取你的笔记，不会在后台把内容抽取成第二个账本。
 
 ### 3. 待办与项目
 - **给笔记排期**：为笔记选定日期与项目，其中每条未勾选的待办都会成为一项任务。在笔记里或待办页勾选完成，两边双向同步。
@@ -96,7 +96,7 @@ FlareMo 想回答的是另一个问题：**如果第二大脑根本不需要服�
 - **实时语音输入**：点输入框的麦克风按钮，边说边把语音实时转成文字（ASR）写进草稿。
 
 ### 7. 坚固的 Better Auth 应用安全
-- **Better Auth 驱动**：浏览器使用 HttpOnly、`SameSite=Lax` Cookie 会话；脚本、CLI 与 MCP 使用可撤销的 `memos_pat_` 个人访问令牌。
+- **Better Auth 驱动**：浏览器使用 HttpOnly、`SameSite=Lax` Cookie 会话；脚本与 MCP 使用可撤销的 `memos_pat_` 个人访问令牌。
 - **严格的 Origin 防护**：状态变更请求强制精确校验 Origin 白名单。Cloudflare Access 仍可作为可选的外层防线。
 
 ### 8. 数据永远是你的
@@ -196,7 +196,7 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Scripts / CLI / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
   Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]

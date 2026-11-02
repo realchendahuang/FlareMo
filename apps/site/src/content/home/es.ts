@@ -5,7 +5,7 @@ export const ES_HOME: HomeContent = {
   heroTitleLine1: "Cero servidores. Tuyo para siempre.",
   heroTitleLine2: "Un segundo cerebro nativo de IA que crece contigo.",
   heroSubtitle:
-    "Mínimo, nunca superficial. Sereno, nunca estridente. Escribe con libertad en Cloudflare Edge: tus notas se convierten en tareas, artículos y una base de conocimiento, además de una memoria a largo plazo compartida por tus agentes de IA.",
+    "Mínimo, nunca superficial. Sereno, nunca estridente. Escribe con libertad en Cloudflare Edge: tus notas se convierten en tareas, artículos y una base de conocimiento, con acceso MCP para tus agentes de IA.",
   primaryCta: "Guía de despliegue",
   secondaryCta: "Código en GitHub",
   statMemos: "~2,5 millones de notas",
@@ -33,9 +33,9 @@ export const ES_HOME: HomeContent = {
         "PWA instalable. Escribe en aviones o el metro. Tus borradores se guardan en local y se sincronizan al recuperar la red.",
     },
     {
-      title: "Memoria de IA a largo plazo",
+      title: "La IA trabaja sobre tus notas",
       description:
-        "Mediante /memory/mcp, agentes de IA (Claude, Cursor) leen y actualizan tu contexto y preferencias persistentes de forma auditada.",
+        "Un endpoint MCP integrado permite a los agentes de IA (Claude, Cursor, Codex) buscar, leer y escribir tus propias notas. Nada se resume automáticamente en un almacén de memoria aparte.",
     },
     {
       title: "Un espacio de equipo para compartir",
@@ -115,7 +115,7 @@ export const ES_HOME: HomeContent = {
     },
     {
       q: "¿Puedo conectar mis propios scripts y herramientas?",
-      a: "Sí. Una API abierta con tokens personales revocables cubre la automatización; para IA, el CLI y el endpoint MCP integrados leen y escriben la misma Agent Memory. El alcance exacto está en la matriz de compatibilidad.",
+      a: "Sí. Una API abierta con tokens personales revocables cubre la automatización; para IA, el endpoint `/mcp` expone listar, buscar, leer, crear, actualizar y eliminar tus notas, y el skill `flaremo-notes` cubre las reglas de uso. El alcance exacto está en la matriz de compatibilidad.",
     },
     {
       q: "¿Qué diferencia hay entre modo personal y equipo?",

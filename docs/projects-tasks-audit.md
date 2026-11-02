@@ -89,7 +89,7 @@
 
 | # | 级别 | 问题 | 证据 |
 |---|---|---|---|
-| 6.1 | P1 | **README（8 语言版同）零提及 Projects/Tasks/Calendar**，而这是侧栏一级入口；README 里的 "project context" 指 Agent Memory scope，与 Projects 功能同名不同义，加重混淆 | `README.md:48,54-88` |
+| 6.1 | P1 | **README（8 语言版同）零提及 Projects/Tasks/Calendar**，而这是侧栏一级入口；README 里的 "project context" 与 Projects 功能同名不同义，加重混淆 | `README.md:48,54-88` |
 | 6.2 | P2 | **CHANGELOG 对两大波功能零记录**：projects/tasks 基座（08-23 d2e7c02）与 R10 日历（09-12 三连）无任何版本条目 | `CHANGELOG.md` |
 | 6.3 | P2 | **R10 决策稿没打"已实现"收口**（对比 R5/R11 都有状态行）；且 R10 写明"不做提醒推送"，但逾期提醒 + Web Push 已实装，决策稿未回填 | `docs/product-requirements.md:96-108` vs `:94,129`、`review.ts:359-405` |
 | 6.4 | P2 | **官网只在 showcase 装饰标签里出现"项目/日程"**，正式卖点文案零提及 | `apps/site/src/content/copy.ts` |
@@ -143,7 +143,7 @@
 | 1.2 删除已选项目的幽灵筛选 | `deleteMutation.onSuccess` 时若删的是 `selected` 则 `setSelected(ALL_TASKS)`；另加兜底 effect：`selected` 不在 `projectById` 且非 ALL 时自动回退，防 archive 之外的新路径复发 |
 | 1.3 看板零排序 | 引入 `@dnd-kit/core` + `sortable`：列内拖拽调 `reorderTasks`，跨列 = `updateTask({status})` + 两列各调一次 reorder（后端 batch 化见 4.5）。dnd-kit 触屏/键盘/读屏开箱可用，顺带解决 7.6 的看板一半 |
 | 1.4+1.5 头部双按钮与死路 | 两颗按钮**合并进 SubpageHeader actions 一行**：「新建项目」primary +「新建任务」outline secondary，任务区标题行撤按钮——堆叠消失；0 项目时「新建任务」隐藏（若采纳 D1 可无项目建任务，则始终显示，见下） |
-| 1.6 空态无 CTA | Empty 内补主按钮「新建项目」（对齐 daily-review/memory 页的 rigor），D1 采纳后加次链接「直接建任务」 |
+| 1.6 空态无 CTA | Empty 内补主按钮「新建项目」（对齐 daily-review 页的 rigor），D1 采纳后加次链接「直接建任务」 |
 | 1.7 done 推进回环 | 保持 done→todo 的"重开"语义但讲清楚：点击文案/aria 按 `todo→开始`、`in_progress→完成`、`done→重新打开` 动态化（3 个新 key），toast 带 Undo（复用现有乐观快照回滚） |
 | 1.9 projectId 不重置 | reset 列表补 `setProjectId(defaultProjectId ?? "")`，不再依赖 `key={selected}` 重挂载兜底 |
 | 7.1 a11y 无名按钮 | 推进按钮加动态 `aria-label`（与 1.7 同三个 key） |

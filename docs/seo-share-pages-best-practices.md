@@ -18,7 +18,7 @@
 | 注入内容 | title / description（去 markdown 噪音，80/160 字截断）、OG 全套、Twitter Card、JSON-LD（SocialMediaPosting）、SSR 正文段落、`robots: index, follow` | 同上 |
 | 死分享处理 | 撤销 / 过期 / 不存在的 token → 注入 `noindex, nofollow`（仍是 200，见 Gap 2） | 同上 |
 | wrangler 配置 | `run_worker_first: true`——worker 先于静态资源路由处理**所有**请求。此前的坑（两段式）：先是不放行 `/share/*` 导致 SPA 兜底直接返回空壳、worker 不执行；后是只放行部分路径导致 `/sitemap.xml` 与未知路径同样绕过 worker。改为布尔 true 后状态码语义全部收敛到 worker（精确资源文件在 notFound 里经 ASSETS 精确匹配返回，状态与 content-type 不变） | `wrangler.jsonc`（gitignore 的本地配置，**新机器克隆后必须带上这行**） |
-| robots.txt | 真实静态文件（`Disallow /api/ /file/ /mcp /memory/mcp /memos.api.v1`） | `apps/web/public/robots.txt` |
+| robots.txt | 真实静态文件（`Disallow /api/ /file/ /mcp /memos.api.v1`） | `apps/web/public/robots.txt` |
 | canonical origin | og:url/og:image 以 `FLAREMO_PUBLIC_URL` 为准，请求 origin 兜底 | `share-page.ts` `publicOrigin()` |
 | 测试 | `apps/worker/src/share-page.test.ts`（4 例，Miniflare + 真 D1） | |
 

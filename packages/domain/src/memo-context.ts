@@ -8,7 +8,6 @@ import {
 } from "@flaremo/db";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { parseResourceName } from "./ids";
-import { listMemoriesForMemo } from "./memory";
 import { getMemoById } from "./memos";
 import {
   canEditMemo,
@@ -72,7 +71,6 @@ export async function getMemoContextData(
       : [];
   const memoById = new Map(relatedMemos.map((item) => [item.id, item]));
   const now = Date.now();
-  const memories = await listMemoriesForMemo(db, user, id);
   const revisions =
     memo.userId === user.id
       ? revisionRows
@@ -102,6 +100,5 @@ export async function getMemoContextData(
     revisions: [...revisions].sort((a, b) =>
       b.createdAt.localeCompare(a.createdAt),
     ),
-    memories,
   };
 }

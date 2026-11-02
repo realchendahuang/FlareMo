@@ -44,7 +44,7 @@
 
 1. **Hero**：标题「一个免费 Cloudflare 账号就能 24 小时在线的个人笔记系统」+ 单 CTA（部署指南入口）
 2. **三列 Hero stat**：D1 5GB / R2 10GB / 0 服务器
-3. **Why FlareMo**：6 张 feature 卡片（D1+R2 / Better Auth + Memos / PWA / Agent Memory / 语义搜索 / 公开分享）
+3. **Why FlareMo**：6 张 feature 卡片（D1+R2 / Better Auth + Memos / PWA / 笔记 MCP / 语义搜索 / 公开分享）
 4. **为什么 Cloudflare 比 NAS 更稳**：7 行对比表
 5. **看一眼产品**：两张截图（desktop + mobile）
 6. **定价**：Free 档卡片

@@ -2,7 +2,6 @@ import {
   applyFlaremoMigrations,
   createDb,
   embeddingTasks,
-  memoryItems,
   memos,
 } from "@flaremo/db";
 import { eq } from "drizzle-orm";
@@ -20,15 +19,12 @@ import {
   rebuildEmbeddingIndexes,
 } from "./embedding-outbox";
 import { SELF_HOST_UNLIMITED, type UserPlanLimits } from "./limits";
-import { createMemory, type MemoryActor } from "./memory";
 import { createMemo, hardDeleteMemo, updateMemo } from "./memos";
 import { readMonthlyUsageTotal } from "./quotas";
 import type { TeamViewer } from "./team-permissions";
 import { ensureTeamOwner } from "./test-support";
 import { incrementUsageCounter } from "./usage";
 import { createFlaremoMember } from "./users";
-
-const USER_ACTOR: MemoryActor = { type: "user" };
 
 let mf: Miniflare;
 let db: ReturnType<typeof createDb>;
@@ -299,47 +295,11 @@ describe("embedding outbox", () => {
     expect(tasks.every((task) => task.status === "succeeded")).toBe(true);
   });
 
-  it("indexes a memory into the memories index", async () => {
-    const result = await createMemory(db, user, USER_ACTOR, {
-      content: "FlareMo 用 D1 作为事实源",
-      type: "semantic",
-      kind: "fact",
-      scopeType: "global",
-      scopeKey: null,
-      tier: "normal",
-      importance: 50,
-      confidence: 50,
-    });
-    const memoriesIndex = new FakeVectorIndex();
-    await dispatchEmbeddingOutbox(db, {
-      provider: fakeProvider(),
-      memosIndex: null,
-      memoriesIndex,
-    });
-
-    expect(memoriesIndex.store.size).toBe(1);
-    const rows = await db
-      .select()
-      .from(memoryItems)
-      .where(eq(memoryItems.id, result.memory.id));
-    expect(rows[0]?.embeddingStatus).toBe("indexed");
-  });
-
-  it("rebuilds both indexes from D1", async () => {
+  it("rebuilds the memo index from D1", async () => {
     await createMemo(db, user, {
       content: "重建的 memo",
       visibility: "private",
       source: "web",
-    });
-    await createMemory(db, user, USER_ACTOR, {
-      content: "重建的 memory",
-      type: "semantic",
-      kind: "fact",
-      scopeType: "global",
-      scopeKey: null,
-      tier: "normal",
-      importance: 50,
-      confidence: 50,
     });
 
     const memosIndex = new FakeVectorIndex();
@@ -351,9 +311,9 @@ describe("embedding outbox", () => {
     });
 
     expect(result.memosIndexed).toBe(1);
-    expect(result.memoriesIndexed).toBe(1);
+    expect(result.memoriesIndexed).toBe(0);
     expect(memosIndex.store.size).toBe(1);
-    expect(memoriesIndex.store.size).toBe(1);
+    expect(memoriesIndex.store.size).toBe(0);
   });
 
   it("meters tokens and calls after a successful embed", async () => {
@@ -395,7 +355,6 @@ describe("embedding outbox", () => {
       attachmentStorageBytes: null,
       semanticSearchQueriesPerMonth: null,
       maxMemosPerUser: null,
-      maxMemoryItemsPerUser: null,
     };
 
     let embedCalls = 0;
@@ -511,14 +470,12 @@ describe("embedding outbox", () => {
       attachmentStorageBytes: null,
       semanticSearchQueriesPerMonth: null,
       maxMemosPerUser: null,
-      maxMemoryItemsPerUser: null,
     } satisfies UserPlanLimits;
     const PRO_LIMITS = {
       aiEmbeddingTokensPerMonth: null,
       attachmentStorageBytes: null,
       semanticSearchQueriesPerMonth: null,
       maxMemosPerUser: null,
-      maxMemoryItemsPerUser: null,
     } satisfies UserPlanLimits;
     await dispatchEmbeddingOutbox(db, {
       provider,

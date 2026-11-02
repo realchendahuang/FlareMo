@@ -4,7 +4,22 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## Unreleased
 
-（暂无）
+**删除 Agent Memory。** `/memory` 页面、`/api/app/memory`、`/memory/mcp`、Dreaming/冲突巡检、记忆量配额、`flaremo` CLI 与 harness 记忆插件全部下架；Agent 只通过笔记 MCP（`/mcp`、`/api/v1/mcp`）和一个新的 `flaremo-notes` Skill 读写用户的 memo。
+
+### 升级步骤
+
+1. 如果装过旧的 harness 记忆插件，先在旧版本仓库运行 `flaremo uninstall`（或手动移除 `~/.flaremo` 与各 harness 的插件/hook），再升级本版；否则会话开头的记忆注入会请求已删除的 `/memory/mcp`。
+2. 本版无 D1 migration、无 Cloudflare 资源变化；`memory_*` 表保留，下一版再按破坏性收缩规则删除。
+3. 把 MCP 客户端指向 `/mcp`，用 `memos_pat_` 令牌认证；工具名见 `skills/flaremo-notes/SKILL.md`。
+
+### 行为变化
+
+- 删除 `/memory` Web 页面与导航入口；memo 详情页不再显示关联记忆，也不再提供「提炼为记忆」。
+- 删除 `/api/app/memory/*`、`/memory/mcp`、`POST /memos/:id/memory`。
+- 关闭每日 Dreaming 自动抽取与每周冲突巡检；不再产生新的 AI 记忆条目。
+- 删除 `flaremo` CLI、`harness/` 跨 Agent 插件、`skills/flaremo-memory`；新增 `skills/flaremo-notes`，笔记 MCP 工具面不变。
+- 账户用量面板不再显示「Agent 记忆条数」。
+- 旧版导出的 bundle 仍可导入；本版导出保留 memory 字段一版，下一版随表删除。
 
 ## v0.26.0
 

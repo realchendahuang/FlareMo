@@ -20,7 +20,6 @@
       "wrangler.jsonc",
       "docs/**/*.md",
       "scripts/**/*.mjs",
-      "harness/**/*.mjs",
       "apps/**/*.ts",
       "apps/**/*.tsx",
       "apps/site/**/*.css",

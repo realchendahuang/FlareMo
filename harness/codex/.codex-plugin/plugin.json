@@ -1,6 +1,0 @@
-{
-  "name": "flaremo-memory",
-  "version": "0.2.0",
-  "description": "FlareMo memory ledger: lens injection at session start, wrap-up nudge at stop; CLI + lifecycle hooks, no MCP.",
-  "hooks": "./hooks/hooks.json"
-}

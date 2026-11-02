@@ -48,7 +48,6 @@ export const KO_SHOWCASE: ShowcaseContent = {
     trash: "휴지통",
     dailyReview: "일일 회고",
     randomWalk: "랜덤 워크",
-    memory: "기억",
     calendarView: "일정",
     projects: "할 일",
     tagIndex: "태그 색인",

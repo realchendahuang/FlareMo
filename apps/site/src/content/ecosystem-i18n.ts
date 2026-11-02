@@ -21,12 +21,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "AI Agents",
         tag: "Model Context Protocol",
-        desc: "Claude、Cursor、Codex 通过 MCP 或 Skill 读写同一份长期记忆。",
+        desc: "Claude、Cursor、Codex 通过 MCP 或 Skill 搜索、读取和写入你的笔记。",
       },
       {
-        title: "flaremo CLI",
-        tag: "终端",
-        desc: "在任意终端里检索、写入、打检查点；脚本与 Agent 共用一套命令。",
+        title: "Notes Skill",
+        tag: "Skill",
+        desc: "教 Agent 先搜索再写入、保留你的原文，并回报它改动的笔记 ID。",
       },
       {
         title: "Telegram Bot",
@@ -48,12 +48,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "AI Agents",
         tag: "Model Context Protocol",
-        desc: "Claude, Cursor and Codex read and write the same long-term memory over MCP or a skill.",
+        desc: "Claude, Cursor and Codex search, read and write your notes over MCP or a skill.",
       },
       {
-        title: "flaremo CLI",
-        tag: "Terminal",
-        desc: "Search, write and checkpoint from any shell; scripts and agents share one command set.",
+        title: "Notes Skill",
+        tag: "Skill",
+        desc: "Teaches an agent to search before writing, keep your wording, and report the note ID it changed.",
       },
       {
         title: "Telegram Bot",
@@ -75,12 +75,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "AI Agents",
         tag: "Model Context Protocol",
-        desc: "Claude、Cursor、Codex が MCP または Skill 経由で同じ長期記憶を読み書きします。",
+        desc: "Claude、Cursor、Codex が MCP または Skill 経由でノートを検索・読み取り・書き込みします。",
       },
       {
-        title: "flaremo CLI",
-        tag: "ターミナル",
-        desc: "どのシェルからでも検索・記録・チェックポイント。スクリプトと Agent が同じコマンドを共有します。",
+        title: "Notes Skill",
+        tag: "Skill",
+        desc: "書く前に検索し、原文を保ち、変更したノートIDを返す規約を Agent に教えます。",
       },
       {
         title: "Telegram Bot",
@@ -102,12 +102,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Agents IA",
         tag: "Model Context Protocol",
-        desc: "Claude, Cursor et Codex lisent et écrivent la même mémoire à long terme via MCP ou un skill.",
+        desc: "Claude, Cursor et Codex cherchent, lisent et écrivent vos notes via MCP ou un skill.",
       },
       {
-        title: "CLI flaremo",
-        tag: "Terminal",
-        desc: "Cherchez, écrivez et créez des points de contrôle depuis n'importe quel shell.",
+        title: "Skill Notes",
+        tag: "Skill",
+        desc: "Apprend à l'agent à chercher avant d'écrire, à respecter votre formulation et à renvoyer l'ID modifié.",
       },
       {
         title: "Bot Telegram",
@@ -129,12 +129,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "Agentes de IA",
         tag: "Model Context Protocol",
-        desc: "Claude, Cursor y Codex leen y escriben la misma memoria a largo plazo mediante MCP o un skill.",
+        desc: "Claude, Cursor y Codex buscan, leen y escriben tus notas mediante MCP o un skill.",
       },
       {
-        title: "CLI de flaremo",
-        tag: "Terminal",
-        desc: "Busca, escribe y crea puntos de control desde cualquier shell.",
+        title: "Skill de notas",
+        tag: "Skill",
+        desc: "Enseña al agente a buscar antes de escribir, respetar tu redacción y devolver el ID modificado.",
       },
       {
         title: "Bot de Telegram",
@@ -156,12 +156,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "AI Agents",
         tag: "Model Context Protocol",
-        desc: "Claude, Cursor, Codex가 MCP 또는 스킬로 같은 장기 기억을 읽고 씁니다.",
+        desc: "Claude, Cursor, Codex가 MCP 또는 스킬로 노트를 검색·읽기·쓰기합니다.",
       },
       {
-        title: "flaremo CLI",
-        tag: "터미널",
-        desc: "어떤 셸에서든 검색하고 기록하고 체크포인트를 남깁니다.",
+        title: "Notes Skill",
+        tag: "Skill",
+        desc: "쓰기 전 검색, 원문 유지, 변경한 노트 ID 반환을 Agent에 가르칩니다.",
       },
       {
         title: "Telegram Bot",
@@ -183,12 +183,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "ИИ-агенты",
         tag: "Model Context Protocol",
-        desc: "Claude, Cursor и Codex читают и пишут одну и ту же долговременную память через MCP или skill.",
+        desc: "Claude, Cursor и Codex ищут, читают и записывают ваши заметки через MCP или skill.",
       },
       {
-        title: "flaremo CLI",
-        tag: "Терминал",
-        desc: "Поиск, запись и контрольные точки из любой оболочки.",
+        title: "Навык заметок",
+        tag: "Skill",
+        desc: "Учит агента сначала искать, сохранять вашу формулировку и возвращать ID изменённой заметки.",
       },
       {
         title: "Telegram Bot",
@@ -210,12 +210,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "AI Agents",
         tag: "Model Context Protocol",
-        desc: "يقرأ Claude وCursor وCodex ويكتبون الذاكرة طويلة المدى نفسها عبر MCP أو مهارة.",
+        desc: "يبحث Claude وCursor وCodex في ملاحظاتك ويقرؤونها ويكتبونها عبر MCP أو مهارة.",
       },
       {
-        title: "flaremo CLI",
-        tag: "الطرفية",
-        desc: "ابحث واكتب وأنشئ نقاط حفظ من أي طرفية.",
+        title: "مهارة الملاحظات",
+        tag: "Skill",
+        desc: "تعلّم الوكيل البحث قبل الكتابة، والحفاظ على صياغتك، وإرجاع معرّف الملاحظة المعدّلة.",
       },
       {
         title: "Telegram Bot",
