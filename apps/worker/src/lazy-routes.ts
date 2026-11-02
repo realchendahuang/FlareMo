@@ -10,7 +10,7 @@ import type { HonoBindings } from "./context";
  * when these routes were never hit. They are low-traffic relative to the API
  * hot path, so this module registers small proxy handlers that import the
  * real route tree on first hit and cache it for the isolate's lifetime.
- * Hot-path trees (auth, memos CRUD, memory API) stay static — laziness there
+ * Hot-path trees (auth, memos CRUD) stay static — laziness there
  * would only move the cost around.
  *
  * The proxies forward with the full original path (the sub-app re-registers

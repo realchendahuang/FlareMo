@@ -41,10 +41,7 @@ test("reads FlareMo resource names from wrangler config", () => {
       ],
       consumers: [{ queue: "flaremo-member-removal" }],
     },
-    vectorize: [
-      { index_name: "flaremo-memos" },
-      { index_name: "flaremo-memories" },
-    ],
+    vectorize: [{ index_name: "flaremo-memos" }],
     vars: { FLAREMO_EMBEDDING_DIMENSIONS: "1024" },
   });
 
@@ -54,7 +51,7 @@ test("reads FlareMo resource names from wrangler config", () => {
     "flaremo-member-removal",
     "flaremo-data-export",
   ]);
-  assert.deepEqual(resources.indexes, ["flaremo-memos", "flaremo-memories"]);
+  assert.deepEqual(resources.indexes, ["flaremo-memos"]);
   assert.equal(resources.dimensions, 1024);
   assert.equal(resources.metric, "cosine");
 });

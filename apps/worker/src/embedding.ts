@@ -48,14 +48,9 @@ export function createEmbeddingProvider(
   return new WorkersAiEmbeddingProvider(env, config.model, config.dimensions);
 }
 
-export function createVectorIndex(
-  env: FlareMoEnv,
-  kind: "memo" | "memory",
-): VectorIndex | null {
-  const binding =
-    kind === "memo" ? env.VECTORIZE_MEMOS : env.VECTORIZE_MEMORIES;
-  if (!binding) return null;
-  return new CloudflareVectorIndex(binding);
+export function createVectorIndex(env: FlareMoEnv): VectorIndex | null {
+  if (!env.VECTORIZE_MEMOS) return null;
+  return new CloudflareVectorIndex(env.VECTORIZE_MEMOS);
 }
 
 /**

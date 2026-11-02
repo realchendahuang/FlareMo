@@ -129,7 +129,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       const template =
         messages[locale]?.[key] ??
         messages["en-US"]?.[key] ??
-        // Dynamic keys built from server enums (e.g. memory.type.*) can point
+        // Dynamic keys built from server enums (e.g. task.status.*) can point
         // at values added server-side after this client shipped. A readable
         // fallback keeps the page alive; a throw would crash the route.
         key.split(".").at(-1) ??

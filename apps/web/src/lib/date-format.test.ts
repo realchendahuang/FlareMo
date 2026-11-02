@@ -28,7 +28,7 @@ describe("formatDateTime", () => {
 });
 
 describe("formatTimestamp", () => {
-  it("matches the default toLocaleString of the memory revisions list", () => {
+  it("matches the default toLocaleString of the task activity list", () => {
     const value = "2026-09-20T08:30:00Z";
     expect(formatTimestamp(value)).toBe(new Date(value).toLocaleString());
     expect(formatTimestamp("not-a-date")).toBe(

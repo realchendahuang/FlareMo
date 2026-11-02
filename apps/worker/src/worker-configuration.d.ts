@@ -5,7 +5,6 @@ interface __BaseEnv_Env {
 	ATTACHMENTS: R2Bucket;
 	DB: D1Database;
 	VECTORIZE_MEMOS: VectorizeIndex;
-	VECTORIZE_MEMORIES: VectorizeIndex;
 	AI: Ai;
 	ASSETS: Fetcher;
 	FLAREMO_DEPLOY_REPOSITORY: "";

@@ -100,7 +100,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
 
     expect(index.store.size).toBe(1);
@@ -123,7 +122,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
 
     expect(index.store.size).toBe(1);
@@ -149,7 +147,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
 
     const [stored] = [...index.store.values()];
@@ -172,7 +169,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
     const [personal] = [...index.store.values()];
     expect(personal?.namespace).toBe(`user:${user.id}`);
@@ -182,7 +178,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
 
     const relocated = index.store.get(`${memo.id}#chunks/0`);
@@ -209,7 +204,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
     expect([...index.store.values()][0]?.namespace).toBe("team:default");
 
@@ -217,7 +211,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
 
     expect(index.store.size).toBe(1);
@@ -236,7 +229,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
     // Simulate a lost vector store: relocation must re-embed and still land
     // in the correct namespace.
@@ -246,7 +238,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
 
     const relocated = index.store.get(`${memo.id}#chunks/0`);
@@ -265,7 +256,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
     expect(index.store.size).toBe(1);
 
@@ -273,7 +263,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: index,
-      memoriesIndex: null,
     });
     expect(index.store.size).toBe(0);
   });
@@ -288,7 +277,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: null,
       memosIndex: index,
-      memoriesIndex: null,
     });
     expect(index.store.size).toBe(0);
     const tasks = await db.select().from(embeddingTasks);
@@ -303,17 +291,13 @@ describe("embedding outbox", () => {
     });
 
     const memosIndex = new FakeVectorIndex();
-    const memoriesIndex = new FakeVectorIndex();
     const result = await rebuildEmbeddingIndexes(db, {
       provider: fakeProvider(),
       memosIndex,
-      memoriesIndex,
     });
 
     expect(result.memosIndexed).toBe(1);
-    expect(result.memoriesIndexed).toBe(0);
     expect(memosIndex.store.size).toBe(1);
-    expect(memoriesIndex.store.size).toBe(0);
   });
 
   it("meters tokens and calls after a successful embed", async () => {
@@ -325,7 +309,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider: fakeProvider(),
       memosIndex: new FakeVectorIndex(),
-      memoriesIndex: null,
     });
 
     expect(await readMonthlyUsageTotal(db, "embedding_tokens")).toBeGreaterThan(
@@ -368,7 +351,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider,
       memosIndex: new FakeVectorIndex(),
-      memoriesIndex: null,
       userLimits,
     });
 
@@ -408,7 +390,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider,
       memosIndex: new FakeVectorIndex(),
-      memoriesIndex: null,
       limits,
     });
 
@@ -430,7 +411,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider,
       memosIndex: new FakeVectorIndex(),
-      memoriesIndex: null,
     });
     expect(embedCalls).toBe(1);
     const indexed = await db
@@ -480,7 +460,6 @@ describe("embedding outbox", () => {
     await dispatchEmbeddingOutbox(db, {
       provider,
       memosIndex: new FakeVectorIndex(),
-      memoriesIndex: null,
       resolveUserLimits: (userId) =>
         userId === pro.id ? PRO_LIMITS : FREE_LIMITS,
     });

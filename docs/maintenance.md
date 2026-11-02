@@ -86,11 +86,11 @@ curl http://127.0.0.1:8787/__scheduled
 
 FlareMo 的主数据在 D1，附件在 R2。备份必须同时覆盖两者。
 
-D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL dump，并把 dump 存到可信位置。`memos_fts` 和 `memory_fts` 都是可由 D1 事实源重建的 FTS5 虚拟索引；Wrangler 不支持整库导出包含虚拟表的数据库，因此不能把 FTS shadow tables 当作备份目标。
+D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL dump，并把 dump 存到可信位置。`memos_fts` 是可由 D1 事实源重建的 FTS5 虚拟索引；Wrangler 不支持整库导出包含虚拟表的数据库，因此不能把 FTS shadow tables 当作备份目标。
 
 认证表也属于 D1 的持久业务数据。它们包含 session、账户关联和 PAT 的敏感校验数据，备份文件必须按生产数据同等敏感级别保存；不要把导出文件上传到 issue、聊天或公开 artifact。
 
-不要在文档或临时 shell 命令里维护第二份手写表清单。唯一清单在 [`scripts/persistence-manifest.mjs`](../scripts/persistence-manifest.mjs)：其中的 `RESTORE_TABLES` 覆盖身份、memo/SSE/webhook/通知、附件、导入导出任务、Agent Memory 遗留表（下一版删除）、用量、项目与任务等所有 D1 事实源表；`embedding_tasks` 则属于可由事实源重建的派生工作队列。`pnpm persistence:check` 会把这份清单与 `packages/db/src/schema/` 下每个模块的每一个 `sqliteTable` 对比，少表、多表或重复分类都会失败；它也是 `pnpm verify` 的第一道门禁。
+不要在文档或临时 shell 命令里维护第二份手写表清单。唯一清单在 [`scripts/persistence-manifest.mjs`](../scripts/persistence-manifest.mjs)：其中的 `RESTORE_TABLES` 覆盖身份、memo/SSE/webhook/通知、附件、导入导出任务、用量、项目与任务等所有 D1 事实源表；`embedding_tasks` 则属于可由事实源重建的派生工作队列。`pnpm persistence:check` 会把这份清单与 `packages/db/src/schema/` 下每个模块的每一个 `sqliteTable` 对比，少表、多表或重复分类都会失败；它也是 `pnpm verify` 的第一道门禁。
 
 日常演练请直接使用 `pnpm backup:drill`，真实远端恢复验证使用 `pnpm backup:drill:remote`。两个脚本从同一清单生成 Wrangler 的 `--table` 参数、按依赖顺序的恢复文件和源/目标逐表计数校验。每次认证或 schema 变更后仍需重新演练，不要把旧的 drill 结果当作新的恢复证明。
 
@@ -108,7 +108,7 @@ rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments
 
 1. 创建新的 D1 database 和 R2 bucket。
 2. 对新的 D1 database 执行 FlareMo migrations。
-3. 使用 `pnpm backup:drill` 生成的按依赖排序恢复文件。它先恢复 identity roots 和 Better Auth 记录，再恢复 memo/SSE/webhook/通知、附件、数据任务、Agent Memory 遗留表（下一版删除）、用量、项目和任务等全部事实源；migration 的 trigger 会重建 `memos_fts` 与 `memory_fts`。
+3. 使用 `pnpm backup:drill` 生成的按依赖排序恢复文件。它先恢复 identity roots 和 Better Auth 记录，再恢复 memo/SSE/webhook/通知、附件、数据任务、用量、项目和任务等全部事实源；migration 的 trigger 会重建 `memos_fts`。
 4. 恢复 R2 对象。
 5. 更新 `wrangler.jsonc` 的 D1 `database_id` 和 R2 bucket name；如启用了语义搜索，必须绑定一个**新建或已明确清空**的 Vectorize index。
 6. 恢复文件会清空旧的 `embedding_tasks` 状态，并为正常/归档 memo 与 active memory 写入新的 `reindex` 任务。部署后让 Worker 的请求 outbox 或 Cron 完成重建；不要把旧 D1 的 `indexed` 标记误当成新 Vectorize index 中真的存在向量。

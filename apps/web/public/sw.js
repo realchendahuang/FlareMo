@@ -123,7 +123,6 @@ function isPrivateAppNavigation(url) {
     `${scopePath}account`,
     `${scopePath}forgot-password`,
     `${scopePath}login`,
-    `${scopePath}memory`,
     `${scopePath}memo`,
     `${scopePath}projects`,
     `${scopePath}recover`,

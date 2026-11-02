@@ -134,7 +134,7 @@ export function ArticlesPage() {
 
   const [filter, setFilter] = useState<ArticleFilter>("all");
   const articles = articlesQuery.data?.articles ?? [];
-  // One list, cut by status the way the memory page cuts by kind. The
+  // One list, cut by status the way other lists cut by kind. The
   // recycle bin is a filter of its own, so deleted drafts never sit among
   // the work in progress.
   const live = articles.filter((article) => !article.deleted_at);

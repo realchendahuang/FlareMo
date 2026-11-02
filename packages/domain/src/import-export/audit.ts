@@ -3,7 +3,6 @@ import {
   attachments,
   dataTasks,
   importTaskRows,
-  memoryItems,
   memos,
   projects,
   shares,
@@ -17,7 +16,6 @@ export type ImportAuditTable =
   | "memos"
   | "attachments"
   | "shares"
-  | "memory_items"
   | "projects"
   | "tasks";
 
@@ -71,7 +69,6 @@ function emptyBuckets(): AuditBuckets {
     memos: [],
     attachments: [],
     shares: [],
-    memory_items: [],
     projects: [],
     tasks: [],
   };
@@ -79,7 +76,7 @@ function emptyBuckets(): AuditBuckets {
 
 /**
  * Undo every top-level row the task inserted, newest dependency first. Child
- * rows (memo tags/relations, memory revisions/evidence/events, task activity)
+ * rows (memo tags/relations, task activity)
  * cascade from their audited parent; attachments are listed explicitly because
  * deleting a memo only sets `memo_id` to NULL.
  *
@@ -146,9 +143,6 @@ export async function rollbackImportTask(
   }
   for (const chunk of chunkForD1(buckets.memos, d1IdsPerStatement())) {
     await db.delete(memos).where(inArray(memos.id, chunk));
-  }
-  for (const chunk of chunkForD1(buckets.memory_items, d1IdsPerStatement())) {
-    await db.delete(memoryItems).where(inArray(memoryItems.id, chunk));
   }
 
   await clearImportTaskAudit(db, taskId);

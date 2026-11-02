@@ -29,7 +29,6 @@ describe("parseUserPlanLimits", () => {
       aiEmbeddingTokensPerMonth: 200000,
       semanticSearchQueriesPerMonth: null,
       maxMemosPerUser: null,
-      maxMemoryItemsPerUser: null,
     });
     // A partial payload fills missing dimensions with null (fall through to
     // the deployment limit) — null never means "unlimited".
@@ -38,7 +37,6 @@ describe("parseUserPlanLimits", () => {
       aiEmbeddingTokensPerMonth: null,
       semanticSearchQueriesPerMonth: null,
       maxMemosPerUser: 500,
-      maxMemoryItemsPerUser: null,
     });
   });
 

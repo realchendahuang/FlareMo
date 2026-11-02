@@ -1,13 +1,6 @@
 import type { FlareMoDb, UserRow } from "@flaremo/db";
-import { memoryItems, memos, usageCounters } from "@flaremo/db";
+import { memos, usageCounters } from "@flaremo/db";
 import { and, eq, sql } from "drizzle-orm";
-import type { VectorIndex } from "./embedding";
-
-export type VectorUsageDeps = {
-  memosIndex: VectorIndex | null;
-  memoriesIndex: VectorIndex | null;
-};
-
 export type VectorUsageReportInput = {
   provider: string;
   model: string;
@@ -18,7 +11,7 @@ export type VectorUsageReportInput = {
 
 export type VectorUsageIndexReport = {
   name: string;
-  kind: "memo" | "memory";
+  kind: "memo";
   vectors_count: number;
   stored_dimensions: number;
 };
@@ -78,7 +71,6 @@ export async function reportVectorUsage(
   db: FlareMoDb,
   user: UserRow,
   input: VectorUsageReportInput,
-  deps: VectorUsageDeps,
 ): Promise<VectorUsageReportResult> {
   const memoRow = await db
     .select({
@@ -98,36 +90,6 @@ export async function reportVectorUsage(
       stored_dimensions: memoVectors * input.dimensions,
     },
   ];
-  try {
-    if (deps.memoriesIndex) {
-      // Memory vectors stay single-atomic under a per-user namespace, so the
-      // caller's stored count equals their indexed memory rows.
-      const memoryRow = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(memoryItems)
-        .where(
-          and(
-            eq(memoryItems.userId, user.id),
-            eq(memoryItems.embeddingStatus, "indexed"),
-          ),
-        );
-      const memoryVectors = Number(memoryRow[0]?.count ?? 0);
-      indexes.push({
-        name: "flaremo-memories",
-        kind: "memory",
-        vectors_count: memoryVectors,
-        stored_dimensions: memoryVectors * input.dimensions,
-      });
-    }
-  } catch {
-    indexes.push({
-      name: "flaremo-memories",
-      kind: "memory",
-      vectors_count: 0,
-      stored_dimensions: 0,
-    });
-  }
-
   return {
     provider: input.provider,
     model: input.model,

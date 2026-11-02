@@ -445,9 +445,7 @@ async function dispatchRequestEmbeddingOutbox(
 ) {
   await dispatchEmbeddingOutbox(createDb(env.DB), {
     provider: createEmbeddingProvider(env),
-    memosIndex: createVectorIndex(env, "memo"),
-    // Agent Memory is gone; no new memory vectors are produced.
-    memoriesIndex: null,
+    memosIndex: createVectorIndex(env),
     limits: await options.resolvePlanLimits(env),
     userLimits: hasCustomUserPlanLimits
       ? null

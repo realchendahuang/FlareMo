@@ -33,7 +33,6 @@
       "/feed.xml",
       "/file/*",
       "/mcp",
-      "/memory/*",
       "/openapi.json",
       "/memos.api.v1.*",
       "/share/*",
@@ -84,10 +83,6 @@
     {
       "binding": "VECTORIZE_MEMOS",
       "index_name": "flaremo-memos"
-    },
-    {
-      "binding": "VECTORIZE_MEMORIES",
-      "index_name": "flaremo-memories"
     }
   ],
   "ai": {

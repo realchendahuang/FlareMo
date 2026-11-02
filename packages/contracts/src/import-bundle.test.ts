@@ -26,11 +26,26 @@ describe("import bundle resource names", () => {
   it("accepts ids our own export produces", () => {
     expect(() =>
       importBundleSchema.parse({
-        version: 6,
+        version: 7,
         memos: [memo],
         attachments: [attachment],
       }),
     ).not.toThrow();
+  });
+
+  it("ignores legacy memory fields from v6 bundles", () => {
+    const parsed = importBundleSchema.parse({
+      version: 6,
+      memos: [memo],
+      memories: [{ name: "memories/old", content: "a legacy fact" }],
+      memory_revisions: [{ name: "memory_revisions/old" }],
+      memory_relations: [],
+      memory_resource_links: [],
+      memory_evidence: [],
+      memory_events: [],
+    });
+    expect("memories" in parsed).toBe(false);
+    expect("memory_events" in parsed).toBe(false);
   });
 
   it("rejects attachment names that could break out of an HTML attribute", () => {

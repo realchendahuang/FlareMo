@@ -70,8 +70,7 @@ export const dataTasks = sqliteTable(
  * back before the import runs again, so a partial bundle never stays visible
  * and a retry cannot duplicate rows.
  *
- * Child rows (memo tags/relations, memory revisions/evidence/events) are
- * deliberately omitted: their foreign keys cascade from the audited parent.
+ * Child rows (memo tags/relations) are deliberately omitted: their foreign keys cascade from the audited parent.
  * Attachments are listed because deleting a memo only nulls their `memo_id`.
  */
 export const importTaskRows = sqliteTable(
@@ -81,14 +80,7 @@ export const importTaskRows = sqliteTable(
       .notNull()
       .references(() => dataTasks.id, { onDelete: "cascade" }),
     tableName: text("table_name", {
-      enum: [
-        "memos",
-        "attachments",
-        "shares",
-        "memory_items",
-        "projects",
-        "tasks",
-      ],
+      enum: ["memos", "attachments", "shares", "projects", "tasks"],
     }).notNull(),
     rowId: text("row_id").notNull(),
   },

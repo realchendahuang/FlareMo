@@ -1,7 +1,6 @@
 export * from "./schema/auth";
 export * from "./schema/content";
 export * from "./schema/instance";
-export * from "./schema/memory";
 export * from "./schema/memos";
 export * from "./schema/ops";
 export * from "./schema/rows";

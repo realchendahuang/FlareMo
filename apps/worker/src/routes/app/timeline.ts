@@ -60,7 +60,7 @@ export function registerTimelineRoutes(app: Hono<HonoBindings>) {
       try {
         const { db, user, limits, userLimits } = await getRequestContext(c);
         const provider = createEmbeddingProvider(c.env);
-        const index = createVectorIndex(c.env, "memo");
+        const index = createVectorIndex(c.env);
         if (!provider || !index) {
           return c.json({ memos: [], degraded: true });
         }

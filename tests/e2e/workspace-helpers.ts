@@ -154,41 +154,6 @@ export function mobileSearchInput(page: Page) {
 }
 
 /**
- * Create a memory from the /memory page.
- *
- * The page used to open a modal with a textarea; it now grows an inline quick
- * composer. The composer defaults to the "Iron rule" tier, which locks the
- * memory on creation, so `tier` picks the starting state: "ironRule" keeps the
- * default, "preference" toggles down first so the memory is created unlocked.
- */
-export async function createMemoryViaComposer(
-  page: Page,
-  content: string,
-  tier: "ironRule" | "preference" = "ironRule",
-) {
-  const composer = page
-    .getByPlaceholder(
-      /给 AI 立一条规则或习惯|记下一条偏好或认知|Set a new rule or preference|Set a rule or habit|Note a preference or insight/i,
-    )
-    .first();
-  await expect(composer).toBeVisible();
-  // The composer starts as a plain preference; its toggle turns it into a
-  // rule (the button reads 偏好 / Preference until pressed).
-  if (tier === "ironRule") {
-    await page
-      .getByRole("button", { name: /^偏好$|^Preference$/i })
-      .first()
-      .click();
-  }
-  await composer.fill(content);
-  await page
-    .getByRole("button", { name: /^发送$|^Send$/i })
-    .locator("visible=true")
-    .first()
-    .click();
-}
-
-/**
  * Open the spotlight and switch it into semantic mode, then return the dialog.
  *
  * The toggle only renders once the deployment reports a semantic-search budget

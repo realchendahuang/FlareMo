@@ -76,7 +76,7 @@ export async function listMemoRelationsForMemosForViewer(
 
   const requestedIds = new Set(requested);
   // Two bindings per id (one for each side of the relation), so the page's
-  // memory ids have to be chunked before they reach D1's 100-parameter cap.
+  // memo ids have to be chunked before they reach D1's 100-parameter cap.
   const rows: Array<typeof memoRelations.$inferSelect> = [];
   for (const idChunk of chunkForD1(requested, d1IdsPerRepeatedBinding(2))) {
     rows.push(

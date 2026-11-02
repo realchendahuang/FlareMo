@@ -1,6 +1,6 @@
 /*
  * The header search field, shared by the timeline's palette trigger and the
- * in-page filters (memory). One shape for "search here": h-8 card field with
+ * in-page filters. One shape for "search here": h-8 card field with
  * the input border, the same hover deepening and focus ring as every input.
  */
 export const HEADER_SEARCH_FIELD_CLASS =

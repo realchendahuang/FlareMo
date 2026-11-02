@@ -1,5 +1,5 @@
 import type { EmbeddingTaskRow, FlareMoDb } from "@flaremo/db";
-import { embeddingTasks, memoryItems, memos } from "@flaremo/db";
+import { embeddingTasks, memos } from "@flaremo/db";
 import { and, asc, eq, isNull, lt, lte, or } from "drizzle-orm";
 
 export const MAX_ATTEMPTS = 5;
@@ -12,22 +12,11 @@ export async function markResourceEmbeddingError(
   task: EmbeddingTaskRow,
   message: string,
 ) {
-  if (task.resourceType === "memo") {
-    await db
-      .update(memos)
-      .set({ embeddingStatus: "error", embeddingError: message })
-      .where(and(eq(memos.id, task.resourceId), eq(memos.userId, task.userId)));
-  } else {
-    await db
-      .update(memoryItems)
-      .set({ embeddingStatus: "error", embeddingError: message })
-      .where(
-        and(
-          eq(memoryItems.id, task.resourceId),
-          eq(memoryItems.userId, task.userId),
-        ),
-      );
-  }
+  if (task.resourceType !== "memo") return;
+  await db
+    .update(memos)
+    .set({ embeddingStatus: "error", embeddingError: message })
+    .where(and(eq(memos.id, task.resourceId), eq(memos.userId, task.userId)));
 }
 
 // ---------------------------------------------------------------------------

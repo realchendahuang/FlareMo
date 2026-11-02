@@ -2,6 +2,24 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
+## v0.28.0
+
+**破坏性收缩：删除 Agent Memory 的 D1 表、向量索引绑定与导出字段。** migration `0044_drop_agent_memory` 会删除 `memory_*` 八张表、`memory_fts` 及其触发器；导出 bundle 升到 v7，不再包含 `memories` / `memory_*` 字段。升级后记忆表数据不可恢复，升级前必须备份 D1。
+
+### 升级步骤
+
+1. 备份 D1（记忆数据不会迁移；确认不再需要后再执行）。
+2. 正常部署；migration 先清理遗留的 memory embedding/import 审计行，再按外键顺序删除记忆表。
+3. 旧版导出的 bundle（v1–v6）仍可导入：其中的 memory 字段会被忽略，不再写入。
+4. 追踪配置已移除 `VECTORIZE_MEMORIES` binding；已有部署可保留或手动删除 `flaremo-memories` Vectorize index，代码不再读取它。
+
+### 行为变化
+
+- `memory_*` 表与 `memory_fts` 删除，memo/任务/账户删除路径不再处理记忆表。
+- 导入导出、备份/恢复清单与导入回滚审计不再包含记忆；bundle 版本为 7。
+- 向量用量报告、重建端点与账户清理只处理 memo 索引；`embedding_tasks` 中的 memory 任务在 migration 中清除。
+- `maxMemoryItemsPerUser` 配额维度与 `memory_recall` 相关文档全部移除。
+
 ## v0.27.0
 
 **删除 Agent Memory。** `/memory` 页面、`/api/app/memory`、`/memory/mcp`、Dreaming/冲突巡检、记忆量配额、`flaremo` CLI 与 harness 记忆插件全部下架；Agent 只通过笔记 MCP（`/mcp`、`/api/v1/mcp`）和一个新的 `flaremo-notes` Skill 读写用户的 memo。

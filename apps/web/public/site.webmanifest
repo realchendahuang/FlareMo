@@ -59,18 +59,6 @@
         }
       ]
     },
-    {
-      "name": "记忆",
-      "short_name": "记忆",
-      "url": "/memory",
-      "icons": [
-        {
-          "src": "/brand/flaremo-app-icon-maskable-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    }
   ],
   "theme_color": "#faf9f7",
   "background_color": "#faf9f7",

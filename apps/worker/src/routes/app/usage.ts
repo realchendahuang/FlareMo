@@ -10,7 +10,7 @@ import {
   resolveAnalyticsConfig,
 } from "../../cf-analytics";
 import { getRequestContext, type HonoBindings } from "../../context";
-import { createVectorIndex, resolveEmbeddingConfig } from "../../embedding";
+import { resolveEmbeddingConfig } from "../../embedding";
 import { jsonError } from "../../http";
 
 export function registerUsageRoutes(app: Hono<HonoBindings>) {
@@ -26,23 +26,13 @@ export function registerUsageRoutes(app: Hono<HonoBindings>) {
         c.env.FLAREMO_VECTORIZE_QUERIED_LIMIT?.trim() || "30000000",
         10,
       );
-      const report = await reportVectorUsage(
-        db,
-        user,
-        {
-          provider: config.provider,
-          model: config.model,
-          dimensions: config.dimensions,
-          storedLimit: Number.isFinite(storedLimit) ? storedLimit : 5_000_000,
-          queriedLimit: Number.isFinite(queriedLimit)
-            ? queriedLimit
-            : 30_000_000,
-        },
-        {
-          memosIndex: createVectorIndex(c.env, "memo"),
-          memoriesIndex: createVectorIndex(c.env, "memory"),
-        },
-      );
+      const report = await reportVectorUsage(db, user, {
+        provider: config.provider,
+        model: config.model,
+        dimensions: config.dimensions,
+        storedLimit: Number.isFinite(storedLimit) ? storedLimit : 5_000_000,
+        queriedLimit: Number.isFinite(queriedLimit) ? queriedLimit : 30_000_000,
+      });
       const plan = await reportPlanUsage(db, limits, {
         userId: user.id,
         userLimits,

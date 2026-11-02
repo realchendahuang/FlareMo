@@ -2,28 +2,12 @@ import type { UserRow } from "@flaremo/db";
 import { applyFlaremoMigrations, createDb } from "@flaremo/db";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { VectorIndex, VectorIndexInfo } from "./embedding";
 import { incrementUsageCounter, reportVectorUsage } from "./usage";
 import { createFlaremoMember, ensureSingleUser } from "./users";
 
 let mf: Miniflare;
 let db: ReturnType<typeof createDb>;
 let user: UserRow;
-
-class FakeIndex implements VectorIndex {
-  info: VectorIndexInfo = { vectorCount: 10, dimensions: 1024 };
-  async query() {
-    return [];
-  }
-  async upsert() {}
-  async getByIds() {
-    return [];
-  }
-  async deleteByIds() {}
-  async describe() {
-    return this.info;
-  }
-}
 
 describe("vector usage", () => {
   beforeEach(async () => {
@@ -48,7 +32,7 @@ describe("vector usage", () => {
   });
 
   it("reports stored dimensions derived from the caller's D1 rows", async () => {
-    const { memos, memoryItems } = await import("@flaremo/db");
+    const { memos } = await import("@flaremo/db");
     const now = new Date().toISOString();
     const memoId = crypto.randomUUID();
     await db.insert(memos).values({
@@ -77,38 +61,18 @@ describe("vector usage", () => {
       embeddingStatus: "not_indexed",
       embeddingChunks: null,
     });
-    await db.insert(memoryItems).values({
-      id: crypto.randomUUID(),
-      userId: user.id,
-      content: "一条已索引的记忆",
-      status: "active",
-      fingerprint: "f1",
-      embeddingStatus: "indexed",
-      embeddingChunks: 1,
-      createdAt: now,
-      updatedAt: now,
+    const report = await reportVectorUsage(db, user, {
+      provider: "workers-ai",
+      model: "test-model",
+      dimensions: 1024,
+      storedLimit: 5_000_000,
+      queriedLimit: 30_000_000,
     });
 
-    const report = await reportVectorUsage(
-      db,
-      user,
-      {
-        provider: "workers-ai",
-        model: "test-model",
-        dimensions: 1024,
-        storedLimit: 5_000_000,
-        queriedLimit: 30_000_000,
-      },
-      { memosIndex: new FakeIndex(), memoriesIndex: new FakeIndex() },
-    );
-
-    expect(report.indexes).toHaveLength(2);
+    expect(report.indexes).toHaveLength(1);
     expect(report.indexes[0]?.kind).toBe("memo");
     expect(report.indexes[0]?.vectors_count).toBe(3);
     expect(report.indexes[0]?.stored_dimensions).toBe(3 * 1024);
-    expect(report.indexes[1]?.kind).toBe("memory");
-    expect(report.indexes[1]?.vectors_count).toBe(1);
-    expect(report.indexes[1]?.stored_dimensions).toBe(1 * 1024);
   });
 
   it("never counts another user's vectors in a shared deployment", async () => {
@@ -132,18 +96,13 @@ describe("vector usage", () => {
       embeddingChunks: 50,
     });
 
-    const report = await reportVectorUsage(
-      db,
-      user,
-      {
-        provider: "workers-ai",
-        model: "test-model",
-        dimensions: 1024,
-        storedLimit: 5_000_000,
-        queriedLimit: 30_000_000,
-      },
-      { memosIndex: new FakeIndex(), memoriesIndex: new FakeIndex() },
-    );
+    const report = await reportVectorUsage(db, user, {
+      provider: "workers-ai",
+      model: "test-model",
+      dimensions: 1024,
+      storedLimit: 5_000_000,
+      queriedLimit: 30_000_000,
+    });
 
     expect(report.indexes[0]?.vectors_count).toBe(0);
   });
@@ -152,18 +111,13 @@ describe("vector usage", () => {
     await incrementUsageCounter(db, user, "queried_dims", 1024);
     await incrementUsageCounter(db, user, "queried_dims", 1024);
 
-    const report = await reportVectorUsage(
-      db,
-      user,
-      {
-        provider: "workers-ai",
-        model: "test-model",
-        dimensions: 1024,
-        storedLimit: 5_000_000,
-        queriedLimit: 30_000_000,
-      },
-      { memosIndex: null, memoriesIndex: null },
-    );
+    const report = await reportVectorUsage(db, user, {
+      provider: "workers-ai",
+      model: "test-model",
+      dimensions: 1024,
+      storedLimit: 5_000_000,
+      queriedLimit: 30_000_000,
+    });
 
     expect(report.queried_dimensions_this_month).toBe(2048);
   });

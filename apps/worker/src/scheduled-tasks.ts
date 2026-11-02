@@ -197,9 +197,7 @@ export async function runScheduledMaintenance(
   );
   await dispatchEmbeddingOutbox(db, {
     provider: createEmbeddingProvider(env),
-    memosIndex: createVectorIndex(env, "memo"),
-    // Agent Memory is gone; no new memory vectors are produced.
-    memoriesIndex: null,
+    memosIndex: createVectorIndex(env),
     limits: options.limits ?? SELF_HOST_UNLIMITED,
     userLimits:
       options.userLimits === undefined

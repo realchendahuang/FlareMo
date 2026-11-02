@@ -117,8 +117,8 @@ Vectorize V2 的 mutation 可能不是立刻对查询可见，因此查询层始
 
 语义搜索已上线，对应的基础设施：
 
-- `wrangler.jsonc` 的 `VECTORIZE_MEMOS`（flaremo-memos）、`VECTORIZE_MEMORIES`（flaremo-memories）和 Workers AI `AI` binding。
-- D1 的 `embedding_tasks` outbox 表，以及 `memos` / `memory_items` 上的 `embedding_*` 状态字段。
+- `wrangler.jsonc` 的 `VECTORIZE_MEMOS`（flaremo-memos）和 Workers AI `AI` binding。
+- D1 的 `embedding_tasks` outbox 表，以及 `memos` 上的 `embedding_*` 状态字段。
 - 派发通道：请求路径 outbox sweep + 每日 Cron，不依赖 GitHub Actions 或额外队列。
 - API contract：`/api/app/search/semantic`（Zod schema、每月语义搜索配额检查）与前端搜索栏的「语义搜索」入口。
 - D1 回查（`memoReadScope`）、状态过滤、删除同步和降级路径均有 Vitest 覆盖。

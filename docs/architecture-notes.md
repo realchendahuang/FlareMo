@@ -471,14 +471,14 @@ worker 的路由表不再挂在模块级常量上，而是由 `createFlareMoApp(
 
 1. **附件存储总量**：三条上传路径与两条导入路径在写入 R2 前调用 `assertAttachmentStorageQuota`（对 `attachments` 表 `state='ready'` 求和，部署级）。
 2. **月度 embedding tokens**：outbox 每次 embed 成功后按 `estimateTokenCount`（`ceil(chars/4)` 估算）写入 `usage_counters`；预算耗尽时 sweep 暂停认领（任务保持 pending、不消耗重试次数，次月自动恢复）。全量重建只计量不阻断（恢复路径）。`dispatchEmbeddingOutbox` 的 `limits` 来自调用方——default handler 传 `SELF_HOST_UNLIMITED`，外部组合壳可在自己的 scheduled 入口注入真实限额。
-3. **月度语义搜索次数**：`/api/app/search/semantic` 与 `memory_recall` 语义路径在 embed 前检查 `search_queries` 月度计数（部署级求和），超限抛 429；成功后计入 `search_queries` 与查询 token 估算。
+3. **月度语义搜索次数**：`/api/app/search/semantic` 在 embed 前检查 `search_queries` 月度计数（部署级求和），超限抛 429；成功后计入 `search_queries` 与查询 token 估算。
 4. **成员数上限**：`createFlaremoMemberWithLink` 接受可选 `limits`，Web 注册 / 管理员建号 / Memos 注册路径统一预检（注册路径在 Better Auth 身份创建**之前**预检，避免超限时产生孤儿身份）；`ensureSingleUser` bootstrap 永不受限。
 
 `/api/app/usage/vector` 响应附带 `plan`（`PlanUsageReport`：四维度的 used/limit），前端用量面板据此渲染限额进度条；limit 为 null（自托管）的行不渲染。限额为 null 时所有检查旁路，自托管行为零变化。
 
 **Per-user 限额（共享多用户实例）**：部署级限额对「公开注册、多用户共享一个部署」的形态会锁死全体，因此内核还接受一层 per-user 限额（`UserPlanLimits`，只有存储/tokens/搜索三个维度——成员数天然是部署级，不做 per-user 形态）。注入途径：`createFlareMoApp` 的 `resolveUserPlanLimits(env, userId)` 选项，或 `FLAREMO_USER_LIMITS_JSON` 环境变量（用户无关的静态配置）。生效优先级 per-user → 部署级 → 不限量；per-user 生效时用量按该 user 读取（`usage_counters` 本就按 user 分桶，附件存储按 userId 过滤求和），outbox 也按任务归属用户判断预算。`plan` 响应在配置了 per-user 限额时附带 `user` 段，面板渲染「个人限额」分组。
 
-**存量条数维度**：`UserPlanLimits` 另有 `maxMemosPerUser` / `maxMemoryItemsPerUser`（共享实例按条计费的主货币）。条数是存量口径——memo 按 `normal + archived` 计（回收站不算），memory 按 `active + archived` 计。检查在 domain `createMemo` / `createMemory` 内部执行（可选 `scope` 参数沿调用链透传），导入路径以 bundle 条数预检；`additionalCount` 默认 1 表示「一次写入即将发生」，恰好满额允许、超出才 429。Projects/Tasks/引用关系/回顾/导入导出/MCP 接入是零边际成本能力，**不设限**。
+**存量条数维度**：`UserPlanLimits` 另有 `maxMemosPerUser`（共享实例按条计费的主货币）。条数是存量口径——memo 按 `normal + archived` 计（回收站不算）。检查在 domain `createMemo` 内部执行（可选 `scope` 参数沿调用链透传），导入路径以 bundle 条数预检；`additionalCount` 默认 1 表示「一次写入即将发生」，恰好满额允许、超出才 429。Projects/Tasks/引用关系/回顾/导入导出/MCP 接入是零边际成本能力，**不设限**。
 
 ## 结论
 

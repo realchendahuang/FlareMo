@@ -1,9 +1,5 @@
 import { thumbnailKeyFor } from "@flaremo/contracts/constants";
-import {
-  chunkIdsForMemo,
-  type FlaremoAccountArtifacts,
-  memoryIdVector,
-} from "@flaremo/domain";
+import { chunkIdsForMemo, type FlaremoAccountArtifacts } from "@flaremo/domain";
 import type { FlareMoEnv } from "./env";
 
 /** Remove rebuildable objects that live outside D1. */
@@ -30,10 +26,6 @@ export async function cleanupFlaremoArtifacts(
     {
       index: env.VECTORIZE_MEMOS,
       ids: artifacts.memoIds.flatMap((id) => chunkIdsForMemo(id)),
-    },
-    {
-      index: env.VECTORIZE_MEMORIES,
-      ids: artifacts.memoryIds.map((id) => memoryIdVector(id)),
     },
   ];
   for (const target of targets) {

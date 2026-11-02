@@ -165,7 +165,7 @@ AI 不拥有独立的记忆账本。Agent 通过 `/mcp` 直接读写用户的 me
 - 认证复用可撤销的 `memos_pat_` Personal Access Token。
 - 旧客户端继续使用 `/api/v1/mcp` 的 JSON-RPC 子集。
 - Agent 不在后台自动提炼或沉淀"关于用户的事实"；需要跨会话保留的内容由用户或 Agent 显式写成 memo。
-- 记忆账本（`/memory` 页面、`/api/app/memory`、`/memory/mcp`、Dreaming 自动抽取）已从产品删除；`memory_*` 表按破坏性收缩规则在下一版删除。
+- 记忆账本（`/memory` 页面、`/api/app/memory`、`/memory/mcp`、Dreaming 自动抽取）已从产品删除；`memory_*` 表已由 migration 删除，导出包也不再包含记忆字段。
 
 ## 建议的开发顺序
 

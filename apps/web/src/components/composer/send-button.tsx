@@ -5,8 +5,8 @@ import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
- * The round send control shared by every composer (timeline, focus canvas,
- * memory). A quiet grey disc while there is nothing to send, lit with the
+ * The round send control shared by every composer (timeline, focus canvas).
+ * A quiet grey disc while there is nothing to send, lit with the
  * brand gradient once there is; the paper plane lifts a pixel on hover.
  * `disabled` covers transient locks (uploading, recording) on top of
  * `canSubmit`, which alone decides lit vs idle.

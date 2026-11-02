@@ -31,8 +31,8 @@ const WORKER_PROXY = {
 // trailing `*` dropped: Vite matches these as path prefixes while Cloudflare
 // matches its entries as globs, and the trailing slash is what keeps a prefix
 // from over-reaching. Without it `/article` would also swallow the SPA's
-// `/articles` route, and `/memory` its `/memory` route, serving both from the
-// stale build this dev server exists to replace. A parity test in
+// `/articles` route, serving both from the stale build this dev server exists
+// to replace. A parity test in
 // src/dev-proxy-parity.test.ts fails if the two lists drift.
 
 // https://vite.dev/config/
@@ -103,7 +103,6 @@ export default defineConfig({
       "/feed.xml": WORKER_PROXY,
       "/file/": WORKER_PROXY,
       "/mcp": WORKER_PROXY,
-      "/memory/": WORKER_PROXY,
       "/memos.api.v1.": WORKER_PROXY,
       "/openapi.json": WORKER_PROXY,
       "/share/": WORKER_PROXY,
