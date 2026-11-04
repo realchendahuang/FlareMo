@@ -2,7 +2,7 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
-## Unreleased
+## v0.29.0
 
 **部署链路、维护可靠性与工程门禁的一轮加固。** 无 D1 migration，无 Cloudflare 资源变化；已有部署按正常流程升级即可。
 
@@ -25,6 +25,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - 更新检查改为 Worker 代理 `GET /api/app/releases/latest`：边缘缓存 10 分钟、校验 `repository` 形状（只接受 `owner/name`）、上游失败映射为 502；浏览器不再直连 `api.github.com`，国内网络与 60 次/小时/IP 限流不再影响「系统更新」入口。
 - `/api/v1/memos` 增加响应级契约测试：create / list / get / attachments 的返回体用 `@flaremo/contracts` 的 zod schema 校验，响应字段漂移不再只靠 path+method 的覆盖检查。`/api/app` 的 articles / projects / tasks 也补了同样的契约校验。
 - 补 admin 端点的集成测试：插件商店的鉴权与目录失败降级、`embeddings/rebuild` 的 owner 守卫与未配置提示，以及 PAT 删除成员时 R2 失败的回归测试（验证失败 job 会被记录，此前 PAT 调用会静默停在 removing）。
+- 修正 e2e 规格里过期的侧栏标签（`memos` → `notes`）；发版前完整跑通 Playwright 端到端套件（71 个用例），并用截图目检了桌面/手机、明暗主题、阿拉伯语 RTL、回顾/待办/文章/设置页。
 - 新增 `docs/README.md` 文档索引，按入门 / 架构 / 部署 / 兼容 / 设计 / 历史设计稿分类；`llms.txt` 与 `AGENTS.md` 已链接。
 - 低强调文字的对比度：explorer 计数、可见性提示、月份表头、回收站分组等正文从 `muted-foreground/70–/80` 改为全色，tabs 的非激活文字由 `foreground/60` 提到 `/70`。
 - `FLAREMO_TRUSTED_ORIGINS` 与 `FLAREMO_PUBLIC_URL` 使用同一套 HTTPS 校验（localhost 除外），http origin 在部署启动时直接报配置错误。
@@ -38,6 +39,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - 语言包晚于首屏到达时触发一次重渲染，不再让页面停在英文（阿拉伯语也不会出现 RTL 布局配英文）。
 - Spotlight 搜索补 combobox / listbox / option 语义与 `aria-activedescendant`。
 - 方向相关的物理 utility 改为逻辑 utility（`text-start` / `ms-auto` / `end-*` / `border-s` / `rounded-s`），32 个文件与 toggle-group 分段控件都覆盖；阿拉伯语 RTL 下菜单、对齐与定位不再反向（居中用的 `left-1/2 + -translate-x-1/2` 保留物理方向）。
+- 修复 RTL 下代码块被镜像的问题：`.memo-markdown` / 文章编辑器的 `pre`、`code` 以及 SSR 文章页的 `article pre/code` 统一 `direction: ltr; unicode-bidi: isolate`，阿拉伯语界面里的代码、括号与行内命令不再反向（发版前端到端目检发现）。
 - 所有 `queryKey` 收口到 `lib/query-keys.ts`（新增 projects/articles/memoContext/memoRelated/statsHourly 等 20+ 组 key，并抽出 `invalidateTaskSurfaces` 共享失效助手）；新增测试禁止再写行内 queryKey 字面量，避免拼错 key 后静默不刷新。
 - 清理 71 个无引用 i18n key（8 语言各 71 行，1027 → 956 键），新增 usage 测试（白名单只保留 10 个待接线的 `pwa.install*` key），parity 测试继续保证 8 语言键集合一致。
 - 删除未使用的 `haptics` 与 `getDailyReview`，共享设置组件移到 `components/settings-section.tsx`。
