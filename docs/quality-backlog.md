@@ -131,15 +131,15 @@
 - [ ] **PAT 权限面**：`memos_pat_` 无 scope、可永不过期，且可调用 admin 删除成员（`account-api.ts:35-37,73-81`、`admin/context.ts:32-38`、`admin/maintenance.ts:34-37`）。建议 api-key permissions（memos:read/write/admin）+ 默认 90 天 + 破坏性 admin 仅 session；先确认机器化运维是否依赖 PAT 删成员。
 - [x] **query key 收口**：86 处行内字面量全部迁到 `lib/query-keys.ts`（新增 20+ 组 key 与 `invalidateTaskSurfaces` 共享失效助手）；新增 `lib/query-keys.test.ts` 禁止再写行内字面量。
 - [x] **孤儿 i18n key**：71 个无引用 key 已从 8 个语言文件删除（1027 → 956 键）；新增 `i18n/usage.test.ts`，白名单只保留 10 个待接线的 `pwa.install*`/离线提示 key。
-- [ ] **RTL 物理方向类**：ar 已启 dir=rtl，仍有 `text-left`/`ml-auto`/`right-0` 等；改 `text-start`/`ms-auto`/`end-0`。
+- [x] **RTL 物理方向类**：32 个文件的 `text-left`/`ml-auto`/`right-*`/`border-l` 已改为逻辑类，toggle-group 分段控件的圆角与分隔线同步；`left-1/2 + -translate-x-1/2` 的居中保留物理方向（逻辑化会让 RTL 偏移半格）。
 - [x] **对比度（第一批）**：explorer 计数、可见性提示、月份表头、回收站分组等低强调正文改为全色 muted，tabs 非激活文字 /60 → /70；图标与装饰性 marker 保留，整体设计稿级重排仍待目检。
-- [ ] **超大页面拆分**：article-editor-page 691 行、integrations-card 669、daily-review 645、memo-list 665。
+- [x] **超大页面拆分（评估为暂不做）**：article-editor 691 / integrations-card 669 / daily-review 645 / memo-list 665 行。与既有的 `memos-connect-api.ts` 体量决定一致——纯搬代码没有行为收益，却会制造每次触碰这些页面的冲突面；改为「下次因功能改动必须编辑同一文件时顺手拆分」，不单独立项。
 - [x] **OpenAPI 响应级契约（第一批）**：新增 `memos-current-contract.test.ts`，用 contracts 的 zod schema 校验 `/api/v1/memos` create/list/get/attachments 的返回体；其余端点逐步扩展；`/api/app` 的 articles / projects / tasks 已补同类校验（`app-api-contract.test.ts`）。
 - [x] **admin 端点测试（第一批）**：插件商店鉴权/目录失败降级、`embeddings/rebuild` owner 守卫与未配置提示已覆盖（`admin-endpoints.test.ts`）；`DELETE /users/:id` 失败分支与插件 install/uninstall 仍待补。
-- [ ] **每写请求触发 outbox sweep**（`index.ts:511-541`）：评估按 isolate 时间窗节流。
-- [ ] **每日全表重建小时计数**（`memo-hourly-counts.ts:358-372`）：评估只重建近期活跃用户。
-- [ ] **首屏预加载碎片**：43 个 modulepreload、约 366KB gzip；Vite manualChunks 收敛。
+- [x] **每写请求触发 outbox sweep（评估为保持现状）**：sweep 在 `waitUntil` 里、已经离开响应路径，固定成本是 2 次 D1 查询；改成时间窗节流会让低流量实例的 webhook/embedding 延迟从「秒级」变成「等下一次写或次日 cron」，取舍不划算。保留 cron 作为兜底。
+- [x] **每日全表重建小时计数（评估为保持现状）**：它是衍生计数的事实源，增量路径只是它的优化；自部署规模下一次全表 group-by 远低于 10ms CPU 上限。多租户 SaaS 行数明显增长后再改成「近 7 天活跃用户 + 低频全量」两段式。
+- [x] **首屏预加载碎片（评估为保持现状）**：43 个 modulepreload / 约 366KB gzip 在 HTTP/2-3 下是多路复用而非串行瀑布，没有实测 LCP 退化；`vite.config.ts` 已按 React/TipTap/浮动层等大块分组。等有真实性能数据再动，避免为数字而拆包。
 - [x] **浏览器直连 api.github.com**：更新检查已改走 Worker 代理 `/api/app/releases/latest`（边缘缓存 10 分钟、repository 形状校验、上游失败 502）。
-- [ ] **依赖升级**：`pnpm outdated` 20+ 个直接依赖落后（TS、Vitest、wrangler 等），按季度批量升级。
-- [ ] **产品任务池未拆 issue**：ROADMAP 公开任务池仍无对应 GitHub issue（全仓仅 #160）。
+- [ ] **依赖升级（持续性维护，非缺陷）**：`pnpm outdated` 20+ 个直接依赖落后；没有 CI 的情况下批量升级需要人工回归，按季度在功能空档做，并先跑定向 vitest + `pnpm build`。本轮只做了死 override 清理与 `minimumReleaseAge` 策略。
+- [x] **产品任务池未拆 issue（评估为保持现状）**：维护者是单人快速迭代节奏，`ROADMAP.md` 的「公开任务池」就是工作队列；GitHub issue 只在有外部反馈（如 #160）时开，避免双份看板。
 - [x] **历史设计文档归档（第一批）**：新增 `docs/README.md` 索引，一次性设计稿/审查报告统一标记为「历史」并在索引里单列；暂不移动文件，避免破坏既有链接。

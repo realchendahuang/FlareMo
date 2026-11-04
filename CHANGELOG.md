@@ -37,7 +37,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - 全局快捷键不再劫持按钮、菜单、下拉与组合框里的方向键和字母键。
 - 语言包晚于首屏到达时触发一次重渲染，不再让页面停在英文（阿拉伯语也不会出现 RTL 布局配英文）。
 - Spotlight 搜索补 combobox / listbox / option 语义与 `aria-activedescendant`。
-- 方向相关的物理 utility 改为逻辑 utility（`text-start` / `ms-auto` / `end-*` / `border-s`），阿拉伯语 RTL 下菜单、对齐与定位不再反向。
+- 方向相关的物理 utility 改为逻辑 utility（`text-start` / `ms-auto` / `end-*` / `border-s` / `rounded-s`），32 个文件与 toggle-group 分段控件都覆盖；阿拉伯语 RTL 下菜单、对齐与定位不再反向（居中用的 `left-1/2 + -translate-x-1/2` 保留物理方向）。
 - 所有 `queryKey` 收口到 `lib/query-keys.ts`（新增 projects/articles/memoContext/memoRelated/statsHourly 等 20+ 组 key，并抽出 `invalidateTaskSurfaces` 共享失效助手）；新增测试禁止再写行内 queryKey 字面量，避免拼错 key 后静默不刷新。
 - 清理 71 个无引用 i18n key（8 语言各 71 行，1027 → 956 键），新增 usage 测试（白名单只保留 10 个待接线的 `pwa.install*` key），parity 测试继续保证 8 语言键集合一致。
 - 删除未使用的 `haptics` 与 `getDailyReview`，共享设置组件移到 `components/settings-section.tsx`。
