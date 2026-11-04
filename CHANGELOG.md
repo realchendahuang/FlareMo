@@ -18,7 +18,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - 每日 cron 的每个维护 pass 独立 try/catch，并输出 `scheduled maintenance complete` 汇总（步骤、耗时、计数、失败项）；单个 pass 失败不再跳过当天的附件清理、计数重建、回顾通知与 Web Push。
 - 文章回收站清理补批次上限与逐行保护；回收站清理的 owner 查询改为批量，消除逐行点查的 N+1。
 - Web Push 通知的 icon/badge 指向真实图片资源；PWA 更新提示新增「稍后」，复用已有的 `pwa.updateLater` 文案。
-- `pnpm backup:drill` 默认只保留最近 10 次演练目录（`--keep=N` 或 `FLAREMO_BACKUP_KEEP` 可调）；新增 `pnpm clean` 清理构建与测试产物。
+- `pnpm backup:drill` 默认只保留最近 10 次本地演练目录与 3 次远端恢复演练（`--keep=N` 或 `FLAREMO_BACKUP_KEEP` 可调）；新增 `pnpm clean` 清理构建与测试产物。
 
 ### 安全与数据
 

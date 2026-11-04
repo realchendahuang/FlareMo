@@ -218,7 +218,7 @@ const keepArgument = process.argv
   .find((argument) => argument.startsWith("--keep="))
   ?.slice("--keep=".length);
 const keep = parseKeepCount(keepArgument ?? process.env.FLAREMO_BACKUP_KEEP);
-const pruned = pruneDrillBackups(resolve("backups"), keep);
+const pruned = pruneDrillBackups(resolve("backups"), { drill: keep });
 if (pruned.length > 0) {
   console.log(
     `Pruned ${pruned.length} old drill director${pruned.length === 1 ? "y" : "ies"} (keeping the newest ${keep}):`,

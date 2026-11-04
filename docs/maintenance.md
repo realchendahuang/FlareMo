@@ -125,6 +125,8 @@ pnpm backup:drill
 
 它会从持久化清单导出本地 D1 事实源表（跳过可重建的 FTS5 虚拟索引与旧 embedding queue 状态）、生成按表依赖排序的数据恢复文件、为新 Vectorize index 重新入队 embedding 工作、用 migrations 在隔离目录创建恢复 schema、导入数据、逐表比较源/目标计数并验证重建后的 FTS 索引、检查远端 migration 状态、确认 `flaremo-attachments` R2 bucket 存在，并在 `backups/` 下生成演练报告。`backups/` 是本地输出目录，不提交到 Git。
 
+演练报告包含 Better Auth session 行与 API-key 哈希，属于敏感数据，默认只保留最近 10 次本地演练（`--keep=N` 或 `FLAREMO_BACKUP_KEEP` 调整）和最近 3 次远端恢复演练，更早的目录会在每次成功演练后自动清理。
+
 真实 Cloudflare 资源演练需要先创建临时 D1 和 R2，并明确传入目标，脚本不会猜测或覆盖生产绑定：
 
 ```bash
