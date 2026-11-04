@@ -148,7 +148,7 @@ FlareMo 想回答的是另一个问题：**如果第二大脑根本不需要服�
 
 ### 方式二：GitHub Action（自托管 fork）
 
-在自己的 fork 上，于 Actions 里手动运行 **Deploy to Cloudflare**：创建 Cloudflare 资源、发布 Worker、同步认证密钥。push 不会自动发布。步骤见 [docs/github-action-deploy.md](./docs/github-action-deploy.md)。
+先把 [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) 复制到 fork 的 `.github/workflows/`，再到 Actions 里手动运行 **Deploy to Cloudflare**：创建 Cloudflare 资源、发布 Worker、同步认证密钥。push 不会自动发布。步骤见 [docs/github-action-deploy.md](./docs/github-action-deploy.md)。
 
 ### 方式三：让 AI Agent 替你部署（推荐）
 

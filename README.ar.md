@@ -150,7 +150,7 @@
 
 ### الطريقة 2: GitHub Action (استضافة ذاتية عبر fork)
 
-في نسختك المتفرعة (fork)، شغّل سير العمل **Deploy to Cloudflare** من تبويب Actions لتجهيز الموارد ونشر الـ Worker ومزامنة أسرار المصادقة. عمليات الدفع (push) لا تنشر من تلقاء نفسها. انظر [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
+في نسختك المتفرعة (fork)، انسخ [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) إلى `.github/workflows/`، ثم شغّل سير العمل **Deploy to Cloudflare** من تبويب Actions لتجهيز الموارد ونشر الـ Worker ومزامنة أسرار المصادقة. عمليات الدفع (push) لا تنشر من تلقاء نفسها. انظر [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
 
 ### الطريقة 3: النشر بواسطة وكيل ذكاء اصطناعي (موصى بها)
 

@@ -20,7 +20,7 @@
 - `/api/v1/*` 和 `/api/app/*` 复用同一套 domain services。
 - 每个公开 API 都有测试。
 - 每个 release 都有 tag、CHANGELOG、migration notes 和升级说明。
-- 有一套瘦 CI（format / lint / typecheck / 单元测试）作为 push 与外部 PR 的门禁；全量 `pnpm verify` 只在维护者明确要求时本地执行，发布默认按改动选择定向检查。GitHub Actions 不在上游或 push 流程中做生产部署；现有自托管 fork/deployment repository 仅可通过受控 `workflow_dispatch` 手动部署，用户部署仓库继续只用受限 workflow 准备上游升级 PR。
+- 没有 CI：push 与 PR 不自动跑检查，门禁在维护者本地按改动跑定向测试，全量 `pnpm verify` 只在明确要求时执行。GitHub Actions 不在上游或 push 流程中做生产部署；自托管部署仓库的部署/更新 workflow 以 `docs/templates/workflows/` 的模板形式提供，仅通过 `workflow_dispatch` 手动部署、用受限 workflow 准备上游升级 PR。
 
 ## 公开任务池
 

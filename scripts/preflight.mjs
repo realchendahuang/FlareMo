@@ -2,12 +2,10 @@ import { spawn } from "node:child_process";
 
 const commands = [
   ["node", ["./scripts/check-persistence-manifest.mjs"]],
-  ["pnpm", ["capture:harness:test"]],
-  ["pnpm", ["capture:production:test"]],
-  ["pnpm", ["provision:test"]],
-  ["pnpm", ["secrets:test"]],
-  ["pnpm", ["smoke:test"]],
-  ["pnpm", ["write-wrangler-config:test"]],
+  // One runner collects every scripts/**/*.test.mjs file, so new script tests
+  // cannot silently stay out of the gate (setup:usage and migrate-memos-export
+  // used to be listed nowhere).
+  ["pnpm", ["scripts:test"]],
   ["pnpm", ["format:check"]],
   ["pnpm", ["check"]],
   ["pnpm", ["test"]],

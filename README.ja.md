@@ -148,7 +148,7 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 
 ### 方法2：GitHub Action（フォークでのセルフホスト）
 
-フォーク上でActionsの **Deploy to Cloudflare** を実行すると、リソースのプロビジョニング、Workerの公開、認証シークレットの同期が行われます。pushでは公開されません。詳しくは [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md) を参照してください。
+フォークで [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) を `.github/workflows/` にコピーしてから、Actionsの **Deploy to Cloudflare** を実行すると、リソースのプロビジョニング、Workerの公開、認証シークレットの同期が行われます。pushでは公開されません。詳しくは [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md) を参照してください。
 
 ### 方法3：AIエージェントによるデプロイ（推奨）
 

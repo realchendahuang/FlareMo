@@ -536,11 +536,41 @@ export function createFlareMoWorker(
       return response;
     },
     async scheduled(controller, env) {
-      await runScheduledMaintenance(
-        env,
-        controller.scheduledTime,
-        await maintenanceOptions(env, resolvedOptions, hasCustomUserPlanLimits),
-      );
+      const startedAt = Date.now();
+      try {
+        await runScheduledMaintenance(
+          env,
+          controller.scheduledTime,
+          await maintenanceOptions(
+            env,
+            resolvedOptions,
+            hasCustomUserPlanLimits,
+          ),
+        );
+        console.log(
+          JSON.stringify({
+            message: "scheduled maintenance finished",
+            scheduledTime: controller.scheduledTime,
+            durationMs: Date.now() - startedAt,
+          }),
+        );
+      } catch (error) {
+        // Individual passes are already isolated inside
+        // runScheduledMaintenance; reaching this branch means the whole run
+        // could not start (or the summary itself failed). Log it and rethrow
+        // so the platform records a failed cron invocation instead of a
+        // silent no-op.
+        console.error(
+          JSON.stringify({
+            level: "error",
+            message: "scheduled maintenance failed",
+            scheduledTime: controller.scheduledTime,
+            durationMs: Date.now() - startedAt,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+        throw error;
+      }
     },
     async queue(batch, env) {
       // Two message shapes share the consumer: {jobId} (member removal) and

@@ -32,7 +32,7 @@ octocat/flaremo
 
 ## 日常更新
 
-仓库中的 `Prepare FlareMo update` workflow 每天检查一次最新稳定 Release。发现新版后会创建一个升级 pull request。
+部署仓库中的 `Prepare FlareMo update` workflow 每天检查一次最新稳定 Release。发现新版后会创建一个升级 pull request。这个 workflow 是模板 [`docs/templates/workflows/flaremo-update.yml`](./templates/workflows/flaremo-update.yml)，复制到部署仓库的 `.github/workflows/` 即可启用。
 
 你也可以在 FlareMo 左下角打开“系统更新”，点击“前往更新”，然后在 GitHub 手动运行 workflow：
 
@@ -61,7 +61,7 @@ git apply --3way --index flaremo-update.patch
 
 ## 现有实例
 
-从 v0.2.1 或更早版本升级到 v0.3.0 时，需要先按旧的手工流程更新一次。v0.3.0 起，FlareMo 仓库自带更新 workflow（`.github/workflows/flaremo-update.yml`）和应用内版本入口；把它推到你自己的部署仓库即可获得同样的更新流程。
+从 v0.2.1 或更早版本升级到 v0.3.0 时，需要先按旧的手工流程更新一次。v0.3.0 起提供更新 workflow 和应用内版本入口；从 v0.28.0 起上游仓库不再内置 workflow，模板在 [`docs/templates/workflows/flaremo-update.yml`](./templates/workflows/flaremo-update.yml)，复制到自己的部署仓库的 `.github/workflows/` 即可获得同样的更新流程。
 
 GitHub 可能会在公开仓库连续 60 天没有活动后暂停定时 workflow；应用内版本检查不受影响。此时到仓库 Actions 页面重新启用 workflow，再手工运行一次即可。
 

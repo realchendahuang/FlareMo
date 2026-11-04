@@ -148,7 +148,7 @@ Clone le dépôt dans votre compte GitHub et provisionne automatiquement D1, R2,
 
 ### Méthode 2 : GitHub Action (fork auto-hébergé)
 
-Sur votre fork, lancez **Deploy to Cloudflare** depuis les Actions pour provisionner les ressources, publier le Worker et synchroniser les secrets d'authentification. Les pushes ne publient rien. Voir [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
+Copiez [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) dans `.github/workflows/` de votre fork, puis lancez **Deploy to Cloudflare** depuis les Actions pour provisionner les ressources, publier le Worker et synchroniser les secrets d'authentification. Les pushes ne publient rien. Voir [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
 
 ### Méthode 3 : Déploiement par Agent IA (Recommandé)
 

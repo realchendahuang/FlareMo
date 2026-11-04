@@ -36,7 +36,7 @@
 ### 验收标准
 
 1. 未配置任何一层时，`GET /api/app/admin/asr` 返回 `source: "none"`，capture status `available: false`，侧边栏无入口。
-2. 仅 UI 保存配置后（无需重新部署），capture status `available: true`，新开的 `/capture` 会话可用新配置完成录音保存。
+2. 仅 UI 保存配置后（无需重新部署），capture status `available: true`，输入框（长文画布）的麦克风可用新配置完成转写与保存。
 3. 环境变量已配置时，UI 展示 env 来源与掩码值且编辑区置灰并附说明；`PUT /api/app/admin/asr` 仍可保存 D1 副本（作为 env 移除后的接管值），但不改变当前生效结果。
 4. 任何 GET 响应中密钥字段只出现掩码（如 `sk-****7f2a`），完整明文不出现在任何响应、日志或导出物中。
 5. 非 owner 调用 `PUT /admin/asr` 得到 403；团队 admin 不可见该配置入口。

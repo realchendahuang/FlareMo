@@ -6,7 +6,12 @@
 
 ## 前置
 
-- 部署仓库已包含 `.github/workflows/deploy-cloudflare.yml`。
+- 部署仓库已把模板 [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml) 复制到 `.github/workflows/deploy-cloudflare.yml`：
+
+  ```bash
+  mkdir -p .github/workflows
+  cp <FlareMo 仓库>/docs/templates/workflows/deploy-cloudflare.yml .github/workflows/
+  ```
 - Cloudflare 账号已开通 Workers，并在 Dashboard 里能看到账号级 `*.workers.dev` 子域。
 - 两段至少 32 个字符的随机密钥，彼此不同，先存在密码管理器：
 
@@ -94,7 +99,7 @@ https://flaremo.<子域>.workers.dev
 | 场景 | 做法 |
 | --- | --- |
 | 自己改了代码 | 推到默认分支，再手动运行 `Deploy to Cloudflare`。资源已存在时可取消勾选 `provision`。 |
-| 上游发布了新的稳定版 | 按 [更新指南](./update.md) 运行 `Prepare FlareMo update`，审查并合并升级 PR，再运行 `Deploy to Cloudflare`。使用本 workflow 时，合并 PR **不会**自动发布。 |
+| 上游发布了新的稳定版 | 先按 [更新指南](./update.md) 把 `docs/templates/workflows/flaremo-update.yml` 复制为 `.github/workflows/flaremo-update.yml`，再运行 `Prepare FlareMo update`，审查并合并升级 PR，最后运行 `Deploy to Cloudflare`。使用本 workflow 时，合并 PR **不会**自动发布。 |
 | 只轮换认证密钥 | 改 GitHub Secret，再运行一次正式部署（会覆盖 Worker 上的对应 secret）。 |
 | 改用自定义域名 | Cloudflare 绑定域名，设置 Variable `FLAREMO_PUBLIC_URL`，再部署。 |
 
@@ -116,7 +121,7 @@ https://flaremo.<子域>.workers.dev
 
 ## 8. 常见问题
 
-- Actions 里没有 `Deploy to Cloudflare`：确认看的是自己的部署仓库，并且该 workflow 文件已在默认分支上。
+- Actions 里没有 `Deploy to Cloudflare`：确认看的是自己的部署仓库，并且已把 `docs/templates/workflows/deploy-cloudflare.yml` 复制为 `.github/workflows/deploy-cloudflare.yml` 并推到默认分支。
 - 读取 workers.dev 子域失败：在 Cloudflare Dashboard 的 Workers 里先注册账号子域。
 - `/setup` 失败：两个认证 GitHub Secret 未设或不合规，或上次只跑了 `dry_run`。
 - 创建 Queue / Vectorize / D1 失败：API Token 权限不足，按第 1 步补全。

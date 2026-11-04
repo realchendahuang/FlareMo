@@ -38,6 +38,9 @@ export type FlareMoEnv = Env & {
   FLAREMO_RECOVERY_SECRET?: string;
   FLAREMO_PUBLIC_URL?: string;
   FLAREMO_TRUSTED_ORIGINS?: string;
+  // Optional GitHub repository slug (owner/name) shown by the in-app
+  // "System update" entry. Unset hides the update entry entirely.
+  FLAREMO_DEPLOY_REPOSITORY?: string;
   // Optional Cloudflare rate-limiting binding for credential endpoints
   // (per IP) and paid ASR connection starts (per authenticated user; see
   // src/rate-limit.ts). Unbound deployments skip throttling entirely.

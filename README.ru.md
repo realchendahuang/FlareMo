@@ -148,7 +148,7 @@ FlareMo отвечает на более простой вопрос: **Можн
 
 ### Способ 2: GitHub Action (собственный форк)
 
-В своем форке запустите **Deploy to Cloudflare** во вкладке Actions, чтобы создать ресурсы, опубликовать Worker и синхронизировать секреты аутентификации. Обычные push ничего не публикуют. См. [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
+Скопируйте [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) в `.github/workflows/` вашего форка, затем запустите **Deploy to Cloudflare** во вкладке Actions, чтобы создать ресурсы, опубликовать Worker и синхронизировать секреты аутентификации. Обычные push ничего не публикуют. См. [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
 
 ### Способ 3: Развертывание с ИИ-агентом (Рекомендуется)
 

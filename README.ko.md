@@ -148,7 +148,7 @@ FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하�
 
 ### 방법 2: GitHub Action (셀프 호스팅 포크)
 
-포크에서 Actions의 **Deploy to Cloudflare**를 실행하면 리소스 프로비저닝, Worker 배포, 인증 시크릿 동기화가 한 번에 이루어집니다. push만으로는 배포되지 않습니다. [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md)를 참조하세요.
+포크에서 [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml)을 `.github/workflows/`에 복사한 뒤 Actions의 **Deploy to Cloudflare**를 실행하면 리소스 프로비저닝, Worker 배포, 인증 시크릿 동기화가 한 번에 이루어집니다. push만으로는 배포되지 않습니다. [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md)를 참조하세요.
 
 ### 방법 3: AI 에이전트로 배포 (권장)
 

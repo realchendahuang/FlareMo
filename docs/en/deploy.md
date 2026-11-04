@@ -4,19 +4,30 @@ FlareMo deploys to Cloudflare Workers. The same Worker serves the web UI and API
 
 ## One-click deploy (community-supported)
 
-The repository tracks a button-ready `wrangler.json` for [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo) (the D1 `database_id` is a placeholder; Cloudflare provisions the resources and rewrites the IDs during deployment). The button flow clones the repository into your GitHub account and connects Workers Builds.
+The repository tracks a button-ready `wrangler.json` for [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo) (the D1 `database_id` is a placeholder; Cloudflare provisions the resources and rewrites the IDs during deployment). The button flow clones the repository into your GitHub account and connects Workers Builds: pick the upstream `realchendahuang/FlareMo` as the **Repository** on the button page — Cloudflare forks it for you, so no manual fork is needed.
+
+The button page renders one form field per `vars` entry in `wrangler.json`. Fill them like this:
+
+| Form field | Value |
+| --- | --- |
+| `FLAREMO_PUBLIC_URL` | Your public origin, e.g. `https://flaremo.<your-subdomain>.workers.dev` or a custom domain; no path, query, or fragment |
+| `FLAREMO_EMBEDDING_DIMENSIONS` | Always `1024` — it must match the default embedding model `@cf/qwen/qwen3-embedding-0.6b` and the dimension of the `flaremo-memos` Vectorize index; a wrong value breaks semantic search silently |
+| `FLAREMO_EMBEDDING_PROVIDER` / `FLAREMO_EMBEDDING_MODEL` / `FLAREMO_VECTORIZE_*` | Keep the defaults |
+| `FLAREMO_SINGLE_USER_EMAIL` / `FLAREMO_SINGLE_USER_NAME` | Keep the defaults; the first identity comes from the `/setup` page |
+
+`FLAREMO_TRUSTED_ORIGINS` and `FLAREMO_DEPLOY_REPOSITORY` are no longer in the tracked config: set the former only when a cross-origin web client really needs it, and the latter only when the deployment repository should show the in-app "System update" entry.
 
 Known issues and notes:
 
 - A first attempt can fail with "Github API Limit Exceeded"; this is transient rate limiting on Cloudflare's clone step — wait a few minutes and retry.
 - After the initial deploy, point the Worker's `FLAREMO_PUBLIC_URL` variable at your real origin (a workers.dev subdomain or a custom domain), add `BETTER_AUTH_SECRET` (and optionally `FLAREMO_BOOTSTRAP_SECRET`) with `wrangler secret put`, then deploy once more so the new settings take effect.
-- The Vectorize index used by semantic search is provisioned by the button flow together with R2, D1, and Queues.
+- The Vectorize index used by semantic search is provisioned by the button flow together with R2, D1, and Queues. If semantic search does not work after deployment, check that the `flaremo-memos` index exists with **1024 dimensions / cosine**; create it in the Cloudflare dashboard or run `pnpm provision:remote` from the deployment repository.
 
 Manual deployment remains the fully supported path; the button flow is best for quick trials.
 
 ## GitHub Action deploy (self-hosted fork)
 
-A fork or deployment repository can use `.github/workflows/deploy-cloudflare.yml`: run it manually from Actions, provision missing D1 / R2 / Queue / Vectorize resources, publish the Worker, and sync `BETTER_AUTH_SECRET` and `FLAREMO_BOOTSTRAP_SECRET` from repository Secrets. Pushes do not publish. Upstream `realchendahuang/FlareMo` never runs this job.
+Copy the template [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml) into your fork or deployment repository as `.github/workflows/deploy-cloudflare.yml`, then run it manually from Actions: it provisions missing D1 / R2 / Queue / Vectorize resources, publishes the Worker, and syncs `BETTER_AUTH_SECRET` and `FLAREMO_BOOTSTRAP_SECRET` from repository Secrets. Pushes do not publish. Upstream `realchendahuang/FlareMo` never runs this job.
 
 Full steps: [Deploy with GitHub Actions](./github-action-deploy.md).
 

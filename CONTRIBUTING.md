@@ -25,7 +25,7 @@ pnpm install
 pnpm format:check
 ```
 
-默认只跑与改动直接相关的测试（对应的 Vitest 文件或 e2e spec），不要求全量 `pnpm verify`。全量门禁（13 步，含 E2E 与构建）只在维护者明确要求时运行。
+默认只跑与改动直接相关的测试（对应的 Vitest 文件或 e2e spec），不要求全量 `pnpm verify`。全量门禁（7 步，含 E2E 与构建）只在维护者明确要求时运行。
 
 涉及 Cloudflare 配置、D1、R2 或部署脚本时：
 

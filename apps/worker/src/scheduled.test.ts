@@ -40,6 +40,7 @@ class FakeR2Bucket {
   deletedKeys: string[][] = [];
   listPrefixes: string[] = [];
   failPut = false;
+  failDelete = false;
 
   async put(key: string) {
     if (this.failPut) throw new Error("R2 put failed");
@@ -47,6 +48,7 @@ class FakeR2Bucket {
   }
 
   async delete(keys: string | string[]) {
+    if (this.failDelete) throw new Error("R2 delete failed");
     const list = Array.isArray(keys) ? keys : [keys];
     this.deletedKeys.push(list);
     for (const key of list) this.objects.delete(key);
@@ -283,6 +285,50 @@ describe("scheduled maintenance", () => {
     rows = await db.select().from(memosNotifications);
     expect(rows.filter((row) => row.type === "daily_review")).toHaveLength(1);
     expect(rows.filter((row) => row.type === "task_overdue")).toHaveLength(1);
+  });
+
+  it("keeps later maintenance steps running when an earlier step fails", async () => {
+    const anchor = await createMemo(db, user, {
+      content: "a year ago today",
+      visibility: "private",
+      source: "web",
+    });
+    await db
+      .update(memos)
+      .set({ createdAt: "2025-09-15T10:00:00.000Z" })
+      .where(eq(memos.id, anchor.id));
+    await insertAttachment(db, user.id, {
+      createdAt: new Date(NOW - 10 * 86_400_000).toISOString(),
+    });
+
+    r2.failDelete = true;
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      await runScheduledMaintenance(env, NOW);
+    } finally {
+      r2.failDelete = false;
+    }
+
+    const summaryLine = logSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((line) => line.includes("scheduled maintenance complete"));
+    const summary = JSON.parse(summaryLine ?? "{}") as {
+      ok?: boolean;
+      failedSteps?: string[];
+    };
+    // The R2 delete failure is contained to the attachment step; every pass
+    // after it still runs.
+    expect(summary.ok).toBe(false);
+    expect(summary.failedSteps).toContain("attachment-gc");
+    expect(errorSpy).toHaveBeenCalled();
+    const rows = await db.select().from(memosNotifications);
+    expect(rows.filter((row) => row.type === "daily_review")).toHaveLength(1);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it("expires stale data tasks and garbage-collects their export artifacts", async () => {

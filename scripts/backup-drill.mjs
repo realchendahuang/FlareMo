@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
+import { parseKeepCount, pruneDrillBackups } from "./lib/prune.mjs";
 import {
   assertDerivedIndexesComplete,
   buildOrderedDataRestore,
@@ -208,6 +209,22 @@ writeFileSync(
 );
 
 console.log(`Backup drill report: ${report}`);
+
+// Retention: drill output contains Better Auth session rows and API-key
+// hashes, so stale copies should not pile up on the maintainer's laptop.
+// Keep the newest N drills (default 10, override with --keep=N or
+// FLAREMO_BACKUP_KEEP); only drill-* directories are considered.
+const keepArgument = process.argv
+  .find((argument) => argument.startsWith("--keep="))
+  ?.slice("--keep=".length);
+const keep = parseKeepCount(keepArgument ?? process.env.FLAREMO_BACKUP_KEEP);
+const pruned = pruneDrillBackups(resolve("backups"), keep);
+if (pruned.length > 0) {
+  console.log(
+    `Pruned ${pruned.length} old drill director${pruned.length === 1 ? "y" : "ies"} (keeping the newest ${keep}):`,
+  );
+  for (const name of pruned) console.log(`  - ${name}`);
+}
 
 /**
  * The R2 bucket this deployment actually binds, from `wrangler.jsonc`.

@@ -200,7 +200,7 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
     try {
       const { db } = await getRequestContext(c);
       const repository = normalizeGitHubRepository(
-        c.env.FLAREMO_DEPLOY_REPOSITORY,
+        c.env.FLAREMO_DEPLOY_REPOSITORY ?? "",
       );
       const branding = await getBranding(db);
       return c.json({

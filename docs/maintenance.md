@@ -16,12 +16,7 @@ pnpm format:check
 pnpm format
 ```
 
-`pnpm verify` 会执行：
-
-- TypeScript check
-- Vitest
-- production build
-- Playwright E2E
+`pnpm verify` 是 7 步全量门禁（持久化清单、全部脚本测试、format:check、lint/typecheck、Vitest、构建、Playwright E2E），步骤定义见 `scripts/preflight.mjs`。
 
 `pnpm verify` 是完整门禁，只在维护者明确要求时运行；日常提交和发布默认不运行。涉及 Wrangler、D1、R2、Access 或部署配置的改动，再运行 `pnpm deploy:dry-run`。
 
@@ -29,7 +24,7 @@ pnpm format
 
 ## 生产部署
 
-生产部署由维护者在本地手动执行；上游仓库不配置 push 或 CI 自动生产部署。现有自托管 fork/deployment repository 可通过 `deploy-cloudflare.yml` 的受控 `workflow_dispatch` 手动执行，不改变上游发布策略。
+生产部署由维护者在本地手动执行；上游仓库不配置 push 或 CI 自动生产部署。自托管 fork/deployment repository 可以复制 `docs/templates/workflows/deploy-cloudflare.yml`，通过受控的 `workflow_dispatch` 手动执行，不改变上游发布策略。
 
 ```bash
 pnpm run deploy
@@ -55,8 +50,9 @@ pnpm migrate:remote
 
 ```bash
 pnpm db:generate
-pnpm verify
 ```
+
+再跑与 schema 改动相关的定向单测；全量 `pnpm verify` 只在维护者明确要求时执行。
 
 生成的 SQL migration 必须提交。
 
@@ -111,7 +107,7 @@ rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments
 3. 使用 `pnpm backup:drill` 生成的按依赖排序恢复文件。它先恢复 identity roots 和 Better Auth 记录，再恢复 memo/SSE/webhook/通知、附件、数据任务、用量、项目和任务等全部事实源；migration 的 trigger 会重建 `memos_fts`。
 4. 恢复 R2 对象。
 5. 更新 `wrangler.jsonc` 的 D1 `database_id` 和 R2 bucket name；如启用了语义搜索，必须绑定一个**新建或已明确清空**的 Vectorize index。
-6. 恢复文件会清空旧的 `embedding_tasks` 状态，并为正常/归档 memo 与 active memory 写入新的 `reindex` 任务。部署后让 Worker 的请求 outbox 或 Cron 完成重建；不要把旧 D1 的 `indexed` 标记误当成新 Vectorize index 中真的存在向量。
+6. 恢复文件会清空旧的 `embedding_tasks` 状态，并为正常/归档 memo 写入新的 `reindex` 任务。部署后让 Worker 的请求 outbox 或 Cron 完成重建；不要把旧 D1 的 `indexed` 标记误当成新 Vectorize index 中真的存在向量。
 7. 配置相同或有意轮换的 `BETTER_AUTH_SECRET`，并重新配置 `FLAREMO_BOOTSTRAP_SECRET`；不要把 secret 写入恢复 SQL 或仓库。
 8. 执行 `pnpm deploy:dry-run`。
 9. 执行 `pnpm deploy`。

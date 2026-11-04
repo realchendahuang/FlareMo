@@ -21,6 +21,8 @@
     "test": "pnpm -r test",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "scripts:test": "node ./scripts/run-script-tests.mjs",
+    "clean": "node ./scripts/clean.mjs",
     "verify": "node ./scripts/preflight.mjs",
     "cf": "cf",
     "release": "node ./scripts/release.mjs",

@@ -4,13 +4,24 @@ FlareMo 部署到 Cloudflare Workers。Worker 同时承载前端静态资源和 
 
 ## 一键部署（社区支持）
 
-仓库提供一份面向 [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo) 按钮的跟踪配置 `wrangler.json`（D1 `database_id` 是占位值，Cloudflare 会在部署时自动创建资源并改写 ID）。按钮流程会克隆仓库到你的 GitHub 账号并接入 Workers Builds。
+仓库提供一份面向 [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo) 按钮的跟踪配置 `wrangler.json`（D1 `database_id` 是占位值，Cloudflare 会在部署时自动创建资源并改写 ID）。按钮流程会把仓库克隆到你的 GitHub 账号并接入 Workers Builds：按钮页的 **Repository** 选上游 `realchendahuang/FlareMo` 即可，Cloudflare 会替你 fork，不需要先手动 fork。
+
+按钮页会按 `wrangler.json` 的 `vars` 生成表单，逐项这样填：
+
+| 表单字段 | 填什么 |
+| --- | --- |
+| `FLAREMO_PUBLIC_URL` | 你的公开 origin，例如 `https://flaremo.<你的子域>.workers.dev` 或自定义域名；不能带 path、query 或 fragment |
+| `FLAREMO_EMBEDDING_DIMENSIONS` | 固定填 `1024`（与默认嵌入模型 `@cf/qwen/qwen3-embedding-0.6b` 的输出维度、Vectorize 索引 `flaremo-memos` 的维度一致；填错会让语义搜索静默失效） |
+| `FLAREMO_EMBEDDING_PROVIDER` / `FLAREMO_EMBEDDING_MODEL` / `FLAREMO_VECTORIZE_*` | 保持默认值 |
+| `FLAREMO_SINGLE_USER_EMAIL` / `FLAREMO_SINGLE_USER_NAME` | 保持默认值；首次认证身份以 `/setup` 页面输入为准 |
+
+`FLAREMO_TRUSTED_ORIGINS` 和 `FLAREMO_DEPLOY_REPOSITORY` 已从跟踪配置中移除：前者只在确实需要跨 origin Web 客户端时通过 Worker 变量补上，后者只在部署仓库需要显示"系统更新"入口时补上。
 
 已知问题与注意点：
 
 - 首次尝试可能出现 “Github API Limit Exceeded”，这是 Cloudflare 侧克隆时的临时限流，等待几分钟重试通常即可。
 - 部署完成后，需要把 Worker 的 `FLAREMO_PUBLIC_URL` 变量改成你的实际 origin（workers.dev 子域名或自定义域名），并用 `wrangler secret put BETTER_AUTH_SECRET`（及可选 `FLAREMO_BOOTSTRAP_SECRET`）补上密钥，然后重试部署一次使新配置生效。
-- 语义搜索依赖的 Vectorize index 与 R2/D1/Queue 一样由按钮流程自动创建。
+- 语义搜索依赖的 Vectorize index 与 R2/D1/Queue 一样由按钮流程自动创建；如果部署后发现语义搜索不可用，检查 `flaremo-memos` 索引是否存在且为 **1024 维 / cosine**，缺失时在 Cloudflare 控制台手动创建，或按下方手动部署执行 `pnpm provision:remote`。
 
 手动部署仍是受支持的完整路径，按钮流程更适合快速试用。
 
@@ -37,13 +48,13 @@ checkout 里没有这个文件。`pnpm deploy` 的 preflight 会在文件缺失�
 
 ## GitHub Action 手动部署（自托管 fork）
 
-自己的 fork 或部署仓库可以使用 `.github/workflows/deploy-cloudflare.yml`：在 Actions 里手动 `Run workflow`，创建缺失的 D1 / R2 / Queue / Vectorize，发布 Worker，并把仓库 Secrets 里的 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 同步到 Cloudflare。push 不会自动发布；上游 `realchendahuang/FlareMo` 不会跑这个 job。
+自己的 fork 或部署仓库先把模板 [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml) 复制到 `.github/workflows/deploy-cloudflare.yml`，然后在 Actions 里手动 `Run workflow`：它会创建缺失的 D1 / R2 / Queue / Vectorize，发布 Worker，并把仓库 Secrets 里的 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 同步到 Cloudflare。push 不会自动发布；上游 `realchendahuang/FlareMo` 不会跑这个 job。
 
 完整步骤见 [用 GitHub Action 部署](./github-action-deploy.md)。
 
 ## 手动部署
 
-仓库不跟踪 `wrangler.jsonc`（手动部署者的配置以本机文件形式存在）；上游仓库不通过 push 自动部署，自托管 fork 或部署仓库可以按上一节通过受控 GitHub Action 的 `workflow_dispatch` 手动发布。先创建资源、复制配置模板并填入自己的值，再执行部署命令。
+仓库不跟踪 `wrangler.jsonc`（手动部署者的配置以本机文件形式存在）；上游仓库不通过 push 自动部署，自托管 fork 或部署仓库可以复制上一节的 GitHub Action 模板，通过受控的 `workflow_dispatch` 手动发布。先创建资源、复制配置模板并填入自己的值，再执行部署命令。
 
 安装依赖：
 
@@ -109,7 +120,8 @@ Cloudflare Access 可以作为额外的外层防线，但 Access 身份或 Acces
 | 变量 | 要求 |
 | --- | --- |
 | `FLAREMO_PUBLIC_URL` | 必填；canonical origin，例如 `https://notes.example.com`，不能带 path、query 或 fragment。生产使用 HTTPS。 |
-| `FLAREMO_TRUSTED_ORIGINS` | 可选；逗号分隔的额外完整 origin，只在确实需要跨 origin Web 客户端时设置。 |
+| `FLAREMO_TRUSTED_ORIGINS` | 可选；逗号分隔的额外完整 origin，只在确实需要跨 origin Web 客户端时设置（只接受 https:// 完整 origin，localhost 除外）。 |
+| `FLAREMO_EMBEDDING_DIMENSIONS` | 可选；语义搜索向量维度，默认 `1024`，必须与 Vectorize `flaremo-memos` 索引维度一致。见 [语义搜索](./semantic-search.md)。 |
 | `FLAREMO_SINGLE_USER_EMAIL` / `FLAREMO_SINGLE_USER_NAME` | 既有 `users/owner` domain metadata 的 legacy 公开变量，不是 Better Auth 登录凭据，也不提供初始密码；首次认证身份和 setup 时提交的 owner 资料以 `/setup` 页面输入为准。已有 `users/owner` 行不会因修改这两个变量而被自动重写。 |
 
 `FLAREMO_PUBLIC_URL` 和 `FLAREMO_TRUSTED_ORIGINS` 不是凭据，可以写入部署配置。`FLAREMO_PUBLIC_URL` 为空或格式不合法时，Better Auth 会 fail closed，不能完成 setup。

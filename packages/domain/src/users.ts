@@ -195,6 +195,25 @@ export async function getFlaremoUserById(
 }
 
 /**
+ * Batch variant of `getFlaremoUserById` for maintenance sweeps: one query per
+ * D1 statement budget instead of one query per row. The trash purge used to
+ * look up an owner for every expired memo/article, which turns a large recycle
+ * bin into hundreds of serialized point reads.
+ */
+export async function getFlaremoUsersByIds(
+  db: FlareMoDb,
+  ids: readonly string[],
+): Promise<Map<string, UserRow>> {
+  const unique = [...new Set(ids)].filter((id) => id.length > 0);
+  const byId = new Map<string, UserRow>();
+  for (const chunk of chunkForD1(unique, d1IdsPerStatement())) {
+    const rows = await db.select().from(users).where(inArray(users.id, chunk));
+    for (const row of rows) byId.set(row.id, row);
+  }
+  return byId;
+}
+
+/**
  * Create a non-owner domain user for multi-user signups and admin-created
  * accounts. IDs are `users/<uuid>`: `memosSubjectForFlaremoUserId` already
  * hashes non-numeric ids deterministically and the link table keeps the

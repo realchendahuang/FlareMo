@@ -1,12 +1,17 @@
 # Deploy FlareMo with GitHub Actions
 
-This guide is for **your deployment repository** (a fork or copy of FlareMo). The workflow is `.github/workflows/deploy-cloudflare.yml`. It only runs from a manual `Run workflow` click; pushes do not publish. The upstream repository `realchendahuang/FlareMo` never runs this job.
+This guide is for **your deployment repository** (a fork or copy of FlareMo). The workflow is `.github/workflows/deploy-cloudflare.yml`, copied from the template at [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml). It only runs from a manual `Run workflow` click; pushes do not publish. The upstream repository `realchendahuang/FlareMo` never runs this job.
 
 The maintained paths remain local `pnpm deploy`, or the [Deploy to Cloudflare](./deploy.md#one-click-deploy-community-supported) button with Workers Builds. Do not put `BETTER_AUTH_SECRET` or `FLAREMO_BOOTSTRAP_SECRET` in the workflow file, issues, PRs, chat, or `workflow_dispatch` inputs: GitHub stores those form values in the run record. Keep them in repository **Settings → Secrets**.
 
 ## Prerequisites
 
-- The deployment repository includes `.github/workflows/deploy-cloudflare.yml`.
+- The deployment repository has copied the template [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml) to `.github/workflows/deploy-cloudflare.yml`:
+
+  ```bash
+  mkdir -p .github/workflows
+  cp <FlareMo checkout>/docs/templates/workflows/deploy-cloudflare.yml .github/workflows/
+  ```
 - The Cloudflare account has Workers enabled and an account-level `*.workers.dev` subdomain.
 - Two distinct random secrets of at least 32 characters, stored in a password manager first:
 
@@ -116,7 +121,7 @@ These cannot be set in the FlareMo UI. Add them in Cloudflare when you need the 
 
 ## 8. Troubleshooting
 
-- No `Deploy to Cloudflare` workflow: you are on the wrong repository, or the file is not on the default branch.
+- No `Deploy to Cloudflare` workflow: copy the template into `.github/workflows/` and push it to the default branch of the deployment repository.
 - workers.dev subdomain lookup fails: register the account subdomain under Workers in the Cloudflare dashboard.
 - `/setup` fails: the two auth GitHub Secrets are missing or invalid, or the last run was `dry_run` only.
 - Queue / Vectorize / D1 create fails: the API token is missing permissions from step 1.

@@ -82,7 +82,7 @@ if (existingTag) {
   process.exit(1);
 }
 
-// The full 9-step gate is opt-in (--verify): the maintainer runs it only on
+// The full `pnpm verify` gate is opt-in (--verify): the maintainer runs it only on
 // explicit request. Releases otherwise rely on the targeted tests each change
 // already ran, plus the deploy dry-run and drill gates below.
 if (process.argv.includes("--verify")) {

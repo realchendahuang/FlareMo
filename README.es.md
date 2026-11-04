@@ -148,7 +148,7 @@ Clona el repositorio en tu cuenta de GitHub y aprovisiona automáticamente D1, R
 
 ### Método 2: GitHub Action (fork autohospedado)
 
-En tu fork, ejecuta **Deploy to Cloudflare** desde Actions para aprovisionar los recursos, publicar el Worker y sincronizar los secretos de autenticación. Los push no publican. Ver [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
+Copia [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) en `.github/workflows/` de tu fork y luego ejecuta **Deploy to Cloudflare** desde Actions para aprovisionar los recursos, publicar el Worker y sincronizar los secretos de autenticación. Los push no publican. Ver [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
 
 ### Método 3: Despliegue con un agente IA (recomendado)
 
