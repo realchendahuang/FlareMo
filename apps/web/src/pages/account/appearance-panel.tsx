@@ -90,7 +90,7 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
                 </div>
 
                 {active && (
-                  <div className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs">
+                  <div className="absolute top-2 end-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs">
                     <CheckIcon className="size-3 stroke-[2.5]" />
                   </div>
                 )}

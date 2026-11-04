@@ -106,7 +106,7 @@ export function UsersTable({
       {/* Lightweight search input: visible if there are more than 3 members or already searching */}
       {(allUsers.length > 3 || memberSearch) && (
         <div className="relative">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <SearchIcon className="pointer-events-none absolute top-1/2 start-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label={t("admin.memberSearchPlaceholder")}
             className="h-9 pl-9 pr-8 text-xs bg-muted/20 border-border/50 hover:border-border/80 focus:bg-background transition-colors"
@@ -119,7 +119,7 @@ export function UsersTable({
               type="button"
               aria-label={t("search.clear")}
               onClick={() => setMemberSearch("")}
-              className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground"
+              className="absolute top-1/2 end-1.5 -translate-y-1/2 text-muted-foreground"
               size="icon-xs"
               variant="ghost"
             >

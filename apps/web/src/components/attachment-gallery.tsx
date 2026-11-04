@@ -41,7 +41,7 @@ function GalleryItem({ attachment }: { attachment: Attachment }) {
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}
-              className="block w-full cursor-zoom-in text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="block w-full cursor-zoom-in text-start focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             >
               <img
                 alt={attachment.filename}

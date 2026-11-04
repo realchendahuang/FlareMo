@@ -263,7 +263,7 @@ export function ArticlesPage() {
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <button
                       className={cn(
-                        "min-w-0 truncate text-left text-[15px] font-medium outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-3 focus-visible:after:ring-ring/25 focus-visible:after:ring-inset",
+                        "min-w-0 truncate text-start text-[15px] font-medium outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-3 focus-visible:after:ring-ring/25 focus-visible:after:ring-inset",
                         !article.title && "text-muted-foreground",
                         trashed && "text-muted-foreground",
                       )}

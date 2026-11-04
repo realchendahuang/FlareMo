@@ -132,7 +132,7 @@ export function SettingsRow({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          "flex min-h-[46px] w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors cursor-pointer hover:bg-accent/40 active:bg-accent/60",
+          "flex min-h-[46px] w-full items-center justify-between gap-3 px-3.5 py-2.5 text-start transition-colors cursor-pointer hover:bg-accent/40 active:bg-accent/60",
           disabled && "opacity-60 pointer-events-none",
           destructive && "text-destructive",
           className,

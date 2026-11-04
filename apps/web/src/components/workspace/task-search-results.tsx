@@ -38,7 +38,7 @@ export function TaskSearchResults({ tasks }: { tasks: Task[] }) {
                 {task.title}
               </span>
               {task.due_at && (
-                <span className="ml-auto shrink-0 text-xs tabular-nums">
+                <span className="ms-auto shrink-0 text-xs tabular-nums">
                   {task.due_at}
                 </span>
               )}

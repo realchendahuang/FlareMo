@@ -63,7 +63,7 @@ export function RelationsTab({
               )}
               {candidates.map((candidate) => (
                 <button
-                  className="rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-background"
+                  className="rounded-md px-2 py-2 text-start text-sm transition-colors hover:bg-background"
                   disabled={relationPending}
                   key={candidate.name}
                   type="button"

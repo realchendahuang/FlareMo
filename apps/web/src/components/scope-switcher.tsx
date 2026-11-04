@@ -67,7 +67,7 @@ export function ScopeSwitcher({
             >
               <item.icon />
               {item.label}
-              {activeSpace === item.value && <CheckIcon className="ml-auto" />}
+              {activeSpace === item.value && <CheckIcon className="ms-auto" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

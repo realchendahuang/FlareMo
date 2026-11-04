@@ -362,7 +362,7 @@ export function FlareMoApp() {
           {showScrollToTop && (
             <Button
               aria-label={t("common.scrollToTop")}
-              className="fixed bottom-6 right-6 z-30 size-9 rounded-full border border-border/60 bg-background/85 p-0 text-muted-foreground shadow-sm backdrop-blur-md hover:bg-muted hover:text-foreground active:scale-95 motion-safe:animate-scale-in motion-safe:transition-all sm:right-8"
+              className="fixed bottom-6 end-6 z-30 size-9 rounded-full border border-border/60 bg-background/85 p-0 text-muted-foreground shadow-sm backdrop-blur-md hover:bg-muted hover:text-foreground active:scale-95 motion-safe:animate-scale-in motion-safe:transition-all sm:end-8"
               size="icon"
               title={t("common.scrollToTop")}
               type="button"

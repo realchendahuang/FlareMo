@@ -367,7 +367,7 @@ export function AccountProfileSection({
             >
               {t("auth.usernameHandle")}
               <div className="relative flex items-center">
-                <span className="absolute left-3 text-muted-foreground text-sm font-medium select-none pointer-events-none">
+                <span className="absolute start-3 text-muted-foreground text-sm font-medium select-none pointer-events-none">
                   @
                 </span>
                 <Input

@@ -143,7 +143,7 @@ export function MemoVisibilityDialog({
                 disabled={isUpdating}
                 onClick={() => void handleSelectVisibility(option.value)}
                 className={cn(
-                  "relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150 motion-safe:hover:-translate-y-px motion-safe:active:scale-[0.99]",
+                  "relative flex items-center gap-3 rounded-xl border p-3 text-start transition-all duration-150 motion-safe:hover:-translate-y-px motion-safe:active:scale-[0.99]",
                   isSelected
                     ? "border-brand-500/50 bg-brand-50/50 shadow-xs ring-1 ring-brand-500/20 dark:border-brand-400/40 dark:bg-brand-500/10"
                     : "border-border/60 bg-card/40 hover:border-border hover:bg-card",

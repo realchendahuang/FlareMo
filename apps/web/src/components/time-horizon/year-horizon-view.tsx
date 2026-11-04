@@ -85,7 +85,7 @@ export function YearHorizonPureView({
         return (
           <button
             className={cn(
-              "group relative flex flex-col rounded-lg border p-1.5 transition-all text-left",
+              "group relative flex flex-col rounded-lg border p-1.5 transition-all text-start",
               displayMode === "heatmap"
                 ? cn(
                     "border-border/50 bg-background/50 hover:border-brand-500/40 hover:bg-background/80 dark:border-border/20 dark:bg-background/20 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5",

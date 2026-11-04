@@ -149,7 +149,7 @@ export function NotificationList({ onNavigate }: { onNavigate?: () => void }) {
         const unread = notification.status === "unread";
         return (
           <button
-            className="flex items-start gap-2 rounded-md px-2 py-2 text-left outline-none motion-safe:transition-colors motion-safe:duration-150 hover:bg-muted focus-visible:bg-muted"
+            className="flex items-start gap-2 rounded-md px-2 py-2 text-start outline-none motion-safe:transition-colors motion-safe:duration-150 hover:bg-muted focus-visible:bg-muted"
             key={notification.name}
             type="button"
             onClick={() => activate(notification)}

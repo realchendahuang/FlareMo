@@ -112,7 +112,7 @@ export function AccountSettingsDialog({
                 setSection("account");
                 setMobileView("detail");
               }}
-              className="flex w-full items-center justify-between gap-3.5 rounded-2xl border border-border/60 bg-card p-4 text-left shadow-2xs cursor-pointer hover:bg-accent/40 active:bg-accent/60 transition-colors"
+              className="flex w-full items-center justify-between gap-3.5 rounded-2xl border border-border/60 bg-card p-4 text-start shadow-2xs cursor-pointer hover:bg-accent/40 active:bg-accent/60 transition-colors"
             >
               <div className="flex min-w-0 items-center gap-3.5">
                 <Avatar
@@ -249,7 +249,7 @@ export function AccountSettingsDialog({
         {/* ========================================================================= */}
         {/* 3. WIDE SCREEN / DESKTOP: macOS STYLE SPLIT VIEW (宽屏双栏分栏)            */}
         {/* ========================================================================= */}
-        <aside className="hidden shrink-0 flex-col border-r bg-muted/30 p-3 sm:flex sm:w-64">
+        <aside className="hidden shrink-0 flex-col border-e bg-muted/30 p-3 sm:flex sm:w-64">
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
             <DialogTitle className="text-base font-semibold tracking-tight text-foreground">
               {t("settings.title")}

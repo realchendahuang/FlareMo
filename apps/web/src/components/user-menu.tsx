@@ -174,17 +174,17 @@ export function UserMenu({
               <DropdownMenuItem onClick={() => setTheme("system")}>
                 <MonitorIcon />
                 <span className="flex-1">{t("theme.system")}</span>
-                {theme === "system" && <CheckIcon className="ml-auto" />}
+                {theme === "system" && <CheckIcon className="ms-auto" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("light")}>
                 <SunIcon />
                 <span className="flex-1">{t("theme.light")}</span>
-                {theme === "light" && <CheckIcon className="ml-auto" />}
+                {theme === "light" && <CheckIcon className="ms-auto" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")}>
                 <MoonIcon />
                 <span className="flex-1">{t("theme.dark")}</span>
-                {theme === "dark" && <CheckIcon className="ml-auto" />}
+                {theme === "dark" && <CheckIcon className="ms-auto" />}
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
@@ -204,7 +204,7 @@ export function UserMenu({
               {SUPPORTED_LOCALES.map((next: Locale) => (
                 <DropdownMenuItem key={next} onClick={() => setLocale(next)}>
                   <span className="flex-1">{LOCALE_LABELS[next]}</span>
-                  {next === locale && <CheckIcon className="ml-auto" />}
+                  {next === locale && <CheckIcon className="ms-auto" />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>

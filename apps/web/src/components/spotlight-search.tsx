@@ -390,7 +390,7 @@ export function SpotlightSearch({
                     onClick={item.onExecute}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={cn(
-                      "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors duration-100",
+                      "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-start transition-colors duration-100",
                       isSelected
                         ? "bg-accent text-accent-foreground"
                         : "text-foreground",
@@ -497,7 +497,7 @@ export function SpotlightSearchTrigger({
         {activeQuery ? (
           <span
             aria-hidden="true"
-            className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary ring-2 ring-background"
+            className="absolute top-1.5 end-1.5 size-1.5 rounded-full bg-primary ring-2 ring-background"
           />
         ) : null}
       </Button>

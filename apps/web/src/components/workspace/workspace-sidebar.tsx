@@ -303,7 +303,7 @@ export function WorkspaceSidebar({
       >
         <span
           className={cn(
-            "absolute inset-y-0 start-1/2 w-px -translate-x-1/2 bg-border opacity-0 motion-safe:transition-opacity motion-safe:duration-150 group-hover/resizer:opacity-100",
+            "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border opacity-0 motion-safe:transition-opacity motion-safe:duration-150 group-hover/resizer:opacity-100",
             resizing && "opacity-100",
           )}
         />

@@ -752,7 +752,7 @@ svg.lucide[stroke-width="2"] {
 
   .memo-markdown th,
   .memo-markdown td {
-    @apply border px-3 py-2 text-left;
+    @apply border px-3 py-2 text-start;
   }
 
   /* Drawn task box: the native one renders as a glaring white square in dark
@@ -858,7 +858,7 @@ svg.lucide[stroke-width="2"] {
 
   .article-editor-content th,
   .article-editor-content td {
-    @apply border px-3 py-2 text-left;
+    @apply border px-3 py-2 text-start;
   }
 
   /* Article preview: the typesetting of the public article page

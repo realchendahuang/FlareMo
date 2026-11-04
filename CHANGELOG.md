@@ -32,6 +32,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - 全局快捷键不再劫持按钮、菜单、下拉与组合框里的方向键和字母键。
 - 语言包晚于首屏到达时触发一次重渲染，不再让页面停在英文（阿拉伯语也不会出现 RTL 布局配英文）。
 - Spotlight 搜索补 combobox / listbox / option 语义与 `aria-activedescendant`。
+- 方向相关的物理 utility 改为逻辑 utility（`text-start` / `ms-auto` / `end-*` / `border-s`），阿拉伯语 RTL 下菜单、对齐与定位不再反向。
 - 删除未使用的 `haptics` 与 `getDailyReview`，共享设置组件移到 `components/settings-section.tsx`。
 
 ### 工程

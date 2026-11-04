@@ -64,7 +64,7 @@ function SuggestionListShell({
 
 function rowClassName(active: boolean) {
   return cn(
-    "flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-sm text-muted-foreground motion-safe:transition-colors",
+    "flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-start text-sm text-muted-foreground motion-safe:transition-colors",
     active && "bg-muted text-foreground",
   );
 }

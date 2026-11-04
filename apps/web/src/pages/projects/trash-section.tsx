@@ -58,7 +58,7 @@ export function TrashSection({ onMutated }: { onMutated: () => void }) {
             !open && "-rotate-90 rtl:rotate-90",
           )}
         />
-        <span className="min-w-0 flex-1 truncate text-left">
+        <span className="min-w-0 flex-1 truncate text-start">
           {t("view.trash")}
         </span>
         {count > 0 && (

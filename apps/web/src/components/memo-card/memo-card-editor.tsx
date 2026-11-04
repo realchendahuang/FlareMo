@@ -82,7 +82,7 @@ export function MemoCardEditor({
         <span className="hidden sm:inline text-xs text-muted-foreground">
           ⌘Enter / Esc
         </span>
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ms-auto">
           <Button
             disabled={isSaving}
             size="sm"

@@ -236,7 +236,7 @@ export function MemoCardBody({
               ),
             )}
           </div>
-          <div className="ml-auto flex min-w-0 items-center gap-2">
+          <div className="ms-auto flex min-w-0 items-center gap-2">
             <MemoTaskBadge tasks={memoTasks} />
             {!canOpenThread && commentCount > 0 && (
               <Link
