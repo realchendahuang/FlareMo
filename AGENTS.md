@@ -125,6 +125,7 @@ issue -> branch -> PR 流程只用于：对外贡献者、维护者明确要求�
 ## 文档入口
 
 - `README.md`：项目入口和部署入口。
+- `docs/README.md`：文档索引（入门 / 架构 / 部署 / 兼容 / 设计 / 历史设计稿分类）。
 - **README 语言版本规则（2026-09-22 整理后定案）**：`README.md` 是唯一基准（英文），`README.zh-CN` / `.ja` / `.ko` / `.fr` / `.es` / `.ru` / `.ar` 七个翻译版是它的结构镜像（逐节 1:1，只差译文）。改主 README 时必须同步更新对应翻译版；只动某一节也要把该节同步到全部语言版。各版本专有约定：zh-CN 的文档链接指向中文文档根 `docs/`，其他语言版指向 `docs/en/`（`plugin-platform-standard.md` 无英文专版，保持根路径）；语言切换器里的链接名保持各语言原生写法，不算混排。
 - `docs/tech-stack.md`：确定的技术栈。
 - `docs/architecture-notes.md`：架构和兼容边界。

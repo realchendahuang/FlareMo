@@ -18,6 +18,7 @@ FlareMo 是跑在 Cloudflare 上的 AI 原生第二大脑：零服务器、零�
 - 从 Memos 迁移: ./docs/import-from-memos.md
 - Memos 生态兼容记录: ./docs/memos-ecosystem.md
 - English deploy docs: ./docs/en/deploy.md
+- 文档索引: ./docs/README.md
 - 路线: ./ROADMAP.md
 - Agent 指南: ./AGENTS.md
 
