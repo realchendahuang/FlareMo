@@ -30,12 +30,12 @@ export const ES_HOME: HomeContent = {
     {
       title: "Durabilidad por diseño",
       description:
-        "Tus notas viven en Cloudflare D1 y R2 con persistencia multirregional. Fallos de disco o cortes de luz jamás tocarán tus datos.",
+        "Tus notas viven en Cloudflare D1 y R2 con replicación multirregional. Un disco roto o una migración no se las llevan.",
     },
     {
-      title: "Plan gratuito sin letra pequeña",
+      title: "Plan gratuito, límites claros",
       description:
-        "El plan gratuito alberga 2,5 millones de notas y 10.000 fotos. R2 no cobra por transferencia saliente, sin sorpresas en tu factura.",
+        "El plan gratuito incluye 5 GB en D1 (~2,5 millones de notas) y 10 GB en R2 (~10.000 fotos). R2 no cobra tráfico saliente mientras sigas dentro de esas cuotas.",
     },
     {
       title: "Funciona sin conexión y PWA",
@@ -70,13 +70,13 @@ export const ES_HOME: HomeContent = {
   comparisonRows: [
     {
       label: "Ubicación de datos",
-      cloudflare: "Almacenamiento distribuido multirregional Cloudflare",
+      cloudflare: "Almacenamiento multirregional de Cloudflare",
       nas: "Disco duro único o RAID en tu propia casa",
       vps: "Disco virtual en un centro de datos único",
     },
     {
       label: "Riesgo de hardware",
-      cloudflare: "Conmutación por error automática, cero riesgo",
+      cloudflare: "Replicado entre regiones, sin discos que gestionar",
       nas: "Fallo de disco o corte eléctrico = pérdida total",
       vps: "Caída del hipervisor o error de configuración",
     },
@@ -88,7 +88,7 @@ export const ES_HOME: HomeContent = {
     },
     {
       label: "Mantenimiento diario",
-      cloudflare: "Cero: sin parches de sistema ni Docker",
+      cloudflare: "Sin parches de sistema ni Docker que mantener",
       nas: "Actualizaciones de SO y revisión de discos SMART",
       vps: "Parches de seguridad y configuración de cortafuegos",
     },
@@ -100,7 +100,7 @@ export const ES_HOME: HomeContent = {
     },
     {
       label: "Coste recurrente",
-      cloudflare: "0 $ / mes en el generoso plan gratuito",
+      cloudflare: "0 $ dentro del plan gratuito (con límites)",
       nas: "Alto coste de hardware inicial + gasto de electricidad",
       vps: "Facturas mensuales o anuales de alojamiento",
     },
@@ -131,7 +131,7 @@ export const ES_HOME: HomeContent = {
       a: "Por defecto es un diario personal cifrado. Al activar el modo de equipo, invitas a colegas con enlaces de un solo uso; cada nota puede ser privada (solo tú), visible para el equipo (lectura y comentarios) o pública.",
     },
   ],
-  ctaHeading: "Cinco minutos para desplegar. Tuyo para siempre.",
+  ctaHeading: "Cinco minutos para desplegar. Y es tuyo.",
   ctaSubtitle:
     "Sin servidores, sin tarjeta de crédito. Despliega en Cloudflare en 5 minutos.",
   ctaButton: "Ver guía de despliegue en 5 minutos",

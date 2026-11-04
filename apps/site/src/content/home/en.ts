@@ -22,12 +22,12 @@ export const EN_HOME: HomeContent = {
     {
       title: "Durable by default",
       description:
-        "Notes live in your Cloudflare D1 database and R2 bucket, replicated across regions. Dead drives, power cuts, and server migrations won't touch your data.",
+        "Notes live in your Cloudflare D1 database and R2 bucket, replicated across regions. A dead laptop or a migration doesn't take them with it.",
     },
     {
-      title: "Free tier, no fine print",
+      title: "Free tier, clear limits",
       description:
-        "Cloudflare's free tier includes 5GB on D1 (~2.5 million text notes) and 10GB on R2 (~10,000 photos). With zero egress fees on R2, sharing notes never triggers surprise bandwidth bills.",
+        "Cloudflare's free tier includes 5GB on D1 (~2.5 million text notes) and 10GB on R2 (~10,000 photos). R2 charges no egress fees, so sharing stays free while you stay inside the quotas.",
     },
     {
       title: "Offline-First & PWA",
@@ -62,13 +62,13 @@ export const EN_HOME: HomeContent = {
   comparisonRows: [
     {
       label: "Data Location",
-      cloudflare: "Cloudflare multi-region enterprise storage",
+      cloudflare: "Cloudflare multi-region storage",
       nas: "Single or RAID drive in your home",
       vps: "Single cloud vendor virtual disk",
     },
     {
       label: "Hardware Failure",
-      cloudflare: "Auto-replicated, zero hardware risk",
+      cloudflare: "Replicated across regions; no disk to replace",
       nas: "Drive crash or power surge risks total loss",
       vps: "Host outage or hypervisor crash risks loss",
     },
@@ -80,7 +80,7 @@ export const EN_HOME: HomeContent = {
     },
     {
       label: "Daily Upkeep",
-      cloudflare: "Zero: No OS patches, no Docker compose",
+      cloudflare: "No OS patches, no Docker to babysit",
       nas: "OS updates, SMART drive health monitoring",
       vps: "Kernel updates, security patches, watchdogs",
     },
@@ -92,7 +92,7 @@ export const EN_HOME: HomeContent = {
     },
     {
       label: "Ongoing Cost",
-      cloudflare: "$0 / month on generous free tier",
+      cloudflare: "$0 on the free tier (limits apply)",
       nas: "High upfront hardware costs + electricity",
       vps: "Continuous monthly / annual hosting invoices",
     },
@@ -104,11 +104,11 @@ export const EN_HOME: HomeContent = {
   faqItems: [
     {
       q: "Is the free tier really enough?",
-      a: "More than enough. Cloudflare's free tier gives you 5GB on D1 (~2.5 million text notes) and 10GB on R2 (~10,000 compressed photos). Writing 100 notes a day would take 68 years to fill.",
+      a: "At roughly 2 KB per note, 5 GB on D1 holds about 2.5 million text notes, and 10 GB on R2 holds about 10,000 compressed photos. The real ceiling depends on your content; most people never reach it.",
     },
     {
       q: "How safe is my data?",
-      a: "Notes live on Cloudflare's distributed infrastructure, replicated across regions. FlareMo can also export everything — notes, tasks, articles and attachments — into a single bundle you archive offline, for a second copy that's always yours.",
+      a: "Notes live on Cloudflare's distributed infrastructure, replicated across regions. FlareMo can also export everything — notes, tasks, articles and attachments — into a single bundle you archive offline, for a second copy you control.",
     },
     {
       q: "Can I bring my old notes over?",
@@ -123,7 +123,7 @@ export const EN_HOME: HomeContent = {
       a: "Out of the box, FlareMo is a quiet single-user sanctuary. Turn on team mode to invite teammates with one-time activation links, then set any note to private (personal only), team-visible (team members can read and discuss), or public.",
     },
   ],
-  ctaHeading: "Five minutes to deploy. Yours for good.",
+  ctaHeading: "Five minutes to deploy. Yours to keep.",
   ctaSubtitle:
     "No servers, no credit card required. Deploy on Cloudflare in 5 minutes.",
   ctaButton: "Open the Deploy Guide",

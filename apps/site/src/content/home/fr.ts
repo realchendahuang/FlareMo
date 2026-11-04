@@ -30,12 +30,12 @@ export const FR_HOME: HomeContent = {
     {
       title: "Durabilité par défaut",
       description:
-        "Vos notes résident dans Cloudflare D1 et R2 avec réplication multi-régions. Pannes de disques et coupures de courant n'atteignent jamais vos données.",
+        "Vos notes résident dans Cloudflare D1 et R2 avec réplication multi-régions. Un disque qui lâche ou une migration ne les emporte pas.",
     },
     {
-      title: "Niveau gratuit, sans surprise",
+      title: "Niveau gratuit, limites claires",
       description:
-        "Le forfait gratuit contient 2,5 millions de notes et 10 000 photos. Aucun frais de transfert sortant avec Cloudflare R2.",
+        "Le forfait gratuit inclut 5 Go sur D1 (≈ 2,5 millions de notes) et 10 Go sur R2 (≈ 10 000 photos). R2 ne facture pas le trafic sortant tant que vous restez dans ces quotas.",
     },
     {
       title: "Fonctionne hors-ligne & PWA",
@@ -70,13 +70,13 @@ export const FR_HOME: HomeContent = {
   comparisonRows: [
     {
       label: "Emplacement des données",
-      cloudflare: "Stockage distribué multi-régions Cloudflare",
+      cloudflare: "Stockage multi-régions Cloudflare",
       nas: "Disque dur physique unique ou RAID chez soi",
       vps: "Disque virtuel dans un centre de données unique",
     },
     {
       label: "Risque matériel",
-      cloudflare: "Basculement automatique, zéro risque matériel",
+      cloudflare: "Répliqué entre régions, aucun disque à gérer",
       nas: "Panne de disque ou inondation = perte totale",
       vps: "Panne de machine hôte ou mauvaise manipulation",
     },
@@ -88,7 +88,7 @@ export const FR_HOME: HomeContent = {
     },
     {
       label: "Maintenance quotidienne",
-      cloudflare: "Zéro : pas de patch d'OS ni de Docker",
+      cloudflare: "Ni patch d'OS ni Docker à maintenir",
       nas: "Mises à jour d'OS et surveillance SMART nécessaires",
       vps: "Patchs de sécurité, pare-feu et surveillance",
     },
@@ -100,7 +100,7 @@ export const FR_HOME: HomeContent = {
     },
     {
       label: "Coût continu",
-      cloudflare: "0 € / mois avec le généreux forfait gratuit",
+      cloudflare: "0 € dans l'offre gratuite (quotas inclus)",
       nas: "Coût matériel élevé + consommation électrique",
       vps: "Factures mensuelles récurrentes d'hébergement",
     },
@@ -131,7 +131,7 @@ export const FR_HOME: HomeContent = {
       a: "Par défaut, c'est un carnet personnel confidentiel. En activant le mode équipe, vous invitez des membres par lien à usage unique ; chaque note peut être privée (vous seul), visible par l'équipe (lecture et commentaires) ou publique.",
     },
   ],
-  ctaHeading: "Cinq minutes pour déployer. À vous pour de bon.",
+  ctaHeading: "Cinq minutes pour déployer. Et c'est à vous.",
   ctaSubtitle:
     "Sans serveur, sans carte bancaire. Déployez sur Cloudflare en 5 minutes.",
   ctaButton: "Lire le guide de déploiement en 5 min",

@@ -27,7 +27,7 @@ const FOOTER_TEXT: Record<
   }
 > = {
   en: {
-    tagline: "Free tier · Always-on · Your data, your rules",
+    tagline: "Free tier · Open source · Your data, your rules",
     productHeading: "Product",
     docsHeading: "Docs",
     projectHeading: "Project",
@@ -39,7 +39,7 @@ const FOOTER_TEXT: Record<
     requirements: "Requirements",
   },
   zh: {
-    tagline: "免费账号 · 24 小时在线 · 数据归你所有",
+    tagline: "免费账号 · 开源 · 数据归你所有",
     productHeading: "产品",
     docsHeading: "文档",
     projectHeading: "项目",
@@ -51,7 +51,7 @@ const FOOTER_TEXT: Record<
     requirements: "需求梳理",
   },
   ja: {
-    tagline: "無料枠 · 常時稼働 · データはあなたのもの",
+    tagline: "無料枠 · オープンソース · データはあなたのもの",
     productHeading: "プロダクト",
     docsHeading: "ドキュメント",
     projectHeading: "プロジェクト",
@@ -63,8 +63,7 @@ const FOOTER_TEXT: Record<
     requirements: "要件定義",
   },
   fr: {
-    tagline:
-      "Offre gratuite · Toujours en ligne · Vos données sous votre contrôle",
+    tagline: "Offre gratuite · Open source · Vos données sous votre contrôle",
     productHeading: "Produit",
     docsHeading: "Documentation",
     projectHeading: "Projet",
@@ -76,7 +75,7 @@ const FOOTER_TEXT: Record<
     requirements: "Exigences",
   },
   es: {
-    tagline: "Plan gratuito · Siempre activo · Tus datos, tus reglas",
+    tagline: "Plan gratuito · Código abierto · Tus datos, tus reglas",
     productHeading: "Producto",
     docsHeading: "Documentación",
     projectHeading: "Proyecto",
@@ -88,7 +87,7 @@ const FOOTER_TEXT: Record<
     requirements: "Requisitos",
   },
   ko: {
-    tagline: "무료 티어 · 항시 온라인 · 완전한 데이터 소유권",
+    tagline: "무료 티어 · 오픈소스 · 완전한 데이터 소유권",
     productHeading: "제품",
     docsHeading: "문서",
     projectHeading: "프로젝트",
@@ -101,7 +100,7 @@ const FOOTER_TEXT: Record<
   },
   ru: {
     tagline:
-      "Бесплатный тариф · Всегда онлайн · Ваши данные под вашим контролем",
+      "Бесплатный тариф · Открытый код · Ваши данные под вашим контролем",
     productHeading: "Продукт",
     docsHeading: "Документация",
     projectHeading: "Проект",
@@ -113,7 +112,7 @@ const FOOTER_TEXT: Record<
     requirements: "Требования",
   },
   ar: {
-    tagline: "خطة مجانية · تشغيل دائم · بياناتك ملكك وحدك",
+    tagline: "خطة مجانية · مفتوح المصدر · بياناتك ملكك وحدك",
     productHeading: "المنتج",
     docsHeading: "المستندات",
     projectHeading: "المشروع",

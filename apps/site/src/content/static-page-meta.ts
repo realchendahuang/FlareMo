@@ -30,7 +30,7 @@ export const STATIC_PAGE_META: Record<
   zh: {
     homeTitle: "FlareMo - Cloudflare 原生的 AI 第二大脑",
     homeDesc:
-      "一个免费 Cloudflare 账号就能跑起来的 AI 原生第二大脑：速记、任务、文章与团队共享，AI Agent 可以通过 MCP 直接读写你的笔记。",
+      "一个免费 Cloudflare 账号就能跑起来的 AI 原生第二大脑：速记、任务、文章与团队共享，AI Agent 可以通过 MCP 直接读写你的记录。",
     docsTitle: "文档总览",
     docsDesc: "FlareMo 文档总览：部署、架构、开放 API、Agent 集成与参考。",
   },

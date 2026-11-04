@@ -30,12 +30,12 @@ export const KO_HOME: HomeContent = {
     {
       title: "기본값이 내구성",
       description:
-        "메모는 Cloudflare D1과 R2에 멀티 리전으로 안전하게 저장됩니다. 디스크 고장이나 정전 걱정 없이 데이터를 보호하세요.",
+        "메모는 Cloudflare D1과 R2에 멀티 리전으로 복제됩니다. 노트북이 고장 나거나 이전해도 기록은 남습니다.",
     },
     {
-      title: "투명한 무료 제공량",
+      title: "무료 티어, 명확한 한도",
       description:
-        "무료 플랜만으로 약 250만 건의 메모와 1만 장의 사진을 보관할 수 있습니다. R2는 다운로드 트래픽 비용이 무료입니다.",
+        "무료 플랜에 D1 5GB(약 250만 건)와 R2 10GB(약 1만 장)가 포함됩니다. 한도 안에서는 R2 전송 비용이 발생하지 않습니다.",
     },
     {
       title: "오프라인 퍼스트 & PWA",
@@ -69,13 +69,13 @@ export const KO_HOME: HomeContent = {
   comparisonRows: [
     {
       label: "데이터 저장 위치",
-      cloudflare: "Cloudflare 글로벌 멀티 리전 스토리지",
+      cloudflare: "Cloudflare 멀티 리전 스토리지",
       nas: "집 안의 단일 또는 RAID 하드디스크",
       vps: "단일 클라우드 데이터센터의 가상 디스크",
     },
     {
       label: "하드웨어 장애 위험",
-      cloudflare: "자동 장애 조치로 하드웨어 위험 0%",
+      cloudflare: "리전 간 복제, 직접 교체할 디스크 없음",
       nas: "디스크 배드섹터나 정전 시 전량 손실 위험",
       vps: "하이퍼바이저 장애나 설정 실수로 손실 위험",
     },
@@ -87,7 +87,7 @@ export const KO_HOME: HomeContent = {
     },
     {
       label: "일상 유지보수",
-      cloudflare: "제로 : OS 패치 및 Docker 관리 불필요",
+      cloudflare: "OS 패치도, Docker 관리도 없음",
       nas: "OS 정기 업데이트 및 디스크 SMART 감시 필요",
       vps: "보안 패치, 커널 업그레이드, 방화벽 관리 필요",
     },
@@ -99,7 +99,7 @@ export const KO_HOME: HomeContent = {
     },
     {
       label: "지속 비용",
-      cloudflare: "월 0원 (넉넉한 무료 티어 활용)",
+      cloudflare: "무료 티어 내 0원 (한도 있음)",
       nas: "수십~수백만 원의 초기 기기값 + 전기요금",
       vps: "매월 반복 청구되는 호스팅 요금과 트래픽비",
     },
@@ -130,7 +130,7 @@ export const KO_HOME: HomeContent = {
       a: "혼자 사용할 때는 조용한 1인용 노트로 작동하며, 팀 모드를 켜면 일회용 초대 링크로 동료를 추가할 수 있습니다. 노트는 비공개(나만 보기), 팀 공개(팀원이 읽고 댓글 가능), 전체 공개 중에서 고릅니다.",
     },
   ],
-  ctaHeading: "5분 만에 배포, 영원히 당신의 것.",
+  ctaHeading: "5분 만에 배포, 이제 당신의 것.",
   ctaSubtitle:
     "서버도, 신용카드도 필요 없습니다. 무료 Cloudflare 계정으로 5분 만에 배포하세요.",
   ctaButton: "5분 배포 가이드 확인하기",

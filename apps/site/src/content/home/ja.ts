@@ -26,12 +26,12 @@ export const JA_HOME: HomeContent = {
     {
       title: "マルチリージョンでデータを守る",
       description:
-        "メモはCloudflare D1およびR2ストレージにマルチリージョン冗長化で保存。ディスク障害や停電の心配は不要です。",
+        "メモは Cloudflare D1 と R2 にマルチリージョンで複製して保存します。ディスク交換や移行の手間はありません。",
     },
     {
-      title: "無料枠は正直な数字で",
+      title: "無料枠と明確な上限",
       description:
-        "無料枠で約250万件のメモと1万枚の写真を保存可能。R2は下り転送料金が無料のため、急な請求の心配もありません。",
+        "無料枠で約250万件のメモと1万枚の写真を保存できます。R2 は下り転送料金が無料で、無料枠内なら請求は発生しません。",
     },
     {
       title: "オフライン対応 ＆ PWA",
@@ -65,13 +65,13 @@ export const JA_HOME: HomeContent = {
   comparisonRows: [
     {
       label: "データの保存場所",
-      cloudflare: "Cloudflare エンタープライズ分散ストレージ",
+      cloudflare: "Cloudflare のマルチリージョン分散ストレージ",
       nas: "自宅内の単一またはRAIDハードディスク",
       vps: "単一クラウドベンダーの仮想ディスク",
     },
     {
       label: "ハードウェア障害リスク",
-      cloudflare: "自動フェイルオーバー、故障ストレスゼロ",
+      cloudflare: "マルチリージョンに複製、ディスク交換は不要",
       nas: "HDD故障や停電で全データ消失のリスク",
       vps: "ホスト障害や設定ミスによる消失リスク",
     },
@@ -83,7 +83,7 @@ export const JA_HOME: HomeContent = {
     },
     {
       label: "日常のメンテナンス",
-      cloudflare: "ゼロ：OS更新なし、Docker管理なし",
+      cloudflare: "OS パッチも Docker 運用も不要",
       nas: "OSアップデート、SMART監視が必要",
       vps: "セキュリティパッチ、デーモン監視が必要",
     },
@@ -95,7 +95,7 @@ export const JA_HOME: HomeContent = {
     },
     {
       label: "継続コスト",
-      cloudflare: "0円（無料枠を永久に活用）",
+      cloudflare: "無料枠内は 0 円（上限あり）",
       nas: "高額な初期ハードウェア代＋電気代",
       vps: "毎月のサーバー代と帯域費用の請求",
     },

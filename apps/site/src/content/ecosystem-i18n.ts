@@ -21,12 +21,12 @@ export const ECOSYSTEM_CONTENT: Record<
       {
         title: "AI Agents",
         tag: "Model Context Protocol",
-        desc: "Claude、Cursor、Codex 通过 MCP 或 Skill 搜索、读取和写入你的笔记。",
+        desc: "Claude、Cursor、Codex 通过 MCP 或 Skill 搜索、读取和写入你的记录。",
       },
       {
         title: "Notes Skill",
         tag: "Skill",
-        desc: "教 Agent 先搜索再写入、保留你的原文，并回报它改动的笔记 ID。",
+        desc: "教 Agent 先搜索再写入、保留你的原文，并回报它改动的记录 ID。",
       },
       {
         title: "Telegram Bot",
