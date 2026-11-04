@@ -404,7 +404,7 @@ function TagTree({
           {/* Count and menu share the trailing slot, like project rows on the
               to-do page: the menu takes over on hover and stays on touch. */}
           {node.count > 0 && (
-            <span className="min-w-5 shrink-0 text-end text-xs tabular-nums text-muted-foreground/70 group-focus-within:invisible group-hover:invisible [@media(pointer:coarse)]:invisible">
+            <span className="min-w-5 shrink-0 text-end text-xs tabular-nums text-muted-foreground group-focus-within:invisible group-hover:invisible [@media(pointer:coarse)]:invisible">
               {node.count}
             </span>
           )}

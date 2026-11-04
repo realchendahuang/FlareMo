@@ -106,7 +106,7 @@ export function MonthHorizonPureView({
           (colId, i) => (
             <div
               className={cn(
-                "pb-0.5 text-center text-xs font-medium text-muted-foreground/80",
+                "pb-0.5 text-center text-xs font-medium text-muted-foreground",
               )}
               key={colId}
             >

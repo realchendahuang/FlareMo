@@ -22,6 +22,9 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ### 安全与数据
 
+- 更新检查改为 Worker 代理 `GET /api/app/releases/latest`：边缘缓存 10 分钟、校验 `repository` 形状（只接受 `owner/name`）、上游失败映射为 502；浏览器不再直连 `api.github.com`，国内网络与 60 次/小时/IP 限流不再影响「系统更新」入口。
+- `/api/v1/memos` 增加响应级契约测试：create / list / get / attachments 的返回体用 `@flaremo/contracts` 的 zod schema 校验，响应字段漂移不再只靠 path+method 的覆盖检查。
+- 低强调文字的对比度：explorer 计数、可见性提示、月份表头、回收站分组等正文从 `muted-foreground/70–/80` 改为全色，tabs 的非激活文字由 `foreground/60` 提到 `/70`。
 - `FLAREMO_TRUSTED_ORIGINS` 与 `FLAREMO_PUBLIC_URL` 使用同一套 HTTPS 校验（localhost 除外），http origin 在部署启动时直接报配置错误。
 - cookie 请求先按会话 cookie 是否存在分流：无凭据仍返回 401；跨站状态变更在 session 查询之前返回 403。
 - 管理员删除成员失败时，PAT 调用也会写入 failed job（此前被 session-only 的 context 解析器吞掉，排障时看不到原因）。

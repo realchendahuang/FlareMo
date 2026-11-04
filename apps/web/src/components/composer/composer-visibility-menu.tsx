@@ -103,7 +103,7 @@ export function ComposerVisibilityMenu({
       {canSubmit && !isPending && (
         <span
           aria-hidden="true"
-          className="pointer-events-none hidden items-center gap-0.5 font-sans text-xs text-muted-foreground/70 select-none motion-safe:animate-fade md:inline-flex"
+          className="pointer-events-none hidden items-center gap-0.5 font-sans text-xs text-muted-foreground select-none motion-safe:animate-fade md:inline-flex"
         >
           {SUBMIT_HINT}
         </span>

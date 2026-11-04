@@ -132,14 +132,14 @@
 - [x] **query key 收口**：86 处行内字面量全部迁到 `lib/query-keys.ts`（新增 20+ 组 key 与 `invalidateTaskSurfaces` 共享失效助手）；新增 `lib/query-keys.test.ts` 禁止再写行内字面量。
 - [x] **孤儿 i18n key**：71 个无引用 key 已从 8 个语言文件删除（1027 → 956 键）；新增 `i18n/usage.test.ts`，白名单只保留 10 个待接线的 `pwa.install*`/离线提示 key。
 - [ ] **RTL 物理方向类**：ar 已启 dir=rtl，仍有 `text-left`/`ml-auto`/`right-0` 等；改 `text-start`/`ms-auto`/`end-0`。
-- [ ] **对比度**：muted 文字叠 /60–/70 透明度后 3.0–3.65:1，低于 4.5:1；统一不低于 /80 或调 token。
+- [x] **对比度（第一批）**：explorer 计数、可见性提示、月份表头、回收站分组等低强调正文改为全色 muted，tabs 非激活文字 /60 → /70；图标与装饰性 marker 保留，整体设计稿级重排仍待目检。
 - [ ] **超大页面拆分**：article-editor-page 691 行、integrations-card 669、daily-review 645、memo-list 665。
-- [ ] **OpenAPI 只到 path+method**：响应字段漂移无门禁、`/api/app/*` 无契约；建议给 memo/attachment/share/auth me 加响应 schema 测试。
+- [x] **OpenAPI 响应级契约（第一批）**：新增 `memos-current-contract.test.ts`，用 contracts 的 zod schema 校验 `/api/v1/memos` create/list/get/attachments 的返回体；其余端点逐步扩展（`/api/app/*` 仍无公开契约）。
 - [ ] **admin 高危端点测试缺口**：`DELETE /users/:id` 失败分支、插件商店 install/uninstall、`embeddings/rebuild` 无测试（member-removal 主流程已有 `team-admin.test.ts` 覆盖）。
 - [ ] **每写请求触发 outbox sweep**（`index.ts:511-541`）：评估按 isolate 时间窗节流。
 - [ ] **每日全表重建小时计数**（`memo-hourly-counts.ts:358-372`）：评估只重建近期活跃用户。
 - [ ] **首屏预加载碎片**：43 个 modulepreload、约 366KB gzip；Vite manualChunks 收敛。
-- [ ] **浏览器直连 api.github.com**（`api/releases.ts`）：建议 Worker 代理 + 缓存。
+- [x] **浏览器直连 api.github.com**：更新检查已改走 Worker 代理 `/api/app/releases/latest`（边缘缓存 10 分钟、repository 形状校验、上游失败 502）。
 - [ ] **依赖升级**：`pnpm outdated` 20+ 个直接依赖落后（TS、Vitest、wrangler 等），按季度批量升级。
 - [ ] **产品任务池未拆 issue**：ROADMAP 公开任务池仍无对应 GitHub issue（全仓仅 #160）。
 - [ ] **历史设计文档归档**：docs/ 下 9 月的一批一次性设计稿可移入 `docs/history/`，减少检索噪音。

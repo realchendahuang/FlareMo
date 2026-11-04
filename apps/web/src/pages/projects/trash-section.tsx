@@ -134,7 +134,7 @@ function TrashRow({
   const { t } = useI18n();
   const [pending, setPending] = useState(false);
   return (
-    <div className="group flex h-8 items-center gap-2 rounded-lg px-3 text-xs text-muted-foreground/80">
+    <div className="group flex h-8 items-center gap-2 rounded-lg px-3 text-xs text-muted-foreground">
       {icon}
       <span className="min-w-0 flex-1 truncate line-through">{label}</span>
       <Button
