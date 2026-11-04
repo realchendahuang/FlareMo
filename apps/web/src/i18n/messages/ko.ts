@@ -539,6 +539,13 @@ const messages = {
   "auth.hideToken": "닫고 숨기기",
   "auth.copyFailed": "토큰을 복사하지 못했습니다. 직접 안전하게 저장해 주세요.",
   "auth.tokenName": "토큰 이름",
+  "auth.tokenScopes": "범위",
+  "auth.tokenScopeNotes": "노트 액세스",
+  "auth.tokenScopeAdmin": "노트 + 관리",
+  "auth.tokenScopeNotesHint":
+    "노트, 할 일, 글, 첨부 파일, MCP 도구를 읽고 씁니다.",
+  "auth.tokenScopeAdminHint":
+    "구성원, 플러그인, 유지보수도 관리합니다. 인스턴스 운영에만 사용하세요.",
   "auth.tokenExpiry": "유효 기간(일)",
   "auth.never": "만료 없음",
   "auth.tokenValidation":

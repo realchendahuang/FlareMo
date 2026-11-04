@@ -1,3 +1,4 @@
+import type { MemosPatScope } from "@flaremo/contracts";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
@@ -25,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import type { TranslationKey, TranslationParams } from "@/i18n";
@@ -42,9 +44,11 @@ type AccountTokensSectionProps = {
   revokingTokenId: string | undefined;
   setTokenExpiryDays: (value: string) => void;
   setTokenName: (value: string) => void;
+  setTokenScopes: (value: MemosPatScope[]) => void;
   tokenError: string | null;
   tokenExpiryDays: string;
   tokenName: string;
+  tokenScopes: MemosPatScope[];
   tokensQuery: UseQueryResult<
     { personal_access_tokens: PersonalAccessToken[] },
     Error
@@ -67,9 +71,11 @@ export function AccountTokensSection({
   revokingTokenId,
   setTokenExpiryDays,
   setTokenName,
+  setTokenScopes,
   tokenError,
   tokenExpiryDays,
   tokenName,
+  tokenScopes,
   tokensQuery,
   onCopyToken,
   onCreateToken,
@@ -165,6 +171,28 @@ export function AccountTokensSection({
             </label>
             <label
               className="flex flex-col gap-1.5 text-sm font-medium"
+              htmlFor="token-scopes"
+            >
+              {t("auth.tokenScopes")}
+              <Select
+                disabled={createTokenIsPending}
+                id="token-scopes"
+                value={tokenScopes.includes("admin") ? "admin" : "notes"}
+                onChange={(event) =>
+                  setTokenScopes([event.target.value as MemosPatScope])
+                }
+              >
+                <option value="notes">{t("auth.tokenScopeNotes")}</option>
+                <option value="admin">{t("auth.tokenScopeAdmin")}</option>
+              </Select>
+              <span className="text-xs font-normal text-muted-foreground">
+                {tokenScopes.includes("admin")
+                  ? t("auth.tokenScopeAdminHint")
+                  : t("auth.tokenScopeNotesHint")}
+              </span>
+            </label>
+            <label
+              className="flex flex-col gap-1.5 text-sm font-medium"
               htmlFor="token-expiry"
             >
               {t("auth.tokenExpiry")}
@@ -174,7 +202,7 @@ export function AccountTokensSection({
                 id="token-expiry"
                 max={365}
                 min={1}
-                placeholder={t("auth.never")}
+                placeholder="90"
                 type="number"
                 value={tokenExpiryDays}
                 onChange={(event) => setTokenExpiryDays(event.target.value)}
@@ -259,6 +287,10 @@ function PersonalAccessTokenRow({
         <p className="mt-0.5 text-xs text-muted-foreground truncate">
           {token.prefix ?? "memos_pat_"}
           {token.start ? `${token.start}…` : ""} · {t("auth.expires")}: {expiry}
+          {" · "}
+          {token.scopes.includes("admin")
+            ? t("auth.tokenScopeAdmin")
+            : t("auth.tokenScopeNotes")}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">

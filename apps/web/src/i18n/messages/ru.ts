@@ -545,6 +545,13 @@ const messages = {
   "auth.copyFailed":
     "Не удалось скопировать токен. Сохраните его вручную в надёжном месте.",
   "auth.tokenName": "Название токена",
+  "auth.tokenScopes": "Области",
+  "auth.tokenScopeNotes": "Доступ к заметкам",
+  "auth.tokenScopeAdmin": "Заметки + админ",
+  "auth.tokenScopeNotesHint":
+    "Читать и писать заметки, задачи, статьи, вложения и инструменты MCP.",
+  "auth.tokenScopeAdminHint":
+    "Управлять участниками, плагинами и обслуживанием. Только для развёртывания экземпляра.",
   "auth.tokenExpiry": "Срок действия (дней)",
   "auth.never": "Никогда",
   "auth.tokenValidation":

@@ -79,9 +79,11 @@ export type AccountPanelProps = {
   revokingTokenId: string | undefined;
   setTokenExpiryDays: (value: string) => void;
   setTokenName: (value: string) => void;
+  setTokenScopes: (value: import("@flaremo/contracts").MemosPatScope[]) => void;
   tokenError: string | null;
   tokenExpiryDays: string;
   tokenName: string;
+  tokenScopes: import("@flaremo/contracts").MemosPatScope[];
   tokensQuery: UseQueryResult<
     { personal_access_tokens: PersonalAccessToken[] },
     Error
@@ -153,9 +155,11 @@ export function AccountPanel({
   revokingTokenId,
   setTokenExpiryDays,
   setTokenName,
+  setTokenScopes,
   tokenError,
   tokenExpiryDays,
   tokenName,
+  tokenScopes,
   tokensQuery,
   onCopyToken,
   onCreateToken,
@@ -230,10 +234,12 @@ export function AccountPanel({
         revokingTokenId={revokingTokenId}
         setTokenExpiryDays={setTokenExpiryDays}
         setTokenName={setTokenName}
+        setTokenScopes={setTokenScopes}
         t={t}
         tokenError={tokenError}
         tokenExpiryDays={tokenExpiryDays}
         tokenName={tokenName}
+        tokenScopes={tokenScopes}
         tokensQuery={tokensQuery}
       />
 

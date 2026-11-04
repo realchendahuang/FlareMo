@@ -532,6 +532,13 @@ const messages = {
   "auth.hideToken": "إغلاق وإخفاء",
   "auth.copyFailed": "تعذر نسخ الرمز. احفظه يدويًا في مكان آمن.",
   "auth.tokenName": "اسم الرمز",
+  "auth.tokenScopes": "النطاقات",
+  "auth.tokenScopeNotes": "الوصول إلى الملاحظات",
+  "auth.tokenScopeAdmin": "الملاحظات + الإدارة",
+  "auth.tokenScopeNotesHint":
+    "قراءة وكتابة الملاحظات والمهام والمقالات والمرفقات وأدوات MCP.",
+  "auth.tokenScopeAdminHint":
+    "إدارة الأعضاء والإضافات والصيانة أيضًا. استخدمه لتجهيز النسخة فقط.",
   "auth.tokenExpiry": "الصلاحية (أيام)",
   "auth.never": "أبدًا",
   "auth.tokenValidation":

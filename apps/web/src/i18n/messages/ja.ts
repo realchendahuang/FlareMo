@@ -543,6 +543,13 @@ const messages = {
   "auth.copyFailed":
     "トークンをコピーできませんでした。手動で安全に保存してください。",
   "auth.tokenName": "トークン名",
+  "auth.tokenScopes": "スコープ",
+  "auth.tokenScopeNotes": "ノートへのアクセス",
+  "auth.tokenScopeAdmin": "ノート + 管理",
+  "auth.tokenScopeNotesHint":
+    "ノート・タスク・記事・添付・MCP ツールの読み書き。",
+  "auth.tokenScopeAdminHint":
+    "メンバー・プラグイン・メンテナンスも管理できます。インスタンスの運用時のみ使用してください。",
   "auth.tokenExpiry": "有効期間（日）",
   "auth.never": "無期限",
   "auth.tokenValidation":

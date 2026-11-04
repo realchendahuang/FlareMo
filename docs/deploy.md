@@ -107,7 +107,7 @@ store，首次部署后由部署者用 `wrangler secret put` 配置。本地手�
 
 ## Better Auth 原生认证
 
-FlareMo 的应用层认证由 Better Auth 提供。当前是“单用户完整能力、多用户数据地基”模型：首次部署通过一次性 bootstrap 创建用户名、显示名、邮箱和密码，之后关闭公共 signup。浏览器使用 `HttpOnly`、`SameSite=Lax` cookie session；脚本、MCP 和 Memos-compatible 客户端使用由已登录账户创建的可撤销 `memos_pat_` PAT。
+FlareMo 的应用层认证由 Better Auth 提供。当前是“单用户完整能力、多用户数据地基”模型：首次部署通过一次性 bootstrap 创建用户名、显示名、邮箱和密码，之后关闭公共 signup。浏览器使用 `HttpOnly`、`SameSite=Lax` cookie session；脚本、MCP 和 Memos-compatible 客户端使用由已登录账户创建的可撤销 `memos_pat_` PAT。PAT 默认只有笔记范围（`notes`），可访问 `/api/app/admin/*` 的令牌必须在创建时显式选择 `admin`；有效期默认 90 天（1–365 天），创建后不可再延长，过期需重新创建。
 
 Cloudflare Access 可以作为额外的外层防线，但 Access 身份或 Access Service Token 不会自动映射为 FlareMo 用户。启用 Access 时必须同时满足外层 policy 和下面的应用层认证。
 
@@ -185,7 +185,7 @@ curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
 
 - `/api/auth/update-user`：修改用户名等 Better Auth 用户资料。
 - `/api/auth/change-password`：修改密码；密码修改时可以撤销其他 session。
-- `/api/app/account/personal-access-tokens`：在 cookie session 下创建、列出和撤销 `memos_pat_` PAT。
+- `/api/app/account/personal-access-tokens`：在 cookie session 下创建、列出和撤销 `memos_pat_` PAT。创建体支持 `scopes`（`notes` 默认，或 `admin`）与 `expires_in_days`（默认 90，范围 1–365）。
 
 当前没有配置邮件 provider，因此 Better Auth 的普通 `request-password-reset` 邮件流程保持关闭；账户页提供的是“知道当前密码时修改密码”。如需忘记密码自助找回，应先接入真实 transactional email provider，再配置 Better Auth 的 `sendResetPassword` 和 reset 页面，不要把一个假的成功提示当作恢复能力。
 

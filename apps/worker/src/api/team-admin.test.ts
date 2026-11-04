@@ -477,7 +477,11 @@ describe("FlareMo team and admin API", () => {
               cookie: sessionCookie,
               origin: "http://flaremo.test",
             },
-            body: JSON.stringify({ name: "Owner CLI", expires_in_days: 30 }),
+            body: JSON.stringify({
+              name: "Owner CLI",
+              expires_in_days: 30,
+              scopes: ["admin"],
+            }),
           },
         ),
         env,
@@ -589,7 +593,11 @@ describe("FlareMo team and admin API", () => {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: "provisioning", expires_in_days: 30 }),
+          body: JSON.stringify({
+            name: "provisioning",
+            expires_in_days: 30,
+            scopes: ["admin"],
+          }),
         },
       ),
     );

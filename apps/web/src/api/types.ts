@@ -12,6 +12,7 @@ import type {
   MemoDto,
   MemoState,
   MemoStatsResponse,
+  MemosPatScope,
   MemoVisibility,
   ProjectDto,
   PublicShareDto,
@@ -129,6 +130,7 @@ export type PersonalAccessToken = {
   start: string | null;
   prefix: string | null;
   enabled: boolean;
+  scopes: MemosPatScope[];
   expires_at: string | null;
   created_at: string;
   updated_at: string;

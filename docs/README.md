@@ -42,6 +42,7 @@
 - [design-system.md](./design-system.md)：Ember 设计系统（色彩、字体、动效、组件、文案）。
 - [brand-color-theming.md](./brand-color-theming.md)：实例主题色定制。
 - [liquid-glass-design.md](./liquid-glass-design.md)：Liquid Glass 材质方案。
+- [assets/screenshots/v0.29.0/](./assets/screenshots/v0.29.0/)：v0.29.0 发版前目检截图（桌面 / 暗色 / RTL / 手机 / 设置）。
 
 ## 功能专项
 

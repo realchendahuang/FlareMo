@@ -66,6 +66,7 @@ describe("admin member removal failure recording", () => {
 
     const patResponse = await post("/api/app/account/personal-access-tokens", {
       name: "ops",
+      scopes: ["admin"],
     });
     expect(patResponse.status).toBe(201);
     const { token } = (await patResponse.json()) as { token: string };

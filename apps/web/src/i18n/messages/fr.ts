@@ -555,6 +555,13 @@ const messages = {
   "auth.copyFailed":
     "Impossible de copier le jeton. Conservez-le manuellement en lieu sûr.",
   "auth.tokenName": "Nom du jeton",
+  "auth.tokenScopes": "Portées",
+  "auth.tokenScopeNotes": "Accès aux notes",
+  "auth.tokenScopeAdmin": "Notes + admin",
+  "auth.tokenScopeNotesHint":
+    "Lire et écrire notes, tâches, articles, pièces jointes et outils MCP.",
+  "auth.tokenScopeAdminHint":
+    "Gérer aussi les membres, extensions et maintenance. À réserver au provisioning de l'instance.",
   "auth.tokenExpiry": "Validité (jours)",
   "auth.never": "Jamais",
   "auth.tokenValidation":

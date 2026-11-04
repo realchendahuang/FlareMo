@@ -1,3 +1,7 @@
+import {
+  memosPatScopesAllowPath,
+  memosPatScopesFromPermissions,
+} from "@flaremo/contracts";
 import { createDb } from "@flaremo/db";
 import {
   ForbiddenError,
@@ -260,6 +264,17 @@ export async function getRequestContext(c: Context<HonoBindings>) {
     );
     if (!user) throw new UnauthorizedError();
     assertActiveMember(user);
+
+    // A PAT only reaches the surfaces its scopes cover. Legacy tokens store no
+    // permissions and keep their old full access; see packages/contracts/pat.ts.
+    const patScopes = memosPatScopesFromPermissions(
+      verification.key.permissions,
+    );
+    if (!memosPatScopesAllowPath(patScopes, c.req.path)) {
+      throw new ForbiddenError(
+        "This personal access token is not allowed to use this endpoint.",
+      );
+    }
 
     return {
       db,

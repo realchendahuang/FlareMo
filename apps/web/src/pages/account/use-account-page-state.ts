@@ -50,6 +50,9 @@ export function useAccountPageState({
   const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
   const [tokenName, setTokenName] = useState("");
   const [tokenExpiryDays, setTokenExpiryDays] = useState("");
+  const [tokenScopes, setTokenScopes] = useState<
+    import("@flaremo/contracts").MemosPatScope[]
+  >(["notes"]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -164,9 +167,11 @@ export function useAccountPageState({
     setTokenError,
     setTokenExpiryDays,
     setTokenName,
+    setTokenScopes,
     t,
     tokenExpiryDays,
     tokenName,
+    tokenScopes,
     username,
   });
 
@@ -328,11 +333,13 @@ export function useAccountPageState({
     setNewPasswordConfirmation,
     setTokenExpiryDays,
     setTokenName,
+    setTokenScopes,
     setUsername,
     t,
     tokenError,
     tokenExpiryDays,
     tokenName,
+    tokenScopes,
     tokensQuery,
     updateUsernameIsPending: updateUsernameMutation.isPending,
     username,

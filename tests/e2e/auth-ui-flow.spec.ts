@@ -64,7 +64,7 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   await page
     .getByRole("textbox", { name: /令牌名称|Token name/i })
     .fill(tokenName);
-  await page.getByPlaceholder(/永不过期|Never/i).fill("30");
+  await page.getByPlaceholder(/90|永不过期|Never/i).fill("30");
   await page
     .locator('[role="dialog"]:visible')
     .last()

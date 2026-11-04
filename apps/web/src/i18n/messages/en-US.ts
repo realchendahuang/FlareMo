@@ -541,6 +541,13 @@ const messages = {
   "auth.copyFailed":
     "FlareMo could not copy the token. Save it securely by hand.",
   "auth.tokenName": "Token name",
+  "auth.tokenScopes": "Scopes",
+  "auth.tokenScopeNotes": "Notes access",
+  "auth.tokenScopeAdmin": "Notes + admin",
+  "auth.tokenScopeNotesHint":
+    "Read and write notes, tasks, articles, attachments and MCP tools.",
+  "auth.tokenScopeAdminHint":
+    "Also manage members, plugins and maintenance. Only use it for instance provisioning.",
   "auth.tokenExpiry": "Expires in days",
   "auth.never": "Never",
   "auth.tokenValidation":

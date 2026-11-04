@@ -66,7 +66,7 @@ pnpm deploy
 
 ## Better Auth and optional Cloudflare Access
 
-FlareMo's application authentication is provided by Better Auth. The first deployment uses the one-time `/setup` flow to create the single owner; browsers use an `HttpOnly` cookie session, while scripts, MCP, and Memos-compatible clients use a revocable `memos_pat_` PAT. Cloudflare Access is optional outer policy and never replaces the application session or PAT.
+FlareMo's application authentication is provided by Better Auth. The first deployment uses the one-time `/setup` flow to create the single owner; browsers use an `HttpOnly` cookie session, while scripts, MCP, and Memos-compatible clients use a revocable `memos_pat_` PAT. New PATs default to the `notes` scope; only a token created with the `admin` scope may call `/api/app/admin/*`. Tokens expire after 90 days by default (1–365 days allowed) and cannot be extended, so recreate them when they lapse. Cloudflare Access is optional outer policy and never replaces the application session or PAT.
 
 The current release supports username/password login and authenticated password changes. No email provider is configured, so Better Auth's self-service forgot-password email flow remains disabled rather than pretending to work. A completed single-user instance has a separately configured break-glass operator recovery route; it targets the existing owner, revokes sessions and PATs, and must be rotated or removed immediately after use.
 

@@ -57,9 +57,11 @@ export function useAccountSettingsMutations({
   setTokenError,
   setTokenExpiryDays,
   setTokenName,
+  setTokenScopes,
   t,
   tokenExpiryDays,
   tokenName,
+  tokenScopes,
   username,
 }: {
   username: string;
@@ -71,6 +73,8 @@ export function useAccountSettingsMutations({
   emailCurrentPassword: string;
   tokenName: string;
   tokenExpiryDays: string;
+  tokenScopes: import("@flaremo/contracts").MemosPatScope[];
+  setTokenScopes: (value: import("@flaremo/contracts").MemosPatScope[]) => void;
   createdToken: string | null;
   deletePassword: string;
   session: ReturnType<typeof authClient.useSession>;
@@ -189,6 +193,7 @@ export function useAccountSettingsMutations({
       resetCopied();
       setTokenName("");
       setTokenExpiryDays("");
+      setTokenScopes(["notes"]);
       await queryClient.invalidateQueries({
         queryKey: queryKeys.personalAccessTokens,
       });
@@ -316,8 +321,9 @@ export function useAccountSettingsMutations({
     setTokenError(null);
     try {
       await createTokenMutation.mutateAsync({
-        expires_in_days: normalizedDays ? expiresInDays : null,
+        expires_in_days: normalizedDays ? expiresInDays : undefined,
         name: tokenName.trim(),
+        scopes: tokenScopes,
       });
     } catch (error) {
       setTokenError(errorMessage(error, t("auth.tokenCreateFailed")));

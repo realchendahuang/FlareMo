@@ -550,6 +550,13 @@ const messages = {
   "auth.copyFailed":
     "No se pudo copiar el token. Guárdalo manualmente en un lugar seguro.",
   "auth.tokenName": "Nombre del token",
+  "auth.tokenScopes": "Ámbitos",
+  "auth.tokenScopeNotes": "Acceso a notas",
+  "auth.tokenScopeAdmin": "Notas + admin",
+  "auth.tokenScopeNotesHint":
+    "Leer y escribir notas, tareas, artículos, adjuntos y herramientas MCP.",
+  "auth.tokenScopeAdminHint":
+    "Gestionar también miembros, plugins y mantenimiento. Solo para aprovisionar la instancia.",
   "auth.tokenExpiry": "Vigencia (días)",
   "auth.never": "Nunca",
   "auth.tokenValidation":

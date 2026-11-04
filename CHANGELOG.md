@@ -2,6 +2,20 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
+## v0.30.0
+
+**个人访问令牌（PAT）收窄为带 scope 与有效期的凭证。** 无 D1 migration（`auth_apikeys.permissions` 列早已存在），无 Cloudflare 资源变化；已有令牌继续可用。
+
+### 安全
+
+- PAT 新增 `notes` / `admin` 权限范围：`notes` 覆盖 `/api/v1/*`、MCP 与文章/待办/附件等业务面，`admin` 额外覆盖 `/api/app/admin/*`。Worker 在每个 PAT 请求上校验 scope，管理面只接受 admin。
+- 新建 PAT 默认 90 天有效期，允许 1–365 天，不再提供「永不过期」；升级前创建的旧令牌 `auth_apikeys.permissions` 为空，保持完全访问以兼容既有脚本（账户页会显示“笔记 + 管理”，建议按最小权限重建）。
+- 账户页令牌对话框新增权限选择与默认 90 天占位，令牌列表展示 scope；`docs/architecture-notes.md`、`docs/deploy.md`、`docs/memos-compatibility.md`（含英文版）与 `AGENTS.md` 同步说明。
+
+### 工程
+
+- 新增 `pat-scopes.test.ts`（默认 scope/90 天、admin 面拦截、旧令牌兼容）并更新 team-admin、admin-member-removal 与 e2e 验收用例。
+- 新增 `docs/assets/screenshots/v0.29.0/`：发版前目检截图归档（桌面 / 暗色 / RTL / 手机 / 设置）。
 ## v0.29.0
 
 **部署链路、维护可靠性与工程门禁的一轮加固。** 无 D1 migration，无 Cloudflare 资源变化；已有部署按正常流程升级即可。

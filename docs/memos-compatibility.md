@@ -22,7 +22,7 @@ FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos 
 | --- | --- | --- | --- |
 | Better Auth 原生登录、单用户 bootstrap、cookie session | 已实现 | 已测试 | 应用层身份事实源是 Better Auth；不是 Cloudflare Access identity。 |
 | Memos 风格 sign-in/refresh/sign-out facade | 已实现 | 已测试 | 返回 FlareMo 生成的 HS256 access JWT，并轮换 `memos_refresh`；不是 Memos JWT 的字节级 parity。 |
-| `memos_pat_` Personal Access Token | 已实现 | 已测试 | PAT 可创建、列出、撤销；明文只在创建响应中出现一次。 |
+| `memos_pat_` Personal Access Token | 已实现 | 已测试 | PAT 可创建、列出、撤销；明文只在创建响应中出现一次。新令牌带 `notes`/`admin` scope 与 1–365 天有效期（默认 90 天）；旧令牌无 permissions 时保持完全访问。 |
 | current camelCase REST | 已实现 | 已测试 | memo、attachment、social、share、PAT 和有限 filter/order 的子集。 |
 | Connect JSON unary | 已实现 | 已测试 | 主要服务以及多用户 UserService 的 webhook/notification 资源有 Worker contract 覆盖。 |
 | protobuf / gRPC-style / gRPC-Web unary | generated schema + unary adapter | 已测试子集 | 普通上游 RPC 使用 pinned generated schema/runtime；仍是 Worker 上的单帧 unary adapter，不是原生 HTTP/2 gRPC server，也未达到完整服务语义 parity。 |
@@ -49,7 +49,7 @@ Better Auth 是应用层认证事实源，Cloudflare Access 只能作为可选�
 | --- | --- | --- |
 | Web / Better Auth | Web 端邮箱 + 密码登录，登录后使用 `HttpOnly` cookie session | owner 通过一次性 bootstrap 创建；开放注册开关由 owner 在后台控制，开启后 `POST /api/auth/flaremo/register` 与 Memos `signup` 可创建普通成员。用户名由邮箱自动生成，仅供 Memos 兼容客户端登录，可在账户页修改。 |
 | current auth facade | `POST /api/v1/auth/signin`、`signup`、`refresh`、`signout`，以及 `GET /api/v1/auth/me` | Better Auth 提供身份和账户事实源；signin 用 `username + password`（Memos 协议无 email 字段），返回 FlareMo 生成的 Memos 风格 HS256 access JWT，并设置轮换的 `memos_refresh` HttpOnly cookie。signup 受开放注册开关约束，接受可选 `email` 字段，成功即创建成员并签发 native token。旧 Better Auth session bearer 仍保留兼容。 |
-| `/api/v1/*` 私有 API | cookie session，或 `Authorization: Bearer memos_pat_...` | PAT 由已登录账户创建、只在创建时显示一次、可撤销，并由 Better Auth API key/plugin 数据承载。native JWT 和 PAT 是两种明确的应用凭据。 |
+| `/api/v1/*` 私有 API | cookie session，或 `Authorization: Bearer memos_pat_...` | PAT 由已登录账户创建、只在创建时显示一次、可撤销，并由 Better Auth API key/plugin 数据承载；`/api/app/admin/*` 只接受 admin scope 的 PAT。native JWT 和 PAT 是两种明确的应用凭据。 |
 | current PAT 资源 | `/api/v1/users/{user}/personalAccessTokens` | 提供当前用户的 list/create/revoke 基础；`memos_pat_` 本身不能管理 PAT。 |
 | 根 `/mcp` | cookie session、Better Auth session bearer、FlareMo native access JWT，或 `memos_pat_` PAT | Streamable HTTP 是无状态 JSON 子集，不创建 MCP session。 |
 | Origin policy | cookie session 状态变更必须携带并精确匹配 `FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS`；PAT 可无 Origin，带 Origin 时同样必须匹配 | 缺失或不可信 Origin 返回 `403`；Access headers 不替代应用层 Origin。 |
