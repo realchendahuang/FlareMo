@@ -135,7 +135,7 @@
 - [x] **对比度（第一批）**：explorer 计数、可见性提示、月份表头、回收站分组等低强调正文改为全色 muted，tabs 非激活文字 /60 → /70；图标与装饰性 marker 保留，整体设计稿级重排仍待目检。
 - [x] **超大页面拆分（评估为暂不做）**：article-editor 691 / integrations-card 669 / daily-review 645 / memo-list 665 行。与既有的 `memos-connect-api.ts` 体量决定一致——纯搬代码没有行为收益，却会制造每次触碰这些页面的冲突面；改为「下次因功能改动必须编辑同一文件时顺手拆分」，不单独立项。
 - [x] **OpenAPI 响应级契约（第一批）**：新增 `memos-current-contract.test.ts`，用 contracts 的 zod schema 校验 `/api/v1/memos` create/list/get/attachments 的返回体；其余端点逐步扩展；`/api/app` 的 articles / projects / tasks 已补同类校验（`app-api-contract.test.ts`）。
-- [x] **admin 端点测试（第一批）**：插件商店鉴权/目录失败降级、`embeddings/rebuild` owner 守卫与未配置提示已覆盖（`admin-endpoints.test.ts`）；`DELETE /users/:id` 失败分支与插件 install/uninstall 仍待补。
+- [x] **admin 端点测试（第一、二批）**：插件商店鉴权/目录失败降级、`embeddings/rebuild` owner 守卫与未配置提示（`admin-endpoints.test.ts`）、PAT 删除成员的 R2 失败回归（`admin-member-removal.test.ts`）已覆盖；插件 install/uninstall 仍待补。
 - [x] **每写请求触发 outbox sweep（评估为保持现状）**：sweep 在 `waitUntil` 里、已经离开响应路径，固定成本是 2 次 D1 查询；改成时间窗节流会让低流量实例的 webhook/embedding 延迟从「秒级」变成「等下一次写或次日 cron」，取舍不划算。保留 cron 作为兜底。
 - [x] **每日全表重建小时计数（评估为保持现状）**：它是衍生计数的事实源，增量路径只是它的优化；自部署规模下一次全表 group-by 远低于 10ms CPU 上限。多租户 SaaS 行数明显增长后再改成「近 7 天活跃用户 + 低频全量」两段式。
 - [x] **首屏预加载碎片（评估为保持现状）**：43 个 modulepreload / 约 366KB gzip 在 HTTP/2-3 下是多路复用而非串行瀑布，没有实测 LCP 退化；`vite.config.ts` 已按 React/TipTap/浮动层等大块分组。等有真实性能数据再动，避免为数字而拆包。
