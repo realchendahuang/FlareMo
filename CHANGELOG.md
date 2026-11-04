@@ -2,6 +2,43 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
+## Unreleased
+
+**部署链路、维护可靠性与工程门禁的一轮加固。** 无 D1 migration，无 Cloudflare 资源变化；已有部署按正常流程升级即可。
+
+### 部署与文档
+
+- 自托管部署/更新 workflow 恢复为模板 `docs/templates/workflows/`；README（8 语言）、AGENTS、ROADMAP 与 deploy/update/maintenance/release/github-action 文档统一为「复制模板」口径，并明确上游仓库没有 CI。
+- `wrangler.json` 移除空的可选变量（`FLAREMO_TRUSTED_ORIGINS`、`FLAREMO_DEPLOY_REPOSITORY`），修复 Deploy to Cloudflare 表单把它们当必填项的问题；一键部署章节补齐公开 origin、embedding 维度（1024）与 Repository 指向说明。
+- 修正过期文档：恢复手册里已删除的 memory reindex 步骤、`run_worker_first` 路径白名单、`/capture` 残留描述、CHANGELOG 的死小节，以及英文 agent/deploy 文档与「全量门禁 opt-in」矛盾的说明。
+- 全量门禁步数统一为 7 步（`scripts/preflight.mjs` 是唯一口径），`CONTRIBUTING` / `release` / `maintenance` / `AGENTS` 同步。
+
+### 维护与可靠性
+
+- 每日 cron 的每个维护 pass 独立 try/catch，并输出 `scheduled maintenance complete` 汇总（步骤、耗时、计数、失败项）；单个 pass 失败不再跳过当天的附件清理、计数重建、回顾通知与 Web Push。
+- 文章回收站清理补批次上限与逐行保护；回收站清理的 owner 查询改为批量，消除逐行点查的 N+1。
+- Web Push 通知的 icon/badge 指向真实图片资源；PWA 更新提示新增「稍后」，复用已有的 `pwa.updateLater` 文案。
+- `pnpm backup:drill` 默认只保留最近 10 次演练目录（`--keep=N` 或 `FLAREMO_BACKUP_KEEP` 可调）；新增 `pnpm clean` 清理构建与测试产物。
+
+### 安全与数据
+
+- `FLAREMO_TRUSTED_ORIGINS` 与 `FLAREMO_PUBLIC_URL` 使用同一套 HTTPS 校验（localhost 除外），http origin 在部署启动时直接报配置错误。
+- cookie 请求先按会话 cookie 是否存在分流：无凭据仍返回 401；跨站状态变更在 session 查询之前返回 403。
+- 管理员删除成员失败时，PAT 调用也会写入 failed job（此前被 session-only 的 context 解析器吞掉，排障时看不到原因）。
+- 插件商店复用 admin 的 owner 守卫，删除重复实现。
+
+### 前端
+
+- 全局快捷键不再劫持按钮、菜单、下拉与组合框里的方向键和字母键。
+- 语言包晚于首屏到达时触发一次重渲染，不再让页面停在英文（阿拉伯语也不会出现 RTL 布局配英文）。
+- Spotlight 搜索补 combobox / listbox / option 语义与 `aria-activedescendant`。
+- 删除未使用的 `haptics` 与 `getDailyReview`，共享设置组件移到 `components/settings-section.tsx`。
+
+### 工程
+
+- `pnpm verify` 改为 7 步；新增 `scripts:test` 自动发现 `scripts/**/*.test.mjs`，补跑此前从未纳入门禁的 `setup:usage`、`migrate-memos-export` 测试，并新增备份保留策略测试。
+- 清理 10 个已不在依赖图中的 override，启用 `minimumReleaseAge: 1440`（供应链策略与 docs/release.md 一致）；补 `engines.node >= 22` 与 `.nvmrc`。
+
 ## v0.28.0
 
 **破坏性收缩：删除 Agent Memory 的 D1 表、向量索引绑定与导出字段。** migration `0044_drop_agent_memory` 会删除 `memory_*` 八张表、`memory_fts` 及其触发器；导出 bundle 升到 v7，不再包含 `memories` / `memory_*` 字段。升级后记忆表数据不可恢复，升级前必须备份 D1。

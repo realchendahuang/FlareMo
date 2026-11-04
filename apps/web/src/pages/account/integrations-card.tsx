@@ -14,6 +14,10 @@ import {
 } from "@/api";
 import { QueryErrorState } from "@/components/query-error-state";
 import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -39,7 +43,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 export function EmailSettingsCard() {
   const { t } = useI18n();

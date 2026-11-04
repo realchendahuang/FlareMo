@@ -6,12 +6,12 @@ import {
 } from "lucide-react";
 import { useRef } from "react";
 import type { PluginStoreEntry } from "@/api";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
-import { SettingsSectionGroup } from "../../account/apple-settings-ui";
 import { localized } from "./plugin-row";
 import type { PluginSettingsState } from "./use-plugin-settings";
 

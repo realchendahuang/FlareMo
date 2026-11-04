@@ -1,6 +1,10 @@
 import { AudioLinesIcon, ImageIcon } from "lucide-react";
 import { useState } from "react";
 import { InfoTip } from "@/components/info-tip";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import {
@@ -9,7 +13,6 @@ import {
   setAudioCompressionEnabled,
   setImageCompressionEnabled,
 } from "@/lib/upload-settings";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 export function UploadsPanel() {
   const { t } = useI18n();

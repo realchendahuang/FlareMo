@@ -101,3 +101,45 @@
 - 附件 R2 GC 四项加固、向量分区改造、备份演练脚本、部署流水线均已闭环。
 - 附件 R2 key 无路径穿越面；公开分享校验归属；PAT 撤销即时；bot webhook 鉴权；i18n zh/en 键零差异；无 console.log 残留。
 - composer 离线队列幂等；SW 离线壳/range 排除/SKIP_WAITING 握手正确。
+
+---
+
+## 2026-11-04 全量审计（第三轮）与修复台账
+
+本轮由 Lead + 三个只读审计员完成，覆盖 apps/web、apps/worker + packages、docs/scripts/deps。基线：`format:check`、`tsc`、Vitest（160 文件）、`scripts:test` 全绿；`pnpm audit --prod` 无已知漏洞。已修复项随本次提交落地，其余按下表继续跟踪。
+
+### 已修复（本轮）
+
+- [x] 自托管部署/更新 workflow 断链：模板恢复到 `docs/templates/workflows/`，README 8 语言 + AGENTS/ROADMAP/deploy/update/maintenance/release 文档同步（详见 CHANGELOG Unreleased）。
+- [x] 一键部署表单与 `wrangler.json` 冲突（issue #160 的技术根因）：移除空 var，文档补公开 origin / embedding 维度 / Repository 指向说明。
+- [x] 门禁口径有四种说法：统一为 7 步，`scripts/preflight.mjs` 是唯一口径。
+- [x] 英文 agent/deploy 文档要求部署前跑全量 verify：改为 opt-in。
+- [x] preflight 漏跑 2 个脚本测试、高风险脚本零测试：新增 `scripts:test` 自动发现 + 备份保留测试。
+- [x] `backups/` 无保留策略（55 目录 / 65MB，含 session 与 key 哈希）：drill 默认保留最近 10 次。
+- [x] cron 串行无隔离/无汇总：逐 pass try/catch + `scheduled maintenance complete` 汇总；文章清理加批次与逐行保护。
+- [x] 回收站清理 N+1：批量 owner 查询。
+- [x] PWA 推送 icon/badge 指向目录；更新提示缺「稍后」。
+- [x] trusted origins 允许 http；cookie 请求先查 session 再校验 Origin；admin 删除成员 PAT 失败路径吞错；plugins-store 重复 ownerContext。
+- [x] 快捷键劫持焦点控件的方向键/字母；语言包迟到不重渲染；spotlight 缺 combobox 语义。
+- [x] 死代码：`haptics`、`getDailyReview`；共享设置组件迁到 `components/settings-section.tsx`。
+- [x] 过期文档：maintenance 的 memory reindex、`run_worker_first`、`/capture` 残留、CHANGELOG 死小节。
+- [x] 依赖卫生：10 个死 override 清理、`minimumReleaseAge`、`engines`/`.nvmrc`。
+- [x] 跨仓漂移：flaremo-cloud README 免费档记忆配额与 ops-runbook 的 `memory_fts`。
+
+### 待办（按优先级）
+
+- [ ] **PAT 权限面**：`memos_pat_` 无 scope、可永不过期，且可调用 admin 删除成员（`account-api.ts:35-37,73-81`、`admin/context.ts:32-38`、`admin/maintenance.ts:34-37`）。建议 api-key permissions（memos:read/write/admin）+ 默认 90 天 + 破坏性 admin 仅 session；先确认机器化运维是否依赖 PAT 删成员。
+- [ ] **query key 收口**：`lib/query-keys.ts` 声明所有 key 必须来自本模块，实际 86 处字面量（`["projects"]` 8 处）；失效链在 4 个组件各写一份。
+- [ ] **孤儿 i18n key**：约 82 个 key × 8 语言（`voiceSettings.title`、`pwa.install*` 等），`parity.test.ts` 只校验键集合不校验使用；建议加 usage 扫描测试（allowlist 只减不增）后分批删除。
+- [ ] **RTL 物理方向类**：ar 已启 dir=rtl，仍有 `text-left`/`ml-auto`/`right-0` 等；改 `text-start`/`ms-auto`/`end-0`。
+- [ ] **对比度**：muted 文字叠 /60–/70 透明度后 3.0–3.65:1，低于 4.5:1；统一不低于 /80 或调 token。
+- [ ] **超大页面拆分**：article-editor-page 691 行、integrations-card 669、daily-review 645、memo-list 665。
+- [ ] **OpenAPI 只到 path+method**：响应字段漂移无门禁、`/api/app/*` 无契约；建议给 memo/attachment/share/auth me 加响应 schema 测试。
+- [ ] **admin 高危端点测试缺口**：`DELETE /users/:id` 失败分支、插件商店 install/uninstall、`embeddings/rebuild` 无测试（member-removal 主流程已有 `team-admin.test.ts` 覆盖）。
+- [ ] **每写请求触发 outbox sweep**（`index.ts:511-541`）：评估按 isolate 时间窗节流。
+- [ ] **每日全表重建小时计数**（`memo-hourly-counts.ts:358-372`）：评估只重建近期活跃用户。
+- [ ] **首屏预加载碎片**：43 个 modulepreload、约 366KB gzip；Vite manualChunks 收敛。
+- [ ] **浏览器直连 api.github.com**（`api/releases.ts`）：建议 Worker 代理 + 缓存。
+- [ ] **依赖升级**：`pnpm outdated` 20+ 个直接依赖落后（TS、Vitest、wrangler 等），按季度批量升级。
+- [ ] **产品任务池未拆 issue**：ROADMAP 公开任务池仍无对应 GitHub issue（全仓仅 #160）。
+- [ ] **历史设计文档归档**：docs/ 下 9 月的一批一次性设计稿可移入 `docs/history/`，减少检索噪音。

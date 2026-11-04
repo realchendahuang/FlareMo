@@ -15,6 +15,7 @@ import {
   uploadAdminBrandingMark,
 } from "@/api";
 import { type BrandingAccent, setAccentAttribute } from "@/branding";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,7 +30,6 @@ import { useI18n } from "@/i18n";
 import { normalizeHexColor } from "@/lib/brand-ramp";
 import { errorMessage } from "@/lib/error";
 import { queryKeys } from "@/lib/query-keys";
-import { SettingsSectionGroup } from "../account/apple-settings-ui";
 import {
   ACCENT_SWATCH_HEX,
   AccentPicker,

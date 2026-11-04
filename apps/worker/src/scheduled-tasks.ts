@@ -440,7 +440,7 @@ export async function runScheduledMaintenance(
       try {
         // Export manifests and import bundles use distinct prefixes; both are
         // task-scoped and safe to drop once the row is gone.
-        for (const prefix of ["exports/" + id, "imports/" + id]) {
+        for (const prefix of [`exports/${id}`, `imports/${id}`]) {
           let cursor: string | undefined;
           do {
             const listing = await env.ATTACHMENTS.list({ prefix, cursor });
@@ -507,7 +507,7 @@ export async function runScheduledMaintenance(
       .where(
         and(
           eq(memosNotifications.type, "daily_review"),
-          eq(memosNotifications.sourceEventId, "daily-review:" + reviewDate),
+          eq(memosNotifications.sourceEventId, `daily-review:${reviewDate}`),
         ),
       );
     for (const { receiverId } of reviewReceivers) {
@@ -537,7 +537,7 @@ export async function runScheduledMaintenance(
     for (const row of overdueByUser) {
       await pushNotificationToUser(db, pushKeys, row.userId, {
         title: "FlareMo 任务提醒",
-        body: "有 " + row.count + " 个任务已经逾期。",
+        body: `有 ${row.count} 个任务已经逾期。`,
         url: "/projects",
       }).catch(() => undefined);
       counts.pushTargets += 1;
@@ -561,7 +561,7 @@ export async function runScheduledMaintenance(
     for (const row of dueTodayByUser) {
       await pushNotificationToUser(db, pushKeys, row.userId, {
         title: "FlareMo 今日待办",
-        body: "今天有 " + row.count + " 项待办到期。",
+        body: `今天有 ${row.count} 项待办到期。`,
         url: "/projects",
       }).catch(() => undefined);
       counts.pushTargets += 1;

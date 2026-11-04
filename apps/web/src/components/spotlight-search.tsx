@@ -303,6 +303,15 @@ export function SpotlightSearch({
             </InputGroupAddon>
             <InputGroupInput
               ref={inputRef}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={actionItems.length > 0}
+              aria-controls="spotlight-results"
+              aria-activedescendant={
+                selectedIndex >= 0 && selectedIndex < actionItems.length
+                  ? `spotlight-option-${selectedIndex}`
+                  : undefined
+              }
               value={draft}
               onChange={(e) => {
                 setDraft(e.target.value);
@@ -360,7 +369,12 @@ export function SpotlightSearch({
         </div>
 
         {/* Results / Suggestions List */}
-        <div className="max-h-[min(380px,50vh)] overflow-y-auto p-1.5">
+        <div
+          aria-label={t("search.spotlightPlaceholder")}
+          className="max-h-[min(380px,50vh)] overflow-y-auto p-1.5"
+          id="spotlight-results"
+          role="listbox"
+        >
           {actionItems.length > 0 ? (
             <div className="flex flex-col gap-0.5">
               {actionItems.map((item, idx) => {
@@ -369,6 +383,9 @@ export function SpotlightSearch({
                 return (
                   <button
                     key={item.id}
+                    id={`spotlight-option-${idx}`}
+                    role="option"
+                    aria-selected={isSelected}
                     type="button"
                     onClick={item.onExecute}
                     onMouseEnter={() => setSelectedIndex(idx)}

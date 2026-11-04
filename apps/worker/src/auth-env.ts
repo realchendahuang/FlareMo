@@ -244,6 +244,11 @@ export function getTrustedOrigins(
         "FLAREMO_TRUSTED_ORIGINS entries must be origins without paths.",
       );
     }
+    if (url.protocol === "http:" && !isLocalDevelopmentHostname(url.hostname)) {
+      throw new AuthConfigurationError(
+        "FLAREMO_TRUSTED_ORIGINS must use HTTPS outside local development.",
+      );
+    }
     origins.add(url.origin);
   }
 

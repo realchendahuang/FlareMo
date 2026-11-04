@@ -7,6 +7,7 @@
 
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { PersonalAccessToken } from "@/api";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import {
   AccountCredentialsSection,
@@ -14,7 +15,6 @@ import {
 } from "./account-credentials-section";
 import { AccountProfileSection } from "./account-profile-section";
 import { AccountTokensSection } from "./account-tokens-section";
-import { SettingsSectionGroup } from "./apple-settings-ui";
 
 export { MIN_PASSWORD_LENGTH } from "./account-panel-presets";
 

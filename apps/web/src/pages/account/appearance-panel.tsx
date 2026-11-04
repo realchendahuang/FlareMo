@@ -1,8 +1,8 @@
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import { type Theme, useTheme } from "@/components/theme-provider";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { SettingsSectionGroup } from "./apple-settings-ui";
 
 type AppearancePanelProps = {
   t: (key: TranslationKey, params?: TranslationParams) => string;

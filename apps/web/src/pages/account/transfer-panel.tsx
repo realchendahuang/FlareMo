@@ -8,13 +8,16 @@ import { DownloadIcon, RefreshCcwIcon, UploadIcon } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { createImportTask, downloadExportJson, retryImportTask } from "@/api";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { type TranslationKey, useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 type TransferPanelProps = {
   createExportIsPending: boolean;

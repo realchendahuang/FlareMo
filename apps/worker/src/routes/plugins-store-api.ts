@@ -1,5 +1,4 @@
 import {
-  ForbiddenError,
   getPluginSettings,
   type InstalledPluginRecord,
   type PluginSettings,
@@ -14,10 +13,11 @@ import {
 } from "@flaremo/plugins/package";
 import { Hono } from "hono";
 import { z } from "zod";
-import { getBrowserRequestContext, type HonoBindings } from "../context";
+import type { HonoBindings } from "../context";
 import { jsonError } from "../http";
 import { invalidatePluginSettingsCache } from "../settings-cache";
 import { zValidator } from "../validated";
+import { ownerContext } from "./admin/context";
 
 /**
  * Owner-only plugin store: browse directory sources, install/uninstall
@@ -95,14 +95,6 @@ const registrySchema = z.object({
 });
 
 type RegistryEntry = z.infer<typeof registryEntrySchema>;
-
-async function ownerContext(c: Parameters<typeof getBrowserRequestContext>[0]) {
-  const context = await getBrowserRequestContext(c);
-  if (context.user.id !== "users/owner") {
-    throw new ForbiddenError("Owner access is required.");
-  }
-  return context;
-}
 
 function resolveUrl(base: string, relative: string): string {
   return new URL(relative, base).toString();

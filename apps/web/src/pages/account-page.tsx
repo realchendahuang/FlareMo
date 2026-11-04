@@ -15,13 +15,16 @@ import {
   XIcon,
 } from "lucide-react";
 import { useRef } from "react";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { TIMELINE_SEARCH } from "@/lib/timeline-search";
 import { cn } from "@/lib/utils";
-import { SettingsRow, SettingsSectionGroup } from "./account/apple-settings-ui";
 import {
   roleLabel,
   SettingsSectionContent,

@@ -3,6 +3,7 @@ import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import type { PersonalAccessToken } from "@/api";
 import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import { Alert } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -29,7 +30,6 @@ import { Spinner } from "@/components/ui/spinner";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { formatDateTime } from "@/lib/date-format";
 import { useCloseOnSuccess } from "./account-panel-presets";
-import { SettingsSectionGroup } from "./apple-settings-ui";
 
 /** The personal access token group, its create dialog and the one-time reveal,
  *  plus the row that can revoke or delete a single token. */

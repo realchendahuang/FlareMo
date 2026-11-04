@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { InfoTip } from "@/components/info-tip";
+import { SettingsRow } from "@/components/settings-section";
 import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,6 @@ import {
   CUTE_AVATAR_PRESETS,
   useCloseOnSuccess,
 } from "./account-panel-presets";
-import { SettingsRow } from "./apple-settings-ui";
 
 /**
  * The account group's avatar, display name and username rows plus their three

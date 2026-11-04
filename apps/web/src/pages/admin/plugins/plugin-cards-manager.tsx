@@ -5,13 +5,13 @@ import {
   EyeOffIcon,
   StarIcon,
 } from "lucide-react";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { SettingsSectionGroup } from "../../account/apple-settings-ui";
 import { localized } from "./plugin-row";
 import type { PluginSettingsState } from "./use-plugin-settings";
 

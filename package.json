@@ -5,6 +5,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "pnpm --filter @flaremo/web build && pnpm --filter @flaremo/worker dev",
     "dev:hot": "node ./scripts/dev-hot.mjs",

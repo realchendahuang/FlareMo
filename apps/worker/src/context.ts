@@ -312,19 +312,43 @@ export async function getOptionalRequestContext(c: Context<HonoBindings>) {
   }
 }
 
+/**
+ * Better Auth's session cookie names (the `advanced.cookiePrefix` is
+ * `flaremo` and secure deployments add the `__Secure-` prefix). Reading the
+ * cookie header is enough to tell a browser-session request from an
+ * unauthenticated one, without touching the session store.
+ */
+const SESSION_COOKIE_NAMES = [
+  "flaremo.session_token",
+  "__Secure-flaremo.session_token",
+];
+
+function hasBrowserSessionCookie(headers: Headers): boolean {
+  const cookie = headers.get("cookie");
+  if (!cookie) return false;
+  return SESSION_COOKIE_NAMES.some((name) => cookie.includes(`${name}=`));
+}
+
 export async function getBrowserRequestContext(c: Context<HonoBindings>) {
   if (c.req.raw.headers.has("authorization")) {
     throw new UnauthorizedError();
   }
 
   const db = getFlareMoDb(c.env);
+  // Requests with no session cookie are unauthenticated, full stop: answer 401
+  // before the origin contract so the "no credentials → 401" behavior stays
+  // stable on every route. Only an actual cookie attempt pays for the origin
+  // check, and an unsafe cookie request from the wrong origin is rejected
+  // before the session lookup (and its metadata refresh) runs.
+  if (!hasBrowserSessionCookie(c.req.raw.headers)) {
+    throw new UnauthorizedError();
+  }
+  assertTrustedCookieMutation(c);
   const auth = await getFlareMoAuth(c.env);
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
   if (!session) throw new UnauthorizedError();
-
-  assertTrustedCookieMutation(c);
 
   const user = await getFlaremoUserByAuthUserId(db, session.user.id);
   if (!user) throw new UnauthorizedError();

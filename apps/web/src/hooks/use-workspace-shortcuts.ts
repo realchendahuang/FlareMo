@@ -27,18 +27,29 @@ export function useWorkspaceShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       const target = event.target;
+      const element = target instanceof HTMLElement ? target : null;
       const editable =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLElement && target.isContentEditable);
-      // Chorded shortcuts (⌘C copy, ⌘V paste) and shortcuts while a dialog
+        Boolean(element?.isContentEditable);
+      // A focused button / menu item / combobox must keep its own keys: bare
+      // letters and arrows there belong to the control, not to global
+      // navigation (arrow keys used to be hijacked while a toolbar button had
+      // focus, so the page could not be scrolled).
+      const interactive =
+        element?.closest(
+          'button, a, select, [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="switch"], [role="checkbox"], [role="combobox"], [role="slider"], [role="radio"]',
+        ) !== null;
+      const typing = editable || Boolean(interactive);
+      // Chorded shortcuts (⌘C copy, ⌘V paste) and shortcuts while an overlay
       // owns the focus must not steal focus back to the composer/search.
-      // Base UI renders `data-open`, not Radix's `data-state`, and an
-      // AlertDialog's role is `alertdialog`.
+      // Base UI renders `data-open`, not Radix's `data-state`; menus and
+      // listboxes use their own roles.
       const modalOpen =
         document.querySelector(
-          '[role="dialog"][data-open], [role="alertdialog"][data-open]',
+          '[role="dialog"][data-open], [role="alertdialog"][data-open], [role="menu"][data-open], [role="listbox"][data-open], [role="combobox"][data-open]',
         ) !== null;
       if (
         (event.metaKey || event.ctrlKey) &&
@@ -48,7 +59,7 @@ export function useWorkspaceShortcuts() {
         setSpotlightOpen(true);
         return;
       }
-      if (event.key === "/" && !editable && !modalOpen) {
+      if (event.key === "/" && !typing && !modalOpen) {
         event.preventDefault();
         setSpotlightOpen(true);
         return;
@@ -56,7 +67,7 @@ export function useWorkspaceShortcuts() {
       // "c" jumps straight into the composer for quick capture.
       if (
         event.key.toLocaleLowerCase() === "c" &&
-        !editable &&
+        !typing &&
         !modalOpen &&
         !event.metaKey &&
         !event.ctrlKey &&
@@ -68,14 +79,14 @@ export function useWorkspaceShortcuts() {
         }
       }
       // "?" lists the available keyboard shortcuts.
-      if (event.key === "?" && !editable && !modalOpen) {
+      if (event.key === "?" && !typing && !modalOpen) {
         event.preventDefault();
         setShowShortcutsOpen(true);
       }
 
       // J/K card keyboard flow when browsing timeline
       if (
-        !editable &&
+        !typing &&
         !modalOpen &&
         !event.metaKey &&
         !event.ctrlKey &&

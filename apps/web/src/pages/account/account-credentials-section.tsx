@@ -1,6 +1,10 @@
 import { KeyRoundIcon, MailIcon, RefreshCcwIcon } from "lucide-react";
 import { useState } from "react";
 import { InfoTip } from "@/components/info-tip";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import { Alert } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -27,7 +31,6 @@ import {
   MIN_PASSWORD_LENGTH,
   useCloseOnSuccess,
 } from "./account-panel-presets";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 /**
  * The account group's email and password rows with their dialogs. Like the

@@ -1,5 +1,4 @@
 import type {
-  DailyReviewResponse,
   DeleteTagResponse,
   HourlyActivityResponse,
   ListMemosResponse,
@@ -134,16 +133,6 @@ export async function getHourlyActivity(
   return apiRequest<HourlyActivityResponse>(
     `/api/app/stats/hourly?${query.toString()}`,
     { signal },
-  );
-}
-
-export async function getDailyReview(date: string, tzOffsetMinutes: number) {
-  const query = new URLSearchParams({
-    date,
-    tzOffset: String(tzOffsetMinutes),
-  });
-  return apiRequest<DailyReviewResponse>(
-    `/api/app/review/daily?${query.toString()}`,
   );
 }
 

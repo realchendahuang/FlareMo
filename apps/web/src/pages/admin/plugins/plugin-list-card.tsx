@@ -1,10 +1,10 @@
 import { Trash2Icon } from "lucide-react";
 import type { ReactNode } from "react";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
-import { SettingsSectionGroup } from "../../account/apple-settings-ui";
 import type { PluginRow } from "./plugin-row";
 import type { PluginSettingsState } from "./use-plugin-settings";
 

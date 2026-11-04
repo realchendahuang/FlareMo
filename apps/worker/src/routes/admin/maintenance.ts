@@ -17,7 +17,7 @@ import {
 import type { Hono } from "hono";
 import { cleanupFlaremoArtifacts } from "../../artifact-cleanup";
 import {
-  getBrowserRequestContext,
+  getFlareMoDb,
   type HonoBindings,
   loadAuthFactory,
 } from "../../context";
@@ -83,17 +83,15 @@ export function registerMaintenanceRoutes(app: Hono<HonoBindings>) {
       return c.json({ ok: true, job: completed });
     } catch (error) {
       if (jobId) {
-        const context = await getBrowserRequestContext(c).catch(
-          () => undefined,
-        );
-        if (context) {
-          await failMemberRemovalJob(
-            context.db,
-            jobId,
-            "member_removal_failed",
-            error instanceof Error ? error.message : "Member removal failed",
-          ).catch(() => undefined);
-        }
+        // Record the failure even when the caller used a PAT: the browser-only
+        // context resolver rejects Authorization headers, so the previous
+        // fallback silently skipped the failed-job write for machine callers.
+        await failMemberRemovalJob(
+          getFlareMoDb(c.env),
+          jobId,
+          "member_removal_failed",
+          error instanceof Error ? error.message : "Member removal failed",
+        ).catch(() => undefined);
       }
       return jsonError(c, error);
     }
