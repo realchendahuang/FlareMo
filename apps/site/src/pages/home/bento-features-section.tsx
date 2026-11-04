@@ -1,9 +1,21 @@
 import { Bot, type LucideIcon } from "lucide-react";
 import { RevealGroup, RevealItem } from "@/components/motion";
 import { Badge } from "@/components/ui/badge";
+
 /* ============================================================
    2. Bento 核心特性网格
    ============================================================ */
+
+/** 7 项在 6 列网格里的宽度节奏：2+3+2，避免最后一行孤零零一张卡。 */
+const SPANS = [
+  "lg:col-span-3",
+  "lg:col-span-3",
+  "lg:col-span-2",
+  "lg:col-span-2",
+  "lg:col-span-2",
+  "lg:col-span-3",
+  "lg:col-span-3",
+];
 
 export function BentoFeatures({
   badge,
@@ -30,24 +42,23 @@ export function BentoFeatures({
 
       <RevealGroup
         stagger={0.06}
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6"
       >
         {items.map((item, idx) => {
           const Icon = icons[idx] ?? Bot;
           return (
-            <RevealItem key={item.title}>
-              <div className="panel-card p-6 flex flex-col justify-between h-full group">
-                <div>
-                  <div className="mb-4 flex size-11 items-center justify-center icon-dock text-signal transition-transform duration-300 group-hover:scale-105">
-                    <Icon className="size-5" />
-                  </div>
-                  <h3 className="text-base font-bold tracking-tight text-ink">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-mist">
-                    {item.description}
-                  </p>
-                </div>
+            <RevealItem
+              key={item.title}
+              className={SPANS[idx] ?? "lg:col-span-2"}
+            >
+              <div className="panel-card flex h-full flex-col p-6">
+                <Icon className="size-5 text-signal" />
+                <h3 className="mt-4 text-base font-bold tracking-tight text-ink">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-mist">
+                  {item.description}
+                </p>
               </div>
             </RevealItem>
           );

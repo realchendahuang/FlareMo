@@ -45,8 +45,12 @@ export function CardGallerySection({ locale }: { locale: SupportedLocale }) {
               <img
                 alt={card.name}
                 className="aspect-[17/21] w-full object-cover"
+                decoding="async"
+                fetchPriority={index === 0 ? "high" : "auto"}
                 height={420}
-                loading="lazy"
+                // The strip sits below the fold; still load the first two eagerly
+                // so the frames never render blank while scrolling fast.
+                loading={index < 2 ? "eager" : "lazy"}
                 src={CARD_IMAGES[index] ?? CARD_IMAGES[0]}
                 width={340}
               />

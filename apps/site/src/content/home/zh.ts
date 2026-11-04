@@ -2,16 +2,22 @@ import type { HomeContent } from "../copy";
 
 export const ZH_HOME: HomeContent = {
   heroEyebrow: "开源免费 · Cloudflare 原生 · 知识管理",
-  heroTitleLine1: "零服务器，永久拥有",
+  heroTitleLine1: "不用一台服务器",
   heroTitleLine2: "会生长的 AI 第二大脑",
   heroSubtitle:
-    "简约，不简单；克制，不放肆。打开即写，记录在 Cloudflare 边缘自然长成任务、文章与知识库，也是你所有 AI Agent 可以直接读写的笔记库。",
+    "在 Cloudflare 边缘打开即写：记录自然长成任务、文章与可检索的知识库，也是你的 AI Agent 能通过 MCP 直接读写的记录库。",
   primaryCta: "快速开始部署",
   secondaryCta: "GitHub 源码",
-  statMemos: "约 250 万条纯文本记录",
-  statPhotos: "约 1 万张压缩图片 · 0 出口流量费",
-  statServers: "全球 300+ 边缘近场直连",
-  statUptime: "企业级多副本 · 本地自由归档",
+  heroFacts: [
+    { label: "D1 数据库", value: "5 GB", detail: "约 250 万条纯文本记录" },
+    {
+      label: "R2 存储",
+      value: "10 GB",
+      detail: "约 1 万张压缩图片 · 0 出口流量费",
+    },
+    { label: "全球边缘", value: "300+", detail: "个节点，就近响应" },
+    { label: "部署耗时", value: "5 分钟", detail: "从克隆到上线" },
+  ],
   featuresBadge: "为什么选 FlareMo",
   featuresHeading: "为专注记录与长期沉淀而生",
   featuresSubtitle: "把运维交给 Cloudflare，把注意力留给记录本身",
@@ -94,10 +100,9 @@ export const ZH_HOME: HomeContent = {
       vps: "按月/年持续支付服务器与带宽续费",
     },
   ],
-  screenshotsHeading: "精致视觉，开箱即用",
+  screenshotsHeading: "打开看看",
   screenshotsSubtitle:
-    "浅色明亮、深色沉浸与全功能移动端自适应，所有功能真实可用",
-  faqBadge: "你可能想问",
+    "浅色、深色与手机端，全部是上线版本的真实截图，不是效果图。",
   faqHeading: "常见问题",
   faqItems: [
     {
@@ -121,7 +126,6 @@ export const ZH_HOME: HomeContent = {
       a: "默认是一套安静专注的单人记录系统；如果需要协同，管理员在后台发一条邀请链接就能加人。记录支持设为私密（仅自己可见）、团队可见（团队成员可阅读并评论）或全网公开，数据归谁，清清楚楚。",
     },
   ],
-  ctaBadge: "开始上手",
   ctaHeading: "灵感已就位，只差一次部署",
   ctaSubtitle:
     "无需服务器，无需信用卡，用免费 Cloudflare 账号 5 分钟即可跑起来。",

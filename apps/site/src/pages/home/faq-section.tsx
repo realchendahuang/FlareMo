@@ -1,22 +1,18 @@
 import { ChevronDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 /* ============================================================
    6. FAQ 手风琴常见问题
    ============================================================ */
 
 export function FaqSection({
-  badge,
   heading,
   items,
 }: {
-  badge: string;
   heading: string;
   items: Array<{ q: string; a: string }>;
 }) {
   return (
     <section id="faq" className="container-x space-y-8 scroll-mt-20">
       <div className="max-w-2xl space-y-2">
-        <Badge variant="secondary">{badge}</Badge>
         <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl md:text-4xl">
           {heading}
         </h2>

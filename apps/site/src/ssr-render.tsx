@@ -1,5 +1,6 @@
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { renderToString } from "react-dom/server";
+import { NOT_FOUND_COPY } from "@/content/not-found-i18n";
 import { STATIC_PAGE_META } from "@/content/static-page-meta";
 import { getDoc } from "@/lib/docs-source.generated";
 import { buildSeoForPath, renderHtmlShell } from "@/lib/html-shell";
@@ -22,9 +23,22 @@ async function resolveMeta(pathname: string): Promise<{
   description: string;
   ogType?: "website" | "article";
   jsonLd?: unknown;
+  noindex?: boolean;
 }> {
   const locale = getLocaleFromPath(pathname);
   const cleanPath = getPathWithoutLocale(pathname);
+
+  // 404 shell: rendered to dist/site/404.html and served by Cloudflare for
+  // every unmatched path. Never index it.
+  if (cleanPath === "/404" || cleanPath === "/__404") {
+    const copy = NOT_FOUND_COPY[locale] ?? NOT_FOUND_COPY.en;
+    return {
+      locale,
+      title: copy.title,
+      description: copy.description,
+      noindex: true,
+    };
+  }
 
   // Home route
   if (cleanPath === "/") {
@@ -95,10 +109,13 @@ export async function renderRoute(pathname: string): Promise<RenderResult> {
 
   await router.load();
 
-  const seo = buildSeoForPath(pathname, title, description, locale, {
-    ogType: meta.ogType,
-    jsonLd: meta.jsonLd,
-  });
+  const seo = buildSeoForPath(
+    meta.noindex ? "/" : pathname,
+    title,
+    description,
+    locale,
+    { ogType: meta.ogType, jsonLd: meta.jsonLd, noindex: meta.noindex },
+  );
 
   const body = renderToString(<RouterProvider router={router} />);
 

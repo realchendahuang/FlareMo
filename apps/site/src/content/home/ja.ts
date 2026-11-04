@@ -2,16 +2,22 @@ import type { HomeContent } from "../copy";
 
 export const JA_HOME: HomeContent = {
   heroEyebrow: "オープンソース · Cloudflare ネイティブ · ナレッジ管理",
-  heroTitleLine1: "サーバー不要、一生モノの所有権。",
+  heroTitleLine1: "サーバーは要りません。",
   heroTitleLine2: "考えとともに育つ AI セカンドブレイン。",
   heroSubtitle:
-    "シンプルに、しかし深く。静かに、しかし妥協なく。Cloudflare のエッジで自由に書き、ノートがタスクと記事、知識ベースへ自然に育ち、すべての AI エージェントが読み書きできるノート庫にもなります。",
+    "Cloudflare のエッジで開いてすぐ書く。ノートはタスクと記事、検索できる知識ベースへ自然に育ち、AI エージェントも MCP で同じノートを読み書きできます。",
   primaryCta: "デプロイガイドを読む",
   secondaryCta: "GitHub ソースコード",
-  statMemos: "約250万件のメモ",
-  statPhotos: "約1万枚の圧縮画像 · 転送料0円",
-  statServers: "24時間超低遅延",
-  statUptime: "マルチリージョン冗長化",
+  heroFacts: [
+    { label: "D1 ストレージ", value: "5 GB", detail: "約 250 万件のテキスト" },
+    {
+      label: "R2 ストレージ",
+      value: "10 GB",
+      detail: "約 1 万枚の圧縮画像 · 転送料 0 円",
+    },
+    { label: "エッジ拠点", value: "300+", detail: "拠点、100ms 以内" },
+    { label: "デプロイ時間", value: "5 分", detail: "クローンから公開まで" },
+  ],
   featuresBadge: "コア機能",
   featuresHeading: "FlareMoを選ぶ理由",
   featuresSubtitle:
@@ -94,10 +100,9 @@ export const JA_HOME: HomeContent = {
       vps: "毎月のサーバー代と帯域費用の請求",
     },
   ],
-  screenshotsHeading: "洗練されたUI、今すぐ体験",
+  screenshotsHeading: "中をのぞいてみる",
   screenshotsSubtitle:
-    "ライトモード、ダークモード、モバイル対応。すべての機能が本番利用可能です。",
-  faqBadge: "チェックポイント",
+    "ライト・ダーク・スマートフォン。すべて出荷中のアプリの実画面です。",
   faqHeading: "よくある質問",
   faqItems: [
     {
@@ -121,7 +126,6 @@ export const JA_HOME: HomeContent = {
       a: "個人利用時は静かな1人用ノートとして動作し、チームモードを有効化すると招待リンクでメンバーを追加できます。ノートは非公開（自分のみ）、チーム可視（チームメンバーは閲覧・コメント可能）、公開の3段階から選べます。",
     },
   ],
-  ctaBadge: "今すぐ始める",
   ctaHeading: "知識の拠点を、自分のドメインに。",
   ctaSubtitle:
     "サーバー不要、クレジットカード不要。無料のCloudflareアカウントで5分でデプロイ。",

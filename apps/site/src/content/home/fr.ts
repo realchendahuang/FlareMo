@@ -2,16 +2,26 @@ import type { HomeContent } from "../copy";
 
 export const FR_HOME: HomeContent = {
   heroEyebrow: "Open source · Cloudflare natif · Gestion des connaissances",
-  heroTitleLine1: "Zéro serveur. Pour toujours à vous.",
-  heroTitleLine2: "Un second cerveau natif IA qui grandit avec vous.",
+  heroTitleLine1: "Aucun serveur à gérer.",
+  heroTitleLine2: "Un second cerveau natif IA.",
   heroSubtitle:
-    "Minimal, jamais superficiel. Discret, jamais criard. Écrivez librement sur Cloudflare Edge : vos notes deviennent tâches, articles et base de connaissances, avec un accès MCP pour vos agents IA.",
+    "Écrivez sur l'edge de Cloudflare : vos notes deviennent tâches, articles et base de connaissances consultable — les mêmes que vos agents IA peuvent lire et écrire via MCP.",
   primaryCta: "Guide de déploiement",
   secondaryCta: "Code source GitHub",
-  statMemos: "~2,5 millions de notes",
-  statPhotos: "10 000 photos compressées · 0$ trafic",
-  statServers: "Ultra-basse latence 24/7",
-  statUptime: "Réplication multi-régions",
+  heroFacts: [
+    { label: "Stockage D1", value: "5 Go", detail: "~2,5 millions de notes" },
+    {
+      label: "Stockage R2",
+      value: "10 Go",
+      detail: "~10 000 photos · trafic 0 $",
+    },
+    { label: "Réseau edge", value: "300+", detail: "emplacements, < 100 ms" },
+    {
+      label: "Déploiement",
+      value: "5 min",
+      detail: "du clone à la mise en ligne",
+    },
+  ],
   featuresBadge: "Atouts clés",
   featuresHeading: "Pourquoi choisir FlareMo",
   featuresSubtitle:
@@ -95,10 +105,9 @@ export const FR_HOME: HomeContent = {
       vps: "Factures mensuelles récurrentes d'hébergement",
     },
   ],
-  screenshotsHeading: "Une interface soignée et vivante",
+  screenshotsHeading: "Un aperçu de l'intérieur",
   screenshotsSubtitle:
-    "Modes clair, sombre et vue mobile réactive. Tout est fonctionnel et connecté au backend.",
-  faqBadge: "À savoir",
+    "Clair, sombre et mobile : de vraies captures de l'application livrée, pas une maquette.",
   faqHeading: "Questions fréquentes",
   faqItems: [
     {
@@ -122,7 +131,6 @@ export const FR_HOME: HomeContent = {
       a: "Par défaut, c'est un carnet personnel confidentiel. En activant le mode équipe, vous invitez des membres par lien à usage unique ; chaque note peut être privée (vous seul), visible par l'équipe (lecture et commentaires) ou publique.",
     },
   ],
-  ctaBadge: "C'est parti",
   ctaHeading: "Cinq minutes pour déployer. À vous pour de bon.",
   ctaSubtitle:
     "Sans serveur, sans carte bancaire. Déployez sur Cloudflare en 5 minutes.",

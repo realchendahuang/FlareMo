@@ -2,16 +2,26 @@ import type { HomeContent } from "../copy";
 
 export const ES_HOME: HomeContent = {
   heroEyebrow: "Código abierto · Cloudflare nativo · Gestión del conocimiento",
-  heroTitleLine1: "Cero servidores. Tuyo para siempre.",
-  heroTitleLine2: "Un segundo cerebro nativo de IA que crece contigo.",
+  heroTitleLine1: "Sin servidores que mantener.",
+  heroTitleLine2: "Un segundo cerebro nativo de IA.",
   heroSubtitle:
-    "Mínimo, nunca superficial. Sereno, nunca estridente. Escribe con libertad en Cloudflare Edge: tus notas se convierten en tareas, artículos y una base de conocimiento, con acceso MCP para tus agentes de IA.",
+    "Escribe en el edge de Cloudflare: tus notas se convierten en tareas, artículos y una base de conocimiento con búsqueda, las mismas que tus agentes de IA pueden leer y escribir por MCP.",
   primaryCta: "Guía de despliegue",
   secondaryCta: "Código en GitHub",
-  statMemos: "~2,5 millones de notas",
-  statPhotos: "10.000 fotos comprimidas · 0$ tráfico",
-  statServers: "Latencia ultrabaja 24/7",
-  statUptime: "Replicación multirregional",
+  heroFacts: [
+    {
+      label: "Almacenamiento D1",
+      value: "5 GB",
+      detail: "~2,5 millones de notas",
+    },
+    {
+      label: "Almacenamiento R2",
+      value: "10 GB",
+      detail: "~10.000 fotos · 0 $ de tráfico",
+    },
+    { label: "Red edge", value: "300+", detail: "ubicaciones, < 100 ms" },
+    { label: "Despliegue", value: "5 min", detail: "del clon a producción" },
+  ],
   featuresBadge: "Funciones clave",
   featuresHeading: "¿Por qué elegir FlareMo?",
   featuresSubtitle:
@@ -95,10 +105,9 @@ export const ES_HOME: HomeContent = {
       vps: "Facturas mensuales o anuales de alojamiento",
     },
   ],
-  screenshotsHeading: "Experiencia visual refinada",
+  screenshotsHeading: "Un vistazo por dentro",
   screenshotsSubtitle:
-    "Modo claro, modo oscuro y diseño adaptable para móviles. Todo en producción y funcionando.",
-  faqBadge: "Conviene saber",
+    "Claro, oscuro y móvil: capturas reales de la app publicada, no un mockup.",
   faqHeading: "Preguntas Frecuentes",
   faqItems: [
     {
@@ -122,7 +131,6 @@ export const ES_HOME: HomeContent = {
       a: "Por defecto es un diario personal cifrado. Al activar el modo de equipo, invitas a colegas con enlaces de un solo uso; cada nota puede ser privada (solo tú), visible para el equipo (lectura y comentarios) o pública.",
     },
   ],
-  ctaBadge: "Empieza ahora",
   ctaHeading: "Cinco minutos para desplegar. Tuyo para siempre.",
   ctaSubtitle:
     "Sin servidores, sin tarjeta de crédito. Despliega en Cloudflare en 5 minutos.",

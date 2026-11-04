@@ -2,16 +2,18 @@ import type { HomeContent } from "../copy";
 
 export const EN_HOME: HomeContent = {
   heroEyebrow: "Open-source · Cloudflare-native · Knowledge Management",
-  heroTitleLine1: "Zero Servers. Forever Yours.",
-  heroTitleLine2: "An AI-native second brain that grows with you.",
+  heroTitleLine1: "Zero servers to run.",
+  heroTitleLine2: "An AI-native second brain.",
   heroSubtitle:
-    "Minimal, never shallow. Quiet, never loud. Write freely on Cloudflare Edge — where notes grow into tasks, articles and a knowledge base, with MCP access for your AI agents.",
+    "Write on Cloudflare's edge and let notes grow into tasks, articles and a searchable knowledge base — the same notes your AI agents can read and write over MCP.",
   primaryCta: "Read Deploy Guide",
   secondaryCta: "View on GitHub",
-  statMemos: "~2.5M text notes",
-  statPhotos: "~10,000 compressed photos · $0 egress",
-  statServers: "300+ edge datacenters",
-  statUptime: "Multi-region persistence & backup",
+  heroFacts: [
+    { label: "D1 storage", value: "5 GB", detail: "~2.5M text notes" },
+    { label: "R2 storage", value: "10 GB", detail: "~10k photos · $0 egress" },
+    { label: "Edge network", value: "300+", detail: "locations, sub-100ms" },
+    { label: "Time to deploy", value: "5 min", detail: "from clone to live" },
+  ],
   featuresBadge: "Why FlareMo",
   featuresHeading: "Engineered for Focus and Longevity",
   featuresSubtitle:
@@ -95,10 +97,9 @@ export const EN_HOME: HomeContent = {
       vps: "Continuous monthly / annual hosting invoices",
     },
   ],
-  screenshotsHeading: "Polished Visual Experience",
+  screenshotsHeading: "A look inside",
   screenshotsSubtitle:
-    "Light mode, dark immersion, and mobile responsive design. Everything is live and working.",
-  faqBadge: "Good to Know",
+    "Light, dark, and on your phone — real captures from the shipped app, not a mock.",
   faqHeading: "Frequently Asked Questions",
   faqItems: [
     {
@@ -122,7 +123,6 @@ export const EN_HOME: HomeContent = {
       a: "Out of the box, FlareMo is a quiet single-user sanctuary. Turn on team mode to invite teammates with one-time activation links, then set any note to private (personal only), team-visible (team members can read and discuss), or public.",
     },
   ],
-  ctaBadge: "Get Started",
   ctaHeading: "Five minutes to deploy. Yours for good.",
   ctaSubtitle:
     "No servers, no credit card required. Deploy on Cloudflare in 5 minutes.",

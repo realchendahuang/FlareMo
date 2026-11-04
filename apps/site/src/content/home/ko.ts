@@ -2,16 +2,26 @@ import type { HomeContent } from "../copy";
 
 export const KO_HOME: HomeContent = {
   heroEyebrow: "오픈소스 · Cloudflare 네이티브 · 지식 관리",
-  heroTitleLine1: "서버 제로, 영구 소유.",
+  heroTitleLine1: "서버는 필요 없습니다.",
   heroTitleLine2: "생각과 함께 자라는 AI 세컨드 브레인.",
   heroSubtitle:
-    "심플하게, 얕지 않게. 조용하게, 과하지 않게. Cloudflare 엣지에서 자유롭게 쓰면 노트가 할 일과 아티클, 지식 베이스로 자라고, 모든 AI 에이전트가 직접 읽고 쓸 수 있는 노트 저장소가 됩니다.",
+    "Cloudflare 엣지에서 열자마자 기록하세요. 노트는 할 일과 아티클, 검색 가능한 지식 베이스로 자라고, AI 에이전트도 MCP로 같은 노트를 읽고 쓸 수 있습니다.",
   primaryCta: "배포 가이드 읽기",
   secondaryCta: "GitHub 소스코드",
-  statMemos: "약 250만 건의 메모",
-  statPhotos: "약 1만 장 압축 사진 · 트래픽 0원",
-  statServers: "24/7 글로벌 초저지연",
-  statUptime: "멀티 리전 다중화",
+  heroFacts: [
+    {
+      label: "D1 스토리지",
+      value: "5 GB",
+      detail: "약 250만 건의 텍스트 메모",
+    },
+    {
+      label: "R2 스토리지",
+      value: "10 GB",
+      detail: "약 1만 장 압축 사진 · 전송료 0원",
+    },
+    { label: "엣지 네트워크", value: "300+", detail: "개 거점, 100ms 이내" },
+    { label: "배포 시간", value: "5분", detail: "클론에서 공개까지" },
+  ],
   featuresBadge: "핵심 기능",
   featuresHeading: "왜 FlareMo인가",
   featuresSubtitle:
@@ -94,10 +104,9 @@ export const KO_HOME: HomeContent = {
       vps: "매월 반복 청구되는 호스팅 요금과 트래픽비",
     },
   ],
-  screenshotsHeading: "단정하고 유려한 디자인",
+  screenshotsHeading: "안을 살펴보세요",
   screenshotsSubtitle:
-    "라이트 모드, 다크 모드, 모바일 반응형 완벽 대응. 모든 기능이 백엔드와 연동되어 작동합니다.",
-  faqBadge: "알아두면 좋은 점",
+    "라이트, 다크, 모바일까지 — 실제 배포된 앱의 화면입니다.",
   faqHeading: "자주 묻는 질문",
   faqItems: [
     {
@@ -121,7 +130,6 @@ export const KO_HOME: HomeContent = {
       a: "혼자 사용할 때는 조용한 1인용 노트로 작동하며, 팀 모드를 켜면 일회용 초대 링크로 동료를 추가할 수 있습니다. 노트는 비공개(나만 보기), 팀 공개(팀원이 읽고 댓글 가능), 전체 공개 중에서 고릅니다.",
     },
   ],
-  ctaBadge: "시작하기",
   ctaHeading: "5분 만에 배포, 영원히 당신의 것.",
   ctaSubtitle:
     "서버도, 신용카드도 필요 없습니다. 무료 Cloudflare 계정으로 5분 만에 배포하세요.",

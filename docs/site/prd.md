@@ -109,7 +109,7 @@
 ```
 apps/site/
 ├── index.html              ← dev 壳（vite）；生产由 SSG 覆盖
-├── public/                 ← 静态资源：robots.txt、favicon、og-image.svg、品牌 PNG
+├── public/                 ← 静态资源：robots.txt、favicon、og-image.png、品牌 PNG
 ├── scripts/
 │   └── build.mjs           ← SSG 构建脚本（vite build + renderRoute 每个路径）
 ├── src/
@@ -150,7 +150,7 @@ apps/site/
 | canonical | 每个路由独立，路径含 locale 前缀 |
 | hreflang | `zh-CN`、`en-US`、`x-default` 三条 |
 | JSON-LD | `SoftwareApplication`（首页）、`Product`（pricing）、`Article`（docs）、`FAQPage`（FAQ） |
-| 结构化 OG image | `public/og-image.svg` 1200×630，含 logo + 标题 + 副标 |
+| 结构化 OG image | `public/og-image.png` 1200×630，含 logo + 标题 + 应用截图（`pnpm og:image` 生成） |
 | 性能预算 | 首屏 JS < 30KB gzipped；prerender 静态 HTML，Lighthouse ≥ 95 |
 
 ## 部署

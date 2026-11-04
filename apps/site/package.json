@@ -10,6 +10,7 @@
     "check": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "typecheck": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "preview": "vite preview",
+    "og:image": "node ./scripts/og-image.mjs",
     "deploy": "pnpm build && wrangler deploy --config ./wrangler.jsonc",
     "deploy:dry-run": "pnpm build && wrangler deploy --config ./wrangler.jsonc --dry-run --outdir=dist",
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests"

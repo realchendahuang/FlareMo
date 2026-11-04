@@ -41,7 +41,7 @@ export type SeoInput = {
   ogType?: "website" | "article";
   /** JSON-LD payload as a plain object. Will be serialized as a single graph. */
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
-  /** Override the OG image. Defaults to https://flaremo.app/og-image.svg. */
+  /** Override the OG image. Defaults to https://flaremo.app/og-image.png. */
   ogImage?: string;
   /** Article-specific publish/modified time. */
   articlePublishedTime?: string;
@@ -59,7 +59,7 @@ export type SeoHead = {
 
 const SITE_NAME = "FlareMo";
 const SITE_URL = "https://flaremo.app";
-const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.svg`;
+const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 export const LOCALE_PREFIX: Record<SupportedLocale, string> = {
   en: "",
@@ -159,6 +159,9 @@ export function localeHref(path: string, locale: Locale): string {
 
 function fullTitle(title: string, _locale: Locale): string {
   if (title === SITE_NAME) return title;
+  // Home titles already lead with "FlareMo - …"; appending " · FlareMo" again
+  // produced "… · FlareMo · FlareMo" in tabs and share cards.
+  if (title.startsWith(SITE_NAME)) return title;
   return `${title} · ${SITE_NAME}`;
 }
 
@@ -196,6 +199,11 @@ export function buildSeoHead(input: SeoInput): SeoHead {
     { property: "og:title", content: fullTitle(title, normLocale) },
     { property: "og:description", content: description },
     { property: "og:image", content: ogImage },
+    // Explicit dimensions keep the large card from collapsing on X/Slack, and
+    // PNG (not SVG) means every scraped preview actually renders.
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { property: "og:image:alt", content: `${SITE_NAME} — ${title}` },
     { property: "og:url", content: canonical },
     { property: "og:site_name", content: SITE_NAME },
     { property: "og:locale", content: OG_LOCALES[normLocale] || "en_US" },
@@ -203,6 +211,7 @@ export function buildSeoHead(input: SeoInput): SeoHead {
     { name: "twitter:title", content: fullTitle(title, normLocale) },
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: ogImage },
+    { name: "twitter:image:alt", content: `${SITE_NAME} — ${title}` },
   ];
 
   if (ogType === "article") {

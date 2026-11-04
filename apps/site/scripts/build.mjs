@@ -113,6 +113,16 @@ async function main() {
       await writeFile(out, html, "utf8");
     }
 
+    // Static 404 shell. wrangler assets "not_found_handling": "404-page"
+    // serves this file (with a 404 status) for every unmatched path; without
+    // it the site answered with a zero-byte blank page.
+    {
+      const notFound = await renderRoute("/__404");
+      const html = injectAssets(notFound.html, entryJs, entryCss);
+      await writeFile(path.join(outDir, "404.html"), html, "utf8");
+      console.log("[site] 404.html written");
+    }
+
     // Copy public/ static assets into dist root.
     const publicDir = path.join(root, "public");
     await cp(publicDir, outDir, { recursive: true });

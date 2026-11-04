@@ -1,5 +1,4 @@
 import { ArrowRight, ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getLocalizedPath, type SupportedLocale } from "@/lib/seo";
 /* ============================================================
@@ -7,14 +6,12 @@ import { getLocalizedPath, type SupportedLocale } from "@/lib/seo";
    ============================================================ */
 
 export function CtaSection({
-  badge,
   heading,
   subtitle,
   buttonText,
   secondaryCta,
   locale,
 }: {
-  badge: string;
   heading: string;
   subtitle: string;
   buttonText: string;
@@ -31,7 +28,6 @@ export function CtaSection({
         />
 
         <div className="relative z-10 mx-auto max-w-2xl space-y-5">
-          <Badge variant="flame">{badge}</Badge>
           <h2 className="text-balance text-3xl font-extrabold tracking-tight text-ink sm:text-4xl md:text-5xl">
             {heading}
           </h2>
