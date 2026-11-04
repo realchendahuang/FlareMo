@@ -26,7 +26,7 @@ export function TrashSection({ onMutated }: { onMutated: () => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const projectsQuery = useQuery({
-    queryKey: ["projects", "trash"],
+    queryKey: queryKeys.projects.trash,
     queryFn: () => listProjects({ include_deleted: true }),
   });
   const tasksQuery = useQuery({

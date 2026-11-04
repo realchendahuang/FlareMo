@@ -54,6 +54,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
+import { queryKeys } from "@/lib/query-keys";
 import { uploadAndInsertImages } from "@/lib/rich-editor-upload";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +92,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const articleQuery = useQuery({
-    queryKey: ["article", articleId],
+    queryKey: queryKeys.articles.detail(articleId),
     queryFn: () => getArticle(articleId),
     retry: false,
   });
@@ -239,7 +240,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     mutationFn: () => deleteArticle(articleId),
     onSuccess: () => {
       toast.success(t("article.deleted"));
-      void queryClient.invalidateQueries({ queryKey: ["articles"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
       navigate({ to: "/articles" });
     },
     onError: () => toast.error(t("article.deleteFailed")),
@@ -466,14 +467,18 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             queryClient.setQueryData(["article", articleId], {
               article: updated,
             });
-            void queryClient.invalidateQueries({ queryKey: ["articles"] });
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.articles.all,
+            });
           }}
           onUnpublished={(updated) => {
             setSavedArticle(updated);
             queryClient.setQueryData(["article", articleId], {
               article: updated,
             });
-            void queryClient.invalidateQueries({ queryKey: ["articles"] });
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.articles.all,
+            });
           }}
           open={publishOpen}
         />

@@ -123,7 +123,7 @@ function CommentComposer({
   const token = mentions ? extractActiveMentionToken(draft, caret) : null;
   const tokenKey = token ? `${token.start}:${token.token}` : null;
   const peopleQuery = useQuery({
-    queryKey: ["mentionable-users"],
+    queryKey: queryKeys.mentionableUsers,
     queryFn: () => listMentionableUsers(),
     enabled: Boolean(token),
     staleTime: 60_000,

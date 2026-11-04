@@ -31,6 +31,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { formatMemoRelativeTime, memoExcerpt } from "@/lib/memo";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 export type SpotlightSearchProps = {
@@ -96,7 +97,7 @@ export function SpotlightSearch({
 
   // Instant global search probe across the entire corpus
   const remoteMemosQuery = useQuery({
-    queryKey: ["spotlight-remote-memos", debouncedDraft],
+    queryKey: queryKeys.spotlightRemoteMemos(debouncedDraft),
     queryFn: ({ signal }) =>
       listMemos({ q: debouncedDraft, page_size: 6 }, signal),
     enabled: open && debouncedDraft.length >= 1,

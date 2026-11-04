@@ -10,6 +10,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { queryKeys } from "@/lib/query-keys";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -18,7 +19,7 @@ export function SetupPage() {
   const navigate = useNavigate({ from: "/setup" });
   const queryClient = useQueryClient();
   const bootstrapQuery = useQuery({
-    queryKey: ["auth-bootstrap-status"],
+    queryKey: queryKeys.authBootstrapStatus,
     queryFn: getBootstrapStatus,
     retry: false,
   });
@@ -57,7 +58,7 @@ export function SetupPage() {
       setPassword("");
       setPasswordConfirmation("");
       await queryClient.invalidateQueries({
-        queryKey: ["auth-bootstrap-status"],
+        queryKey: queryKeys.authBootstrapStatus,
       });
       await navigate({ replace: true, to: "/login" });
     } catch (error) {

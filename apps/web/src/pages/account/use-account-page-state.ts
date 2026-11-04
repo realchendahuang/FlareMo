@@ -88,7 +88,7 @@ export function useAccountPageState({
   }, [session.data?.user.username]);
 
   const tokensQuery = useQuery({
-    queryKey: ["personal-access-tokens"],
+    queryKey: queryKeys.personalAccessTokens,
     queryFn: listPersonalAccessTokens,
     retry: false,
     enabled: open,
@@ -173,7 +173,7 @@ export function useAccountPageState({
   const showVoiceSettings = meQuery.data?.can_manage_voice_service === true;
 
   const appInfoQuery = useQuery({
-    queryKey: ["app-info"],
+    queryKey: queryKeys.appInfo,
     queryFn: getAppInfo,
     staleTime: 10 * 60 * 1000,
     retry: false,
@@ -181,7 +181,7 @@ export function useAccountPageState({
   });
 
   const vectorUsageQuery = useQuery({
-    queryKey: ["vector-usage"],
+    queryKey: queryKeys.vectorUsage,
     queryFn: getVectorUsage,
     retry: false,
     enabled: open,
@@ -189,7 +189,7 @@ export function useAccountPageState({
   });
 
   const cfUsageQuery = useQuery({
-    queryKey: ["cloudflare-usage"],
+    queryKey: queryKeys.cloudflareUsage,
     queryFn: getCloudflareUsage,
     retry: false,
     enabled: open,
@@ -199,7 +199,7 @@ export function useAccountPageState({
   });
 
   const dataTasksQuery = useQuery({
-    queryKey: ["data-tasks"],
+    queryKey: queryKeys.dataTasks,
     queryFn: listDataTasks,
     retry: false,
     enabled: open,
@@ -224,7 +224,7 @@ export function useAccountPageState({
       queryFn: getAdminBranding,
     });
     void queryClient.prefetchQuery({
-      queryKey: ["admin-plugins"],
+      queryKey: queryKeys.adminPlugins,
       queryFn: getAdminPluginSettings,
     });
     void queryClient.prefetchQuery({
@@ -239,7 +239,7 @@ export function useAccountPageState({
       return undefined;
     }
     void queryClient.prefetchQuery({
-      queryKey: ["voice-settings"],
+      queryKey: queryKeys.voiceSettings,
       queryFn: getVoiceSettings,
     });
     return undefined;

@@ -140,7 +140,7 @@ export function useAccountSettingsMutations({
   const retryExportMutation = useMutation({
     mutationFn: createExportTask,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["data-tasks"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dataTasks });
     },
     onError: (error) =>
       toast.error(errorMessage(error, t("transfer.retryFailed"))),
@@ -190,7 +190,7 @@ export function useAccountSettingsMutations({
       setTokenName("");
       setTokenExpiryDays("");
       await queryClient.invalidateQueries({
-        queryKey: ["personal-access-tokens"],
+        queryKey: queryKeys.personalAccessTokens,
       });
     },
   });
@@ -199,7 +199,7 @@ export function useAccountSettingsMutations({
     mutationFn: revokePersonalAccessToken,
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["personal-access-tokens"],
+        queryKey: queryKeys.personalAccessTokens,
       });
     },
   });
@@ -208,7 +208,7 @@ export function useAccountSettingsMutations({
     mutationFn: deletePersonalAccessToken,
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["personal-access-tokens"],
+        queryKey: queryKeys.personalAccessTokens,
       });
     },
   });

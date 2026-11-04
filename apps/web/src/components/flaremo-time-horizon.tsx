@@ -125,7 +125,7 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
 
   // Hourly query for Day view (24 hours)
   const dayHourlyQuery = useQuery({
-    queryKey: ["stats-hourly-day", selectedDay, tz],
+    queryKey: queryKeys.statsHourly.day(selectedDay, tz),
     queryFn: ({ signal }) =>
       getHourlyActivity({ date: selectedDay }, tz, signal),
     staleTime: 60_000,
@@ -145,7 +145,7 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
   const { from: monthFrom, to: monthTo } = monthRangeOf(currentMonthKey);
 
   const monthHourlyQuery = useQuery({
-    queryKey: ["stats-hourly-month", monthFrom, monthTo, tz],
+    queryKey: queryKeys.statsHourly.month(monthFrom, monthTo, tz),
     queryFn: ({ signal }) =>
       getHourlyActivity({ from: monthFrom, to: monthTo }, tz, signal),
     staleTime: 60_000,
@@ -160,7 +160,7 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
   const { from: weekFrom, to: weekTo } = weekRangeOf(weekDays, today);
 
   const weekHourlyQuery = useQuery({
-    queryKey: ["stats-hourly-week", weekFrom, weekTo, tz],
+    queryKey: queryKeys.statsHourly.week(weekFrom, weekTo, tz),
     queryFn: ({ signal }) =>
       getHourlyActivity({ from: weekFrom, to: weekTo }, tz, signal),
     staleTime: 60_000,

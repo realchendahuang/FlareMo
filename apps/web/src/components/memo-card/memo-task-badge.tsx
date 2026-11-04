@@ -10,6 +10,7 @@ import { listProjects, type Task } from "@/api";
 import { formatScheduleDay } from "@/components/composer/composer-schedule-menu";
 import { useI18n } from "@/i18n";
 import { todayKey } from "@/lib/calendar-date";
+import { queryKeys } from "@/lib/query-keys";
 import { cn, stripResourceName } from "@/lib/utils";
 
 /**
@@ -31,7 +32,7 @@ export function MemoTaskBadge({ tasks }: { tasks: Task[] }) {
     [tasks],
   );
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: queryKeys.projects.all,
     queryFn: () => listProjects(),
     enabled: projectIds.length > 0,
     staleTime: 60_000,

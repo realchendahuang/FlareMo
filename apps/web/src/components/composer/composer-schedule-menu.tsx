@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/i18n";
 import { type MemoSchedule, scheduleQuickPicks } from "@/lib/memo-schedule";
+import { queryKeys } from "@/lib/query-keys";
 import { cn, stripResourceName } from "@/lib/utils";
 
 const NO_PROJECT = "";
@@ -33,7 +34,7 @@ export function formatScheduleDay(day: string, locale: string) {
 
 function useActiveProjects(enabled: boolean) {
   const query = useQuery({
-    queryKey: ["projects"],
+    queryKey: queryKeys.projects.all,
     queryFn: () => listProjects(),
     enabled,
     staleTime: 60_000,

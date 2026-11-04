@@ -25,7 +25,7 @@ import {
   shouldQueueAfterFailure,
   validateMemoCaptureSubmission,
 } from "@/lib/memo-submission";
-import { queryKeys } from "@/lib/query-keys";
+import { invalidateTaskSurfaces } from "@/lib/query-invalidation";
 
 // The composer's send target defaults to the active space ("归属在创建时决定").
 // An explicit pick is remembered per space so a member who publishes to the
@@ -98,8 +98,7 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
           submission.content,
           submission.schedule,
         );
-        void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
-        void queryClient.invalidateQueries({ queryKey: ["projects"] });
+        invalidateTaskSurfaces(queryClient);
         return {
           memo,
           message:

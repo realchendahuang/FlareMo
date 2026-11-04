@@ -13,11 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { injectShareTokenIntoFileUrls } from "@/lib/attachment-refs";
 import { formatMemoTime } from "@/lib/memo";
+import { queryKeys } from "@/lib/query-keys";
 
 export function PublicSharePage({ token }: { token: string }) {
   const { locale, t } = useI18n();
   const shareQuery = useQuery({
-    queryKey: ["public-share", token],
+    queryKey: queryKeys.publicShare(token),
     queryFn: () => getPublicShare(token),
     retry: false,
   });

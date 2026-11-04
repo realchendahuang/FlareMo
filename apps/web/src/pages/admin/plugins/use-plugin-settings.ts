@@ -19,6 +19,7 @@ import {
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { allCardViews, type ShareCardView } from "@/lib/plugin-cards";
+import { queryKeys } from "@/lib/query-keys";
 import { localized, type PluginRow } from "./plugin-row";
 
 /**
@@ -50,12 +51,12 @@ export function usePluginSettings() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const settingsQuery = useQuery({
-    queryKey: ["admin-plugins"],
+    queryKey: queryKeys.adminPlugins,
     queryFn: getAdminPluginSettings,
     retry: false,
   });
   const storeQuery = useQuery({
-    queryKey: ["admin-plugin-store"],
+    queryKey: queryKeys.adminPluginStore,
     queryFn: getPluginStore,
     retry: false,
     staleTime: 60_000,
@@ -97,9 +98,11 @@ export function usePluginSettings() {
   }, [locale, settings]);
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["admin-plugins"] });
-    void queryClient.invalidateQueries({ queryKey: ["admin-plugin-store"] });
-    void queryClient.invalidateQueries({ queryKey: ["plugin-settings"] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.adminPlugins });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.adminPluginStore,
+    });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.pluginSettings });
   };
 
   const saveMutation = useMutation({

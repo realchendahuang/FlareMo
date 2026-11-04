@@ -35,21 +35,23 @@ export function useMemoDetail(memoId: string) {
     retry: false,
   });
   const relationCandidatesQuery = useQuery({
-    queryKey: ["relation-candidates", relatedMemo.trim()],
+    queryKey: queryKeys.relationCandidates(relatedMemo.trim()),
     queryFn: () => listMemos({ q: relatedMemo.trim(), page_size: 8 }),
     enabled: relatedMemo.trim().length >= 2,
   });
   const relatedQuery = useQuery({
-    queryKey: ["memo-related", memoId],
+    queryKey: queryKeys.memoRelated.forMemo(memoId),
     queryFn: () => getRelatedMemos(memoId),
     retry: false,
   });
   const invalidateMemo = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey }),
-      queryClient.invalidateQueries({ queryKey: ["memo-related", memoId] }),
-      queryClient.invalidateQueries({ queryKey: ["memos"] }),
-      queryClient.invalidateQueries({ queryKey: ["memo-stats"] }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.memoRelated.forMemo(memoId),
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.memos.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.memoStats.all }),
     ]);
   };
   const shareMutation = useMutation({

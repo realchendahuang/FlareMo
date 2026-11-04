@@ -50,6 +50,7 @@ import { WorkspacePageHeader } from "@/components/workspace/workspace-page-heade
 import { useI18n } from "@/i18n";
 import { formatDayTitle, isoDay } from "@/lib/calendar-date";
 import { formatDate } from "@/lib/date-format";
+import { queryKeys } from "@/lib/query-keys";
 import { cn, stripResourceName } from "@/lib/utils";
 
 type ArticleFilter = "all" | "draft" | "published" | "trash";
@@ -91,7 +92,7 @@ export function ArticlesPage() {
   const queryClient = useQueryClient();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const articlesQuery = useQuery({
-    queryKey: ["articles"],
+    queryKey: queryKeys.articles.all,
     // include_deleted feeds the recycle-bin affordances below (restore action
     // + the "in recycle bin" label); without it those rows never arrive.
     queryFn: () => listArticles({ include_deleted: true }),
@@ -105,7 +106,7 @@ export function ArticlesPage() {
     // came out in Chinese glyphs. Authors can still override it via the API.
     mutationFn: () => createArticle({ lang: locale, title: "" }),
     onSuccess: ({ article }) => {
-      void queryClient.invalidateQueries({ queryKey: ["articles"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
       navigate({
         to: "/articles/$articleId/edit",
         params: { articleId: editorId(article.id) },
@@ -118,7 +119,7 @@ export function ArticlesPage() {
     mutationFn: (id: string) => deleteArticle(id),
     onSuccess: () => {
       toast.success(t("article.deleted"));
-      void queryClient.invalidateQueries({ queryKey: ["articles"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
     },
     onError: () => toast.error(t("article.deleteFailed")),
   });
@@ -127,7 +128,7 @@ export function ArticlesPage() {
     mutationFn: (id: string) => restoreArticle(id),
     onSuccess: () => {
       toast.success(t("article.restored"));
-      void queryClient.invalidateQueries({ queryKey: ["articles"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
     },
     onError: () => toast.error(t("article.restoreFailed")),
   });

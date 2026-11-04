@@ -102,7 +102,9 @@ export function TaskCard({
       // Completing a task ticks its line in the source memo on the server.
       if (task.source_memo_id && input.status !== undefined) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
-        void queryClient.invalidateQueries({ queryKey: ["memo-context"] });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.memoContext.all,
+        });
       }
     },
     onError: (error, _input, snapshots) => {

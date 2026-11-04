@@ -29,6 +29,7 @@ import {
   type ShareCardView,
   visibleCardViews,
 } from "@/lib/plugin-cards";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 /**
@@ -119,7 +120,7 @@ export function ShareImageDialog({
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
   const statsQuery = useQuery({
-    queryKey: ["memo-stats", timeZone, "all"],
+    queryKey: queryKeys.memoStats.forAllSpaces(timeZone),
     queryFn: () => getMemoStats(timeZone),
     enabled: open,
     staleTime: 60_000,
@@ -128,7 +129,7 @@ export function ShareImageDialog({
   // bundled defaults immediately and swaps to the configured set when the
   // public endpoint responds, so opening the dialog never blocks on a fetch.
   const pluginsQuery = useQuery({
-    queryKey: ["plugin-settings"],
+    queryKey: queryKeys.pluginSettings,
     queryFn: getPublicPluginSettings,
     enabled: open,
     staleTime: 5 * 60_000,
@@ -154,12 +155,11 @@ export function ShareImageDialog({
   // Bundled payloads are already in memory; installed ones load per
   // selection and cache by (plugin, version, card).
   const payloadQuery = useQuery({
-    queryKey: [
-      "plugin-card-payload",
+    queryKey: queryKeys.pluginCardPayload(
       card?.pluginId ?? "",
       card?.pluginVersion ?? "",
       card?.id ?? "",
-    ],
+    ),
     queryFn: () => loadCardPayload(card as ShareCardView),
     enabled: open && !!card,
     staleTime: Number.POSITIVE_INFINITY,

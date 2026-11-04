@@ -12,6 +12,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { queryKeys } from "@/lib/query-keys";
 
 /**
  * Better Auth answers a wrong account or password with an English message
@@ -54,17 +55,17 @@ export function LoginPage() {
   const { redirect } = useSearch({ from: "/login" });
   const session = authClient.useSession();
   const bootstrapQuery = useQuery({
-    queryKey: ["auth-bootstrap-status"],
+    queryKey: queryKeys.authBootstrapStatus,
     queryFn: getBootstrapStatus,
     retry: false,
   });
   const registrationQuery = useQuery({
-    queryKey: ["auth-registration-status"],
+    queryKey: queryKeys.authRegistrationStatus,
     queryFn: getRegistrationStatus,
     retry: false,
   });
   const providersQuery = useQuery({
-    queryKey: ["auth-providers"],
+    queryKey: queryKeys.authProviders,
     queryFn: getAuthProviders,
     staleTime: 60_000,
   });

@@ -49,7 +49,7 @@ export function TaskFormDialog({
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: queryKeys.projects.all,
     queryFn: () => listProjects(),
   });
   const [projectId, setProjectId] = useState<string>(

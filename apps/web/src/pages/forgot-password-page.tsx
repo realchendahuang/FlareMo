@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { queryKeys } from "@/lib/query-keys";
 
 export function ForgotPasswordPage() {
   const { t } = useI18n();
@@ -20,7 +21,7 @@ export function ForgotPasswordPage() {
   // "transactional email configured" signal: without an email provider the
   // only reset path is the self-hosted recovery-key flow.
   const statusQuery = useQuery({
-    queryKey: ["auth-registration-status"],
+    queryKey: queryKeys.authRegistrationStatus,
     queryFn: getRegistrationStatus,
     retry: false,
   });

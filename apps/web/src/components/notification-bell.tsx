@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { formatMemoRelativeTime } from "@/lib/memo";
+import { queryKeys } from "@/lib/query-keys";
 import { cn, stripResourceName } from "@/lib/utils";
 
 const TYPE_ICONS = {
@@ -42,7 +43,7 @@ export function useNotifications() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notificationsQuery = useQuery({
-    queryKey: ["notifications"],
+    queryKey: queryKeys.notifications,
     queryFn: listNotifications,
     retry: false,
     refetchInterval: 60_000,
@@ -50,7 +51,7 @@ export function useNotifications() {
   const archiveMutation = useMutation({
     mutationFn: archiveNotification,
     onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
     onError: (error) =>
       toast.error(errorMessage(error, t("notifications.archiveFailed"))),
   });

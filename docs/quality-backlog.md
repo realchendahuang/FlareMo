@@ -129,8 +129,8 @@
 ### 待办（按优先级）
 
 - [ ] **PAT 权限面**：`memos_pat_` 无 scope、可永不过期，且可调用 admin 删除成员（`account-api.ts:35-37,73-81`、`admin/context.ts:32-38`、`admin/maintenance.ts:34-37`）。建议 api-key permissions（memos:read/write/admin）+ 默认 90 天 + 破坏性 admin 仅 session；先确认机器化运维是否依赖 PAT 删成员。
-- [ ] **query key 收口**：`lib/query-keys.ts` 声明所有 key 必须来自本模块，实际 86 处字面量（`["projects"]` 8 处）；失效链在 4 个组件各写一份。
-- [ ] **孤儿 i18n key**：约 82 个 key × 8 语言（`voiceSettings.title`、`pwa.install*` 等），`parity.test.ts` 只校验键集合不校验使用；建议加 usage 扫描测试（allowlist 只减不增）后分批删除。
+- [x] **query key 收口**：86 处行内字面量全部迁到 `lib/query-keys.ts`（新增 20+ 组 key 与 `invalidateTaskSurfaces` 共享失效助手）；新增 `lib/query-keys.test.ts` 禁止再写行内字面量。
+- [x] **孤儿 i18n key**：71 个无引用 key 已从 8 个语言文件删除（1027 → 956 键）；新增 `i18n/usage.test.ts`，白名单只保留 10 个待接线的 `pwa.install*`/离线提示 key。
 - [ ] **RTL 物理方向类**：ar 已启 dir=rtl，仍有 `text-left`/`ml-auto`/`right-0` 等；改 `text-start`/`ms-auto`/`end-0`。
 - [ ] **对比度**：muted 文字叠 /60–/70 透明度后 3.0–3.65:1，低于 4.5:1；统一不低于 /80 或调 token。
 - [ ] **超大页面拆分**：article-editor-page 691 行、integrations-card 669、daily-review 645、memo-list 665。

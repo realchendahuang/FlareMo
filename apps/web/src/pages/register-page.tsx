@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { queryKeys } from "@/lib/query-keys";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -24,12 +25,12 @@ export function RegisterPage() {
   const navigate = useNavigate({ from: "/register" });
   const session = authClient.useSession();
   const bootstrapQuery = useQuery({
-    queryKey: ["auth-bootstrap-status"],
+    queryKey: queryKeys.authBootstrapStatus,
     queryFn: getBootstrapStatus,
     retry: false,
   });
   const registrationQuery = useQuery({
-    queryKey: ["auth-registration-status"],
+    queryKey: queryKeys.authRegistrationStatus,
     queryFn: getRegistrationStatus,
     retry: false,
   });

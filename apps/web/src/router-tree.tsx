@@ -145,13 +145,13 @@ const memoRoute = createRoute({
   loader: ({ context, params }) => {
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["memo-context", params.memoId],
+        queryKey: queryKeys.memoContext.forMemo(params.memoId),
         queryFn: () => getMemoContext(params.memoId),
       }),
     );
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["memo-related", params.memoId],
+        queryKey: queryKeys.memoRelated.forMemo(params.memoId),
         queryFn: () => getRelatedMemos(params.memoId),
       }),
     );
@@ -374,7 +374,7 @@ const projectsRoute = createRoute({
   loader: ({ context }) => {
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["projects"],
+        queryKey: queryKeys.projects.all,
         queryFn: () => listProjects(),
       }),
     );
@@ -394,7 +394,7 @@ const articlesRoute = createRoute({
   loader: ({ context }) => {
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["articles"],
+        queryKey: queryKeys.articles.all,
         queryFn: () => listArticles({ include_deleted: true }),
       }),
     );

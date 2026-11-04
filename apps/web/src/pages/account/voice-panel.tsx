@@ -90,7 +90,7 @@ export function VoicePanel() {
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
 
   const settingsQuery = useQuery({
-    queryKey: ["voice-settings"],
+    queryKey: queryKeys.voiceSettings,
     queryFn: getVoiceSettings,
   });
 
@@ -136,7 +136,7 @@ export function VoicePanel() {
         baseUrl: "",
       });
       const value = await cache.fetchQuery({
-        queryKey: ["voice-settings"],
+        queryKey: queryKeys.voiceSettings,
         queryFn: getVoiceSettings,
         staleTime: 0,
       });

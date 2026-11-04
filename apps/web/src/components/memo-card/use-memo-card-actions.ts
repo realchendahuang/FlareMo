@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { getMemoResourceId } from "@/lib/memo";
 import { toggleMemoTaskLine } from "@/lib/memo-tasks";
+import { invalidateTaskSurfaces } from "@/lib/query-invalidation";
 import { queryKeys } from "@/lib/query-keys";
 
 /** Read-view task checkboxes: toggle one source line, or raise a task from it. */
@@ -58,11 +59,11 @@ export function useMemoCardActions({
   // queries so the route paints with data instead of a full-page skeleton.
   const prefetchDetail = () => {
     void queryClient.prefetchQuery({
-      queryKey: ["memo-context", memo.id],
+      queryKey: queryKeys.memoContext.forMemo(memo.id),
       queryFn: () => getMemoContext(memo.id),
     });
     void queryClient.prefetchQuery({
-      queryKey: ["memo-related", memo.id],
+      queryKey: queryKeys.memoRelated.forMemo(memo.id),
       queryFn: () => getRelatedMemos(memo.id),
     });
   };
@@ -75,7 +76,7 @@ export function useMemoCardActions({
       createTask({ title, source_memo_id: memo.name }),
     onSuccess: () => {
       toast.success(t("toast.taskCreated"));
-      void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+      invalidateTaskSurfaces(queryClient, { memoId: memo.name });
     },
     onError: (error) =>
       toast.error(errorMessage(error, t("toast.taskCreateFailed"))),

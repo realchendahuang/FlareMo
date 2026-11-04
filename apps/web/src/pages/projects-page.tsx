@@ -137,7 +137,7 @@ export function ProjectsPage() {
   } | null>(null);
 
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: queryKeys.projects.all,
     queryFn: () => listProjects(),
   });
   const allTasksQuery = useAllTasks();
@@ -200,7 +200,7 @@ export function ProjectsPage() {
   const activeQuery = boardInProject ? projectTasksQuery : allTasksQuery;
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["projects"] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
     void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
   };
 

@@ -27,6 +27,7 @@ import type {
 import type { Memo, MemoState, UpdateMemoRequest } from "@/api";
 import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
 import type { MemoCaptureInput } from "@/lib/local-memo-capture";
+import { queryKeys } from "@/lib/query-keys";
 
 export type MemoSnapshot = Array<
   [QueryKey, InfiniteData<ListMemosResponse> | undefined]
@@ -82,7 +83,7 @@ export function prependOptimisticMemo(
 
   for (const [queryKey, data] of queryClient.getQueriesData<
     InfiniteData<ListMemosResponse>
-  >({ queryKey: ["memos"] })) {
+  >({ queryKey: queryKeys.memos.all })) {
     // Only plain timelines (view "all", no query/tag filter, and not the
     // "untagged" toggle) can safely show a brand-new memo, and only when the
     // key's space partition is one the server will file it into.
@@ -111,7 +112,7 @@ export function prependOptimisticMemo(
 export function removeOptimisticMemo(queryClient: QueryClient, id: string) {
   for (const [queryKey, data] of queryClient.getQueriesData<
     InfiniteData<ListMemosResponse>
-  >({ queryKey: ["memos"] })) {
+  >({ queryKey: queryKeys.memos.all })) {
     if (!data) continue;
     queryClient.setQueryData<InfiniteData<ListMemosResponse>>(queryKey, {
       ...data,
@@ -128,10 +129,10 @@ export async function optimisticallyPatchMemo(
   id: string,
   patch: Partial<Memo> | null,
 ): Promise<MemoSnapshot> {
-  await queryClient.cancelQueries({ queryKey: ["memos"] });
+  await queryClient.cancelQueries({ queryKey: queryKeys.memos.all });
   const snapshots = queryClient.getQueriesData<InfiniteData<ListMemosResponse>>(
     {
-      queryKey: ["memos"],
+      queryKey: queryKeys.memos.all,
     },
   );
 

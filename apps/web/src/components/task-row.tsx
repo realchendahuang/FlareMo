@@ -8,6 +8,7 @@ import { formatScheduleDay } from "@/components/composer/composer-schedule-menu"
 import { useI18n } from "@/i18n";
 import { todayKey } from "@/lib/calendar-date";
 import { errorMessage } from "@/lib/error";
+import { invalidateTaskSurfaces } from "@/lib/query-invalidation";
 import { queryKeys } from "@/lib/query-keys";
 import { cn, stripResourceName } from "@/lib/utils";
 import { patchTasksCache } from "@/pages/projects/task-cache";
@@ -61,11 +62,7 @@ export function TaskRow({
     },
     onSettled: () => {
       setPending(null);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
-      void queryClient.invalidateQueries({ queryKey: ["projects"] });
-      if (task.source_memo_id) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
-      }
+      invalidateTaskSurfaces(queryClient, { memoId: task.source_memo_id });
     },
   });
   const memoId = task.source_memo_id
