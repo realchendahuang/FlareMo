@@ -277,7 +277,7 @@ test("keeps the draft when moving between the timeline and archive", async ({
   await composer.fill("Draft that survives workspace navigation");
   await page.getByRole("link", { name: /^(archive|归档)$/i }).click();
   await expect(composer).toHaveCount(0);
-  await page.getByRole("link", { name: /^(memos|记录)$/i }).click();
+  await page.getByRole("link", { name: /^(notes|记录)$/i }).click();
   await expect(composer).toHaveText("Draft that survives workspace navigation");
 });
 

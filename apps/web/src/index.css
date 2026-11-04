@@ -746,6 +746,22 @@ svg.lucide[stroke-width="2"] {
     @apply rounded-none border-0 bg-transparent p-0 text-[13px] leading-6;
   }
 
+  /* Code is always LTR. Arabic RTL otherwise leaks into <pre>/<code> and
+     mirrors brackets, operators and line punctuation (screenshot check
+     2026-11-04: a TS snippet rendered its closing brace on the left). */
+  .memo-markdown pre,
+  .memo-markdown pre code,
+  .memo-markdown :not(pre) > code,
+  .article-editor-content pre,
+  .article-editor-content pre code,
+  .article-editor-content :not(pre) > code,
+  .article-paper .memo-markdown pre,
+  .article-paper .memo-markdown pre code,
+  .article-paper .memo-markdown :not(pre) > code {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
   .memo-markdown table {
     @apply w-full border-collapse text-sm;
   }

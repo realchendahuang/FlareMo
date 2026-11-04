@@ -154,8 +154,8 @@ article a:hover { color: var(--seal); }
 article img { display: block; max-width: 100%; height: auto; margin: 1.6em auto; border-radius: 2px; box-shadow: 0 1px 2px rgba(60, 40, 10, .12), 0 10px 24px -14px rgba(60, 40, 10, .35); }
 article blockquote { margin: 1.5em 0; padding-block: .1em; padding-inline: 1.2em 0; border-inline-start: 2px solid var(--seal); color: var(--ink-soft); font-style: italic; }
 :is(:lang(zh), :lang(ja), :lang(ko)) article blockquote { font-style: normal; }
-article pre { margin: 1.4em 0; padding: 1em 1.15em; background: rgba(120, 95, 55, .07); border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto; font-size: .82rem; line-height: 1.65; }
-article code { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, var(--sans-cjk), monospace; font-size: .84em; background: rgba(120, 95, 55, .09); padding: .12em .36em; border-radius: 3px; }
+article pre { margin: 1.4em 0; padding: 1em 1.15em; background: rgba(120, 95, 55, .07); border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto; font-size: .82rem; line-height: 1.65; direction: ltr; unicode-bidi: isolate; }
+article code { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, var(--sans-cjk), monospace; font-size: .84em; background: rgba(120, 95, 55, .09); padding: .12em .36em; border-radius: 3px; direction: ltr; unicode-bidi: isolate; }
 article pre code { background: transparent; padding: 0; font-size: inherit; }
 article table { border-collapse: collapse; width: 100%; margin: 1.4em 0; font-size: .9rem; }
 article th, article td { border-bottom: 1px solid var(--rule); padding: .5em .6em; text-align: start; }

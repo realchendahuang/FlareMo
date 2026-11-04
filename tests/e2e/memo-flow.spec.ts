@@ -437,7 +437,7 @@ test("archives and restores a memo", async ({ page }) => {
 
   const archivedCard = page.locator("article").filter({ hasText: content });
   await clickCardMenuItem(page, archivedCard, /timeline|时间线/i);
-  await page.getByRole("link", { name: /^(memos|记录)$/i }).click();
+  await page.getByRole("link", { name: /^(notes|记录)$/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 });
 
@@ -461,7 +461,7 @@ test("trashes, restores, and hard-deletes a memo", async ({ page }) => {
 
   const trashedCard = page.locator("article").filter({ hasText: content });
   await clickCardMenuItem(page, trashedCard, /restore|恢复/i);
-  await page.getByRole("link", { name: /^(memos|记录)$/i }).click();
+  await page.getByRole("link", { name: /^(notes|记录)$/i }).click();
   await expect(page.getByText(content)).toBeVisible();
 
   const finalCard = page.locator("article").filter({ hasText: content });
