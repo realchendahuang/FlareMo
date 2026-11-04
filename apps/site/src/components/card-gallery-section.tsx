@@ -46,11 +46,11 @@ export function CardGallerySection({ locale }: { locale: SupportedLocale }) {
                 alt={card.name}
                 className="aspect-[17/21] w-full object-cover"
                 decoding="async"
-                fetchPriority={index === 0 ? "high" : "auto"}
                 height={420}
-                // The strip sits below the fold; still load the first two eagerly
-                // so the frames never render blank while scrolling fast.
-                loading={index < 2 ? "eager" : "lazy"}
+                // Keep this lazy: React 19 hoists a preload for imgs that carry
+                // fetchPriority, which made below-the-fold card PNGs compete
+                // with the hero for bandwidth (LCP regression).
+                loading="lazy"
                 src={CARD_IMAGES[index] ?? CARD_IMAGES[0]}
                 width={340}
               />
