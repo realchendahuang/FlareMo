@@ -17,7 +17,10 @@ import {
 import { getFlaremoUserCached } from "../../identity-cache";
 import { currentJsonError } from "../../memos-compat/current-errors";
 import { registerCompatMember } from "../../memos-compat/member-service";
-import { personalAccessTokenToDto } from "../../memos-compat/pat";
+import {
+  createMemosPersonalAccessToken,
+  personalAccessTokenToDto,
+} from "../../memos-compat/pat";
 import { memosCompatUserDto } from "../../memos-compat/user-dto";
 import {
   assertCurrentUserPath,
@@ -109,16 +112,12 @@ export function registerUserRoutes(app: Hono<HonoBindings>) {
       const body = currentPatBodySchema.parse(await readCurrentJsonObject(c));
       const { createFlareMoAuth } = await loadAuthFactory();
       const auth = createFlareMoAuth(c.env, context.db);
-      const created = await auth.api.createApiKey({
-        body: {
-          configId: "memos",
-          userId: context.authUserId,
-          name: body.description ?? "Memos API token",
-          expiresIn:
-            body.expiresInDays === 0 || body.expiresInDays === undefined
-              ? null
-              : body.expiresInDays * 24 * 60 * 60,
-        },
+      const created = await createMemosPersonalAccessToken(auth, {
+        userId: context.authUserId,
+        name: body.description,
+        // Compatibility clients used 0 for "no explicit lifetime". The helper
+        // maps that legacy value to the same 90-day default as the account UI.
+        expiresInDays: body.expiresInDays,
       });
       return noStoreResponse(
         c.json({

@@ -3,15 +3,15 @@ import { createDb, memosNotifications, tasks } from "@flaremo/db";
 import {
   beginFlaremoMemberRemoval,
   claimMemberRemovalJob,
+  classifyPushFailure,
   createDailyReviewNotifications,
   createDueTodayTaskNotifications,
   createOverdueTaskNotifications,
+  createPushDeliveryStats,
   deleteExpiredDataTasks,
   dispatchEmbeddingOutbox,
   dispatchMemosWebhookOutbox,
   expireStaleDataTasks,
-  failDataTask,
-  failMemberRemovalJob,
   finalizeAttachmentCleanupForIds,
   finalizeFlaremoMemberRemoval,
   getFlaremoUsersByIds,
@@ -25,9 +25,11 @@ import {
   listQueuedMemberRemovalJobs,
   MEMOS_SSE_RETENTION_MS,
   markArticleAttachmentsDeleting,
+  mergePushDeliveryStats,
   nextDayKey,
   type PlanLimits,
   type PushKeys,
+  type PushPayload,
   parseUserPlanLimits,
   pruneEmptyHourlyCountRows,
   pruneMemosSseEvents,
@@ -35,6 +37,8 @@ import {
   pushNotificationToUser,
   recalibrateAllHourlyCounts,
   requeueStaleMemberRemovalJobs,
+  retryOrFailDataTask,
+  retryOrFailMemberRemovalJob,
   SELF_HOST_UNLIMITED,
   type UserPlanLimits,
   updateMemberRemovalJob,
@@ -96,9 +100,6 @@ async function runMemberRemovalJobs(
   for (const job of jobs) {
     try {
       if (!(await claimMemberRemovalJob(db, job.id))) continue;
-      await updateMemberRemovalJob(db, job.id, {
-        attempts: (job.attempts ?? 0) + 1,
-      });
       const artifacts = await beginFlaremoMemberRemoval(db, job.memberId);
       await updateMemberRemovalJob(db, job.id, { phase: "cleaning_artifacts" });
       await cleanupFlaremoArtifacts(env, artifacts);
@@ -109,13 +110,16 @@ async function runMemberRemovalJobs(
         completedAt: new Date().toISOString(),
       });
     } catch (error) {
-      await failMemberRemovalJob(
+      const outcome = await retryOrFailMemberRemovalJob(
         db,
         job.id,
         "scheduled_member_removal_failed",
         error instanceof Error ? error.message : "Member removal failed",
-      ).catch(() => undefined);
-      if (propagateFailures) throw error;
+      ).catch(() => null);
+      // Requeue transient failures so the Queue platform redelivers. A terminal
+      // dead letter is acknowledged; an unrecorded failure is retried because
+      // the job may still need recovery.
+      if (propagateFailures && outcome !== "dead") throw error;
     }
   }
 }
@@ -131,13 +135,16 @@ async function runExportTasks(
     try {
       await runDataExportTask(env, db, taskId);
     } catch (error) {
-      await failDataTask(
+      // A transient Queue/cron attempt returns the row to `queued` until
+      // DATA_TASK_MAX_ATTEMPTS; only the final failure becomes terminal. Throw
+      // for redelivery only while the helper says the task is retryable.
+      const outcome = await retryOrFailDataTask(
         db,
         taskId,
         "export_task_failed",
         error instanceof Error ? error.message : "Export failed",
-      ).catch(() => undefined);
-      if (propagateFailures) throw error;
+      ).catch(() => null);
+      if (propagateFailures && outcome !== "failed") throw error;
     }
   }
 }
@@ -228,7 +235,7 @@ export async function runScheduledMaintenance(
     reviewNotifications: 0,
     overdueNotifications: 0,
     dueTodayNotifications: 0,
-    pushTargets: 0,
+    push: createPushDeliveryStats(),
   };
   let expiredDataTaskIds: string[] = [];
 
@@ -501,6 +508,26 @@ export async function runScheduledMaintenance(
   await runMaintenanceStep("web-push", steps, async () => {
     const pushKeys = pushKeysFromEnv(env);
     if (!pushKeys) return;
+    const sendPush = async (userId: string, payload: PushPayload) => {
+      const stats = await pushNotificationToUser(
+        db,
+        pushKeys,
+        userId,
+        payload,
+      ).catch((error) => {
+        // Pre-delivery failures (DB read, key parsing) never block the
+        // notification rows, but must still be visible and categorized.
+        console.error(
+          JSON.stringify({
+            message: "web push dispatch failed",
+            userId,
+            failureCategory: classifyPushFailure(error),
+          }),
+        );
+        return null;
+      });
+      if (stats) mergePushDeliveryStats(counts.push, stats);
+    };
     const reviewReceivers = await db
       .select({ receiverId: memosNotifications.receiverId })
       .from(memosNotifications)
@@ -511,12 +538,11 @@ export async function runScheduledMaintenance(
         ),
       );
     for (const { receiverId } of reviewReceivers) {
-      await pushNotificationToUser(db, pushKeys, receiverId, {
+      await sendPush(receiverId, {
         title: "FlareMo 每日回顾",
         body: "今天有「那年今天」的记录值得回看。",
         url: "/review/daily",
-      }).catch(() => undefined);
-      counts.pushTargets += 1;
+      });
     }
     // One aggregate push per user with overdue tasks, instead of a push per
     // task row.
@@ -535,12 +561,11 @@ export async function runScheduledMaintenance(
       )
       .groupBy(tasks.userId);
     for (const row of overdueByUser) {
-      await pushNotificationToUser(db, pushKeys, row.userId, {
+      await sendPush(row.userId, {
         title: "FlareMo 任务提醒",
         body: `有 ${row.count} 个任务已经逾期。`,
         url: "/projects",
-      }).catch(() => undefined);
-      counts.pushTargets += 1;
+      });
     }
     // The day a dated to-do falls due, one aggregate push per user.
     const dueTodayByUser = await db
@@ -559,12 +584,22 @@ export async function runScheduledMaintenance(
       )
       .groupBy(tasks.userId);
     for (const row of dueTodayByUser) {
-      await pushNotificationToUser(db, pushKeys, row.userId, {
+      await sendPush(row.userId, {
         title: "FlareMo 今日待办",
         body: `今天有 ${row.count} 项待办到期。`,
         url: "/projects",
-      }).catch(() => undefined);
-      counts.pushTargets += 1;
+      });
+    }
+    if (counts.push.failed > 0) {
+      console.warn(
+        JSON.stringify({
+          message: "scheduled web push completed with failures",
+          attempted: counts.push.attempted,
+          delivered: counts.push.delivered,
+          failed: counts.push.failed,
+          failureCategories: counts.push.failureCategories,
+        }),
+      );
     }
   });
 

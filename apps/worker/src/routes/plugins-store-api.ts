@@ -1,8 +1,11 @@
 import {
   getPluginSettings,
   type InstalledPluginRecord,
+  OutboundFetchError,
   type PluginSettings,
   pluginAssetPrefix,
+  type SafeOutboundResponse,
+  safeOutboundFetch,
   setPluginSettings,
   ValidationError,
 } from "@flaremo/domain";
@@ -38,6 +41,10 @@ export const DEFAULT_PLUGIN_SOURCE = {
   name: "FlareMo 官方目录",
   url: "https://flaremo.app/plugins/registry.json",
 } as const;
+
+const PLUGIN_DIRECTORY_MAX_BYTES = 512 * 1024;
+const PLUGIN_DIRECTORY_TIMEOUT_MS = 5_000;
+const PLUGIN_ARTIFACT_TIMEOUT_MS = 15_000;
 
 const registryEntrySchema = z.object({
   id: z
@@ -114,8 +121,11 @@ async function fetchDirectory(source: {
   url: string;
 }): Promise<DirectoryResult> {
   try {
-    const response = await fetch(source.url, {
+    const response = await safeOutboundFetch(source.url, {
       headers: { accept: "application/json" },
+      maxResponseBytes: PLUGIN_DIRECTORY_MAX_BYTES,
+      requireHttps: true,
+      timeoutMs: PLUGIN_DIRECTORY_TIMEOUT_MS,
     });
     if (!response.ok) {
       return {
@@ -125,7 +135,13 @@ async function fetchDirectory(source: {
         error: `directory responded ${response.status}`,
       };
     }
-    const parsed = registrySchema.safeParse(await response.json());
+    let json: unknown;
+    try {
+      json = JSON.parse(new TextDecoder().decode(response.body));
+    } catch {
+      return { source, entries: [], previews: {}, error: "invalid registry" };
+    }
+    const parsed = registrySchema.safeParse(json);
     if (!parsed.success) {
       return { source, entries: [], previews: {}, error: "invalid registry" };
     }
@@ -288,13 +304,30 @@ pluginsStoreApi.post(
         throw new ValidationError("Package exceeds the download size limit.");
       }
       const artifactUrl = resolveUrl(source.url, entry.artifact.url);
-      const response = await fetch(artifactUrl);
+      let response: SafeOutboundResponse;
+      try {
+        response = await safeOutboundFetch(artifactUrl, {
+          maxResponseBytes: PLUGIN_PACKAGE_LIMITS.maxZipBytes,
+          requireHttps: true,
+          timeoutMs: PLUGIN_ARTIFACT_TIMEOUT_MS,
+        });
+      } catch (error) {
+        if (error instanceof OutboundFetchError) {
+          if (error.code === "response_too_large") {
+            throw new ValidationError(
+              "Package exceeds the download size limit.",
+            );
+          }
+          throw new ValidationError("Package download failed.");
+        }
+        throw error;
+      }
       if (!response.ok) {
         throw new ValidationError(
           `Package download failed (${response.status}).`,
         );
       }
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      const bytes = response.body;
       if (bytes.byteLength > PLUGIN_PACKAGE_LIMITS.maxZipBytes) {
         throw new ValidationError("Package exceeds the download size limit.");
       }

@@ -1,7 +1,10 @@
 import { listMemosPersonalAccessTokens } from "@flaremo/domain";
-import { getFlareMoAuth, loadAuthFactory } from "../../../context";
+import { getFlareMoAuth } from "../../../context";
 import { CompatValidationError } from "../../../memos-compat/errors";
-import { personalAccessTokenToDto } from "../../../memos-compat/pat";
+import {
+  createMemosPersonalAccessToken,
+  personalAccessTokenToDto,
+} from "../../../memos-compat/pat";
 import { optionalString, requiredString } from "../shared";
 import { connectErrorForTransport, connectValue } from "../transport";
 import {
@@ -60,18 +63,15 @@ export async function connectUserAccountMethod(
           "expiresInDays must be an integer between 0 and 365",
         );
       }
-      const { createFlareMoAuth } = await loadAuthFactory();
-      const created = await createFlareMoAuth(
-        c.env,
-        context.db,
-      ).api.createApiKey({
-        body: {
-          configId: "memos",
+      const created = await createMemosPersonalAccessToken(
+        await getFlareMoAuth(c.env),
+        {
           userId: context.authUserId,
-          name: optionalString(body.description) ?? "Memos API token",
-          expiresIn: expiresInDays === 0 ? null : expiresInDays * 24 * 60 * 60,
+          name: optionalString(body.description),
+          // 0 is the compatibility spelling for "use the server default".
+          expiresInDays,
         },
-      });
+      );
       return connectValue(
         c,
         {

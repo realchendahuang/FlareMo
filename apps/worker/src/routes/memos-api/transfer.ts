@@ -7,6 +7,7 @@ import { attachments } from "@flaremo/db";
 import {
   assertAttachmentStorageQuota,
   assertMemoCountQuota,
+  chunkExportAttachmentIdsForR2Lookup,
   createDataTask,
   dataTaskToDto,
   exportData,
@@ -46,8 +47,24 @@ export function registerTransferRoutes(app: Hono<HonoBindings>) {
       // counts the complete serialized bundle (memos + relations + shares +
       // attachment metadata), not just attachment bytes.
       const bundle = await exportData(db, user);
-      const estimatedBytes = estimateBundleJsonBytes(bundle);
+      // Stop the estimator as soon as the metadata body crosses the inline
+      // budget instead of serializing the full bundle once just to discover it.
+      const estimatedBytes = estimateBundleJsonBytes(
+        bundle,
+        MAX_INLINE_EXPORT_BYTES,
+      );
       if (includeBinary) {
+        if (estimatedBytes > MAX_INLINE_EXPORT_BYTES) {
+          return c.json(
+            {
+              error: {
+                message:
+                  "Export exceeds 32 MiB. Create an export task instead: POST /api/v1/export/tasks",
+              },
+            },
+            413,
+          );
+        }
         const attachmentBytes = bundle.attachments.reduce(
           (total, attachment) =>
             attachment.state === "ready" ? total + attachment.size : total,
@@ -80,26 +97,29 @@ export function registerTransferRoutes(app: Hono<HonoBindings>) {
         );
       }
       // Bundle rows already carry every exported attachment field except the
-      // R2 object key, so one batched key lookup replaces the previous
-      // per-attachment getAttachmentById re-query (which additionally re-ran
-      // the memo access checks the export scope had already established).
-      const readyNames = bundle.attachments
-        .filter((attachment) => attachment.state === "ready")
-        .map((attachment) => attachment.name);
+      // R2 object key. The lookup is needed only when binaries are requested;
+      // a metadata-only export must not pay for it (or be capped by its id
+      // list). The query binds userId/state in addition to ids, hence the
+      // reserve=2 chunk helper.
       const r2Keys = new Map<string, string>();
-      if (readyNames.length > 0) {
-        const rows = await db
-          .select({ id: attachments.id, r2Key: attachments.r2Key })
-          .from(attachments)
-          .where(
-            and(
-              inArray(attachments.id, readyNames),
-              eq(attachments.userId, user.id),
-              isNull(attachments.deletedAt),
-              eq(attachments.state, "ready"),
-            ),
-          );
-        for (const row of rows) r2Keys.set(row.id, row.r2Key);
+      if (includeBinary) {
+        const readyNames = bundle.attachments
+          .filter((attachment) => attachment.state === "ready")
+          .map((attachment) => attachment.name);
+        for (const idChunk of chunkExportAttachmentIdsForR2Lookup(readyNames)) {
+          const rows = await db
+            .select({ id: attachments.id, r2Key: attachments.r2Key })
+            .from(attachments)
+            .where(
+              and(
+                inArray(attachments.id, idChunk),
+                eq(attachments.userId, user.id),
+                isNull(attachments.deletedAt),
+                eq(attachments.state, "ready"),
+              ),
+            );
+          for (const row of rows) r2Keys.set(row.id, row.r2Key);
+        }
       }
       const exportedAttachments = [];
       for (const attachment of bundle.attachments) {

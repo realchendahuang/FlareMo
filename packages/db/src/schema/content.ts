@@ -67,10 +67,11 @@ export const attachments = sqliteTable(
       table.createdAt,
     ),
     // `getAttachmentStorageBytes` runs on every upload to check the storage
-    // quota, and it only needs `size` for ready rows. Without `size` in the
-    // index every quota check table-looks-up the user's whole attachment set.
+    // quota. It sums both the original size and the derived thumbnail size for
+    // ready rows, so both columns must live in the partial index; otherwise
+    // every quota check table-looks-up the user's whole attachment set.
     index("attachments_user_state_size_idx")
-      .on(table.userId, table.size)
+      .on(table.userId, table.size, table.thumbnailSize)
       .where(sql`${table.state} = 'ready'`),
     // The cleanup cron scans globally on this predicate (deleting rows or
     // orphaned unbound attachments); keep the sweep off a full table scan.

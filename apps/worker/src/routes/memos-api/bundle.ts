@@ -92,11 +92,66 @@ export async function importBundleUpload(
   return { r2Keys, r2Etags };
 }
 
-export function estimateBundleJsonBytes(bundle: {
-  memos: unknown[];
-  attachments: unknown[];
-  relations: unknown[];
-  shares: unknown[];
-}) {
-  return new TextEncoder().encode(JSON.stringify(bundle)).byteLength;
+export type BundleJsonEstimateInput = {
+  version?: unknown;
+  exported_at?: unknown;
+  memos: readonly unknown[];
+  attachments: readonly unknown[];
+  relations: readonly unknown[];
+  shares: readonly unknown[];
+  projects?: readonly unknown[];
+  tasks?: readonly unknown[];
+  task_activity?: readonly unknown[];
+};
+
+const BUNDLE_ARRAY_KEYS = [
+  "memos",
+  "attachments",
+  "relations",
+  "shares",
+  "projects",
+  "tasks",
+  "task_activity",
+] as const;
+
+/**
+ * Measure the exact JSON byte length of an export bundle, stopping once
+ * `maxBytes` is exceeded. Serializing the whole bundle in one `JSON.stringify`
+ * creates a second 32+ MiB string (and the following TextEncoder allocates the
+ * UTF-8 view), which is avoidable near the inline-export boundary.
+ *
+ * The empty-array envelope keeps property order, scalar escaping, brackets and
+ * separators identical to `JSON.stringify(bundle)`. Each array record is then
+ * serialized independently, so the whole result is exact without materializing
+ * one giant string. Returning `maxBytes + 1` is a deliberate "over budget"
+ * sentinel; callers only compare it with the limit.
+ */
+export function estimateBundleJsonBytes(
+  bundle: BundleJsonEstimateInput,
+  maxBytes = Number.POSITIVE_INFINITY,
+) {
+  const encoder = new TextEncoder();
+  const envelope = {
+    ...bundle,
+    memos: [],
+    attachments: [],
+    relations: [],
+    shares: [],
+    projects: [],
+    tasks: [],
+    task_activity: [],
+  };
+  let total = encoder.encode(JSON.stringify(envelope)).byteLength;
+  if (total > maxBytes) return maxBytes + 1;
+
+  for (const key of BUNDLE_ARRAY_KEYS) {
+    const values = bundle[key] ?? [];
+    for (let index = 0; index < values.length; index += 1) {
+      if (index > 0) total += 1; // array comma
+      const record = JSON.stringify(values[index]) ?? "null";
+      total += encoder.encode(record).byteLength;
+      if (total > maxBytes) return maxBytes + 1;
+    }
+  }
+  return total;
 }

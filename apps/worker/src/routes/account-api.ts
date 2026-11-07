@@ -1,10 +1,7 @@
 import {
-  DEFAULT_MEMOS_PAT_EXPIRES_IN_DAYS,
-  DEFAULT_MEMOS_PAT_SCOPE,
   MAX_MEMOS_PAT_EXPIRES_IN_DAYS,
   MEMOS_PAT_SCOPES,
   type MemosPatScope,
-  memosPatPermissionsFor,
   memosPatScopesFromPermissions,
 } from "@flaremo/contracts";
 import {
@@ -37,6 +34,7 @@ import {
   sendEmailChangeVerificationEmail,
 } from "../email";
 import { jsonError } from "../http";
+import { createMemosPersonalAccessToken } from "../memos-compat/pat";
 import { zValidator } from "../validated";
 
 export const accountApi = new Hono<HonoBindings>();
@@ -88,17 +86,11 @@ accountApi.post(
       const input = c.req.valid("json");
       const { createFlareMoAuth } = await loadAuthFactory();
       const auth = createFlareMoAuth(c.env, context.db);
-      const scopes = input.scopes ?? [DEFAULT_MEMOS_PAT_SCOPE];
-      const expiresInDays =
-        input.expires_in_days ?? DEFAULT_MEMOS_PAT_EXPIRES_IN_DAYS;
-      const created = await auth.api.createApiKey({
-        body: {
-          configId: MEMOS_PAT_CONFIG_ID,
-          userId: context.authUserId,
-          name: input.name,
-          expiresIn: expiresInDays * 24 * 60 * 60,
-          permissions: memosPatPermissionsFor(scopes),
-        },
+      const created = await createMemosPersonalAccessToken(auth, {
+        userId: context.authUserId,
+        name: input.name,
+        expiresInDays: input.expires_in_days,
+        scopes: input.scopes,
       });
       const response = c.json(
         {

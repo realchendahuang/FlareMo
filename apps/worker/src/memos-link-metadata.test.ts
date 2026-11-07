@@ -50,6 +50,32 @@ describe("Memos link metadata", () => {
     expect(called).toBe(false);
   });
 
+  it("rejects redirects that leave the public internet", async () => {
+    const requests: string[] = [];
+    await expect(
+      fetchLinkMetadata("https://example.com/redirect", async (input) => {
+        requests.push(String(input));
+        return new Response(null, {
+          status: 302,
+          headers: { location: "http://169.254.169.254/latest/meta-data" },
+        });
+      }),
+    ).rejects.toThrow("internal IP addresses are not allowed");
+    expect(requests).toEqual(["https://example.com/redirect"]);
+  });
+
+  it("caps the response body before parsing metadata", async () => {
+    await expect(
+      fetchLinkMetadata(
+        "https://example.com/huge",
+        async () =>
+          new Response("x".repeat(513 * 1024), {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    ).rejects.toThrow("HTML response is too large");
+  });
+
   it("rejects non-HTML responses and malformed protocols", async () => {
     await expect(
       fetchLinkMetadata(

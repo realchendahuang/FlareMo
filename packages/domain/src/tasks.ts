@@ -545,18 +545,24 @@ export async function reorderTasks(
   await requireProject(db, user, normalizedProjectId);
 
   if (taskIds.length > 0) {
-    const owned = await db
-      .select({ id: tasks.id })
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.userId, user.id),
-          eq(tasks.projectId, normalizedProjectId),
-          isNull(tasks.deletedAt),
-          inArray(tasks.id, taskIds),
-        ),
-      );
-    const ownedIds = new Set(owned.map((row) => row.id));
+    // The ownership probe carries `userId` and `projectId` on top of the id
+    // list, so it must be chunked as N + 2 bound parameters. The contract allows
+    // 200 ids; one unbounded `inArray` would fail at 99.
+    const ownedIds = new Set<string>();
+    for (const idChunk of chunkForD1(taskIds, d1IdsPerStatement(2))) {
+      const owned = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.userId, user.id),
+            eq(tasks.projectId, normalizedProjectId),
+            isNull(tasks.deletedAt),
+            inArray(tasks.id, idChunk),
+          ),
+        );
+      for (const row of owned) ownedIds.add(row.id);
+    }
     const stray = taskIds.filter((id) => !ownedIds.has(id));
     if (stray.length > 0) {
       throw new ValidationError(

@@ -316,6 +316,13 @@
       "when": 1793599295078,
       "tag": "0044_drop_agent_memory",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1794041254004,
+      "tag": "0045_attachment_quota_cover_index",
+      "breakpoints": true
     }
   ]
 }

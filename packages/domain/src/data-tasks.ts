@@ -31,6 +31,10 @@ export type DataTaskStatus =
 
 export const DATA_TASK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const DATA_TASK_LEASE_MS = 60 * 60 * 1000; // 1 hour stale threshold
+// Export attempts are counted on failed executions by retryOrFailDataTask;
+// claiming a queued row does not increment this counter. Three total attempts
+// means failures #1 and #2 requeue, and failure #3 becomes terminal.
+export const DATA_TASK_MAX_ATTEMPTS = 3;
 
 export type CreateDataTaskInput = {
   kind: DataTaskKind;
@@ -179,28 +183,82 @@ export async function updateDataTask(
 }
 
 /**
- * Mark a task as failed with a stable error code and a short message.
+ * Mark a task as failed with a stable error code and a short message. The
+ * optional attempt count is persisted in the same UPDATE so retry accounting
+ * can never lag behind the terminal state.
  */
 export async function failDataTask(
   db: FlareMoDb,
   id: string,
   code: string,
   message: string,
+  attempts?: number,
 ) {
   return updateDataTask(db, id, {
     status: "failed",
     errorCode: code,
     errorMessage: message.slice(0, 500),
     completedAt: new Date().toISOString(),
+    ...(attempts === undefined ? {} : { attempts }),
   });
 }
 
 /**
- * Cron reconciler: claim stale `queued`/`running` tasks whose lease has
- * expired. In-request execution should normally complete the task before the
- * lease elapses; a stale task means the request was interrupted, so it is
- * marked failed rather than retried blindly (imports are not idempotent for
- * the duplicate conflict strategy).
+ * Record one failed data-task execution. Exports get at most
+ * DATA_TASK_MAX_ATTEMPTS total attempts; imports never auto-requeue because
+ * their conflict strategy is not safe to replay blind. Terminal/already-queued
+ * rows are left untouched so duplicate failure notifications or queue
+ * redeliveries cannot keep advancing a state machine.
+ *
+ * Contract for the scheduled/queue callers:
+ * - `"queued"`: the row is safe to claim again on the next delivery/sweep.
+ * - `"failed"`: no more automatic retry; the error and attempt count are
+ *   persisted on the row.
+ *
+ * `claimQueuedDataTask` intentionally does not increment attempts: this helper
+ * increments on failure, so the first, second, and third failed executions
+ * persist attempts=1, 2, and 3 respectively.
+ */
+export async function retryOrFailDataTask(
+  db: FlareMoDb,
+  id: string,
+  code: string,
+  message: string,
+): Promise<"queued" | "failed"> {
+  const task = await getDataTaskById(db, id);
+  if (!task) throw new NotFoundError(`Task not found: ${id}`);
+
+  // Make repeated calls idempotent rather than consuming another attempt.
+  if (task.status === "queued") return "queued";
+  if (task.status !== "running") return "failed";
+
+  const attempts = task.attempts + 1;
+  if (task.kind === "export" && attempts < DATA_TASK_MAX_ATTEMPTS) {
+    await updateDataTask(db, id, {
+      status: "queued",
+      phase: "retrying",
+      attempts,
+      errorCode: code,
+      errorMessage: message.slice(0, 500),
+      completedAt: null,
+      leaseUntil: null,
+    });
+    return "queued";
+  }
+
+  await failDataTask(db, id, code, message, attempts);
+  return "failed";
+}
+
+/**
+ * Reconcile stale `queued`/`running` tasks whose lease expired.
+ *
+ * - stale running export: count one failed attempt and requeue until
+ *   DATA_TASK_MAX_ATTEMPTS, then fail;
+ * - stale queued export: a backlog item that never got claimed — keep it
+ *   queued and only release the stale lease;
+ * - import: always roll back the checkpoint ledger and fail (the duplicate
+ *   conflict strategy is not safe to replay blind).
  */
 export async function expireStaleDataTasks(
   db: FlareMoDb,
@@ -208,22 +266,28 @@ export async function expireStaleDataTasks(
   taskId: string | undefined = undefined,
   onImportRollback?: (taskId: string, r2Keys: string[]) => Promise<void>,
 ) {
+  const nowIso = now.toISOString();
   const stale = await db
-    .select({ id: dataTasks.id, kind: dataTasks.kind })
+    .select({
+      id: dataTasks.id,
+      kind: dataTasks.kind,
+      status: dataTasks.status,
+    })
     .from(dataTasks)
     .where(
       and(
         inArray(dataTasks.status, ["queued", "running"]),
-        lt(dataTasks.leaseUntil, now.toISOString()),
+        lt(dataTasks.leaseUntil, nowIso),
         taskId ? eq(dataTasks.id, taskId) : undefined,
       ),
     )
     .all();
   if (stale.length === 0) return 0;
+
+  const importRows = stale.filter((row) => row.kind === "import");
   // An interrupted import leaves a partial ledger. Roll it back before the
   // task is marked failed so its rows never become visible as a half-restore.
-  for (const row of stale) {
-    if (row.kind !== "import") continue;
+  for (const row of importRows) {
     try {
       const rolledBack = await rollbackImportTask(db, row.id);
       if (rolledBack.r2Keys.length > 0) {
@@ -241,9 +305,9 @@ export async function expireStaleDataTasks(
       );
     }
   }
-  const staleIds = stale.map((row) => row.id);
+  const importIds = importRows.map((row) => row.id);
   // One bound parameter per id; chunk so a long-stalled queue still drains.
-  for (const idChunk of chunkForD1(staleIds, d1IdsPerStatement())) {
+  for (const idChunk of chunkForD1(importIds, d1IdsPerStatement())) {
     await db
       .update(dataTasks)
       .set({
@@ -251,31 +315,62 @@ export async function expireStaleDataTasks(
         errorCode: "task_expired",
         errorMessage:
           "Task lease expired before completion; the request was interrupted.",
-        completedAt: now.toISOString(),
-        updatedAt: now.toISOString(),
+        completedAt: nowIso,
+        leaseUntil: null,
+        updatedAt: nowIso,
       })
       .where(inArray(dataTasks.id, idChunk));
   }
+
+  // A running export is a real interrupted attempt. Reuse the same state
+  // machine as queue/request failures so the attempt cap cannot drift.
+  for (const row of stale) {
+    if (row.kind !== "export" || row.status !== "running") continue;
+    await retryOrFailDataTask(
+      db,
+      row.id,
+      "task_expired",
+      "Task lease expired before completion; the request was interrupted.",
+    );
+  }
+
+  // A queued export may simply have waited behind a long backlog. It never
+  // consumed an attempt; release the expired scheduling lease so the next cron
+  // sweep can claim it without changing its attempt count.
+  const queuedExportIds = stale
+    .filter((row) => row.kind === "export" && row.status === "queued")
+    .map((row) => row.id);
+  for (const idChunk of chunkForD1(queuedExportIds, d1IdsPerStatement())) {
+    await db
+      .update(dataTasks)
+      .set({ leaseUntil: null, updatedAt: nowIso })
+      .where(
+        and(inArray(dataTasks.id, idChunk), eq(dataTasks.status, "queued")),
+      );
+  }
+
   return stale.length;
 }
 
 /**
- * Delete expired task rows and their cleanup hook: rows older than the TTL
- * are removed. R2 artifacts are cleaned by the caller (the worker has the
- * bucket handle). Returns the number of removed rows.
+ * Delete expired task rows and their cleanup hook. `expires_at` is the
+ * durable TTL boundary and already has `data_tasks_expires_idx`; deriving a
+ * cutoff from `created_at` forced the daily sweep into a full table scan even
+ * though createDataTask writes the equivalent createdAt + TTL value.
+ * R2 artifacts are cleaned by the caller (the worker has the bucket handle).
+ * Returns the ids of removed rows.
  */
 export async function deleteExpiredDataTasks(
   db: FlareMoDb,
   now = new Date(),
   taskId: string | undefined = undefined,
 ) {
-  const cutoff = new Date(now.getTime() - DATA_TASK_TTL_MS).toISOString();
   const expired = await db
     .select({ id: dataTasks.id })
     .from(dataTasks)
     .where(
       and(
-        lt(dataTasks.createdAt, cutoff),
+        lt(dataTasks.expiresAt, now.toISOString()),
         taskId ? eq(dataTasks.id, taskId) : undefined,
       ),
     )

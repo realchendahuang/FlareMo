@@ -212,6 +212,48 @@ describe("articles domain services", () => {
     expect(bound[0]?.articleId).toBe(created.id);
   });
 
+  it("claims the contract maximum of 100 attachments across D1 chunks", async () => {
+    // 100 ids + userId/state predicates exceeds D1's 100 bound parameters in
+    // one statement. The preflight and claim UPDATE must chunk independently.
+    const now = new Date().toISOString();
+    const attachmentIds = Array.from(
+      { length: 100 },
+      (_, index) => `attachments/max-claim-${index}`,
+    );
+    const raw = await mf.getD1Database("DB");
+    await raw.batch(
+      attachmentIds.map((id, index) =>
+        raw
+          .prepare(
+            `INSERT INTO attachments
+              (id, user_id, r2_key, filename, content_type, size, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            id,
+            user.id,
+            `max-claim-${index}`,
+            `draft-${index}.png`,
+            "image/png",
+            10,
+            now,
+            now,
+          ),
+      ),
+    );
+
+    const created = await createArticle(db, user, {
+      title: "Max attachments",
+      attachment_names: attachmentIds,
+    });
+    const bound = await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.articleId, created.id));
+    expect(bound).toHaveLength(100);
+    expect(new Set(bound.map((row) => row.id))).toEqual(new Set(attachmentIds));
+  });
+
   it("rejects a foreign or missing attachment claim without creating a row", async () => {
     const now = new Date().toISOString();
     await db.insert(attachments).values({

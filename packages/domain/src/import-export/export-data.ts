@@ -13,6 +13,17 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { chunkForD1, d1IdsPerStatement } from "../d1-limits";
 
 /**
+ * Chunk ready-attachment resource names for the inline export R2-key lookup.
+ * That statement binds userId and state in addition to the id list, so the
+ * generic 90-id reserve is too large; 98 ids + 2 predicates is the safe cap.
+ */
+export function chunkExportAttachmentIdsForR2Lookup(
+  ids: readonly string[],
+): string[][] {
+  return chunkForD1(ids, d1IdsPerStatement(2));
+}
+
+/**
  * The export half of import-export.ts, moved verbatim: dumps every
  * user-owned table (including recycle-bin rows) into a versioned
  * ImportBundle.

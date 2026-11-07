@@ -612,6 +612,71 @@ describe("FlareMo tasks API", () => {
     );
     expect(empty.tasks).toEqual([]);
   });
+  it("reorders the contract maximum of 200 tasks across D1 chunks", async () => {
+    const project = await json<{ project: { id: string } }>(
+      await fetchApp("http://flaremo.test/api/app/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Reorder max" }),
+      }),
+    );
+    const db = await mf.getD1Database("DB");
+    const now = new Date().toISOString();
+    const taskIds = Array.from(
+      { length: 200 },
+      (_, index) => `tasks/reorder-${index}`,
+    );
+    const inserts = taskIds.map((id, index) =>
+      db
+        .prepare(
+          `INSERT INTO tasks
+            (id, user_id, project_id, title, status, priority, sort_order, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          id,
+          "users/owner",
+          project.project.id,
+          `Reorder ${index}`,
+          "todo",
+          "none",
+          index,
+          now,
+          now,
+        ),
+    );
+    for (let offset = 0; offset < inserts.length; offset += 50) {
+      await db.batch(inserts.slice(offset, offset + 50));
+    }
+
+    const reversed = [...taskIds].reverse();
+    const response = await fetchApp(
+      "http://flaremo.test/api/app/tasks/reorder",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          project_id: project.project.id,
+          task_ids: reversed,
+        }),
+      },
+    );
+    expect(response.status).toBe(200);
+
+    const stored = await db
+      .prepare(
+        "SELECT id, sort_order FROM tasks WHERE project_id = ? ORDER BY sort_order",
+      )
+      .bind(project.project.id)
+      .all<{ id: string; sort_order: number }>();
+    expect(stored.results).toHaveLength(200);
+    const expectedOrder = new Map(
+      reversed.map((id, index) => [id, index] as const),
+    );
+    for (const row of stored.results) {
+      expect(row.sort_order).toBe(expectedOrder.get(row.id));
+    }
+  });
 });
 
 async function createTask(

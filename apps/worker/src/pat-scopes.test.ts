@@ -18,6 +18,11 @@ describe("personal access token scopes", () => {
     runtime = undefined;
   });
 
+  function requireRuntime(): TestRuntime {
+    if (!runtime) throw new Error("test runtime was not initialized");
+    return runtime;
+  }
+
   async function createToken(
     cookie: string,
     body: Record<string, unknown>,
@@ -40,7 +45,7 @@ describe("personal access token scopes", () => {
           body: JSON.stringify(body),
         },
       ),
-      runtime!.env,
+      requireRuntime().env,
     );
     expect(response.status).toBe(201);
     const payload = (await response.json()) as {
@@ -69,7 +74,7 @@ describe("personal access token scopes", () => {
           ...(init?.headers ?? {}),
         },
       }),
-      runtime!.env,
+      requireRuntime().env,
     );
   }
 

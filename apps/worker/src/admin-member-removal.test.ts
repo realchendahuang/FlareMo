@@ -22,7 +22,7 @@ describe("admin member removal failure recording", () => {
     runtime = undefined;
   });
 
-  it("records a failed job even when the caller uses a PAT", async () => {
+  it("records a retryable failure even when the caller uses a PAT", async () => {
     runtime = await createTestRuntime({ name: "flaremo-member-removal" });
     const cookie = await bootstrapAndSignIn(runtime.env);
     const post = (path: string, body: unknown) =>
@@ -101,7 +101,11 @@ describe("admin member removal failure recording", () => {
       .from(memberRemovalJobs)
       .where(eq(memberRemovalJobs.memberId, member.id));
     expect(jobs).toHaveLength(1);
-    expect(jobs[0]?.status).toBe("failed");
+    expect(jobs[0]).toMatchObject({
+      status: "queued",
+      phase: "retrying",
+      attempts: 1,
+    });
     expect(jobs[0]?.errorMessage).toContain("r2 delete failed");
   });
 });

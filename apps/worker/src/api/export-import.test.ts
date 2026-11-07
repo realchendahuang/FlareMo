@@ -15,6 +15,44 @@ const { fetchApp, createMemo, bootstrapAndSignIn } = createAppTestHarness(
   }),
 );
 
+async function seedReadyAttachments(count: number, withObjects: boolean) {
+  const owner = await env.DB.prepare(
+    "SELECT id FROM users ORDER BY created_at LIMIT 1",
+  ).first<{ id: string }>();
+  expect(owner?.id).toBeTruthy();
+  const now = new Date().toISOString();
+  const rows = Array.from({ length: count }, (_, index) => ({
+    id: `attachments/export-many-${index}`,
+    r2Key: `export-test/object-${index}.bin`,
+    size: 2,
+  }));
+  const statements = rows.map((row) =>
+    env.DB.prepare(
+      `INSERT INTO attachments
+        (id, user_id, r2_key, filename, content_type, size, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      row.id,
+      owner?.id,
+      row.r2Key,
+      `export-${row.id.split("-").at(-1)}.bin`,
+      "application/octet-stream",
+      row.size,
+      now,
+      now,
+    ),
+  );
+  await env.DB.batch(statements);
+  if (withObjects) {
+    await Promise.all(
+      rows.map((row) =>
+        env.ATTACHMENTS.put(row.r2Key, new Uint8Array([row.size, row.size])),
+      ),
+    );
+  }
+  return rows;
+}
+
 describe("FlareMo export and import tasks", () => {
   beforeEach(async () => {
     ({ runtime: mf, env } = await createTestRuntime({
@@ -324,5 +362,33 @@ describe("FlareMo export and import tasks", () => {
       "SELECT count(*) AS n FROM memos WHERE id = 'memos/retry-import'",
     ).first<{ n: number }>();
     expect(remaining?.n).toBe(1);
+  });
+
+  it("metadata-only inline export skips the R2 key lookup past 100 attachments", async () => {
+    const rows = await seedReadyAttachments(100, false);
+    const response = await fetchApp(
+      "http://flaremo.test/api/v1/export?include_binary=false",
+    );
+    expect(response.status).toBe(200);
+    const bundle = (await response.json()) as {
+      attachments: Array<{ name: string; data_base64?: string }>;
+    };
+    expect(bundle.attachments.map((row) => row.name).sort()).toEqual(
+      rows.map((row) => row.id).sort(),
+    );
+    expect(bundle.attachments.every((row) => !row.data_base64)).toBe(true);
+  });
+
+  it("inline binary export chunks the ready-attachment R2 key lookup", async () => {
+    // 99 ids + userId/state is 101 D1 parameters in one statement. The export
+    // path must chunk the lookup to return all binaries.
+    const rows = await seedReadyAttachments(99, true);
+    const response = await fetchApp("http://flaremo.test/api/v1/export");
+    expect(response.status).toBe(200);
+    const bundle = (await response.json()) as {
+      attachments: Array<{ name: string; data_base64?: string }>;
+    };
+    expect(bundle.attachments).toHaveLength(rows.length);
+    expect(bundle.attachments.every((row) => row.data_base64)).toBe(true);
   });
 });

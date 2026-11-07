@@ -75,7 +75,25 @@ describe("Current wire MCP surface", () => {
         }),
       },
     );
-    const pat = (await patCreate.json()) as { token: string };
+    const patPayload = (await patCreate.json()) as {
+      token: string;
+      personalAccessToken: { expiresAt?: string };
+    };
+    const pat = { token: patPayload.token };
+    // `expiresInDays: 0` is the compatibility spelling for "no explicit
+    // lifetime" and must not mint a permanent token.
+    const expiresAt = Date.parse(
+      patPayload.personalAccessToken.expiresAt ?? "invalid",
+    );
+    expect(expiresAt).toBeGreaterThan(Date.now() + 89 * 24 * 60 * 60 * 1000);
+    expect(expiresAt).toBeLessThan(Date.now() + 91 * 24 * 60 * 60 * 1000);
+    // A compatibility-created token defaults to notes and may not enter the
+    // owner-only admin surface.
+    const adminAttempt = await fetchCurrent(
+      "http://flaremo.test/api/app/admin/settings",
+      { headers: { authorization: `Bearer ${pat.token}` } },
+    );
+    expect(adminAttempt.status).toBe(403);
 
     const mcpHeaders = {
       authorization: `Bearer ${pat.token}`,
