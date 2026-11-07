@@ -35,7 +35,8 @@ export const queryKeys = {
   /** Day-slot payload for the time horizon's selected day. */
   memosDaySlots: {
     all: ["memos-day-slots"] as const,
-    forDay: (day: string) => ["memos-day-slots", day] as const,
+    forDay: (day: string, space = "all") =>
+      ["memos-day-slots", day, space] as const,
   },
   /** Aggregate counts (counts/tags/activity) for the sidebar and heatmaps. */
   memoStats: {
@@ -139,10 +140,11 @@ export const queryKeys = {
     allDay: ["stats-hourly-day"] as const,
     allMonth: ["stats-hourly-month"] as const,
     allWeek: ["stats-hourly-week"] as const,
-    day: (day: string, tz: number) => ["stats-hourly-day", day, tz] as const,
-    month: (from: string, to: string, tz: number) =>
-      ["stats-hourly-month", from, to, tz] as const,
-    week: (from: string, to: string, tz: number) =>
-      ["stats-hourly-week", from, to, tz] as const,
+    day: (day: string, tz: number, space = "all") =>
+      ["stats-hourly-day", day, tz, space] as const,
+    month: (from: string, to: string, tz: number, space = "all") =>
+      ["stats-hourly-month", from, to, tz, space] as const,
+    week: (from: string, to: string, tz: number, space = "all") =>
+      ["stats-hourly-week", from, to, tz, space] as const,
   },
 } as const;

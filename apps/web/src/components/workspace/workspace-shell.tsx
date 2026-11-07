@@ -325,6 +325,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       hierarchyPending: tagHierarchyQuery.isPending,
       space,
       stats,
+      statsError: statsQuery.isError,
+      tagsError: tagHierarchyQuery.isError,
       timeZone,
       untagged,
       user: currentUserQuery.data,
@@ -333,6 +335,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       onImportFile: handleImportFile,
       onOpenSettings: () => setAccountSettingsOpen(true),
       onRenameTag: (from, to) => renameTag({ from, to }),
+      onRetryStats: () => void statsQuery.refetch(),
+      onRetryTags: () => void tagHierarchyQuery.refetch(),
       // On the timeline a tag click filters in place; from any other page it
       // jumps to the timeline with the filter applied.
       onTagChange: (tag) => {
@@ -381,8 +385,12 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       renameTag,
       space,
       stats,
+      statsQuery.isError,
+      statsQuery.refetch,
       tagHierarchyQuery.data?.tags,
+      tagHierarchyQuery.isError,
       tagHierarchyQuery.isPending,
+      tagHierarchyQuery.refetch,
       timeZone,
       toggleSidebarCollapsed,
       untagged,

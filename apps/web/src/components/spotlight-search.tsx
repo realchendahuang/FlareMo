@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRightIcon,
   CheckSquareIcon,
+  CircleAlertIcon,
   FileTextIcon,
   PlusIcon,
   SearchIcon,
@@ -368,6 +369,32 @@ export function SpotlightSearch({
             </InputGroupAddon>
           </InputGroup>
         </div>
+
+        {remoteMemosQuery.isError && (
+          <div
+            className="mx-2.5 mt-2 flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/6 px-2.5 py-2 text-xs text-destructive"
+            role="alert"
+          >
+            <CircleAlertIcon className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 text-start">
+              {t("search.remoteUnavailable")}
+            </span>
+            <Button
+              className="h-6 px-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={remoteMemosQuery.isFetching}
+              onClick={() => void remoteMemosQuery.refetch()}
+              size="xs"
+              type="button"
+              variant="ghost"
+            >
+              {remoteMemosQuery.isFetching ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                t("common.retry")
+              )}
+            </Button>
+          </div>
+        )}
 
         {/* Results / Suggestions List */}
         <div

@@ -37,6 +37,8 @@ export type WorkspaceSidebarContent = {
   hierarchy: TagHierarchyNode[];
   hierarchyPending: boolean;
   stats: MemoStatsResponse;
+  statsError: boolean;
+  tagsError: boolean;
   /** Viewer's IANA zone + space scope: the year view anchors its own stats
    * query with them (issue #144). */
   timeZone: string;
@@ -48,6 +50,8 @@ export type WorkspaceSidebarContent = {
   onImportFile: (bundle: unknown) => Promise<void>;
   onOpenSettings: () => void;
   onRenameTag: (from: string, to: string) => void;
+  onRetryStats: () => void;
+  onRetryTags: () => void;
   onTagChange: (tag?: string) => void;
   onToggleCollapsed: () => void;
   onUntaggedChange: (untagged: boolean) => void;
@@ -163,10 +167,14 @@ function WorkspaceExplorerPanel({
   onNavigate,
   onOpenSettings,
   onRenameTag,
+  onRetryStats,
+  onRetryTags,
   onTagChange,
   onUntaggedChange,
   space,
   stats,
+  statsError,
+  tagsError,
   timeZone,
   untagged,
   user,
@@ -218,12 +226,16 @@ function WorkspaceExplorerPanel({
       headerScrolled={headerScrolled}
       space={space}
       stats={stats}
+      statsError={statsError}
+      tagsError={tagsError}
       timeZone={timeZone}
       hierarchy={hierarchy}
       hierarchyPending={hierarchyPending}
       untagged={untagged}
       onDeleteTag={onDeleteTag}
       onRenameTag={onRenameTag}
+      onRetryStats={onRetryStats}
+      onRetryTags={onRetryTags}
       onTagChange={onTagChange}
       onUntaggedChange={onUntaggedChange}
       onDaySelect={handleDaySelect}
@@ -338,7 +350,7 @@ export function WorkspaceMobileSidebar({
           </Button>
         }
       />
-      <SheetContent className="w-[300px] overflow-hidden p-0" side="left">
+      <SheetContent className="w-[300px] overflow-hidden p-0" side="start">
         <SheetTitle className="sr-only">{t("sidebar.title")}</SheetTitle>
         <div
           className="no-scrollbar h-full overflow-y-auto overscroll-contain"

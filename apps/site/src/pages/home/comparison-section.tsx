@@ -69,7 +69,7 @@ export function ComparisonSection({
       <div className="panel-card hidden overflow-hidden border border-line/60 shadow-xs md:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-line/60 bg-soft-surface/80 text-left text-xs uppercase tracking-wider text-mist">
+            <tr className="border-b border-line/60 bg-soft-surface/80 text-start text-xs uppercase tracking-wider text-mist">
               <th className="px-5 py-4 font-semibold">
                 {COMP_DIMENSIONS[locale] || COMP_DIMENSIONS.en}
               </th>
@@ -86,7 +86,7 @@ export function ComparisonSection({
                 className="transition-colors hover:bg-wash/50"
                 key={row.label}
               >
-                <th className="px-5 py-4 text-left align-top font-semibold text-ink whitespace-nowrap">
+                <th className="px-5 py-4 text-start align-top font-semibold text-ink whitespace-nowrap">
                   {row.label}
                 </th>
                 <td className="bg-signal/5 px-5 py-4 align-top font-semibold text-ink">

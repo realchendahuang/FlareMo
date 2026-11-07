@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { queryKeys } from "./query-keys";
 
 const sourceRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,5 +38,21 @@ describe("query keys", () => {
       });
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("space-partitioned query keys", () => {
+  it("keeps hourly and day-slot caches separate per space", () => {
+    expect(queryKeys.statsHourly.day("2026-01-05", -480, "all")).not.toEqual(
+      queryKeys.statsHourly.day("2026-01-05", -480, "personal"),
+    );
+    expect(
+      queryKeys.statsHourly.week("2026-01-05", "2026-01-11", -480, "all"),
+    ).not.toEqual(
+      queryKeys.statsHourly.week("2026-01-05", "2026-01-11", -480, "team"),
+    );
+    expect(queryKeys.memosDaySlots.forDay("2026-01-05", "team")).not.toEqual(
+      queryKeys.memosDaySlots.forDay("2026-01-05", "personal"),
+    );
   });
 });

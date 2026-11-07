@@ -35,6 +35,7 @@ import {
   monthRangeOf,
   parseDayKey,
   shiftDayKey,
+  sumActivityCountsForDays,
   weekRangeOf,
   yearOf,
 } from "@/lib/time-horizon";
@@ -54,6 +55,23 @@ export type {
   FlareMoTimeHorizonProps,
   TimeHorizonTab,
 } from "./time-horizon/shared";
+
+function ScopedActivityFallback({
+  count,
+  period,
+}: {
+  count: number;
+  period: string;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="flex min-h-[190px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-muted/20 px-4 py-5 text-center">
+      <p className="max-w-[15rem] text-xs leading-relaxed text-muted-foreground">
+        {t("explorer.hourlyScopeFallback", { count, period })}
+      </p>
+    </div>
+  );
+}
 
 // ============================================================================
 // Root Component
@@ -82,6 +100,12 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
   const [currentWeekBase, setCurrentWeekBase] = useState<string>(today);
   const [currentYear, setCurrentYear] = useState<number>(yearOf(today));
   const [hoveredTip, setHoveredTip] = useState<string | null>(null);
+  const normalizedSpace = space ?? "all";
+  // The hourly endpoint and its counters are author-scoped. The month grid
+  // already falls back to the scoped daily stats when a space partition is
+  // active; day/week must do the same, or they would silently show another
+  // corpus.
+  const hourlyAvailable = normalizedSpace === "all";
 
   const weekStart: WeekStart = locale.startsWith("en") ? "sunday" : "monday";
   const tz = useMemo(() => new Date().getTimezoneOffset(), []);
@@ -125,31 +149,43 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
 
   // Hourly query for Day view (24 hours)
   const dayHourlyQuery = useQuery({
-    queryKey: queryKeys.statsHourly.day(selectedDay, tz),
+    queryKey: queryKeys.statsHourly.day(selectedDay, tz, normalizedSpace),
     queryFn: ({ signal }) =>
       getHourlyActivity({ date: selectedDay }, tz, signal),
     staleTime: 60_000,
-    enabled: tab === "day",
+    enabled: tab === "day" && hourlyAvailable,
   });
 
   // Memo query for Day view 15-minute fine-grained resolution (24 hours x 4 slots = 96 micro-slits)
   const dayMemosQuery = useQuery({
-    queryKey: queryKeys.memosDaySlots.forDay(selectedDay),
+    queryKey: queryKeys.memosDaySlots.forDay(selectedDay, normalizedSpace),
     queryFn: ({ signal }) =>
-      listMemos({ q: dayFilterQuery(selectedDay), page_size: 100 }, signal),
+      listMemos(
+        {
+          q: dayFilterQuery(selectedDay),
+          page_size: 100,
+          space: normalizedSpace,
+        },
+        signal,
+      ),
     staleTime: 30_000,
-    enabled: tab === "day",
+    enabled: tab === "day" && hourlyAvailable,
   });
 
   // Month range calculations for hourly query (1st to last of current month)
   const { from: monthFrom, to: monthTo } = monthRangeOf(currentMonthKey);
 
   const monthHourlyQuery = useQuery({
-    queryKey: queryKeys.statsHourly.month(monthFrom, monthTo, tz),
+    queryKey: queryKeys.statsHourly.month(
+      monthFrom,
+      monthTo,
+      tz,
+      normalizedSpace,
+    ),
     queryFn: ({ signal }) =>
       getHourlyActivity({ from: monthFrom, to: monthTo }, tz, signal),
     staleTime: 60_000,
-    enabled: tab === "month",
+    enabled: tab === "month" && hourlyAvailable,
   });
 
   // Week range calculations (7 days x 24 hours)
@@ -158,13 +194,25 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
     [currentWeekBase, weekStart],
   );
   const { from: weekFrom, to: weekTo } = weekRangeOf(weekDays, today);
+  const scopedRangeCount = useMemo(() => {
+    if (tab === "week") {
+      return sumActivityCountsForDays(
+        notesCountMap,
+        weekDays.map((day) => day.key),
+      );
+    }
+    if (tab === "day") {
+      return sumActivityCountsForDays(notesCountMap, [selectedDay]);
+    }
+    return 0;
+  }, [tab, notesCountMap, weekDays, selectedDay]);
 
   const weekHourlyQuery = useQuery({
-    queryKey: queryKeys.statsHourly.week(weekFrom, weekTo, tz),
+    queryKey: queryKeys.statsHourly.week(weekFrom, weekTo, tz, normalizedSpace),
     queryFn: ({ signal }) =>
       getHourlyActivity({ from: weekFrom, to: weekTo }, tz, signal),
     staleTime: 60_000,
-    enabled: tab === "week",
+    enabled: tab === "week" && hourlyAvailable,
   });
 
   const handleSelectDay = (day: string) => {
@@ -382,13 +430,15 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
           {tab === "month" && (
             <MonthHorizonPureView
               displayMode={displayMode}
-              hourlyData={monthHourlyQuery.data?.hours ?? []}
+              hourlyData={
+                hourlyAvailable ? (monthHourlyQuery.data?.hours ?? []) : []
+              }
               hoveredDate={hoveredDate}
-              isLoading={monthHourlyQuery.isLoading}
+              isLoading={hourlyAvailable && monthHourlyQuery.isLoading}
               locale={locale}
               monthKey={currentMonthKey}
               notesCountMap={notesCountMap}
-              preferHourlyHeat={space === undefined || space === "all"}
+              preferHourlyHeat={hourlyAvailable}
               selectedDay={selectedDay}
               today={today}
               weekStart={weekStart}
@@ -398,8 +448,19 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
             />
           )}
 
+          {/* Scoped spaces have no hourly endpoint partition: show the
+              scoped daily total rather than the author-scoped hourly grid. */}
+          {(tab === "week" || tab === "day") && !hourlyAvailable && (
+            <ScopedActivityFallback
+              count={scopedRangeCount}
+              period={t(
+                tab === "week" ? "explorer.tab.week" : "explorer.tab.day",
+              )}
+            />
+          )}
+
           {/* WEEK VIEW: 7 Days x 24 Hours Micro-Stream (168 Squares) */}
-          {tab === "week" && (
+          {tab === "week" && hourlyAvailable && (
             <WeekHorizonPureView
               days={weekDays}
               displayMode={displayMode}
@@ -413,7 +474,7 @@ export const FlareMoTimeHorizon = memo(function FlareMoTimeHorizon({
           )}
 
           {/* DAY VIEW: 24-Hour Panoramic Energy Spectrum (Time Stream) */}
-          {tab === "day" && (
+          {tab === "day" && hourlyAvailable && (
             <DayHorizonPureView
               displayMode={displayMode}
               hourlyData={dayHourlyQuery.data?.hours ?? []}

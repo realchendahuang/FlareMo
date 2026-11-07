@@ -3,6 +3,7 @@ import {
   ArchiveIcon,
   CalendarDaysIcon,
   ChevronRightIcon,
+  CircleAlertIcon,
   FileTextIcon,
   HashIcon,
   LayoutGridIcon,
@@ -64,6 +65,8 @@ type FlareMoExplorerProps = {
   hierarchy: TagHierarchyNode[];
   hierarchyPending?: boolean;
   stats: MemoStatsResponse;
+  statsError: boolean;
+  tagsError: boolean;
   /** Viewer's IANA zone + space scope: the year view anchors its own stats
    * query with them (issue #144). */
   timeZone: string;
@@ -71,6 +74,8 @@ type FlareMoExplorerProps = {
   untagged?: boolean;
   onDeleteTag: (tag: string) => void;
   onRenameTag: (from: string, to: string) => void;
+  onRetryStats: () => void;
+  onRetryTags: () => void;
   onTagChange: (tag?: string) => void;
   onUntaggedChange: (untagged: boolean) => void;
   /** Jump the timeline to a heatmap day (mini strip + stats). */
@@ -81,6 +86,30 @@ type FlareMoExplorerProps = {
 const NAV_ITEM = NAV_ITEM_CLASS;
 const NAV_ACTIVE = { className: NAV_ACTIVE_CLASS };
 
+function ExplorerLoadError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useI18n();
+  return (
+    <div
+      className="flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/6 px-2.5 py-2 text-xs text-destructive"
+      role="alert"
+    >
+      <CircleAlertIcon className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 text-start">
+        {t("explorer.loadFailed")}
+      </span>
+      <Button
+        className="h-6 px-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+        onClick={onRetry}
+        size="xs"
+        type="button"
+        variant="ghost"
+      >
+        {t("common.retry")}
+      </Button>
+    </div>
+  );
+}
+
 export const FlareMoExplorer = memo(function FlareMoExplorer({
   activeTag,
   footer,
@@ -90,11 +119,15 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
   hierarchy,
   hierarchyPending = false,
   stats,
+  statsError,
+  tagsError,
   timeZone,
   space,
   untagged = false,
   onDeleteTag,
   onRenameTag,
+  onRetryStats,
+  onRetryTags,
   onTagChange,
   onUntaggedChange,
   onDaySelect,
@@ -136,25 +169,34 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
       </header>
 
       <section className="mb-3 px-1">
-        <div className="paper grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-card py-2.5 shadow-xs">
-          <StatCell label={t("explorer.records")} value={stats.counts.total} />
-          <StatCell label={t("explorer.tags")} value={stats.tags.length} />
-          <StatCell label={t("explorer.streak")} value={streak} />
-        </div>
+        {statsError ? (
+          <ExplorerLoadError onRetry={onRetryStats} />
+        ) : (
+          <div className="paper grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-card py-2.5 shadow-xs">
+            <StatCell
+              label={t("explorer.records")}
+              value={stats.counts.total}
+            />
+            <StatCell label={t("explorer.tags")} value={stats.tags.length} />
+            <StatCell label={t("explorer.streak")} value={streak} />
+          </div>
+        )}
       </section>
 
       <section className="mb-2 px-1">
         <MiniCalendarReminders />
-        <FlareMoTimeHorizon
-          hoveredDate={hoveredDate}
-          space={space}
-          stats={stats}
-          timeZone={timeZone}
-          streak={streak}
-          onDaySelect={onDaySelect}
-          onHoverDate={setHoveredDate}
-          onNavigate={onNavigate}
-        />
+        {!statsError && (
+          <FlareMoTimeHorizon
+            hoveredDate={hoveredDate}
+            space={space}
+            stats={stats}
+            timeZone={timeZone}
+            streak={streak}
+            onDaySelect={onDaySelect}
+            onHoverDate={setHoveredDate}
+            onNavigate={onNavigate}
+          />
+        )}
       </section>
 
       <nav
@@ -226,12 +268,14 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
             <span className="truncate">{t("explorer.untagged")}</span>
           </button>
         )}
-        {hierarchyPending ? (
+        {tagsError ? (
+          <ExplorerLoadError onRetry={onRetryTags} />
+        ) : hierarchyPending ? (
           // Loading state, not the empty state: flashing「无标签」before the
           // real tree expands reads as data loss. Hold a few ghost rows.
           <div aria-hidden="true" className="flex flex-col gap-1.5">
             <Skeleton className="h-5 w-3/5" />
-            <Skeleton className="ml-4 h-5 w-2/5" />
+            <Skeleton className="ms-4 h-5 w-2/5" />
             <Skeleton className="h-5 w-1/2" />
           </div>
         ) : hierarchy.length > 0 ? (

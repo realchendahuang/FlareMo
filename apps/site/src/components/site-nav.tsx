@@ -291,7 +291,7 @@ export function SiteNav({ locale, currentPath }: SiteNavProps) {
               {/* GitHub 按钮 */}
               <a
                 aria-label="GitHub source repository"
-                className="inline-flex h-full items-center justify-center px-2.5 text-xs font-medium text-ink transition-colors hover:bg-wash first:rounded-l-full"
+                className="inline-flex h-full items-center justify-center px-2.5 text-xs font-medium text-ink transition-colors hover:bg-wash first:rounded-s-full"
                 href="https://github.com/realchendahuang/FlareMo"
                 rel="noopener noreferrer"
                 target="_blank"
@@ -309,7 +309,7 @@ export function SiteNav({ locale, currentPath }: SiteNavProps) {
               />
 
               {/* 外观模式切换 (嵌入胶囊) */}
-              <ThemeToggle className="inline-flex h-full w-8 items-center justify-center border-none rounded-none text-mist transition-colors hover:bg-wash hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 focus-visible:ring-offset-2 focus-visible:ring-offset-paper last:rounded-r-full cursor-pointer" />
+              <ThemeToggle className="inline-flex h-full w-8 items-center justify-center border-none rounded-none text-mist transition-colors hover:bg-wash hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 focus-visible:ring-offset-2 focus-visible:ring-offset-paper last:rounded-e-full cursor-pointer" />
             </div>
 
             {/* Cloudflare 注册快捷外链 (超宽屏幕 2xl 上显示，小桌面优雅隐藏防止挤压) */}

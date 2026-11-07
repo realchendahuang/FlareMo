@@ -109,7 +109,7 @@ export function UsersTable({
           <SearchIcon className="pointer-events-none absolute top-1/2 start-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label={t("admin.memberSearchPlaceholder")}
-            className="h-9 pl-9 pr-8 text-xs bg-muted/20 border-border/50 hover:border-border/80 focus:bg-background transition-colors"
+            className="h-9 ps-9 pe-8 text-xs bg-muted/20 border-border/50 hover:border-border/80 focus:bg-background transition-colors"
             placeholder={t("admin.memberSearchPlaceholder")}
             value={memberSearch}
             onChange={(event) => setMemberSearch(event.target.value)}

@@ -201,7 +201,13 @@ export function ComposerToolbar({
             disabled={isPending}
             label={t("composer.longform")}
             onClick={onExpand}
+            onFocus={() => {
+              void loadComposerFocusCanvas();
+            }}
             onMouseEnter={() => {
+              void loadComposerFocusCanvas();
+            }}
+            onTouchStart={() => {
               void loadComposerFocusCanvas();
             }}
           >
