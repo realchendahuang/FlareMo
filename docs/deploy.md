@@ -81,7 +81,7 @@ pnpm exec wrangler r2 bucket create flaremo-attachments
 
 手动创建时需要把 D1 输出的 `database_id` 写入 `wrangler.jsonc`；bucket、queue 和 Vectorize index 名称可以保留为建议默认值。
 
-部署；这个命令会先构建前端、应用远端 migrations，再发布 Worker：
+部署；这个命令会先构建前端并做 Worker bundle dry-run，再应用远端 migrations，最后发布 Worker：
 
 ```bash
 pnpm deploy
@@ -296,7 +296,7 @@ D1 免费套餐按 UTC 自然日重置额度，其中 `rows_read` 是 **5M 行 /
 
 **怎么读实际用量。** Cloudflare Dashboard 里进入 D1 → 你的数据库 → Metrics，看 `rows read` 曲线；或者按上一小节配置一次 `pnpm setup:usage`，直接在账户页的用量面板看同一口径。面板数据有延迟，击穿后看到的数值未必是当时的峰值，判断余量时留出余量。付费套餐（Standard 起）没有这层限制。
 
-**升级到含聚合表的版本需要手动做什么：不需要。** 新增一张表和一个 migration，纯新增 + 回填，向后兼容——migration 只读 `memos`，不改动任何既有表或列，所以迁移期间和迁移之后旧版本 Worker 都能正常工作。`pnpm deploy` 的执行顺序是「构建前端 → 应用远端 migrations → 发布 Worker」，GitHub Action 手动部署（`Deploy to Cloudflare`）跑的是同一条命令，所以两条路径都会在发布新 Worker 之前先建好表；Workers Builds 的自动迁移见 [更新指南](./update.md)。不需要新增变量、binding 或 cron，也没有需要回填的数据——migration 已经把存量 memo 按 UTC 小时回填进聚合表，定时任务随后每天做一次全量校准。
+**升级到含聚合表的版本需要手动做什么：不需要。** 新增一张表和一个 migration，纯新增 + 回填，向后兼容——migration 只读 `memos`，不改动任何既有表或列，所以迁移期间和迁移之后旧版本 Worker 都能正常工作。`pnpm deploy` 的执行顺序是「构建前端 → Worker bundle dry-run → 应用远端 migrations → 发布 Worker」，GitHub Action 手动部署（`Deploy to Cloudflare`）跑的是同一条命令，所以两条路径都会在发布新 Worker 之前先建好表；Workers Builds 的自动迁移见 [更新指南](./update.md)。不需要新增变量、binding 或 cron，也没有需要回填的数据——migration 已经把存量 memo 按 UTC 小时回填进聚合表，定时任务随后每天做一次全量校准。
 
 ## Cloudflare Access（可选外层防线）
 

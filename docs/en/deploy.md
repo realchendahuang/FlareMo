@@ -62,7 +62,7 @@ pnpm deploy:dry-run
 pnpm deploy
 ```
 
-`pnpm deploy` builds the web app, applies pending remote D1 migrations, and publishes the Worker.
+`pnpm deploy` builds the web app, runs a Worker bundle dry-run, applies pending remote D1 migrations, and publishes the Worker.
 
 ## Better Auth and optional Cloudflare Access
 
@@ -243,7 +243,7 @@ Read `CHANGELOG.md` and GitHub Release notes before upgrading.
 
 The “System update” entry in the lower-left corner shows the installed and latest stable versions. GitHub deployments that use Workers Builds can follow the [update guide](./update.md) to prepare an update pull request and publish after merge. If you use [GitHub Action deploy](./github-action-deploy.md), run `Deploy to Cloudflare` again after merging the upgrade PR.
 
-For a manual update, read the changelog and release notes, then deploy. This command applies pending migrations before publishing the Worker:
+For a manual update, read the changelog and release notes, then deploy. This command runs a Worker bundle dry-run, applies pending migrations, and then publishes the Worker:
 
 ```bash
 pnpm deploy

@@ -73,7 +73,7 @@ A production run will:
 1. Generate a job-local `wrangler.jsonc` from `wrangler.jsonc.example` (not committed).
 2. Create or reuse D1 `flaremo`, R2 `flaremo-attachments`, queues `flaremo-member-removal` and `flaremo-data-export`, and Vectorize index `flaremo-memos` (1024 dimensions, cosine).
 3. If `FLAREMO_PUBLIC_URL` is unset, write `https://flaremo.<subdomain>.workers.dev`.
-4. Run `pnpm deploy`: build the web app, apply remote D1 migrations, publish the Worker.
+4. Run `pnpm deploy`: build the web app, run a Worker bundle dry-run, apply remote D1 migrations, publish the Worker.
 5. Copy GitHub Secrets `BETTER_AUTH_SECRET` and `FLAREMO_BOOTSTRAP_SECRET` onto the Worker. Logs show `***`.
 6. Smoke check: request `FLAREMO_PUBLIC_URL` to confirm the Worker serves traffic, retrying for about a minute; a site that stays unreachable marks the run red.
 

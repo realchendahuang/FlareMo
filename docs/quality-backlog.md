@@ -150,3 +150,32 @@
 - [x] 首页叙事改为真实界面截图（EN/ZH × 亮/暗/移动）+ 可核对配额；新增 `pnpm og:image` 生成 1200×630 PNG、构建期预渲染 `404.html`（`/__404`，noindex）并本地化 404、对比表窄屏改卡片、功能区改 2+3+2 bento。
 - [x] 文案收口：全 8 语言去掉「零风险 / 永久 / forever / always-on」类绝对化承诺，中文统一用「记录」（设计规范术语表），FAQ 不再用「68 年」外推。
 - [ ] **插件卡片预览图只有中文卡面**：`apps/site/public/showcase/card-*.png` 是应用分享卡的截图，英文/其他语言首页的插件区里卡片内部仍是中文。需要应用侧先能产出多语言卡面再替换，本轮显式接受。
+
+---
+
+## 2026-11-07 第四轮全量审计与修复台账
+
+本轮由 Lead + 三个审计/实现小组覆盖 apps/web、apps/worker、packages/domain、D1 migration、deploy scripts 与 flaremo-cloud。基线：`pnpm check`、全量 Vitest（172 文件 / 1125 tests）、`pnpm build`、`scripts:test` 42/42、`persistence:check`、cloud `pnpm verify` 均通过；公开仓 `pnpm audit --prod` 0 漏洞，cloud 升级 Hono 后 production audit 0 漏洞。
+
+### 已修复
+
+- [x] **PAT 兼容入口绕过最小权限**：current REST 与 Connect 的 PAT 创建统一走 `createMemosPersonalAccessToken`，缺省/`expiresInDays: 0` 映射 90 天，默认 notes，禁止新造永久全权令牌；补 current/Connect 到期与 admin 拦截测试。
+- [x] **D1 100 参数边界**：task reorder 200、article claim 100、webhook prune 100、inline export attachment key lookup 均按预留参数分块；补 98/99/100/200 边界测试。
+- [x] **导出内存峰值**：metadata-only 导出跳过 R2 key 查询；32 MiB 估算逐记录早停，避免第二份整包 JSON string；binary key 查询分块。
+- [x] **Queue/export 重试状态机**：export 最多 3 次、stale running 恢复 queued、stale queued 清 lease 后继续排队、import 保持回滚后 failed；member removal 同步 3 次与 dead 状态。
+- [x] **Web Push 静默失败**：汇总 attempted/delivered/failed 与失败分类，保留 404/410 清理语义，不记录 endpoint/payload。
+- [x] **出站 SSRF**：Webhook、插件 registry/artifact、link metadata、Web Push 统一逐跳重定向校验、私网/保留地址阻断、超时与响应上限；插件/Push 强制 HTTPS。
+- [x] **索引与清理**：新增 0045 attachment quota covering index（含 thumbnail_size）；data task cleanup 改用 expires_at 索引。
+- [x] **flaremo-cloud 门禁**：删除内核已移除的 maxMemoryItemsPerUser 合约字段；Hono 4.13.16 修复生产 audit；typecheck 接入 SaaS upgrade/verify；scripts/lib 8 个 node:test；cloud verify 加 audit/scripts。
+- [x] **部署顺序**：FlareMo deploy 与 deploy-kosx 均为 build → bundle dry-run → migration → deploy，避免 D1 先变更而 Worker 打包失败。
+- [x] **前端**：删除全屏画布 idle 预取；非 all space 日/周回退 scoped 统计且 query key 带 space；PasswordInput 键盘可达/i18n/aria-pressed；Sheet/后台搜索/官网对比表 RTL；workspace 和 Spotlight 错误态可重试。
+- [x] **备份文档**：R2 改为 `rclone copy --backup-dir`，明确 live-copy drill 不等于从落盘备份工件恢复。
+
+### 本轮明确未做 / 后续跟踪
+
+- [ ] **Scheduler heartbeat/外部告警**：cron 已输出结构化汇总，但尚未持久化最近成功时间、未新增 health freshness，也未配置 Cloudflare/外部 dead-man switch。仓库内无法验证 Dashboard 是否已有告警。
+- [ ] **从备份工件恢复演练**：`backup:drill:remote` 仍验证 live source → 临时目标；真正 `--from-backup` 读取 D1 dump/R2 镜像的自动化恢复演练未实现，文档已明确这个边界。
+- [ ] **TipTap 首屏链**：全屏画布 idle 预取已删；inline composer 仍会立即挂载富编辑器。改成 textarea 渐进增强涉及焦点交接、草稿同步和 suggestion 重建，本轮评估风险高于收益，保留后续单独做。
+- [ ] **非 all space 的早期日/周历史**：当前回退只覆盖 scoped stats 的 366 天窗口；超出窗口会显示 0。彻底修复需要后端 hourly API 支持 space 维度。
+- [ ] **插件 install/uninstall 端到端测试**：仍待补；本轮只补了 registry/artifact 出站安全边界。
+- [ ] **依赖季度升级**：FlareMo 直接依赖仍有既有落后项（含 TypeScript/Vitest/Wrangler 等大版本）；按既有季度节奏处理，不与本轮安全修复混做。

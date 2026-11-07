@@ -2,6 +2,34 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
+
+## Unreleased
+
+**安全边界、数据可靠性与前端一致性的一轮加固。** 新增 1 个向后兼容的 D1 索引 migration（0045），无 Cloudflare 资源变化；旧数据和旧 PAT 继续可用。
+
+### 安全
+
+- 兼容 API 的 PAT 创建入口（current REST 与 Connect `CreatePersonalAccessToken`）统一走服务端创建 helper：默认 `notes` scope、90 天有效期，显式 `0`/缺省不再生成永久全权令牌；`admin` 仍需显式请求，旧的无 permissions 令牌保持兼容。
+- Webhook、插件商店目录/artifact、link metadata 与 Web Push 共用安全出站 fetch：逐跳手动跟随重定向、拒绝私网/保留地址与 URL 凭据、总超时、响应体上限；插件和 Push 强制 HTTPS。Worker 无同步 DNS，DNS rebinding 仍需 Cloudflare egress policy 兜底。
+- 插件 artifact 的绝对 `http:` URL 和 `https→http` 降级被拒绝；Push subscription endpoint 保存与发送均校验。
+
+### 数据与可靠性
+
+- 修复 D1 100 绑定参数边界：task reorder（200 条）、article attachment claim（100 个）、webhook outbox prune（100 个）全部按预留参数分块。
+- 内联导出在 `include_binary=false` 时不再查询 R2 key；binary key 查询分块；32 MiB 估算改为逐记录早停，避免额外整包 `JSON.stringify`。
+- export 任务失败最多自动重试 3 次，stale running export 恢复为 queued；stale queued export 清空过期 lease 后继续排队；import 仍保持回滚后 failed 的安全语义。member removal 同样增加 3 次重试与 dead-letter 状态。
+- Web Push 汇总 `attempted/delivered/failed` 与失败分类，不再把目标订阅数当作成功数。
+- 新增 attachment storage covering index（含 `thumbnail_size`）和 `data_tasks.expires_at` 清理路径。
+
+### 前端与运维
+
+- 删除全屏富文本画布的 idle 预取，保留 hover/focus/touch intent 预取。
+- 日/周时间视界不再使用作者口径的 hourly 数据；非 all space 时回退到 scoped 日统计，避免团队空间显示错误数据。
+- PasswordInput 恢复键盘可达、补充 `aria-pressed` 与 8 语言 aria-label；移动侧栏 Sheet、后台搜索、官网对比表与导航修正 RTL 逻辑方向。
+- workspace stats/tags 与 Spotlight 远程搜索失败显示可重试错误态，不再伪装成空数据。
+- deploy、deploy-kosx 在 remote migration 前强制 Worker bundle dry-run；flaremo-cloud 清理内核已删除的记忆配额字段、升级 Hono、加入 production audit/typecheck/scripts 门禁。
+- 备份文档改用不会传播删除的 `rclone copy --backup-dir`，并明确 live-copy drill 不等同于从落盘备份工件恢复。
+
 ## v0.30.0
 
 **个人访问令牌（PAT）收窄为带 scope 与有效期的凭证。** 无 D1 migration（`auth_apikeys.permissions` 列早已存在），无 Cloudflare 资源变化；已有令牌继续可用。

@@ -30,7 +30,7 @@ pnpm format
 pnpm run deploy
 ```
 
-`pnpm run deploy` 会先跑部署 preflight，再构建前端、应用尚未执行的远端 D1 migrations，最后通过 `wrangler deploy` 发布 Worker。发布前按改动运行定向检查；需要验证 Cloudflare 打包时再运行 `pnpm deploy:dry-run`。PR 分支不触发任何自动构建或部署。
+`pnpm run deploy` 会先跑部署 preflight，再构建前端、执行 Worker bundle dry-run，然后应用尚未执行的远端 D1 migrations，最后通过 `wrangler deploy` 发布 Worker。发布前按改动运行定向检查；需要验证 Cloudflare 打包时再运行 `pnpm deploy:dry-run`。PR 分支不触发任何自动构建或部署。
 
 ## 数据库迁移
 
@@ -72,7 +72,7 @@ curl http://127.0.0.1:8787/__scheduled
 - 小型数据走内联 `GET /api/v1/export`（≤32 MiB，含附件 base64），前端导出按钮直接下载 JSON。
 - 超过内联上限时前端自动改用**导出任务**：`POST /api/v1/export/tasks` 创建任务，分页读取 D1 并把数据按类型写成 R2 下的 NDJSON 分块（`exports/<task-id>/data/*.ndjson`），最后生成自包含 `manifest.json`（记录每类数据块、附件清单及逻辑附件 ID）。
 - 任务状态通过 `GET /api/v1/export/tasks/:id` 查询；manifest 经 `GET .../manifest` 下载；附件经 `GET .../attachments/:attachmentId` 流式下载（不暴露裸 R2 key）。
-- 导入走 `POST /api/v1/import/tasks`（请求内执行并记录结果），`data_tasks` 表记录 `queued/running/succeeded/failed` 全生命周期。每日 cron 兜底把 lease 过期的 stale 任务标记为失败，并清理超过 7 天的任务行与对应 R2 导出产物。
+- 导入走 `POST /api/v1/import/tasks`（请求内执行并记录结果），`data_tasks` 表记录 `queued/running/succeeded/failed` 全生命周期。每日 cron 会把 lease 过期的 stale import 标记为失败；export 最多自动重试 3 次，未耗尽的 stale/running 任务回到 queued，随后清理超过 7 天的任务行与对应 R2 导出产物。
 - 绑定 `flaremo-data-export` Queue 时，`POST /api/v1/export/tasks` 创建任务后投递 `{taskId}` 并立即返回 queued，由 queue 消费端执行导出；未绑定的部署仍在请求内执行。两条路径共用同一个幂等 executor（只认领 `queued` 行，重放安全），scheduled maintenance 同时是兜底 reconciler。
 - 成员移除使用独立的 `member_removal_jobs` 表，记录操作人、阶段、尝试次数和错误；管理员重试会投递 `flaremo-member-removal` Queue，scheduled maintenance 作为未绑定 Queue 或旧环境的 fallback。迁移 0016 后应在管理员页检查失败任务并按需重试。
 
@@ -90,13 +90,19 @@ D1 备份建议使用 Cloudflare dashboard 或 Wrangler 导出能力生成 SQL d
 
 日常演练请直接使用 `pnpm backup:drill`，真实远端恢复验证使用 `pnpm backup:drill:remote`。两个脚本从同一清单生成 Wrangler 的 `--table` 参数、按依赖顺序的恢复文件和源/目标逐表计数校验。每次认证或 schema 变更后仍需重新演练，不要把旧的 drill 结果当作新的恢复证明。
 
-R2 备份建议使用 S3 兼容工具同步 bucket：
+R2 备份建议使用 S3 兼容工具复制 bucket。**不要用不带版本保护的裸 `rclone sync`**：它会把生产端的误删同步到备份端。
 
 ```bash
-rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments
+# 只新增/覆盖，不传播源端删除
+rclone copy flaremo-r2:flaremo-attachments ./backups/flaremo-attachments \
+  --backup-dir "./backups/flaremo-attachments-versions/$(date -u +%Y%m%dT%H%M%SZ)"
+
+# 如果确实需要镜像删除，仍必须把被删/被覆盖对象移到版本目录
+rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments \
+  --backup-dir "flaremo-backup-versions/$(date -u +%Y%m%dT%H%M%SZ)"
 ```
 
-不要只备份 D1。附件二进制不在 D1 里。
+生产 bucket 与备份目的端都应启用版本控制；需要更强防篡改时在备份目的端启用 Object Lock。不要只备份 D1。附件二进制不在 D1 里。
 
 ## 恢复
 
@@ -114,6 +120,8 @@ rclone sync flaremo-r2:flaremo-attachments ./backups/flaremo-attachments
 10. 检查 Better Auth bootstrap 状态、cookie session、PAT、PAT revoke 和公开分享；如果保留 Access，再检查 Access policy 和公开分享 bypass policy。
 
 D1 migration 不等于备份。破坏性 migration 发布前必须先做 D1 dump。
+
+`pnpm backup:drill:remote` 当前验证的是“live 源数据 → 临时目标 schema/恢复兼容性”，不是“从已经落盘的 D1 dump 和 R2 备份镜像恢复”。真实灾备验收必须另做一次从备份工件恢复：把选定的 D1 dump 导入临时 D1、把 R2 备份镜像复制到临时 bucket，再按本节的恢复顺序和逐表/对象清单核对计数与 checksum。只有这项演练通过，才能把该次备份标记为可恢复。
 
 ## 备份恢复演练
 

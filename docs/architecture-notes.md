@@ -267,7 +267,7 @@ Authorization: Bearer <memos_pat_...>
 - 为 FlareMo 暴露的 `/api/v1` 维护 OpenAPI 文档。
 - 基于 OpenAPI 暴露 MCP endpoint。
 - 响应字段在支持范围内保持 Memos-compatible。
-- UserService webhook 资源的 CRUD/signing-secret 已进入兼容层；四类 memo 事件已有 D1 outbox 的有界异步投递/重试，完整上游事件语义、egress SSRF 防护和完整多用户 ACL 仍是未完成边界。
+- UserService webhook 资源的 CRUD/signing-secret 已进入兼容层；四类 memo 事件已有 D1 outbox 的有界异步投递/重试；出站 webhook/插件/链接元数据/Push 已接入逐跳 SSRF 校验与响应上限，完整上游事件语义和完整多用户 ACL 仍是未完成边界。
 - current camelCase wire、Better Auth-backed identity、native JWT/refresh facade、字段/错误翻译、PAT/social 资源、UserService webhook/notification 资源子集、Connect JSON/protobuf/gRPC-Web unary subset、heartbeat SSE 和根 `/mcp` 无状态 Streamable HTTP MCP 子集已实现并有仓库测试；这些仍不等于完整 Memos Server、原生 HTTP/2 gRPC 或第三方客户端 parity。
 
 ### 兼容边界

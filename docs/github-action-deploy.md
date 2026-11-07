@@ -73,7 +73,7 @@ Account ID 在 Cloudflare Dashboard 首页右侧。
 1. 从 `wrangler.jsonc.example` 生成本次 job 的 `wrangler.jsonc`（不提交进 Git）。
 2. 创建或复用 D1 `flaremo`、R2 `flaremo-attachments`、Queue `flaremo-member-removal` 与 `flaremo-data-export`、Vectorize `flaremo-memos`（1024 维、cosine）。
 3. 若未配置 `FLAREMO_PUBLIC_URL`，用账号 workers.dev 子域写成 `https://flaremo.<子域>.workers.dev`。
-4. 执行 `pnpm deploy`：构建前端、应用远端 D1 migrations、发布 Worker。
+4. 执行 `pnpm deploy`：构建前端、Worker bundle dry-run、应用远端 D1 migrations、发布 Worker。
 5. 把 GitHub Secrets 里的 `BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 同步到 Worker。日志里的密钥显示为 `***`。
 6. 冒烟检查：访问 `FLAREMO_PUBLIC_URL` 确认 Worker 正在服务，重试约一分钟；仍不可达则把 run 标红。
 

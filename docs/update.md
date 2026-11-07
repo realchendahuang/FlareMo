@@ -40,9 +40,9 @@ octocat/flaremo
 2. 点击 `Run workflow`；版本留空表示使用最新稳定版。
 3. 等待升级 pull request 创建。
 4. 查看版本说明和文件变化，然后合并 pull request。
-5. Cloudflare Workers Builds 会自动构建前端、执行尚未应用的 D1 migrations，并发布新的 Worker 版本。若未接入 Workers Builds、而是使用 [GitHub Action 手动部署](./github-action-deploy.md)，合并 PR 后再运行 `Deploy to Cloudflare`。
+5. Cloudflare Workers Builds 会自动构建前端、执行尚未应用的 D1 migrations，并发布新的 Worker 版本；本地 `pnpm deploy` 会先做一次 Worker bundle dry-run。若未接入 Workers Builds、而是使用 [GitHub Action 手动部署](./github-action-deploy.md)，合并 PR 后再运行 `Deploy to Cloudflare`。
 
-更新 PR 可以生成 preview version，但不会执行生产 D1 migration。合并到 production branch 后，生产部署才会先执行 migration 再发布 Worker；期间旧版本继续服务。如果构建或 migration 失败，新 Worker 不会发布；到 GitHub 的 Cloudflare check 或 Cloudflare Dashboard 的 Build history 查看错误。
+更新 PR 可以生成 preview version，但不会执行生产 D1 migration。合并到 production branch 后，生产部署才会先执行 migration 再发布 Worker（本地 CLI 路径会先做 bundle dry-run）；期间旧版本继续服务。如果构建或 migration 失败，新 Worker 不会发布；到 GitHub 的 Cloudflare check 或 Cloudflare Dashboard 的 Build history 查看错误。
 
 ## 自定义代码和冲突
 
