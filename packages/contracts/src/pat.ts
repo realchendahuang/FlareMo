@@ -4,8 +4,10 @@
  * A PAT is a machine credential for the Memos-compatible API, MCP and the
  * scripts that drive them. It used to inherit the owner's full powers with no
  * expiry, so a leaked token could also delete members and touch the admin
- * surface. New tokens carry one of these scopes and a default lifetime; the
- * Worker checks the scope on every PAT request.
+ * surface. New tokens default to the smaller notes scope and a finite lifetime;
+ * notes-only machines may explicitly opt into a non-expiring token, while an
+ * admin-scoped token always keeps a finite lifetime. The Worker checks the
+ * scope on every PAT request.
  *
  * Scopes are deliberately coarse: notes covers the whole content API (read and
  * write, including MCP tool calls, which all travel over POST), and admin is an
@@ -16,7 +18,11 @@ export const MEMOS_PAT_SCOPES = ["notes", "admin"] as const;
 export type MemosPatScope = (typeof MEMOS_PAT_SCOPES)[number];
 
 export const DEFAULT_MEMOS_PAT_SCOPE: MemosPatScope = "notes";
-export const DEFAULT_MEMOS_PAT_EXPIRES_IN_DAYS = 90;
+/** Blank/omitted lifetime means one year, not an accidental permanent token. */
+export const DEFAULT_MEMOS_PAT_EXPIRES_IN_DAYS = 365;
+/** Explicit zero is the wire/UI spelling for a non-expiring notes-only PAT. */
+export const PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS = 0;
+/** Admin-scoped tokens are deliberately excluded from the permanent option. */
 export const MAX_MEMOS_PAT_EXPIRES_IN_DAYS = 365;
 
 /** Better Auth api-key permission statements: resource -> actions. */

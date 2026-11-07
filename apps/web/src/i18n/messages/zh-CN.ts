@@ -516,8 +516,12 @@ const messages = {
   "auth.tokenScopeAdminHint":
     "同时管理成员、插件与维护端点，仅在实例运维时使用。",
   "auth.tokenExpiry": "有效期（天）",
+  "auth.tokenExpiryHint":
+    "留空默认 365 天，也可填 1–365 天；只有仅笔记权限的令牌可选择永久有效。",
+  "auth.tokenPermanent": "永久有效（仅笔记权限，不自动过期）",
   "auth.never": "永不过期",
-  "auth.tokenValidation": "有效期需为 1–365 天的整数。",
+  "auth.tokenValidation":
+    "请填写名称；有效期可留空（默认 365 天）、填 1–365 天，或仅在笔记权限下选择永久有效。",
   "auth.createToken": "创建令牌",
   "auth.creatingToken": "正在创建…",
   "auth.tokenCreateFailed": "无法创建令牌。",

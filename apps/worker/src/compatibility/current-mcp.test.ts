@@ -71,7 +71,7 @@ describe("Current wire MCP surface", () => {
         headers: { ...bearer, "content-type": "application/json" },
         body: JSON.stringify({
           description: "current test token",
-          expiresInDays: 0,
+          // Omitted lifetime uses the finite 365-day server default.
         }),
       },
     );
@@ -80,13 +80,13 @@ describe("Current wire MCP surface", () => {
       personalAccessToken: { expiresAt?: string };
     };
     const pat = { token: patPayload.token };
-    // `expiresInDays: 0` is the compatibility spelling for "no explicit
-    // lifetime" and must not mint a permanent token.
+    // An omitted compatibility lifetime uses the finite 365-day default; an
+    // explicit permanent token requires the separate notes-only opt-in below.
     const expiresAt = Date.parse(
       patPayload.personalAccessToken.expiresAt ?? "invalid",
     );
-    expect(expiresAt).toBeGreaterThan(Date.now() + 89 * 24 * 60 * 60 * 1000);
-    expect(expiresAt).toBeLessThan(Date.now() + 91 * 24 * 60 * 60 * 1000);
+    expect(expiresAt).toBeGreaterThan(Date.now() + 364 * 24 * 60 * 60 * 1000);
+    expect(expiresAt).toBeLessThan(Date.now() + 366 * 24 * 60 * 60 * 1000);
     // A compatibility-created token defaults to notes and may not enter the
     // owner-only admin surface.
     const adminAttempt = await fetchCurrent(

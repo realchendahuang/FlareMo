@@ -565,9 +565,12 @@ const messages = {
   "auth.tokenScopeAdminHint":
     "Gestionar también miembros, plugins y mantenimiento. Solo para aprovisionar la instancia.",
   "auth.tokenExpiry": "Vigencia (días)",
+  "auth.tokenExpiryHint":
+    "Déjalo vacío para 365 días o escribe de 1 a 365 días. La vigencia permanente solo está disponible para tokens con ámbito de notas.",
+  "auth.tokenPermanent": "Permanente (solo notas, sin caducidad automática)",
   "auth.never": "Nunca",
   "auth.tokenValidation":
-    "Escribe un nombre; deja la vigencia vacía o escribe un entero de 1 a 365.",
+    "Escribe un nombre; deja la vigencia vacía para 365 días, escribe de 1 a 365 o elige permanente para un token de solo notas.",
   "auth.createToken": "Crear token",
   "auth.creatingToken": "Creando…",
   "auth.tokenCreateFailed": "No se pudo crear el token.",

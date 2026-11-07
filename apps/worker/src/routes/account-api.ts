@@ -3,6 +3,7 @@ import {
   MEMOS_PAT_SCOPES,
   type MemosPatScope,
   memosPatScopesFromPermissions,
+  PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS,
 } from "@flaremo/contracts";
 import {
   beginFlaremoMemberRemoval,
@@ -41,12 +42,12 @@ export const accountApi = new Hono<HonoBindings>();
 
 const createPersonalAccessTokenSchema = z.object({
   name: z.string().trim().min(1).max(32),
-  // null stays accepted for older clients; it now means "the default lifetime"
-  // instead of "never expires".
+  // null/omitted means the 365-day default; explicit 0 is the opt-in for a
+  // permanent notes-only token. Admin-scoped tokens reject 0 in the service.
   expires_in_days: z
     .number()
     .int()
-    .min(1)
+    .min(PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS)
     .max(MAX_MEMOS_PAT_EXPIRES_IN_DAYS)
     .nullable()
     .optional(),

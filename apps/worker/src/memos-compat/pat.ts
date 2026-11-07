@@ -1,9 +1,9 @@
 /**
  * Personal-access-token creation and DTO shared by the account API and the
- * current REST / Connect Memos compatibility surfaces. Every new token must go
- * through `createMemosPersonalAccessToken`: the compatibility schemas predate
- * scopes and expiry, but that is no reason to mint another permanent token with
- * legacy full access.
+ * current REST / Connect Memos compatibility surfaces. Every new token goes
+ * through `createMemosPersonalAccessToken`: compatibility schemas predate
+ * scopes and expiry, so the server supplies a finite default and requires an
+ * explicit notes-only opt-in for a non-expiring token.
  */
 import {
   DEFAULT_MEMOS_PAT_EXPIRES_IN_DAYS,
@@ -11,6 +11,7 @@ import {
   MAX_MEMOS_PAT_EXPIRES_IN_DAYS,
   type MemosPatScope,
   memosPatPermissionsFor,
+  PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS,
 } from "@flaremo/contracts";
 import { ValidationError } from "@flaremo/domain";
 import { type FlareMoAuth, MEMOS_PAT_CONFIG_ID } from "../auth-env";
@@ -41,16 +42,24 @@ export function personalAccessTokenToDto(
 const DEFAULT_PAT_NAME = "Memos API token";
 
 /**
- * Compatibility clients still send `expiresInDays: 0` (or omit the field) to
- * mean "no explicit choice". That used to mint a permanent token; it now maps
- * to the same 90-day default as the account UI. Explicit limits are validated
- * here as well, so a future route cannot bypass the 1..365 day policy.
+ * Omitted/null lifetime means the finite 365-day default. Explicit zero means a
+ * non-expiring token, but only for notes-only tokens: admin scope must keep a
+ * bounded lifetime so a leaked management credential cannot become permanent.
  */
 export function normalizeMemosPatExpiresInDays(
   value: number | null | undefined,
+  scopes: readonly MemosPatScope[] = [DEFAULT_MEMOS_PAT_SCOPE],
 ): number {
-  if (value === undefined || value === null || value === 0) {
+  if (value === undefined || value === null) {
     return DEFAULT_MEMOS_PAT_EXPIRES_IN_DAYS;
+  }
+  if (value === PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS) {
+    if (scopes.includes("admin")) {
+      throw new ValidationError(
+        "Admin-scoped personal access tokens cannot be permanent.",
+      );
+    }
+    return PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS;
   }
   if (
     !Number.isInteger(value) ||
@@ -58,7 +67,7 @@ export function normalizeMemosPatExpiresInDays(
     value > MAX_MEMOS_PAT_EXPIRES_IN_DAYS
   ) {
     throw new ValidationError(
-      `Personal access token lifetime must be between 1 and ${MAX_MEMOS_PAT_EXPIRES_IN_DAYS} days.`,
+      `Personal access token lifetime must be between 1 and ${MAX_MEMOS_PAT_EXPIRES_IN_DAYS} days, or 0 for a permanent notes-only token.`,
     );
   }
   return value;
@@ -92,14 +101,20 @@ export async function createMemosPersonalAccessToken(
   auth: FlareMoAuth,
   input: CreateMemosPersonalAccessTokenInput,
 ) {
-  const expiresInDays = normalizeMemosPatExpiresInDays(input.expiresInDays);
   const scopes = normalizeMemosPatScopes(input.scopes);
+  const expiresInDays = normalizeMemosPatExpiresInDays(
+    input.expiresInDays,
+    scopes,
+  );
   return auth.api.createApiKey({
     body: {
       configId: MEMOS_PAT_CONFIG_ID,
       userId: input.userId,
       name: input.name?.trim() || DEFAULT_PAT_NAME,
-      expiresIn: expiresInDays * 24 * 60 * 60,
+      expiresIn:
+        expiresInDays === PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS
+          ? null
+          : expiresInDays * 24 * 60 * 60,
       permissions: memosPatPermissionsFor(scopes),
     },
   });

@@ -1,4 +1,7 @@
-import type { MemosPatScope } from "@flaremo/contracts";
+import {
+  type MemosPatScope,
+  PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS,
+} from "@flaremo/contracts";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
@@ -29,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { formatDateTime } from "@/lib/date-format";
 import { useCloseOnSuccess } from "./account-panel-presets";
@@ -86,6 +90,9 @@ export function AccountTokensSection({
   t,
 }: AccountTokensSectionProps) {
   const [createTokenOpen, setCreateTokenOpen] = useState(false);
+  const adminScoped = tokenScopes.includes("admin");
+  const permanent =
+    tokenExpiryDays === String(PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS);
 
   // Auto-close dialogs on mutation success
   useCloseOnSuccess(createTokenIsPending, tokenError !== null, () =>
@@ -178,15 +185,19 @@ export function AccountTokensSection({
                 disabled={createTokenIsPending}
                 id="token-scopes"
                 value={tokenScopes.includes("admin") ? "admin" : "notes"}
-                onChange={(event) =>
-                  setTokenScopes([event.target.value as MemosPatScope])
-                }
+                onChange={(event) => {
+                  const next = event.target.value as MemosPatScope;
+                  setTokenScopes([next]);
+                  // A permanent token may only carry the notes scope. Clear
+                  // the opt-in when the user switches to admin.
+                  if (next === "admin" && permanent) setTokenExpiryDays("");
+                }}
               >
                 <option value="notes">{t("auth.tokenScopeNotes")}</option>
                 <option value="admin">{t("auth.tokenScopeAdmin")}</option>
               </Select>
               <span className="text-xs font-normal text-muted-foreground">
-                {tokenScopes.includes("admin")
+                {adminScoped
                   ? t("auth.tokenScopeAdminHint")
                   : t("auth.tokenScopeNotesHint")}
               </span>
@@ -198,14 +209,34 @@ export function AccountTokensSection({
               {t("auth.tokenExpiry")}
               <Input
                 autoComplete="off"
-                disabled={createTokenIsPending}
+                disabled={createTokenIsPending || permanent}
                 id="token-expiry"
                 max={365}
                 min={1}
-                placeholder="90"
+                placeholder="365"
                 type="number"
-                value={tokenExpiryDays}
+                value={permanent ? "" : tokenExpiryDays}
                 onChange={(event) => setTokenExpiryDays(event.target.value)}
+              />
+              <span className="text-xs font-normal text-muted-foreground">
+                {t("auth.tokenExpiryHint")}
+              </span>
+            </label>
+            <label
+              className="flex items-center justify-between gap-3 text-sm font-medium"
+              htmlFor="token-permanent"
+            >
+              <span>{t("auth.tokenPermanent")}</span>
+              <Switch
+                aria-label={t("auth.tokenPermanent")}
+                checked={permanent}
+                disabled={createTokenIsPending || adminScoped}
+                id="token-permanent"
+                onCheckedChange={(checked) =>
+                  setTokenExpiryDays(
+                    checked ? String(PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS) : "",
+                  )
+                }
               />
             </label>
             <DialogFooter className="mt-2">

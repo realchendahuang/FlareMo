@@ -556,9 +556,12 @@ const messages = {
   "auth.tokenScopeAdminHint":
     "Also manage members, plugins and maintenance. Only use it for instance provisioning.",
   "auth.tokenExpiry": "Expires in days",
+  "auth.tokenExpiryHint":
+    "Leave blank for the 365-day default, or enter 1–365 days. You can opt into a non-expiring token only with notes scope.",
+  "auth.tokenPermanent": "Permanent (notes-only, no automatic expiry)",
   "auth.never": "Never",
   "auth.tokenValidation":
-    "Enter a name and leave expiry blank or enter a whole number from 1 to 365.",
+    "Enter a name, then leave expiry blank for 365 days, enter a whole number from 1 to 365, or choose permanent for a notes-only token.",
   "auth.createToken": "Create token",
   "auth.creatingToken": "Creating…",
   "auth.tokenCreateFailed": "Could not create the token.",

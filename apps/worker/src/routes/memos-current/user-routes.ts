@@ -115,8 +115,8 @@ export function registerUserRoutes(app: Hono<HonoBindings>) {
       const created = await createMemosPersonalAccessToken(auth, {
         userId: context.authUserId,
         name: body.description,
-        // Compatibility clients used 0 for "no explicit lifetime". The helper
-        // maps that legacy value to the same 90-day default as the account UI.
+        // Omitted means the 365-day server default. Explicit 0 is the
+        // compatibility wire spelling for a permanent notes-only token.
         expiresInDays: body.expiresInDays,
       });
       return noStoreResponse(

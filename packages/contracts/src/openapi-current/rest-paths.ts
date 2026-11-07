@@ -919,7 +919,13 @@ export const restPaths = {
           type: "object",
           properties: {
             description: { type: "string" },
-            expiresInDays: { type: "integer", minimum: 0, maximum: 365 },
+            expiresInDays: {
+              type: "integer",
+              minimum: 0,
+              maximum: 365,
+              description:
+                "Omitted defaults to 365 days. Explicit 0 creates a non-expiring token; only notes-scoped tokens may use it.",
+            },
           },
         }),
       },

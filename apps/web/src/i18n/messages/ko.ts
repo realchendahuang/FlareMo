@@ -554,9 +554,12 @@ const messages = {
   "auth.tokenScopeAdminHint":
     "구성원, 플러그인, 유지보수도 관리합니다. 인스턴스 운영에만 사용하세요.",
   "auth.tokenExpiry": "유효 기간(일)",
+  "auth.tokenExpiryHint":
+    "비워 두면 365일이며 1~365일을 지정할 수 있습니다. 영구 토큰은 노트 권한에만 사용할 수 있습니다.",
+  "auth.tokenPermanent": "영구(노트 권한만, 자동 만료 없음)",
   "auth.never": "만료 없음",
   "auth.tokenValidation":
-    "이름을 입력하고, 유효 기간은 비우거나 1~365 사이 정수로 입력해 주세요.",
+    "이름을 입력하고 유효 기간은 비워 두면(365일), 1~365 사이 정수로 입력하거나 노트 권한에서 영구를 선택해 주세요.",
   "auth.createToken": "토큰 만들기",
   "auth.creatingToken": "만드는 중…",
   "auth.tokenCreateFailed": "토큰을 만들 수 없습니다.",

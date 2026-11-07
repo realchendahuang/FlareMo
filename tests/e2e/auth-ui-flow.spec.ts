@@ -64,7 +64,14 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   await page
     .getByRole("textbox", { name: /令牌名称|Token name/i })
     .fill(tokenName);
-  await page.getByPlaceholder(/90|永不过期|Never/i).fill("30");
+  // The permanent option must be available to notes-only tokens. It starts
+  // unchecked because the UI default is a finite 365-day lifetime.
+  const permanentSwitch = page
+    .getByRole("switch", { name: /永久有效|Permanent/i })
+    .last();
+  await expect(permanentSwitch).not.toBeChecked();
+  await permanentSwitch.click();
+  await expect(permanentSwitch).toBeChecked();
   await page
     .locator('[role="dialog"]:visible')
     .last()
@@ -102,6 +109,9 @@ test("keeps setup one-time, logs in, and manages a PAT from the account UI", asy
   await expect(
     page.getByText(tokenName, { exact: true }).locator("visible=true"),
   ).toHaveCount(1);
+  await expect(
+    page.getByText(/永不过期|Never/i).locator("visible=true"),
+  ).not.toHaveCount(0);
 });
 
 test("adds a member through the admin dialog and shows the activation link", async ({

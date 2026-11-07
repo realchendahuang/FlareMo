@@ -104,8 +104,10 @@ describe("UserService webhooks and the durable outbox", () => {
           ?.expiresAt ?? "invalid",
       ),
     );
-    expect(patExpiresAt).toBeGreaterThan(Date.now() + 89 * 24 * 60 * 60 * 1000);
-    expect(patExpiresAt).toBeLessThan(Date.now() + 91 * 24 * 60 * 60 * 1000);
+    expect(patExpiresAt).toBeGreaterThan(
+      Date.now() + 364 * 24 * 60 * 60 * 1000,
+    );
+    expect(patExpiresAt).toBeLessThan(Date.now() + 366 * 24 * 60 * 60 * 1000);
     const adminAttempt = await request("/api/app/admin/settings", {
       headers: { authorization: `Bearer ${String(pat.token)}` },
     });

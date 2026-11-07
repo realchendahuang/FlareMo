@@ -558,9 +558,12 @@ const messages = {
   "auth.tokenScopeAdminHint":
     "メンバー・プラグイン・メンテナンスも管理できます。インスタンスの運用時のみ使用してください。",
   "auth.tokenExpiry": "有効期間（日）",
+  "auth.tokenExpiryHint":
+    "空欄なら 365 日、1〜365 日も指定できます。無期限はノート権限のトークンのみ選択できます。",
+  "auth.tokenPermanent": "無期限（ノート権限のみ、自動失効なし）",
   "auth.never": "無期限",
   "auth.tokenValidation":
-    "名前を入力し、有効期間は空欄または 1〜365 の整数で入力してください。",
+    "名前を入力し、有効期間は空欄（365 日）、1〜365 の整数、またはノート権限のみ無期限を選択してください。",
   "auth.createToken": "トークンを作成",
   "auth.creatingToken": "作成中…",
   "auth.tokenCreateFailed": "トークンを作成できませんでした。",

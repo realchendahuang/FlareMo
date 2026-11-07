@@ -10,7 +10,7 @@ FlareMo 是一个 Cloudflare 原生的个人知识管理系统：
 - D1 是笔记、用户、关系、分享、设置和附件元数据的事实源。
 - R2 只存附件、导出包和对象文件。
 - `/api/v1/*` 提供 Memos 兼容 API 子集。
-- 应用层使用 Better Auth：浏览器使用 HttpOnly cookie session，脚本、Memos-compatible 客户端和 MCP 使用可撤销的 `memos_pat_` Personal Access Token。PAT 带权限范围（`notes` 覆盖笔记/待办/文章/MCP，`admin` 额外覆盖 `/api/app/admin/*` 管理面）且默认 90 天有效期（1–365 天）；旧的未存 permissions 的令牌保持完全访问以兼容既有脚本，不新建无 scope 的 PAT。
+- 应用层使用 Better Auth：浏览器使用 HttpOnly cookie session，脚本、Memos-compatible 客户端和 MCP 使用可撤销的 `memos_pat_` Personal Access Token。PAT 带权限范围（`notes` 覆盖笔记/待办/文章/MCP，`admin` 额外覆盖 `/api/app/admin/*` 管理面）。新令牌默认 365 天；`notes` 令牌可显式选择永久有效，`admin` 令牌最长 365 天。旧的未存 permissions 的令牌保持完全访问以兼容既有脚本，不新建无 scope 的 PAT。
 - Cloudflare Access 是可选的外层防线和迁移期防线；启用时，客户端仍必须通过 Access policy，并在应用层提供 cookie session 或 `memos_pat_`。
 - 当前默认是一套单用户 bootstrap；禁止公开 signup，但认证表和 `auth_user_links` 为未来多用户保留扩展边界。
 

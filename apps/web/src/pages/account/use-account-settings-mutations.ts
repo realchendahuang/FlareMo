@@ -308,9 +308,12 @@ export function useAccountSettingsMutations({
   const handleCreateToken = async () => {
     const normalizedDays = tokenExpiryDays.trim();
     const expiresInDays = Number(normalizedDays);
+    const permanent = expiresInDays === 0 && normalizedDays !== "";
     if (
       !tokenName.trim() ||
+      (permanent && tokenScopes.includes("admin")) ||
       (normalizedDays &&
+        !permanent &&
         (!Number.isInteger(expiresInDays) ||
           expiresInDays < 1 ||
           expiresInDays > 365))

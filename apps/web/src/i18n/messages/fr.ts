@@ -571,9 +571,13 @@ const messages = {
   "auth.tokenScopeAdminHint":
     "Gérer aussi les membres, extensions et maintenance. À réserver au provisioning de l'instance.",
   "auth.tokenExpiry": "Validité (jours)",
+  "auth.tokenExpiryHint":
+    "Laissez vide pour 365 jours, ou saisissez 1 à 365 jours. La validité permanente est réservée aux jetons limités aux notes.",
+  "auth.tokenPermanent":
+    "Permanent (notes uniquement, sans expiration automatique)",
   "auth.never": "Jamais",
   "auth.tokenValidation":
-    "Saisissez un nom ; laissez la validité vide ou entrez un entier de 1 à 365.",
+    "Saisissez un nom ; laissez la validité vide pour 365 jours, entrez 1 à 365, ou choisissez permanent pour un jeton limité aux notes.",
   "auth.createToken": "Créer le jeton",
   "auth.creatingToken": "Création…",
   "auth.tokenCreateFailed": "Impossible de créer le jeton.",
