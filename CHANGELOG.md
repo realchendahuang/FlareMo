@@ -3,7 +3,7 @@
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
 
-## Unreleased
+## v0.30.1
 
 **安全边界、数据可靠性与前端一致性的一轮加固。** 新增 1 个向后兼容的 D1 索引 migration（0045），无 Cloudflare 资源变化；旧数据和旧 PAT 继续可用。
 
