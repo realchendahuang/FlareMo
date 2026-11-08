@@ -799,8 +799,8 @@ packages/kotlin/
 | --- | --- | --- | --- |
 | macOS | ✅ 可构建可运行 | `/Applications/Xcode.app`（27.2 / 27B52）+ CLT | `cd apps/apple && xcodebuild -scheme FlareMo-macOS build` |
 | iOS | ✅ 可构建、模拟器可跑 | 同上 + iOS 27.2 SDK / 模拟器运行时 | `xcodebuild -scheme FlareMo-iOS -destination 'platform=iOS Simulator,name=iPhone 17' build` |
-| Android | ✅ 可构建、模拟器可跑 | `~/Library/Android/sdk` | `cd apps/kotlin && ./gradlew :androidApp:assembleDebug` |
-| Windows | ⚠️ 代码可编译，安装包需要 Windows | Compose Desktop（JVM，与 Android 同一份代码） | `./gradlew :desktopApp:compileKotlin` |
+| Android | ✅ 可构建、模拟器可跑（已装 APK 出画面） | `~/Library/Android/sdk` | `cd apps/kotlin && ./gradlew :androidApp:assembleDebug` |
+| Windows | ⚠️ 代码可编译、窗口已在 macOS JVM 上跑起来；打包成 .msi/.exe 需要 Windows | Compose Desktop（JVM，与 Android 同一份代码） | `./gradlew :desktopApp:run` |
 
 ### 12.2 已安装（含版本与路径）
 
@@ -873,8 +873,10 @@ cd apps/kotlin && ./gradlew :desktopApp:run
 - **Windows 安装包**：`jpackage` 只能在 Windows 上跑。需要一台 Windows 11 ARM64 虚拟机，
   镜像还没拿到（UUP dump 的 `get.php` 参数组合没试通，下一轮换微软官方 ISO 页面走浏览器）。
   **不影响开发**：桌面端代码在 macOS 上就能编译运行，只有「打成 .exe/.msi」这一步卡着。
-- **Xcode 组件**：`/Applications/Xcode.app` 仍在安装（App Store 还在写盘，缺 `Simulator.app`
-  等 GUI 组件）。命令行构建、模拟器 headless 运行都不受影响，只是暂时不能手点模拟器窗口。
+- **Xcode 27 没有 `Simulator.app`**：这一代把它并进了
+  `/Applications/Xcode.app/Contents/Applications/DeviceHub.app`（`com.apple.dt.Devices`，27.2）。
+  模拟器本身照常（`xcrun simctl` 全功能、App 能装能跑），要看画面就开 DeviceHub。
+  命令行截图用 `xcrun simctl io booted screenshot`，不依赖 GUI。
 
 ---
 
