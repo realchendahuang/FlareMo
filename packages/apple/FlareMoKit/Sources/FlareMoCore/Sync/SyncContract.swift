@@ -47,11 +47,19 @@ public struct HydrateRequest: Codable, Sendable {
     public var memoIds: [String]
     public var attachmentIds: [String]
     public var articleIds: [String]
+    /// 关系行没有正文，但它自己就是正文（memo_id / related_memo_id / type），单列一类。
+    public var relationIds: [String]
 
-    public init(memoIds: [String] = [], attachmentIds: [String] = [], articleIds: [String] = []) {
+    public init(
+        memoIds: [String] = [],
+        attachmentIds: [String] = [],
+        articleIds: [String] = [],
+        relationIds: [String] = []
+    ) {
         self.memoIds = memoIds
         self.attachmentIds = attachmentIds
         self.articleIds = articleIds
+        self.relationIds = relationIds
     }
 }
 
@@ -60,6 +68,31 @@ public struct HydrateResponse: Codable, Sendable {
     public var memos: [RemoteMemo]
     public var attachments: [RemoteAttachment]
     public var articles: [RemoteArticle]
+    public var relations: [RemoteRelation]
+
+    public init(
+        memos: [RemoteMemo] = [],
+        attachments: [RemoteAttachment] = [],
+        articles: [RemoteArticle] = [],
+        relations: [RemoteRelation] = []
+    ) {
+        self.memos = memos
+        self.attachments = attachments
+        self.articles = articles
+        self.relations = relations
+    }
+}
+
+/// 关系行（评论、引用等）。服务端没有独立的 comments 表：
+/// 评论是完整 memo 行 + `memo_relations(type='comment')`。这里给的是这条关系本身。
+public struct RemoteRelation: Codable, Sendable, Hashable {
+    public var id: String
+    public var memoId: String
+    public var relatedMemoId: String
+    public var type: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var version: Int
 }
 
 /// 附件元数据（二进制本身走 S3 兼容直传，不经过 hydrate）。
@@ -131,7 +164,23 @@ public struct PushResponse: Codable, Sendable {
 // MARK: - 能力发现
 
 /// `GET /api/app/instance`
+///
+/// `capabilities` 是**带版本号的对象**（§4.6），不是字符串数组：
+/// `{"sync_changes": 1, "native_push": ["apns", "fcm"], ...}`。
+/// 值的类型不统一（数字 / 数组 / 布尔），所以用 `[String: JSONValue]` 保留原始形状，
+/// 再按能力名取值。缺能力不阻塞启动，只是降级（§7.6）。
 public struct InstanceCapabilities: Codable, Sendable, Hashable {
     public var version: String?
-    public var capabilities: [String]
+    public var capabilities: [String: JSONValue]
+
+    /// 实例是否声明了某个能力。
+    public func supports(_ name: String) -> Bool {
+        capabilities[name] != nil
+    }
+
+    /// 能力版本号（比如 `sync_changes` 的 1）；没有该能力返回 nil。
+    public func version(of name: String) -> Int? {
+        guard case let .int(value) = capabilities[name] else { return nil }
+        return value
+    }
 }

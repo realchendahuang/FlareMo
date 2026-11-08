@@ -239,14 +239,38 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 // GET /api/app/sync/changes?since=1024&limit=500
 {
   "changes": [
-    { "seq": 1025, "entity": "memo",       "id": "memo_xxx",  "op": "upsert", "version": 7, "updated_at": "2026-11-08T12:00:00.123Z" },
-    { "seq": 1026, "entity": "relation",   "id": "memo_zzz",  "op": "upsert", "version": 0, "updated_at": "2026-11-08T12:00:01.000Z" },
-    { "seq": 1027, "entity": "attachment", "id": "att_aaa",   "op": "delete", "version": 3, "updated_at": "2026-11-08T12:01:00.456Z" }
+    { "seq": 1025, "entity": "memo",       "entity_id": "memo_xxx", "op": "upsert", "version": 7, "updated_at": "2026-11-08T12:00:00.123Z" },
+    { "seq": 1026, "entity": "relation",   "entity_id": "rel_zzz",  "op": "upsert", "version": 1, "updated_at": "2026-11-08T12:00:01.000Z" },
+    { "seq": 1027, "entity": "attachment", "entity_id": "att_aaa",  "op": "delete", "version": 3, "updated_at": "2026-11-08T12:01:00.456Z" }
   ],
   "next_seq": 1027,
   "has_more": true
 }
 ```
+
+字段口径（2026-11-09 定，实现以此为准）：
+- 引用里用 **`entity` + `entity_id`**，不要用裸 `id`（`id` 有歧义，读不出来是谁的 id）。
+- `op` 只有 `upsert` / `delete` 两个值，不要发明第三个。
+- **`/sync/changes` 的空轮询必须廉价**：没有新变更时直接返回空数组（或 204），不要每次扫全表——
+  客户端是 30 秒一轮的常驻轮询，这条直接决定账单（§9 成本模型）。
+
+`POST /api/app/sync/hydrate` 的请求/响应（引用 → 正文）：
+
+```json
+// 请求：一次 ≤200 个 id
+{ "memo_ids": ["memo_xxx"], "attachment_ids": ["att_aaa"], "article_ids": [], "relation_ids": ["rel_zzz"] }
+
+// 响应：只回客户端要的那几类
+{
+  "memos":       [ { "id": "memo_xxx", "content": "...", "version": 7, "...": "..." } ],
+  "attachments": [ { "id": "att_aaa", "r2_key": "...", "mime": "image/png", "bytes": 12345, "state": "ready", "version": 3 } ],
+  "articles":    [],
+  "relations":   [ { "id": "rel_zzz", "memo_id": "memo_xxx", "related_memo_id": "memo_yyy", "type": "comment", "version": 1 } ]
+}
+```
+
+`relation` 单列出来的理由：`sync_changes` 里会出现 `entity='relation'`，而关系行只有
+`memo_id/related_memo_id/type`，没有正文——不给它一条 hydrate 通道，这类变更就没法落库。
 
 - 返回的是**引用**，不内联正文：客户端按 `entity` 批量补正文（`POST /api/app/sync/hydrate`，一次 ≤200 个 id，返回 memo/attachment/article 三类正文）。这样一次同步响应不会被长文撑爆，弱网也不至于整轮重来。**hydrate 计入上面的「同步端点 2 人日」。**
 - 删除记录保留 **30 天**（`FLAREMO_TRASH_RETENTION_DAYS` 默认 30，之后硬删；`sync_changes` 同步裁剪）。`since` 早于裁剪点服务端返回 **410**，客户端走「全量重建」路径。
