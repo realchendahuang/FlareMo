@@ -14,7 +14,7 @@ import React from 'react'
 
 import { asApiError } from './api.js'
 import { secondsUntil } from './notes.js'
-import { C, S } from './styles.js'
+import { C, T } from './styles.js'
 
 /** 最小可用的配对状态：从 connection view 里抽出来。 */
 function pendingOf(connection) {
@@ -224,114 +224,143 @@ export function useConnectFlow({ call, tr, initialConnection, onConnected }) {
 
 /**
  * 配对表单：实例地址 + 「生成配对码」。设置页和工作台面板共用。
+ *
+ * 造型照网页端：一张 fm-card 里的表单项（12px 标签 + h-8 输入框 + 唯一火焰 CTA）。
  * @param {{ tr: (key: string, vars?: object) => string, instanceUrl: string,
  *   onChange: (value: string) => void, busy: boolean, onStart: () => void,
  *   disabled?: boolean }} props
  */
 export function ConnectForm({ tr, instanceUrl, onChange, busy, onStart, disabled = false }) {
+  const canSubmit = disabled === false && busy === false && instanceUrl.trim() !== ''
+  const submit = () => {
+    if (canSubmit) void onStart()
+  }
   return (
-    <>
-      <label style={{ display: 'block', fontSize: 11.5, color: C.textTertiary, marginBottom: 4 }}>
-        {tr('instanceLabel')}
-      </label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+    <form
+      className="fm-card"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submit()
+      }}
+      style={{ gap: 12 }}
+    >
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span style={{ ...T.caption, fontWeight: 500, color: C.text }}>{tr('instanceLabel')}</span>
         <input
-          className="dsh-flaremo-input"
+          className="fm-input"
           type="url"
           value={instanceUrl}
           placeholder={tr('instancePlaceholder')}
           aria-label={tr('instanceLabel')}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && busy === false && instanceUrl.trim() !== '') void onStart()
-          }}
-          style={{
-            flex: '1 1 260px',
-            minWidth: 180,
-            height: 30,
-            padding: '0 10px',
-            border: `1px solid ${C.border}`,
-            borderRadius: C.radiusMd,
-            background: C.bgBase,
-            color: C.text,
-            fontFamily: 'inherit',
-            fontSize: 12.5,
-            outline: 'none',
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              submit()
+            }
           }}
         />
+      </label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
-          type="button"
-          className="dsh-flaremo-btn dsh-flaremo-primary"
-          onClick={onStart}
-          disabled={disabled || busy || instanceUrl.trim() === ''}
-          style={S.primaryButton}
+          type="submit"
+          className="fm-btn"
+          data-variant={canSubmit ? 'brand' : 'outline'}
+          data-size="sm"
+          disabled={!canSubmit}
         >
           {busy ? tr('connectWorking') : tr('connectStart')}
         </button>
       </div>
-    </>
+    </form>
   )
 }
 
 /**
- * 配对码卡：8 位码 + 倒计时 + 打开配对页 + 手动「我已批准」+ 取消。
- * @param {{ tr: (key: string, vars?: object) => string, pending: object, now: number,
- *   polling: boolean, onPoll: () => void, onCancel: () => void }} props
+ * 配对卡：8 位配对码 + 倒计时 + 「打开配对页」/「我已批准」/「取消配对」。
+ *
+ * 配对码的造型抄网页端 connect-page.tsx 的 code 输入框：等宽、居中、字距拉开。
+ * @param {{ tr: (key: string, vars?: object) => string,
+ *   pending: { userCode: string, verificationUri?: string, verificationUriComplete?: string, expiresAt?: string },
+ *   now: number, polling: boolean, onPoll: () => void, onCancel: () => void }} props
  */
 export function PairingCard({ tr, pending, now, polling, onPoll, onCancel }) {
   const remaining = secondsUntil(pending.expiresAt, now)
+  const expired = remaining <= 0
+  const countdown = expired ? tr('pairExpired') : tr('pairExpires', { seconds: remaining })
   return (
-    <>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{tr('pairTitle')}</div>
-      <p style={{ margin: '0 0 10px', fontSize: 12.5, lineHeight: '19px', color: C.textSecondary }}>{tr('pairHint')}</p>
+    <div className="fm-card" style={{ gap: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ ...T.h3, color: C.text }}>{tr('pairTitle')}</div>
+        <p style={{ margin: 0, ...T.caption, color: C.textSecondary, lineHeight: '19px' }}>{tr('pairHint')}</p>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <code
           style={{
-            padding: '7px 14px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 220,
+            padding: '10px 18px',
             border: `1px solid ${C.border}`,
-            borderRadius: C.radiusMd,
-            background: C.bgLayer2,
+            borderRadius: C.radiusLg,
+            background: C.bgBase,
             color: C.text,
             fontFamily: C.mono,
-            fontSize: 20,
-            letterSpacing: '0.16em',
+            fontSize: 22,
+            lineHeight: '26px',
+            letterSpacing: '0.3em',
+            textTransform: 'uppercase',
+            textIndent: '0.3em',
           }}
         >
           {pending.userCode}
         </code>
-        <span style={{ fontSize: 11.5, color: remaining > 0 ? C.textTertiary : C.danger }}>
-          {remaining > 0 ? tr('pairExpires', { seconds: remaining }) : tr('pairExpired')}
-        </span>
+        <span style={{ ...T.caption, color: expired ? C.danger : C.textSecondary }}>{countdown}</span>
       </div>
 
-      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {pending.verificationUriComplete ? (
-          <a
-            href={pending.verificationUriComplete}
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: 12.5, color: C.link, overflowWrap: 'anywhere' }}
-          >
-            {tr('pairOpen')} ↗ {pending.verificationUriComplete}
-          </a>
-        ) : null}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button
           type="button"
-          className="dsh-flaremo-btn dsh-flaremo-primary"
+          className="fm-btn"
+          data-variant="brand"
+          data-size="sm"
           onClick={onPoll}
           disabled={polling}
-          style={S.primaryButton}
         >
           {polling ? tr('pairWaiting') : tr('pairPoll')}
         </button>
-        <button type="button" className="dsh-flaremo-btn" onClick={onCancel} style={S.button}>
+        {pending.verificationUriComplete ? (
+          <a
+            className="fm-btn"
+            data-variant="outline"
+            data-size="sm"
+            href={pending.verificationUriComplete}
+            target="_blank"
+            rel="noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            {tr('pairOpen')}
+          </a>
+        ) : null}
+        <button
+          type="button"
+          className="fm-btn"
+          data-variant="ghost"
+          data-size="sm"
+          onClick={onCancel}
+          style={{ marginLeft: 'auto' }}
+        >
           {tr('pairCancel')}
         </button>
       </div>
-    </>
+
+      {polling ? (
+        <span style={{ ...T.micro, color: C.textSecondary, lineHeight: '17px' }}>{tr('pairWaiting')}</span>
+      ) : expired ? (
+        <span style={{ ...T.micro, color: C.danger, lineHeight: '17px' }}>{tr('pairExpired')}</span>
+      ) : null}
+    </div>
   )
 }

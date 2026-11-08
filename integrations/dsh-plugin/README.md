@@ -57,6 +57,33 @@ Token 生命周期由 host 管理：access token 14 天，临时到期前 60s �
 断开只删除本机凭据记录（**不会**调用服务端吊销；服务端的设备授权请到 FlareMo 的
 「已连接应用」页吊销 —— 下一版接）。
 
+## 视觉：和网页端同一套 Ember，但用插件自己的技术栈实现
+
+面板/设置页的视觉与 FlareMo 网页端（`docs/design-system.md` 的 Ember）**逐条对齐**：
+暖白纸面 + 暖墨文字、火焰色只留给每屏唯一的主 CTA、激活态是墨色、圆角 6/8/10/14/18、
+双层暖投影、纸纹（`--fm-grain`）、Geist Variable + 系统 CJK 字体、`text-autospace` 中英混排、
+12/14/16/20 的字号阶梯、`h-8` 控件与 `h-14` 工具栏。
+
+**为什么不直接 import 网页端的组件？** 两边不是同一个运行时，硬搬会炸：
+
+1. **React 实例只有一份** —— DSH 客户端只把宿主自己的 React 交给插件（`react` 走 external），
+   网页端是 React 19 + Vite 的整包 SPA，两个 React 不能进同一个 renderer；
+2. **样式管道不同** —— 网页端是 Tailwind v4（`@theme inline` + preflight）；插件是 esbuild 单文件
+   + 注入 `<style>`。把 Tailwind 打进 DSH 页面，preflight 的全局 reset 会把宿主 UI 一起洗掉；
+3. **组件吊在 app 级上下文上** —— 网页端组件背后是 TanStack Router/Query、BrandingProvider、
+   better-auth 会话；插件面板里没有这些 provider，单独 import 出来跑不起来；
+4. **登录态不共享** —— 网页端靠 `app.flaremo.app` 的 cookie 会话（`SameSite=Lax`），面板在 DSH 里，
+   跨站 iframe 里会话 cookie 不发送也不写入，所以只能走设备授权换 token。
+
+因此复用方式是**复用设计而不是复用 DOM**：
+
+- `src/client/theme.js` 把 `apps/web/src/index.css` 的 `:root` / `.dark` token 原样搬过来
+  （前缀 `--fm-`，作用域只在面板内），深色跟 DSH 的 `body[data-ds-dark-theme]` 走，插件不自己判主题；
+- 组件造型照 `apps/web/src/components/ui/*` 的 class 串逐条实现成 `.fm-btn` / `.fm-input` /
+  `.fm-card` / `.fm-badge` / `.fm-pill` / `.fm-kbd` / `.fm-empty` / `.fm-alert` / `.fm-prose`，
+  伪类与深色覆盖写在 CSS 里，版面用内联 style；
+- Geist Variable 的 latin 子集（29KB，SIL OFL 1.1）以 data URI 打进 bundle，汉字不额外打包。
+
 ## 洞察执行器（AI 洞察闭环）
 
 FlareMo 只存任务与结果、**不跑模型**；模型由执行器（这里就是 DSH 插件）跑。一次任务：
@@ -122,12 +149,14 @@ dsh-flaremo/
 │   ├── markdown.js           Markdown → 块（不生成 HTML）
 │   ├── notes.js              分组 / 搜索 / 正文块 / 相关笔记
 │   ├── i18n.js               zh + en 词典（含 err.<CODE>）
-│   ├── styles.js             --dsw-* token 包装 + 少量伪类 CSS
+│   ├── theme.js              Ember 设计 token + 字体 + 组件造型 CSS（与网页端同一套）
+│   ├── styles.js             颜色/字号阶梯（C / T）+ 注入样式表的出口
+│   ├── assets/               Geist Variable latin 子集（打进 bundle，SIL OFL 1.1）
 │   └── icons.jsx             左栏图标 + 工作台小图标
 ├── scripts/
 │   ├── build-client.mjs      esbuild CJS + window.__ModuleLoader__.load wrapper
 │   └── check-client.mjs      产物形状检查
-├── test/                     102 个用例（见下）
+├── test/                     105 个用例（见下）
 └── dist/client.js            构建产物（提交进仓库，包里的 ./client 指向它）
 ```
 
@@ -137,7 +166,7 @@ dsh-flaremo/
 npm install      # dependencies（typert-protocol）+ devDependencies（esbuild / react / jsdom）
 npm run build    # src/client → dist/client.js
 npm run check    # node --check（host 入口 / contract / 产物）+ 产物形状检查
-npm test         # 102 个用例：host 状态机、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown
+npm test         # 105 个用例：host 状态机、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown、构建包装
 ```
 
 测试都离线：
@@ -149,6 +178,7 @@ npm test         # 102 个用例：host 状态机、洞察执行器、模型调�
   Remote 双层信封拆解（成功 / 失败 / 未挂载）；
 - `test/workbench.dom.test.mjs`：jsdom + `react-dom/client` 真跑 effect——已连接时渲染
   RPC 数据、未连接时只渲染连接引导且能在面板里直接发起配对（不出现示例数据）、RPC 失败不白屏；
+- `test/build.test.mjs`：加载器包装不改字符串值（多行模板字面量 / `\n` 语义 / UTF-8）；
 - `test/notes.test.mjs` / `test/markdown.test.mjs`：分组、搜索、正文块、字符数、相关笔记、解析器；
 - `test/insight.test.mjs`：prompt 的「不可信数据」声明与转义、单条/总量截断、JSON 提取、
   结果字段收敛与上限裁剪；

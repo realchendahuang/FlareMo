@@ -208,7 +208,13 @@ test('apply 注入自己的样式表', () => {
   const style = nodes.find((node) => node.id === 'dsh-flaremo-styles')
   assert.ok(style, '没有找到 <style id="dsh-flaremo-styles">')
   assert.match(style.textContent, /\.dsh-flaremo-root/)
-  assert.match(style.textContent, /--dsw-alias-label-primary/)
+  // Ember token（与 FlareMo 网页端同一套）：亮色墨色 + 纸纹 + 火焰主色。
+  assert.match(style.textContent, /--fm-foreground:/)
+  assert.match(style.textContent, /--fm-brand-500:/)
+  assert.match(style.textContent, /--fm-grain:/)
+  // 组件造型走 class（按钮/卡片/输入框），深色由 DSH 的 data-ds-dark-theme 驱动。
+  assert.match(style.textContent, /\.fm-btn/)
+  assert.match(style.textContent, /body\[data-ds-dark-theme\] \.dsh-flaremo-root/)
 })
 
 test('左栏图标组件按 size 渲染', () => {

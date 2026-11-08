@@ -1,55 +1,186 @@
 /**
- * 主题 token 包装 + 少量无法内联的 CSS。
+ * 样式层：颜色/排版 token + 组件造型 class + 注入的样式表。
  *
- * 原则（对照 research/dsh-flaremo-plugin/01-dsh-client-ui.md §2.8 / §7.4）：
- *  - 颜色、圆角、阴影、字体只用 DSH 的 `--dsw-*` token，并带浅色主题 fallback；
- *    深色主题由 DSH 自己把 token 换掉，插件不写死 hex 判断；
- *  - 版面与组件样式走内联 `style`（纯 React，无 CSS 依赖）；
- *  - 伪类（hover / focus-visible / ::placeholder / 滚动条 / 减少动态效果）
- *    内联表达不了，用一小段注入的 <style> 补上。
+ * 两条规矩（沿用插件既有约定，别混）：
+ *  1. **形状与状态**（按钮、输入框、卡片、徽标、键帽、悬停/焦点/禁用）走 class，
+ *     实现全在 theme.js 的 COMPONENT_CSS 里 —— 这些能在网页端一一对应，
+ *     inline 写不出来 :hover / :focus-visible / 深色覆盖；
+ *  2. **版面**（flex/grid/宽高/间距）仍走内联 style，就近可读。
+ *
+ * class 一览（值都抄自 FlareMo 网页端 components/ui/*，改之前先看那边）：
+ *
+ *   按钮   <button className="fm-btn" data-variant="brand|default|outline|ghost|secondary|destructive"
+ *                    data-size="default|sm|xs|icon|icon-sm">
+ *   输入框 <input className="fm-input" data-size="search" data-tone="code">
+ *   卡片   <div className="fm-card" data-size="sm">
+ *   记录行 <button className="fm-note" data-active="true|false">
+ *   徽标   <span className="fm-badge" data-tone="neutral|brand|success|warning|danger|info">
+ *   chip   <span className="fm-chip">#tag</span>
+ *   pill   <button className="fm-pill" data-active="…">
+ *   键帽   <kbd className="fm-kbd">⌘K</kbd>
+ *   空状态 <div className="fm-empty"> + .fm-empty-icon / .fm-empty-title / .fm-empty-desc
+ *   提示条 <div className="fm-alert" data-tone="danger|warning|success">
+ *   骨架   <div className="fm-skeleton">
+ *   滚动   className="fm-scroll"
+ *   正文   className="fm-prose"（由 BlockView 输出语义标签，样式在 CSS 里）
+ *
+ * 主题（亮/暗）由 theme.js 的 --fm-* token 负责，深色跟 DSH 的
+ * `body[data-ds-dark-theme]` 走，插件自己**不判断**明暗。
  */
 
-/** 颜色 / 边框 / 阴影 token，全部带 fallback。 */
+import { THEME_CSS } from './theme.js'
+
+/** 颜色 / 字体 / 圆角 / 阴影 token。全部指向 --fm-*，带浅色兜底。 */
 export const C = {
-  text: 'var(--dsw-alias-label-primary, #1f2328)',
-  textSecondary: 'var(--dsw-alias-label-secondary, #57606a)',
-  textTertiary: 'var(--dsw-alias-label-tertiary, #6e7781)',
-  caption: 'var(--dsw-alias-label-caption, #8c959f)',
-  bgBase: 'var(--dsw-alias-bg-base, #ffffff)',
-  bgLayer1: 'var(--dsw-alias-bg-layer-1, #f6f8fa)',
-  bgLayer2: 'var(--dsw-alias-bg-layer-2, #f6f8fa)',
-  bgLayer3: 'var(--dsw-alias-bg-layer-3, #eef1f4)',
-  bgHover: 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))',
-  bgActive: 'var(--dsw-alias-interactive-bg-active, rgba(0, 0, 0, 0.08))',
-  border: 'var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))',
-  borderSoft: 'var(--dsw-alias-border-l1, rgba(0, 0, 0, 0.08))',
-  borderStrong: 'var(--dsw-alias-border-l3, rgba(0, 0, 0, 0.16))',
-  accent: 'var(--dsw-alias-state-business-primary, #2f6feb)',
-  accentSoft: 'color-mix(in srgb, var(--dsw-alias-state-business-primary, #2f6feb) 12%, transparent)',
-  onAccent: 'var(--dsw-alias-label-primary-inverted, #ffffff)',
-  success: 'var(--dsw-alias-state-success-primary, #1a7f37)',
-  warn: 'var(--dsw-alias-state-warn-primary, #9a6700)',
-  danger: 'var(--dsw-alias-state-danger-primary, #cf222e)',
-  link: 'var(--dsw-alias-link, #0969da)',
-  font: 'var(--dsw-font-family, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif)',
-  mono: 'var(--dsh-code-font-family, var(--dsw-font-family, ui-monospace, SFMono-Regular, Menlo, monospace))',
-  contentSize: 'var(--dsh-content-font-size, 14px)',
-  radiusSm: 'var(--dsw-radius-sm, 6px)',
-  radiusMd: 'var(--dsw-radius-md, 8px)',
-  radiusLg: 'var(--dsw-radius-lg, 12px)',
-  radiusXl: 'var(--dsw-radius-xl, 16px)',
-  shadowSoft: 'var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.06))',
-  shadowProminent: 'var(--dsw-elevation-prominent, 0 8px 24px rgba(0, 0, 0, 0.12))',
+  /* 墨色与纸面 */
+  text: 'var(--fm-foreground, #1f2328)',
+  textSecondary: 'var(--fm-muted-foreground, #57606a)',
+  textTertiary: 'var(--fm-muted-foreground, #6e7781)',
+  caption: 'var(--fm-muted-foreground, #8c959f)',
+  page: 'var(--fm-background, #ffffff)',
+  bgBase: 'var(--fm-card, #ffffff)',
+  bgLayer1: 'var(--fm-muted, #f6f8fa)',
+  bgLayer2: 'var(--fm-secondary, #f6f8fa)',
+  bgLayer3: 'var(--fm-accent, #eef1f4)',
+  bgHover: 'var(--fm-muted, rgba(0, 0, 0, 0.05))',
+  bgActive: 'var(--fm-accent, rgba(0, 0, 0, 0.08))',
+
+  /* 线条（发丝环） */
+  border: 'var(--fm-border, rgba(0, 0, 0, 0.12))',
+  borderSoft: 'color-mix(in oklab, var(--fm-border, rgba(0, 0, 0, 0.12)) 70%, transparent)',
+  borderStrong: 'var(--fm-input, rgba(0, 0, 0, 0.16))',
+
+  /* 品牌与状态：墨色是默认，火焰色是强调 */
+  ink: 'var(--fm-foreground, #1f2328)',
+  inkSoft: 'color-mix(in oklab, var(--fm-foreground, #1f2328) 8%, transparent)',
+  accent: 'var(--fm-primary, #d4551f)',
+  accentSoft: 'color-mix(in oklab, var(--fm-primary, #d4551f) 10%, transparent)',
+  onAccent: 'var(--fm-primary-foreground, #ffffff)',
+  primary: 'var(--fm-primary, #d4551f)',
+  primarySoft: 'color-mix(in oklab, var(--fm-primary, #d4551f) 10%, transparent)',
+  brandGradient: 'var(--fm-brand-gradient)',
+  ring: 'var(--fm-ring, #e8874a)',
+
+  success: 'var(--fm-success-emphasis, #1a7f37)',
+  warn: 'var(--fm-warning-emphasis, #9a6700)',
+  danger: 'var(--fm-destructive, #cf222e)',
+  info: 'var(--fm-info-emphasis, #0969da)',
+  link: 'var(--fm-primary, #0969da)',
+
+  /* 字体与字号 */
+  font: 'var(--fm-font-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif)',
+  fontHeading: 'var(--fm-font-heading, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif)',
+  mono: 'var(--fm-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
+  contentSize: '14px',
+
+  /* 形状 */
+  radiusSm: 'var(--fm-radius-sm, 6px)',
+  radiusMd: 'var(--fm-radius-md, 8px)',
+  radiusLg: 'var(--fm-radius-lg, 10px)',
+  radiusXl: 'var(--fm-radius-xl, 14px)',
+  radius2xl: 'var(--fm-radius-2xl, 18px)',
+
+  /* 投影（深色下 token 自动归零） */
+  shadowSoft: 'var(--fm-shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.045))',
+  shadowProminent: 'var(--fm-shadow-lg, 0 16px 40px -12px rgba(0, 0, 0, 0.18))',
+
+  /* 动效 */
+  durationFast: 'var(--fm-duration-fast, 120ms)',
+  easeSignal: 'var(--fm-ease-signal, cubic-bezier(0.22, 1, 0.36, 1))',
 }
 
-/** 常用组合，省得每个组件重复拼。 */
+/**
+ * 字号阶梯（docs/design-system.md「字体与排版」，Tailwind 值换算成 px）。
+ * 只能从这几档里选，不要临时写 13.5 / 12.5 这种中间值。
+ */
+export const T = {
+  /* 页面大标题 H1：text-lg sm:text-xl font-semibold tracking-tight */
+  h1: { fontSize: 20, lineHeight: '28px', fontWeight: 600, letterSpacing: '-0.01em' },
+  /* 弹窗/区域大标题 H2：text-base font-semibold */
+  h2: { fontSize: 16, lineHeight: '24px', fontWeight: 600, letterSpacing: '-0.005em' },
+  /* 卡片标题：text-sm font-medium */
+  h3: { fontSize: 14, lineHeight: '20px', fontWeight: 500 },
+  /* 栏目标签：text-xs font-medium/600 */
+  section: { fontSize: 12, lineHeight: '16px', fontWeight: 600 },
+  /* 正文：text-sm */
+  body: { fontSize: 14, lineHeight: '22px', fontWeight: 400 },
+  /* 长文正文：text-[15px] leading-7 */
+  prose: { fontSize: 15, lineHeight: '26px', fontWeight: 400 },
+  /* 辅助：text-xs */
+  caption: { fontSize: 12, lineHeight: '18px', fontWeight: 400 },
+  /* 元信息下限：text-[11px]，只给键帽、徽标、时间戳用 */
+  micro: { fontSize: 11, lineHeight: '16px', fontWeight: 400 },
+}
+
+/** 常用组合。 */
 export const S = {
+  /** 顶部工具栏 / 底栏这类发丝分割。 */
+  hairline: `1px solid ${C.border}`,
+  /** 纸张卡片（场内联基础，复杂卡片直接用 className="fm-card"）。 */
   card: {
     background: C.bgBase,
-    border: `1px solid ${C.borderSoft}`,
-    borderRadius: C.radiusLg,
+    border: `1px solid ${C.border}`,
+    borderRadius: C.radiusXl,
     boxShadow: C.shadowSoft,
+    padding: 16,
   },
+  /** 表单项块。 */
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  label: {
+    ...T.caption,
+    fontWeight: 500,
+    color: C.text,
+  },
+  hint: {
+    ...T.micro,
+    color: C.caption,
+    lineHeight: '17px',
+  },
+  /** 两行截断。 */
+  clamp2: {
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+  },
+  clamp3: {
+    display: '-webkit-box',
+    WebkitLineClamp: 3,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+  },
+  /** 右栏小标题（Ember：栏目标签 12px 600，不要大写字距全大写）。 */
+  sectionTitle: {
+    ...T.section,
+    margin: '0 0 8px',
+    color: C.text,
+  },
+  /** 只读信息行。 */
+  infoRow: {
+    display: 'flex',
+    gap: 8,
+    ...T.caption,
+    lineHeight: '20px',
+  },
+  infoLabel: {
+    flex: '0 0 72px',
+    color: C.textSecondary,
+  },
+  infoValue: {
+    color: C.text,
+    overflowWrap: 'anywhere',
+  },
+  /** 段落按钮组。 */
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  /** 圆角胶囊按钮（旧的 S.button 语义，已换成 fm-btn class）。 */
   chip: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -57,136 +188,13 @@ export const S = {
     height: 20,
     padding: '0 7px',
     borderRadius: 999,
-    background: C.bgLayer2,
+    background: C.bgLayer1,
     color: C.textSecondary,
     fontSize: 11,
     lineHeight: '20px',
     whiteSpace: 'nowrap',
   },
-  iconButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 28,
-    height: 28,
-    padding: 0,
-    border: 'none',
-    borderRadius: C.radiusSm,
-    background: 'transparent',
-    color: C.textSecondary,
-    cursor: 'pointer',
-  },
-  button: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    height: 30,
-    padding: '0 12px',
-    border: `1px solid ${C.border}`,
-    borderRadius: C.radiusMd,
-    background: C.bgBase,
-    color: C.text,
-    fontSize: 12.5,
-    fontFamily: 'inherit',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  primaryButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    height: 30,
-    padding: '0 12px',
-    border: '1px solid transparent',
-    borderRadius: C.radiusMd,
-    background: C.accent,
-    color: C.onAccent,
-    fontSize: 12.5,
-    fontFamily: 'inherit',
-    fontWeight: 500,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
 }
 
-/**
- * 注入到 document.head 的样式表。只放内联表达不了的伪类与滚动条，
- * 其余全部在组件里用内联 style 写。
- */
-export const CSS = `
-.dsh-flaremo-root {
-  color: ${C.text};
-  font-family: ${C.font};
-  font-size: ${C.contentSize};
-  background: ${C.bgBase};
-}
-.dsh-flaremo-root *, .dsh-flaremo-root *::before, .dsh-flaremo-root *::after {
-  box-sizing: border-box;
-}
-.dsh-flaremo-head {
-  padding-top: 10px;
-}
-html[data-platform='darwin'] .dsh-flaremo-head {
-  padding-top: calc(10px + var(--dsh-frame-top-clearance, 0px));
-}
-.dsh-flaremo-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, rgba(0, 0, 0, 0.2)) transparent;
-}
-.dsh-flaremo-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
-.dsh-flaremo-scroll::-webkit-scrollbar-thumb {
-  background: var(--dsw-alias-scrollbar-bg-l2, rgba(0, 0, 0, 0.2));
-  border-radius: 999px;
-}
-.dsh-flaremo-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--dsw-alias-scrollbar-hover-l2, rgba(0, 0, 0, 0.32));
-}
-.dsh-flaremo-scroll::-webkit-scrollbar-track { background: transparent; }
-.dsh-flaremo-input::placeholder {
-  color: ${C.caption};
-}
-.dsh-flaremo-input:focus {
-  border-color: ${C.accent} !important;
-  outline: none;
-}
-.dsh-flaremo-btn:hover:not(:disabled) {
-  /* 内联 style 已经给了背景色，伪类要盖过它只能 !important */
-  background: ${C.bgHover} !important;
-}
-.dsh-flaremo-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.dsh-flaremo-primary:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-.dsh-flaremo-icon-btn:hover {
-  background: ${C.bgHover} !important;
-  color: ${C.text} !important;
-}
-.dsh-flaremo-card {
-  transition: background-color 120ms ease, border-color 120ms ease;
-}
-.dsh-flaremo-card:hover {
-  background: ${C.bgHover} !important;
-}
-.dsh-flaremo-row:hover {
-  background: ${C.bgHover} !important;
-}
-.dsh-flaremo-check {
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.dsh-flaremo-card:hover .dsh-flaremo-check,
-.dsh-flaremo-check[data-selected='true'] {
-  opacity: 1;
-}
-.dsh-flaremo-root :is(button, input, [tabindex]):focus-visible {
-  outline: 2px solid var(--dsw-focus-ring-color, ${C.accent});
-  outline-offset: 1px;
-  border-radius: ${C.radiusSm};
-}
-@media (prefers-reduced-motion: reduce) {
-  .dsh-flaremo-root * { transition: none !important; animation: none !important; }
-}
-`
+/** 注入到 document.head 的样式表（<style id="dsh-flaremo-styles">）。 */
+export const CSS = THEME_CSS
