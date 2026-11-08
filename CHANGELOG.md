@@ -3,6 +3,13 @@
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
 
+## v0.31.1
+
+**修复：配对页 `/connect` 在线上返回 404。** Worker 的 SPA 路由白名单（`apps/worker/src/spa-routes.ts`）没有收录新增的 `/connect`，导航请求被当成未知路径返回 404，设备授权页因此打不开。无 migration、无 Cloudflare 资源变化、无 API 变化。
+
+- 把 `/connect` 加入前端精确路由白名单；`share-page.test.ts` 的 web/worker 路由一致性断言继续通过。
+- 升级只需重新部署 Worker（不需要跑数据库迁移）。
+
 ## v0.31.0
 
 **第三方客户端接入（设备授权/配对码）+ AI 洞察契约。** 新增 2 个纯增量 migration（0046、0047），无 Cloudflare 资源变化，无 Memos 兼容面变化，旧 PAT 与旧客户端行为不变。
