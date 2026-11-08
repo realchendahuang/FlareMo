@@ -28,6 +28,9 @@ public struct FMMemoTimeline: View {
 }
 
 /// 空状态：还没有任何速记时显示。
+///
+/// 提示文案按平台分：桌面端输入框在页面上方、用 ⌘↩ 保存；
+/// 手机端输入框吸在底部、用回车发送。同一句话硬套到两端就是错的。
 public struct FMMemoTimelineEmptyState: View {
     public init() {}
 
@@ -39,12 +42,20 @@ public struct FMMemoTimelineEmptyState: View {
             Text("还没有记录")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(FMColor.foreground.color.opacity(0.8))
-            Text("在上面的输入框里写点什么，⌘↩ 保存")
+            Text(hint)
                 .font(.system(size: 13))
                 .foregroundStyle(FMColor.mutedForeground.color)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 64)
         .accessibilityElement(children: .combine)
+    }
+
+    private var hint: String {
+        #if os(macOS)
+            "在上面的输入框里写点什么，⌘↩ 保存"
+        #else
+            "在下面的输入框里写点什么，回车发送"
+        #endif
     }
 }

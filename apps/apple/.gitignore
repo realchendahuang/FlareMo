@@ -1,0 +1,10 @@
+# Xcode 本地状态，不进库
+xcuserdata/
+*.xcuserdatad/
+*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip

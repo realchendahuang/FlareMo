@@ -63,17 +63,30 @@ public struct FMComposer: View {
 
     private var editor: some View {
         ZStack(alignment: .topLeading) {
-            TextEditor(text: $text)
-                .font(.system(size: 15))
-                .lineSpacing(28 - 15 * 1.2)
-                .foregroundStyle(FMColor.cardForeground.color)
-                .scrollContentBackground(.hidden)
-                .scrollDisabled(text.isEmpty)
-                .focused($isFocused)
-                .frame(minHeight: 44, maxHeight: 220)
+            #if os(macOS)
+                // macOS 走真正的 NSTextView + TextKit 2（见 FMEditorView 的注释）。
+                FMEditorView(
+                    text: $text,
+                    minHeight: 44,
+                    maxHeight: 220,
+                    onFocusChange: { isFocused = $0 }
+                )
+                .frame(height: 82)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .accessibilityLabel("速记内容")
+            #else
+                TextEditor(text: $text)
+                    .font(.system(size: 15))
+                    .lineSpacing(28 - 15 * 1.2)
+                    .foregroundStyle(FMColor.cardForeground.color)
+                    .scrollContentBackground(.hidden)
+                    .scrollDisabled(text.isEmpty)
+                    .focused($isFocused)
+                    .frame(minHeight: 44, maxHeight: 220)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .accessibilityLabel("速记内容")
+            #endif
 
             if text.isEmpty {
                 Text(placeholder)
@@ -91,10 +104,13 @@ public struct FMComposer: View {
 
     private var toolbar: some View {
         HStack(spacing: 2) {
+            // 三组以发丝线分隔：插入 / 结构 / 采集（docs/design-system.md「Composer」）
             toolButton("bold", label: "加粗")
             toolButton("chevron.left.forwardslash.chevron.right", label: "行内代码")
+            toolDivider
             toolButton("list.bullet", label: "列表")
             toolButton("checklist", label: "待办")
+            toolDivider
             toolButton("photo", label: "添加图片")
             toolButton("mic", label: "语音速记")
 
@@ -123,6 +139,14 @@ public struct FMComposer: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+
+    private var toolDivider: some View {
+        Rectangle()
+            .fill(FMColor.border.color.opacity(0.7))
+            .frame(width: 1, height: 14)
+            .padding(.horizontal, 4)
+            .accessibilityHidden(true)
     }
 
     private var sendButton: some View {

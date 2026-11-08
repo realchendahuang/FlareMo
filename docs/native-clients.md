@@ -382,6 +382,22 @@ apps/apple/scripts/package-macos.sh  # 打成 Temp/build/FlareMo.app，双击可
 预览器走 `NSHostingView` 的真实布局再截位图，不用 SwiftUI 的 `ImageRenderer`——
 后者给 `GeometryReader` 的提议尺寸不可靠，会让依赖窗口宽度的布局算错列宽。
 
+Xcode 装好并接受许可（`sudo xcodebuild -license accept`）之后，工程路径可用：
+
+```bash
+cd apps/apple
+xcodebuild -scheme FlareMo-macOS -configuration Debug build
+xcodebuild -scheme FlareMo-iOS -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17' build
+xcrun simctl install booted ../../Temp/DerivedData/Build/Products/Debug-iphonesimulator/FlareMo.app
+xcrun simctl launch booted app.flaremo.ios
+```
+
+`FlareMo.xcodeproj` 是**手写的**（两个 target + 一个本地 SwiftPM 包引用），
+刻意用 Xcode 16 起的 file-system-synchronized group：pbxproj 里不列源文件，
+所以新增 .swift 不需要改工程文件，也不会有 merge 冲突——这正是 §3 里
+「不引 Tuist / XcodeGen」的依据。改 target 结构才需要动它。
+
 ### 5.3 依赖清单（全部过 D7 白名单）
 
 | 用途 | 库 | 版本 | 许可证 | 风险 |
