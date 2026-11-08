@@ -57,7 +57,11 @@
     "startup-graph": "node scripts/startup-graph.mjs",
     "deploy:dry-run:site": "pnpm build:site && wrangler deploy --config ./apps/site/wrangler.jsonc --dry-run",
     "deploy": "pnpm deploy:preflight && pnpm --filter @flaremo/web build && pnpm deploy:bundle-check && pnpm migrate:remote && pnpm --filter @flaremo/worker deploy",
-    "deploy:site": "pnpm build:site && wrangler deploy --config ./apps/site/wrangler.jsonc"
+    "deploy:site": "pnpm build:site && wrangler deploy --config ./apps/site/wrangler.jsonc",
+    "apple:theme": "node scripts/apple/gen-theme.mjs",
+    "apple:i18n": "node scripts/apple/gen-i18n.mjs",
+    "apple:theme:check": "node scripts/apple/gen-theme.mjs --check",
+    "apple:i18n:check": "node scripts/apple/gen-i18n.mjs --check"
   },
   "cloudflare": {
     "bindings": {
