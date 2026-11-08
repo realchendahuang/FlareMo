@@ -120,21 +120,16 @@ export function InsightSection({ memoId }: { memoId: string }) {
   // Failed tasks cannot be reset through the browser (that transition is
   // PAT-only), so a retry drops the failed row and enqueues a fresh task.
   const handleRetry = async () => {
-    setRetrying(true);
-    try {
-      const current = insight;
-      if (current) {
-        await deleteMemoInsight(current.id).catch(() => undefined);
-        queryClient.removeQueries({
-          queryKey: queryKeys.insights.detail(current.id),
-        });
-      }
-      setCreatedInsight(null);
-      setInsightId(null);
-      createMutation.mutate();
-    } finally {
-      setRetrying(false);
+    const current = insight;
+    if (current) {
+      await deleteMemoInsight(current.id).catch(() => undefined);
+      queryClient.removeQueries({
+        queryKey: queryKeys.insights.detail(current.id),
+      });
     }
+    setCreatedInsight(null);
+    setInsightId(null);
+    createMutation.mutate();
   };
 
   const handleDelete = () => {
