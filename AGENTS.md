@@ -79,6 +79,7 @@ pnpm deploy:dry-run
 - 凭据相关的 Origin 契约必须保持不变：cookie session 的状态变更请求（包括 `POST`、`PATCH`、`DELETE` 等非安全方法）必须携带并精确匹配 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；PAT 请求可以省略 Origin，但一旦携带也必须精确匹配同一 allowlist，否则返回 `403`。不要用 wildcard、`Referer` 或 Cloudflare Access headers 替代 Origin 校验。
 - 不得把 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET`、初始密码、cookie 或 `memos_pat_` 明文写进代码、文档、migration、issue、PR、日志或聊天；生产 secret 只能通过 Wrangler secret 或 Cloudflare 控制台安全配置。
 - `Temp/` 是本机临时脚本与参考目录（已 gitignore），不能提交。
+- `integrations/` 存放与 FlareMo 同仓发布的外部集成（当前是 DSH 插件 `integrations/dsh-plugin/`）：它有自己的 `package.json`、依赖、构建与测试，**不加入 pnpm workspace，也不进根 tsconfig / biome / verify 门禁**。改插件时只在它自己的目录里跑 `npm test` 和 `node scripts/build-client.mjs`；不要把它的文件拉进内核检查，也不要在内核代码里引用它。
 - 上游仓库**不包含** `.github/workflows`、没有 CI，也不做 push/自动生产部署。自托管部署仓库需要 GitHub Actions 时，从 `docs/templates/workflows/` 复制 `deploy-cloudflare.yml`（只响应 `workflow_dispatch`）和 `flaremo-update.yml`（只创建升级 PR），不要把上游或常规仓库改成 push/CI 自动生产部署，也不要新增其它 workflow、不跑 E2E 进 CI；全量门禁 `pnpm verify` 只在维护者明确要求时于本地执行（发版也不需要）。不重新启用 Dependabot 或 Workers Builds。
 - 改路由、守卫、导航行为时必须同步补 e2e 用例（2026-09-10 事故教训：v0.15.3 守卫重构后门禁拦不住匿名首页无限加载，因为 e2e 只覆盖了深度链接没覆盖 `/`；门禁的有效性 = 测试覆盖率）。**补用例 ≠ 主动跑**：写进仓库即可，跑不跑由维护者决定。
 - 敏捷开发节奏（2026-09-16 维护者定调）：小步快跑，验证只跑与改动直接相关的定向用例（单个 Vitest 文件 / e2e spec）。**全量门禁 `pnpm verify` 只在维护者明确要求时执行——发版、部署、日常提交都不跑**。质量底线不变：改动涉及的测试必须绿、`pnpm format` 通过。
