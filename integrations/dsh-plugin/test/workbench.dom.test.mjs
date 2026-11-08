@@ -89,7 +89,22 @@ function createHandle({ connected }) {
     },
     async connectStart(args) {
       calls.push({ method: 'connectStart', args })
-      return { ok: true, value: { ok: true, connection: { connected: false, pending: null } } }
+      return {
+        ok: true,
+        value: {
+          ok: true,
+          connection: {
+            connected: false,
+            pending: {
+              userCode: 'ABCD-1234',
+              verificationUri: 'https://notes.example.com/connect',
+              verificationUriComplete: 'https://notes.example.com/connect?code=ABCD-1234',
+              expiresAt: new Date(Date.now() + 300_000).toISOString(),
+              intervalSeconds: 60,
+            },
+          },
+        },
+      }
     },
     async listPendingInsights(args) {
       calls.push({ method: 'listPendingInsights', args })
@@ -128,7 +143,11 @@ function mountPanel({ connected }) {
     head,
   }
   const windowStub = { innerWidth: 1440, __ModuleLoader__: { load: (row) => (entry = row) } }
-  vm.runInNewContext(SOURCE, { window: windowStub, document: documentStub, console }, { filename: 'dist/client.js' })
+  vm.runInNewContext(
+    SOURCE,
+    { window: windowStub, document: documentStub, console, setTimeout, clearTimeout, setInterval, clearInterval },
+    { filename: 'dist/client.js' },
+  )
   const plugin = entry.factory(require)
 
   const { handle, calls } = createHandle({ connected })
@@ -199,12 +218,58 @@ test('未连接：不显示示例数据，只显示连接引导', async () => {
     calls.map((row) => row.method),
     ['connectionStatus'],
   )
+  // 引导里直接就是连接表单，不需要先去设置页
   assert.match(text, /连接 FlareMo 实例/)
-  assert.match(text, /FlareMo 连接/)
+  assert.match(text, /实例地址/)
+  assert.match(text, /生成配对码/)
   assert.match(text, /重新检查连接/)
   assert.match(text, /未连接实例/)
   assert.doesNotMatch(text, /示例数据/)
   assert.doesNotMatch(text, /把 FlareMo 工作台搬进 DSH/)
+})
+
+test('未连接：可以在面板里直接填地址生成配对码，不用跳设置页', async () => {
+  const { component, face, calls } = mountPanel({ connected: false })
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const root = createRoot(container)
+  await act(async () => {
+    root.render(
+      React.createElement(component, { t: undefined, call: face.call, openConversation: face.openConversation }),
+    )
+  })
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  const input = container.querySelector('input')
+  assert.ok(input, '连接引导里应该有实例地址输入框')
+  const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+  await act(async () => {
+    setValue.call(input, 'https://notes.example.com')
+    input.dispatchEvent(new window.Event('input', { bubbles: true }))
+  })
+
+  const startButton = [...container.querySelectorAll('button')].find((button) =>
+    button.textContent.includes('生成配对码'),
+  )
+  assert.ok(startButton, '没有「生成配对码」按钮')
+  await act(async () => {
+    startButton.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+  })
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  const text = container.textContent
+  assert.match(text, /ABCD-1234/)
+  assert.match(text, /打开配对页/)
+  const started = calls.find((row) => row.method === 'connectStart')
+  assert.ok(started, '面板里点「生成配对码」应该直接走 connectStart')
+  assert.equal(started.args.instanceUrl, 'https://notes.example.com')
+
+  await act(async () => root.unmount())
+  container.remove()
 })
 
 test('RPC 不可用：显示连接引导与错误提示，不白屏、不放假数据', async () => {

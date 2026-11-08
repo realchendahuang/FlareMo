@@ -48,7 +48,11 @@ function loadPlugin() {
       },
     },
   }
-  vm.runInNewContext(SOURCE, { window: windowStub, document: documentStub, console }, { filename: 'dist/client.js' })
+  vm.runInNewContext(
+    SOURCE,
+    { window: windowStub, document: documentStub, console, setTimeout, clearTimeout, setInterval, clearInterval },
+    { filename: 'dist/client.js' },
+  )
   assert.ok(entry !== null, 'dist/client.js 必须调用 window.__ModuleLoader__.load(...)')
   return { entry, exports: entry.factory(require), nodes }
 }

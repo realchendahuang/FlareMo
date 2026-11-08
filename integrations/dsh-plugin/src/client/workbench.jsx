@@ -13,6 +13,7 @@
 import React from 'react'
 
 import { asApiError } from './api.js'
+import { ConnectForm, PairingCard, useConnectFlow } from './connect.jsx'
 import { createTranslator, translateError } from './i18n.js'
 import {
   formatClock,
@@ -297,13 +298,29 @@ function InfoLine({ label, value }) {
 }
 
 /**
- * 未连接时的连接引导。**不渲染任何示例数据**：只告诉用户去哪配对、怎么配对，
- * 以及配对批准后回来点一下「重新检查连接」。
+ * 未连接时的连接引导。**不渲染任何示例数据**，也不把用户赶去设置页：
+ * 实例地址 + 配对码 + 轮询全部长在面板里（与设置页共用 connect.jsx 的状态机）。
+ *
+ * 配对批准后通过 `onConnected` 通知工作台重新拉数据；面板随即换成三栏。
+ *
  * @param {{ tr: (key: string, vars?: object) => string, loadError: object | null,
- *   onRetry: () => void }} props
+ *   onRetry: () => void, call?: (method: string, args?: object) => Promise<object>,
+ *   connection?: object | null, onConnected?: () => void }} props
  * @returns {React.ReactElement} the connection guide.
  */
-export function ConnectGuide({ tr, loadError, onRetry }) {
+export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConnected }) {
+  const flow = useConnectFlow({
+    call,
+    tr,
+    initialConnection: connection ?? { connected: false },
+    onConnected: () => onConnected?.(),
+  })
+  const statusErrorText = flow.statusError === null ? null : translateError(tr, flow.statusError)
+  const flowErrorText = flow.error === null ? null : translateError(tr, flow.error)
+  const loadErrorText =
+    loadError === null || loadError === undefined ? null : `${tr('loadFailed')}：${translateError(tr, loadError)}`
+  const problems = [statusErrorText, flowErrorText, loadErrorText].filter((text) => text !== null)
+
   return (
     <div
       className="dsh-flaremo-guide"
@@ -313,10 +330,10 @@ export function ConnectGuide({ tr, loadError, onRetry }) {
         overflow: 'auto',
         display: 'flex',
         justifyContent: 'center',
-        padding: '52px 24px 40px',
+        padding: '48px 24px 40px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 520 }}>
+      <div style={{ width: '100%', maxWidth: 560 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <span
             style={{
@@ -340,58 +357,50 @@ export function ConnectGuide({ tr, loadError, onRetry }) {
         <p style={{ margin: '0 0 18px', fontSize: 12.5, lineHeight: '20px', color: C.textSecondary }}>
           {tr('guideBody')}
         </p>
-        {loadError !== null && loadError !== undefined ? (
+
+        {problems.map((text) => (
           <div
+            key={text}
             style={{
               ...S.card,
-              padding: '10px 12px',
-              marginBottom: 18,
+              padding: '9px 12px',
+              marginBottom: 14,
               fontSize: 12,
               lineHeight: '18px',
-              color: C.textSecondary,
+              color: C.danger,
             }}
           >
-            <span style={{ color: C.danger }}>{tr('loadFailed')}</span>
-            {'：'}
-            {translateError(tr, loadError)}
+            {text}
           </div>
-        ) : null}
-        <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {[1, 2, 3, 4].map((step) => (
-            <li key={step} style={{ display: 'flex', gap: 10 }}>
-              <span
-                style={{
-                  flex: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 20,
-                  height: 20,
-                  marginTop: 1,
-                  borderRadius: 999,
-                  background: C.accentSoft,
-                  color: C.accent,
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              >
-                {step}
-              </span>
-              <span style={{ fontSize: 12.5, lineHeight: '20px', color: C.text }}>{tr(`guideStep${step}`)}</span>
-            </li>
-          ))}
-        </ol>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24 }}>
-          <button
-            type="button"
-            className="dsh-flaremo-btn dsh-flaremo-primary"
-            onClick={onRetry}
-            style={S.primaryButton}
-          >
+        ))}
+
+        {flow.connected ? (
+          <div style={{ fontSize: 12.5, color: C.textTertiary }}>{tr('loadingNotes')}</div>
+        ) : flow.pending !== null ? (
+          <PairingCard
+            tr={tr}
+            pending={flow.pending}
+            now={flow.now}
+            polling={flow.polling}
+            onPoll={flow.pollNow}
+            onCancel={flow.cancelPairing}
+          />
+        ) : (
+          <ConnectForm
+            tr={tr}
+            instanceUrl={flow.instanceUrl}
+            onChange={flow.setInstanceUrl}
+            busy={flow.busy}
+            onStart={flow.startPairing}
+          />
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+          <button type="button" className="dsh-flaremo-btn" onClick={onRetry} style={S.button}>
             <IconRefresh size={13} />
             {tr('guideRetry')}
           </button>
-          <span style={{ fontSize: 11.5, lineHeight: '16px', color: C.caption }}>{tr('guideHint')}</span>
+          <span style={{ fontSize: 11.5, lineHeight: '16px', color: C.caption }}>{tr('guideInlineHint')}</span>
         </div>
       </div>
     </div>
@@ -734,7 +743,14 @@ export function Workbench({ t, call, openConversation }) {
 
       {/* ── 主体：已连接（或首帧还在读状态）走三栏；未连接只给连接引导 ──── */}
       {!loading && !isRemote ? (
-        <ConnectGuide tr={tr} loadError={loadError} onRetry={refresh} />
+        <ConnectGuide
+          tr={tr}
+          loadError={loadError}
+          onRetry={refresh}
+          call={call}
+          connection={connection}
+          onConnected={() => setReloadKey((value) => value + 1)}
+        />
       ) : (
       <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
         {/* 左：时间线 */}

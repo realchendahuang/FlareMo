@@ -53,12 +53,8 @@ export const ZH = {
   // 未连接时的连接引导（不显示任何示例数据）
   guideTitle: '连接 FlareMo 实例',
   guideBody: '连接后这里显示你的笔记、标签和洞察队列。现在还没有连接任何实例。',
-  guideStep1: '打开 DSH 的「设置」，在左侧找到「FlareMo 连接」。',
-  guideStep2: '填实例地址，例如 https://app.flaremo.app（自托管就填你自己的域名）。',
-  guideStep3: '点「生成配对码」，再打开它给出的配对页。',
-  guideStep4: '在配对页输入 8 位配对码并批准，然后回到这里点「重新检查连接」。',
   guideRetry: '重新检查连接',
-  guideHint: '只有配对批准后才会读取笔记。',
+  guideInlineHint: '配对码在 FlareMo 网页批准一次即可；token 只存在本机 DSH 凭据里。',
   footerDisconnected: '未连接实例',
 
   // 连接状态
@@ -178,12 +174,8 @@ export const EN = {
 
   guideTitle: 'Connect a FlareMo instance',
   guideBody: 'Once connected, this panel shows your notes, tags and insight queue. No instance is connected right now.',
-  guideStep1: 'Open DSH Settings and pick “FlareMo connection” on the left.',
-  guideStep2: 'Enter the instance URL, e.g. https://app.flaremo.app (your own domain for self-hosted).',
-  guideStep3: 'Click “Generate pairing code”, then open the pairing page it shows.',
-  guideStep4: 'Enter the 8-character code there and approve it, then click “Recheck connection” here.',
   guideRetry: 'Recheck connection',
-  guideHint: 'Notes appear only after the pairing is approved.',
+  guideInlineHint: 'Approve the code once in the FlareMo web app; the token stays in this machine’s DSH credentials.',
   footerDisconnected: 'No instance connected',
 
   loadingNotes: 'Loading notes…',

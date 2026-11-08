@@ -45,10 +45,10 @@ FlareMo 笔记工作台的 **DSH 插件**：中栏全局面板 + 左栏「笔记
 
 ## 连接一个 FlareMo 实例（设备授权，RFC 8628）
 
-1. **设置 → FlareMo 连接**，填实例地址（例：`https://notes.example.com`），点「生成配对码」；
-2. 打开面板上给出的配对页（FlareMo 的 `/connect`），输入 8 位配对码并在 FlareMo 里批准；
+1. **直接在工作台面板里连**（未连接时整块就是连接引导）：填实例地址（例：`https://notes.example.com`），点「生成配对码」；设置页的「FlareMo 连接」用的是同一套流程，去哪边都行；
+2. 打开给出的配对页（FlareMo 的 `/connect`），输入 8 位配对码并在 FlareMo 里批准；
 3. 插件自动按 `interval`（默认 5s，`slow_down` 会拉长）轮询 `POST /connect/token`；
-4. 批准后显示「已连接为 …」、最后同步时间；工作台立刻切到真实数据（右上角标记「实时」）。
+4. 批准后工作台立刻切到真实数据（右上角标记「实时」）；设置页同时显示「已连接为 …」、最后同步时间。
 
 Token 生命周期由 host 管理：access token 14 天，临时到期前 60s 主动刷新；请求撞 401 时
 刷新后重试一次；refresh token 每次刷新都轮换（服务端旧的一对立刻作废），并发刷新做了单飞
@@ -116,8 +116,9 @@ dsh-flaremo/
 ├── src/client/               浏览器半片
 │   ├── entry.jsx             三席位注册 + locale + $mount Remote
 │   ├── api.js                Remote 双层信封拆解（ApiError 带 code）
-│   ├── workbench.jsx         三栏工作台（已连接数据 / 未连接连接引导）
-│   ├── settings.jsx          「FlareMo 连接」设置页
+│   ├── connect.jsx           设备授权状态机 + 配对表单/配对码卡（面板与设置页共用）
+│   ├── workbench.jsx         三栏工作台（已连接数据 / 未连接时面板内直接配对）
+│   ├── settings.jsx          「FlareMo 连接」设置页（复用 connect.jsx + 断开/洞察）
 │   ├── markdown.js           Markdown → 块（不生成 HTML）
 │   ├── notes.js              分组 / 搜索 / 正文块 / 相关笔记
 │   ├── i18n.js               zh + en 词典（含 err.<CODE>）
@@ -126,7 +127,7 @@ dsh-flaremo/
 ├── scripts/
 │   ├── build-client.mjs      esbuild CJS + window.__ModuleLoader__.load wrapper
 │   └── check-client.mjs      产物形状检查
-├── test/                     56 个用例（见下）
+├── test/                     102 个用例（见下）
 └── dist/client.js            构建产物（提交进仓库，包里的 ./client 指向它）
 ```
 
@@ -136,7 +137,7 @@ dsh-flaremo/
 npm install      # dependencies（typert-protocol）+ devDependencies（esbuild / react / jsdom）
 npm run build    # src/client → dist/client.js
 npm run check    # node --check（host 入口 / contract / 产物）+ 产物形状检查
-npm test         # 101 个用例：host 状态机、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown
+npm test         # 102 个用例：host 状态机、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown
 ```
 
 测试都离线：
@@ -147,7 +148,7 @@ npm test         # 101 个用例：host 状态机、洞察执行器、模型调�
 - `test/client.test.mjs`：vm 跑 `dist/client.js`、三个 slot 注册、`$mount` 描述符、样式注入、
   Remote 双层信封拆解（成功 / 失败 / 未挂载）；
 - `test/workbench.dom.test.mjs`：jsdom + `react-dom/client` 真跑 effect——已连接时渲染
-  RPC 数据、未连接只渲染连接引导（不出现示例数据）、RPC 失败不白屏；
+  RPC 数据、未连接时只渲染连接引导且能在面板里直接发起配对（不出现示例数据）、RPC 失败不白屏；
 - `test/notes.test.mjs` / `test/markdown.test.mjs`：分组、搜索、正文块、字符数、相关笔记、解析器；
 - `test/insight.test.mjs`：prompt 的「不可信数据」声明与转义、单条/总量截断、JSON 提取、
   结果字段收敛与上限裁剪；
