@@ -2,7 +2,7 @@
  * 工作台的「真实渲染」测试：jsdom + react-dom/client，真的跑 effect。
  *
  * 这条链路是 P3 的核心：panel 组件拿 entry.jsx 注入的 `call`，先查连接状态，
- * 已连接就 `listNotes` 拉真数据、渲染时间线与详情；未连接则退回示例数据。
+ * 已连接就 `listNotes` 拉真数据、渲染时间线与详情；未连接只渲染连接引导，绝不出现示例数据。
  * 用假的 remote handle（双层信封和真的一样）驱动，不触碰网络。
  */
 
@@ -192,18 +192,22 @@ test('已连接：工作台先查连接状态，再用 RPC 数据渲染时间线
   assert.match(text, /2 个待处理任务/)
 })
 
-test('未连接：退回示例数据并显示「示例数据」标记', async () => {
+test('未连接：不显示示例数据，只显示连接引导', async () => {
   const { text, calls } = await renderWorkbench({ connected: false })
 
   assert.deepEqual(
     calls.map((row) => row.method),
     ['connectionStatus'],
   )
-  assert.match(text, /示例数据/)
-  assert.match(text, /把 FlareMo 工作台搬进 DSH/)
+  assert.match(text, /连接 FlareMo 实例/)
+  assert.match(text, /FlareMo 连接/)
+  assert.match(text, /重新检查连接/)
+  assert.match(text, /未连接实例/)
+  assert.doesNotMatch(text, /示例数据/)
+  assert.doesNotMatch(text, /把 FlareMo 工作台搬进 DSH/)
 })
 
-test('RPC 不可用：调用抛错时降级到示例数据，不白屏', async () => {
+test('RPC 不可用：显示连接引导与错误提示，不白屏、不放假数据', async () => {
   const { component, face } = mountPanel({ connected: true })
   const failingCall = async (method) => {
     if (method === 'connectionStatus') {
@@ -223,8 +227,10 @@ test('RPC 不可用：调用抛错时降级到示例数据，不白屏', async (
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
   const text = container.textContent
-  assert.match(text, /示例数据/)
+  assert.match(text, /连接 FlareMo 实例/)
   assert.match(text, /读取失败/)
+  assert.match(text, /内部错误/)
+  assert.doesNotMatch(text, /示例数据/)
   await act(async () => root.unmount())
   container.remove()
 })

@@ -29,6 +29,7 @@ export const C = {
   onAccent: 'var(--dsw-alias-label-primary-inverted, #ffffff)',
   success: 'var(--dsw-alias-state-success-primary, #1a7f37)',
   warn: 'var(--dsw-alias-state-warn-primary, #9a6700)',
+  danger: 'var(--dsw-alias-state-danger-primary, #cf222e)',
   link: 'var(--dsw-alias-link, #0969da)',
   font: 'var(--dsw-font-family, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif)',
   mono: 'var(--dsh-code-font-family, var(--dsw-font-family, ui-monospace, SFMono-Regular, Menlo, monospace))',

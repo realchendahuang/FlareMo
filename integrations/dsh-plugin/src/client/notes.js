@@ -1,20 +1,19 @@
 /**
  * 笔记视图的小工具：时间线分组、搜索、正文块、字符统计、相关笔记。
  *
- * 真实数据（RPC 返回的窄视图，带 `content` 字符串）和离线示例（带 `blocks`
- * 数组）在这里被抹平成同一套渲染输入，工作台不用分两种情况写。
+ * 输入只有真实数据：host 的 typert RPC 返回的窄视图，正文是 `content` 字符串。
+ * 工作台不放假数据，所以这里也不再需要「示例数据带 blocks 数组」的第二条路径。
  */
 
 import { parseContent } from './markdown.js'
 
-/** 正文块：示例数据自带块；真实数据用极简 Markdown 解析。 */
+/** 正文块：把 `content` 用极简 Markdown 解析成渲染块。 */
 export function noteBlocks(note) {
   if (note === null || note === undefined) return []
-  if (Array.isArray(note.blocks)) return note.blocks
   return parseContent(note.content)
 }
 
-/** 时间：优先 updatedAt（真实数据是 ISO，示例数据也是）。 */
+/** 时间：优先 updatedAt（真实数据是 ISO 字符串）。 */
 export function noteTime(note) {
   return note?.updatedAt ?? note?.createdAt ?? ''
 }
@@ -32,14 +31,10 @@ export function noteText(note) {
   if (note === null || note === undefined) return ''
   const parts = [note.title, note.excerpt, Array.isArray(note.tags) ? note.tags.join(' ') : '']
   if (typeof note.content === 'string') parts.push(note.content)
-  for (const block of Array.isArray(note.blocks) ? note.blocks : []) {
-    if (typeof block.text === 'string') parts.push(block.text)
-    if (Array.isArray(block.items)) parts.push(block.items.join(' '))
-  }
   return parts.filter(Boolean).join('\n')
 }
 
-/** 本地过滤（离线示例与已加载列表共用）。 */
+/** 本地过滤（已加载的笔记列表）。 */
 export function matchesQuery(note, query) {
   const needle = String(query ?? '').trim().toLowerCase()
   if (needle === '') return true

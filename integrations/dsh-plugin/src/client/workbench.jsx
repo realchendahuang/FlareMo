@@ -1,10 +1,10 @@
 /**
  * FlareMo 工作台（全局面板的面板组件）。
  *
- * 数据来源有两条：
- *   - 已连接 FlareMo 实例：`call('listNotes')` / `call('searchNotes')` 从 host 的
- *     typert RPC 拿真实笔记（host 持有 token，client 只拿窄视图）；
- *   - 未连接 / RPC 不可用：退回 mock.js 的示例数据，界面明确标注「示例数据」。
+ * 数据只有一条来源：已连接 FlareMo 实例时用 `call('listNotes')` / `call('searchNotes')`
+ * 从 host 的 typert RPC 拿真实笔记（host 持有 token，client 只拿窄视图）。
+ * 未连接 / RPC 不可用时**不造假数据**：整块换成连接引导（`ConnectGuide`），
+ * 告诉用户去哪配对、怎么配对，并给一个重新检查连接的入口。
  *
  * 版面：顶栏（标题 + 搜索 + 问 AI + 刷新）｜ 三栏（时间线 / 详情 / 洞察）｜ 状态条。
  * 颜色与圆角只走 --dsw-* token；内联表达不了的伪类在 styles.js 里。
@@ -14,7 +14,6 @@ import React from 'react'
 
 import { asApiError } from './api.js'
 import { createTranslator, translateError } from './i18n.js'
-import { LAST_SYNC_AT, MOCK_NOTES, SOURCE_HOST, insightFor } from './mock.js'
 import {
   formatClock,
   formatDateTime,
@@ -298,6 +297,108 @@ function InfoLine({ label, value }) {
 }
 
 /**
+ * 未连接时的连接引导。**不渲染任何示例数据**：只告诉用户去哪配对、怎么配对，
+ * 以及配对批准后回来点一下「重新检查连接」。
+ * @param {{ tr: (key: string, vars?: object) => string, loadError: object | null,
+ *   onRetry: () => void }} props
+ * @returns {React.ReactElement} the connection guide.
+ */
+export function ConnectGuide({ tr, loadError, onRetry }) {
+  return (
+    <div
+      className="dsh-flaremo-guide"
+      style={{
+        flex: '1 1 auto',
+        minHeight: 0,
+        overflow: 'auto',
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '52px 24px 40px',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 520 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: C.radiusMd,
+              background: C.accentSoft,
+              color: C.accent,
+              flex: 'none',
+            }}
+          >
+            <IconSparkle size={17} />
+          </span>
+          <h2 style={{ margin: 0, fontSize: 17, lineHeight: '24px', fontWeight: 600, color: C.text }}>
+            {tr('guideTitle')}
+          </h2>
+        </div>
+        <p style={{ margin: '0 0 18px', fontSize: 12.5, lineHeight: '20px', color: C.textSecondary }}>
+          {tr('guideBody')}
+        </p>
+        {loadError !== null && loadError !== undefined ? (
+          <div
+            style={{
+              ...S.card,
+              padding: '10px 12px',
+              marginBottom: 18,
+              fontSize: 12,
+              lineHeight: '18px',
+              color: C.textSecondary,
+            }}
+          >
+            <span style={{ color: C.danger }}>{tr('loadFailed')}</span>
+            {'：'}
+            {translateError(tr, loadError)}
+          </div>
+        ) : null}
+        <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1, 2, 3, 4].map((step) => (
+            <li key={step} style={{ display: 'flex', gap: 10 }}>
+              <span
+                style={{
+                  flex: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 20,
+                  height: 20,
+                  marginTop: 1,
+                  borderRadius: 999,
+                  background: C.accentSoft,
+                  color: C.accent,
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              >
+                {step}
+              </span>
+              <span style={{ fontSize: 12.5, lineHeight: '20px', color: C.text }}>{tr(`guideStep${step}`)}</span>
+            </li>
+          ))}
+        </ol>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24 }}>
+          <button
+            type="button"
+            className="dsh-flaremo-btn dsh-flaremo-primary"
+            onClick={onRetry}
+            style={S.primaryButton}
+          >
+            <IconRefresh size={13} />
+            {tr('guideRetry')}
+          </button>
+          <span style={{ fontSize: 11.5, lineHeight: '16px', color: C.caption }}>{tr('guideHint')}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
  * 工作台主组件。props 来自 slot：标准 props（t）+ entry.jsx 的 inject face。
  * @param {{ t?: (key: string) => string, call?: (method: string, args?: object) => Promise<object>,
  *   openConversation?: () => void }} props
@@ -312,7 +413,8 @@ export function Workbench({ t, call, openConversation }) {
   const [connection, setConnection] = React.useState(null)
   /** @type {[object[] | null, Function]} notes (null = loading) */
   const [notes, setNotes] = React.useState(null)
-  const [source, setSource] = React.useState('mock')
+  /** 是否已连上实例并加载了真实数据；false 时整块只显示连接引导。 */
+  const [connected, setConnected] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState(null)
   const [query, setQuery] = React.useState('')
@@ -340,7 +442,7 @@ export function Workbench({ t, call, openConversation }) {
     setNotice((previous) => ({ text, seq: (previous?.seq ?? 0) + 1 }))
   }, [])
 
-  // 首次加载 / 刷新：连接状态 → 真实笔记；未连接或失败 → 示例数据
+  // 首次加载 / 刷新：连接状态 → 真实笔记；未连接或失败 → 连接引导（不放假数据）
   React.useEffect(() => {
     let live = true
     setLoading(true)
@@ -359,7 +461,7 @@ export function Workbench({ t, call, openConversation }) {
           const listed = await call('listNotes', { pageSize: 50 })
           if (!live) return
           setNotes(Array.isArray(listed?.notes) ? listed.notes : [])
-          setSource('remote')
+          setConnected(true)
           try {
             const queue = await call('listPendingInsights', { limit: 50 })
             if (!live) return
@@ -371,15 +473,15 @@ export function Workbench({ t, call, openConversation }) {
             if (live) setPendingInsights(null)
           }
         } else {
-          setNotes(MOCK_NOTES)
-          setSource('mock')
+          setNotes([])
+          setConnected(false)
         }
       } catch (failure) {
         if (!live) return
         setLoadError(asApiError(failure))
         setConnection(view)
-        setNotes(MOCK_NOTES)
-        setSource('mock')
+        setNotes([])
+        setConnected(false)
       } finally {
         if (live) setLoading(false)
       }
@@ -392,7 +494,7 @@ export function Workbench({ t, call, openConversation }) {
   // 服务端搜索：已连接 + 关键词 >= 2 才发，350ms 防抖
   React.useEffect(() => {
     const text = query.trim()
-    if (source !== 'remote' || !hasCall || text.length < 2) {
+    if (!connected || !hasCall || text.length < 2) {
       setRemoteResults(null)
       setSearching(false)
       setSearchError(null)
@@ -419,21 +521,20 @@ export function Workbench({ t, call, openConversation }) {
       live = false
       clearTimeout(timer)
     }
-  }, [query, source, call, hasCall])
+  }, [query, connected, call, hasCall])
 
   const baseNotes = Array.isArray(notes) ? notes : []
   const trimmed = query.trim()
   const localFiltered = trimmed === '' ? baseNotes : baseNotes.filter((note) => matchesQuery(note, trimmed))
-  const shownNotes = source === 'remote' && trimmed !== '' ? (remoteResults ?? localFiltered) : localFiltered
+  const shownNotes = connected && trimmed !== '' ? (remoteResults ?? localFiltered) : localFiltered
   const groups = groupByDay(shownNotes)
   const active =
     (activeId === null ? null : shownNotes.find((note) => note.id === activeId) ?? baseNotes.find((note) => note.id === activeId)) ??
     shownNotes[0] ??
     null
   const activeBlocks = noteBlocks(active)
-  const isRemote = source === 'remote'
-  const mockInsight = isRemote ? null : insightFor(active, MOCK_NOTES)
-  const remoteRelated = isRemote && active !== null ? relatedByTag(active, baseNotes) : []
+  const isRemote = connected
+  const remoteRelated = active !== null ? relatedByTag(active, baseNotes) : []
 
   const openNote = React.useCallback((id) => setActiveId(id), [])
 
@@ -495,12 +596,10 @@ export function Workbench({ t, call, openConversation }) {
     showNotice(tr('noticeAsk', { count: next.size }))
   }, [active, selected, showNotice, tr])
 
-  const syncLabel = isRemote
-    ? tr('syncHint', {
-        time: connection?.lastSyncAt ? formatDateTime(connection.lastSyncAt) : '—',
-        count: baseNotes.length,
-      })
-    : tr('syncHint', { time: formatClock(LAST_SYNC_AT), count: MOCK_NOTES.length })
+  const syncLabel = tr('syncHint', {
+    time: connection?.lastSyncAt ? formatDateTime(connection.lastSyncAt) : '—',
+    count: baseNotes.length,
+  })
 
   return (
     <div
@@ -562,7 +661,7 @@ export function Workbench({ t, call, openConversation }) {
               color: isRemote ? C.accent : C.textSecondary,
             }}
           >
-            {isRemote ? tr('badgeLive') : tr('badgeMock')}
+            {isRemote ? tr('badgeLive') : tr('badgeOffline')}
           </span>
         </div>
 
@@ -577,45 +676,49 @@ export function Workbench({ t, call, openConversation }) {
             justifyContent: 'flex-end',
           }}
         >
-          <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 120 }}>
-            <span
-              style={{
-                position: 'absolute',
-                left: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                display: 'flex',
-                color: C.caption,
-                pointerEvents: 'none',
-              }}
-            >
-              <IconSearch size={13} />
-            </span>
-            <input
-              className="dsh-flaremo-input"
-              type="text"
-              value={query}
-              placeholder={isRemote ? tr('searchRemoteHint') : tr('searchPlaceholder')}
-              aria-label={tr('searchPlaceholder')}
-              onChange={(event) => setQuery(event.target.value)}
-              style={INPUT_STYLE}
-            />
-          </div>
-          {selected.size > 0 ? (
-            <span style={{ ...S.chip, color: C.accent, background: C.accentSoft }}>
-              {tr('selected', { count: selected.size })}
-            </span>
+          {isRemote ? (
+            <>
+              <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 120 }}>
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    display: 'flex',
+                    color: C.caption,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <IconSearch size={13} />
+                </span>
+                <input
+                  className="dsh-flaremo-input"
+                  type="text"
+                  value={query}
+                  placeholder={isRemote ? tr('searchRemoteHint') : tr('searchPlaceholder')}
+                  aria-label={tr('searchPlaceholder')}
+                  onChange={(event) => setQuery(event.target.value)}
+                  style={INPUT_STYLE}
+                />
+              </div>
+              {selected.size > 0 ? (
+                <span style={{ ...S.chip, color: C.accent, background: C.accentSoft }}>
+                  {tr('selected', { count: selected.size })}
+                </span>
+              ) : null}
+              <button
+                type="button"
+                className="dsh-flaremo-btn dsh-flaremo-primary"
+                disabled={selected.size === 0}
+                onClick={askAi}
+                style={S.primaryButton}
+              >
+                <IconSparkle size={13} />
+                {selected.size > 0 ? `${tr('askAi')} (${selected.size})` : tr('askAi')}
+              </button>
+            </>
           ) : null}
-          <button
-            type="button"
-            className="dsh-flaremo-btn dsh-flaremo-primary"
-            disabled={selected.size === 0}
-            onClick={askAi}
-            style={S.primaryButton}
-          >
-            <IconSparkle size={13} />
-            {selected.size > 0 ? `${tr('askAi')} (${selected.size})` : tr('askAi')}
-          </button>
           <button
             type="button"
             className="dsh-flaremo-btn"
@@ -629,31 +732,10 @@ export function Workbench({ t, call, openConversation }) {
         </div>
       </header>
 
-      {/* ── 离线 / 失败横幅 ──────────────────────────────────────────── */}
-      {!isRemote && !loading ? (
-        <div
-          style={{
-            flex: '0 0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '5px 20px',
-            borderBottom: `1px solid ${C.borderSoft}`,
-            background: C.bgLayer1,
-            color: C.textTertiary,
-            fontSize: 11.5,
-          }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: C.warn, flex: 'none' }} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {loadError === null
-              ? tr('offlineBanner')
-              : `${tr('loadFailed')}：${translateError(tr, loadError)} · ${tr('offlineBanner')}`}
-          </span>
-        </div>
-      ) : null}
-
-      {/* ── 三栏主体 ─────────────────────────────────────────────────── */}
+      {/* ── 主体：已连接（或首帧还在读状态）走三栏；未连接只给连接引导 ──── */}
+      {!loading && !isRemote ? (
+        <ConnectGuide tr={tr} loadError={loadError} onRetry={refresh} />
+      ) : (
       <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
         {/* 左：时间线 */}
         <aside
@@ -697,7 +779,7 @@ export function Workbench({ t, call, openConversation }) {
               </div>
             ) : groups.length === 0 ? (
               <div style={{ padding: '24px 14px', textAlign: 'center', color: C.textTertiary }}>
-                <div style={{ fontSize: 13, marginBottom: 4 }}>{isRemote ? tr('emptyRemote') : tr('empty')}</div>
+                <div style={{ fontSize: 13, marginBottom: 4 }}>{tr('emptyRemote')}</div>
                 <div style={{ fontSize: 11.5, color: C.caption }}>{tr('emptyHint')}</div>
               </div>
             ) : (
@@ -879,10 +961,7 @@ export function Workbench({ t, call, openConversation }) {
               }}
             >
               <IconSparkle size={12} />
-              {isRemote ? tr('noteInfo') : tr('insight')}
-              <span style={{ ...S.chip, height: 17, lineHeight: '17px', fontSize: 10 }}>
-                {isRemote ? tr('badgeLive') : tr('badgeMock')}
-              </span>
+              {tr('noteInfo')}
               <button
                 type="button"
                 className="dsh-flaremo-icon-btn"
@@ -903,7 +982,6 @@ export function Workbench({ t, call, openConversation }) {
                   className="dsh-flaremo-scroll"
                   style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '4px 14px 12px' }}
                 >
-                  {isRemote ? (
                     <>
                       <div style={{ ...S.card, padding: '10px 12px', marginBottom: 16, background: C.bgBase }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -999,78 +1077,6 @@ export function Workbench({ t, call, openConversation }) {
                         {tr('insightComingSoon')}
                       </p>
                     </>
-                  ) : (
-                    <>
-                      <div style={{ ...S.card, padding: '10px 12px', marginBottom: 16, background: C.bgBase }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: C.textTertiary, marginBottom: 4 }}>
-                          {tr('summary')}
-                        </div>
-                        <div style={{ fontSize: 12.5, lineHeight: '20px', color: C.text }}>{mockInsight?.summary}</div>
-                      </div>
-
-                      <InsightSection title={tr('points')}>
-                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, lineHeight: '20px', color: C.text }}>
-                          {(mockInsight?.points ?? []).map((point, index) => (
-                            <li key={index} style={{ marginBottom: 4 }}>
-                              {point}
-                            </li>
-                          ))}
-                        </ul>
-                      </InsightSection>
-
-                      <InsightSection title={tr('related')}>
-                        {(mockInsight?.related ?? []).length === 0 ? (
-                          <div style={{ fontSize: 12, color: C.caption }}>—</div>
-                        ) : (
-                          (mockInsight?.related ?? []).map((row) => (
-                            <button
-                              key={row.id}
-                              type="button"
-                              className="dsh-flaremo-row"
-                              onClick={() => openNote(row.id)}
-                              style={{
-                                display: 'block',
-                                width: '100%',
-                                padding: '6px 8px',
-                                marginBottom: 2,
-                                border: 'none',
-                                borderRadius: C.radiusSm,
-                                background: 'transparent',
-                                color: C.textSecondary,
-                                fontFamily: 'inherit',
-                                fontSize: 12,
-                                lineHeight: '18px',
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {row.title}
-                              <span style={{ display: 'block', fontSize: 10.5, color: C.caption }}>{row.day}</span>
-                            </button>
-                          ))
-                        )}
-                      </InsightSection>
-
-                      <InsightSection title={tr('questions')}>
-                        {(mockInsight?.questions ?? []).map((question, index) => (
-                          <div
-                            key={index}
-                            style={{
-                              padding: '6px 8px',
-                              marginBottom: 4,
-                              border: `1px dashed ${C.borderSoft}`,
-                              borderRadius: C.radiusSm,
-                              fontSize: 12,
-                              lineHeight: '18px',
-                              color: C.textSecondary,
-                            }}
-                          >
-                            {question}
-                          </div>
-                        ))}
-                      </InsightSection>
-                    </>
-                  )}
                 </div>
 
                 <div
@@ -1126,6 +1132,7 @@ export function Workbench({ t, call, openConversation }) {
           </div>
         )}
       </div>
+      )}
 
       {/* ── 状态条 ───────────────────────────────────────────────────── */}
       <footer
@@ -1142,11 +1149,11 @@ export function Workbench({ t, call, openConversation }) {
           lineHeight: '16px',
         }}
       >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{syncLabel}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {isRemote ? syncLabel : tr('footerDisconnected')}
+        </span>
         <span style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-          {isRemote
-            ? (connection?.instanceUrl ?? SOURCE_HOST)
-            : `${SOURCE_HOST} · ${tr('insightMockHint')}`}
+          {isRemote ? (connection?.instanceUrl ?? '') : null}
         </span>
       </footer>
 

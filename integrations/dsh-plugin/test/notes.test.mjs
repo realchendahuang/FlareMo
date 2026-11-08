@@ -75,14 +75,11 @@ test('matchesQuery：标题 / 标签 / 正文都能命中，空关键词全真',
   assert.equal(matchesQuery(NOTES[0], '不存在的词'), false)
 })
 
-test('noteBlocks：真实数据用 Markdown 解析，示例数据直接用 blocks', () => {
+test('noteBlocks：只用 Markdown 解析正文，null 安全', () => {
   const parsed = noteBlocks(NOTES[0])
   assert.equal(parsed[0].type, 'heading')
   assert.equal(parsed[0].text, '标题')
   assert.equal(parsed[1].type, 'p')
-
-  const mock = [{ id: 'm', blocks: [{ type: 'p', text: '示例正文' }] }]
-  assert.deepEqual(noteBlocks(mock[0]), [{ type: 'p', text: '示例正文' }])
   assert.deepEqual(noteBlocks(null), [])
 })
 

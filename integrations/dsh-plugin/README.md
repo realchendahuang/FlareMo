@@ -4,7 +4,7 @@
 
 FlareMo 笔记工作台的 **DSH 插件**：中栏全局面板 + 左栏「笔记」入口 + 设置页连接配置 +
 **洞察执行器**（拉 FlareMo 的 pending 洞察任务 → 用 DSH 模型生成 → 写回结果）。
-工作台读的是 **真实 FlareMo 数据**（设备授权 + typert RPC），未连接时退回示例数据。
+工作台只读 **真实 FlareMo 数据**（设备授权 + typert RPC）；未连接时显示连接引导，**不显示任何示例数据**。
 
 - 目标宿主：DeepSeek Harness Desktop / Web `0.2.2-rc.1`（`engines.dsh: ">=0.2.2-rc.1 <0.3.0"`）；
 - 运行面：`ctx.slots`（main / sidebar.panellist / settings.section）、`ctx.locale`、`ctx.layout`、
@@ -116,11 +116,10 @@ dsh-flaremo/
 ├── src/client/               浏览器半片
 │   ├── entry.jsx             三席位注册 + locale + $mount Remote
 │   ├── api.js                Remote 双层信封拆解（ApiError 带 code）
-│   ├── workbench.jsx         三栏工作台（真实数据 / 示例数据两条路径）
+│   ├── workbench.jsx         三栏工作台（已连接数据 / 未连接连接引导）
 │   ├── settings.jsx          「FlareMo 连接」设置页
 │   ├── markdown.js           Markdown → 块（不生成 HTML）
 │   ├── notes.js              分组 / 搜索 / 正文块 / 相关笔记
-│   ├── mock.js               离线示例数据
 │   ├── i18n.js               zh + en 词典（含 err.<CODE>）
 │   ├── styles.js             --dsw-* token 包装 + 少量伪类 CSS
 │   └── icons.jsx             左栏图标 + 工作台小图标
@@ -148,7 +147,7 @@ npm test         # 101 个用例：host 状态机、洞察执行器、模型调�
 - `test/client.test.mjs`：vm 跑 `dist/client.js`、三个 slot 注册、`$mount` 描述符、样式注入、
   Remote 双层信封拆解（成功 / 失败 / 未挂载）；
 - `test/workbench.dom.test.mjs`：jsdom + `react-dom/client` 真跑 effect——已连接时渲染
-  RPC 数据、未连接时回落示例数据、RPC 失败不白屏；
+  RPC 数据、未连接只渲染连接引导（不出现示例数据）、RPC 失败不白屏；
 - `test/notes.test.mjs` / `test/markdown.test.mjs`：分组、搜索、正文块、字符数、相关笔记、解析器；
 - `test/insight.test.mjs`：prompt 的「不可信数据」声明与转义、单条/总量截断、JSON 提取、
   结果字段收敛与上限裁剪；
