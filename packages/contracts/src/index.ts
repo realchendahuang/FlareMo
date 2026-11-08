@@ -6,6 +6,7 @@ export * from "./calendar";
 export * from "./capture";
 export * from "./constants";
 export * from "./embedding";
+export * from "./insight";
 export * from "./memos";
 export * from "./memos-current";
 export * from "./pat";

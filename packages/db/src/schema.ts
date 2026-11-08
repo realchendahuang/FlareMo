@@ -1,6 +1,7 @@
 export * from "./schema/agent-access";
 export * from "./schema/auth";
 export * from "./schema/content";
+export * from "./schema/insight";
 export * from "./schema/instance";
 export * from "./schema/memos";
 export * from "./schema/ops";

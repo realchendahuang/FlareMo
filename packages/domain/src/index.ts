@@ -10,6 +10,7 @@ export * from "./embedding-outbox";
 export * from "./errors";
 export * from "./ids";
 export * from "./import-export";
+export * from "./insight";
 export * from "./integrations";
 export * from "./limits";
 export * from "./member-removal-jobs";

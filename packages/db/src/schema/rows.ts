@@ -1,5 +1,6 @@
 import type { authApiKeys, authBootstrap, authUsers, users } from "./auth";
 import type { articles, attachments, shares } from "./content";
+import type { memoInsights } from "./insight";
 import type {
   memoRevisions,
   memos,
@@ -68,3 +69,5 @@ export type TaskRow = typeof tasks.$inferSelect;
 export type NewTaskRow = typeof tasks.$inferInsert;
 export type TaskActivityRow = typeof taskActivity.$inferSelect;
 export type NewTaskActivityRow = typeof taskActivity.$inferInsert;
+export type MemoInsightRow = typeof memoInsights.$inferSelect;
+export type NewMemoInsightRow = typeof memoInsights.$inferInsert;

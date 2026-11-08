@@ -37,10 +37,11 @@ import { adminApi } from "./routes/admin-api";
 import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
 import { brandingApi } from "./routes/branding-api";
-import { emailSettingsApi } from "./routes/email-settings-api";
-import { memosApi } from "./routes/memos-api";
 import { connectApi } from "./routes/connect-api";
 import { connectAppsApi } from "./routes/connect-apps-api";
+import { emailSettingsApi } from "./routes/email-settings-api";
+import { insightApi } from "./routes/insight-api";
+import { memosApi } from "./routes/memos-api";
 import { memosConnectApi } from "./routes/memos-connect";
 import { isLegacyWireRequest, memosCurrentApi } from "./routes/memos-current";
 import { memosFileApi } from "./routes/memos-file-api";
@@ -281,6 +282,9 @@ export function createFlareMoApp(
     return articlesApi;
   });
   app.route("/api/app/tasks", tasksApi);
+  // Registered before the catch-all `/api/app` tree: Hono matches in
+  // registration order, and the insights contract is its own namespace.
+  app.route("/api/app/insights", insightApi);
   app.route("/api/app", appApi);
   app.route("/api/public", publicApi);
   // SSR public pages (share/article + sitemap/feed): the largest lazy win —
