@@ -12,6 +12,8 @@
 - Cloudflare 原生部署：示例配置开箱即用、手动/Agent 部署、Access 保护、可审查的升级 PR。
 - 个人知识管理：引用关系、附件、公开分享、语义检索和 AI 工作流。
 - 笔记 MCP：Agent 通过 `/mcp` 搜索、读取、创建和修改用户的 memo；不设独立的 AI 记忆账本。
+- 第三方客户端接入：设备授权（配对码）让本地 Agent、桌面与 CLI 客户端安全接入，设置里可见并可撤销（见 `docs/agent-access-design.md`）。
+- AI 洞察：FlareMo 提供洞察任务的契约、状态与存储，模型执行器外置（DSH 插件、Workers AI 或其他 agent），不内置对话 AI。
 
 ## 工程主线
 
