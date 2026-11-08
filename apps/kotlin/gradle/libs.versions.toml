@@ -4,6 +4,9 @@ agp = "9.3.0"
 composeMultiplatform = "1.11.1"
 activityCompose = "1.13.0"
 lifecycle = "2.11.0"
+# Room 的 KMP 版本（3.x）还不存在，且 Room 需要 KSP —— AGP 9 的内置 Kotlin
+# 与 KSP 目前不兼容，所以 v1 直接用 androidx.sqlite + 手写 SQL。
+androidxSqlite = "2.7.1"
 androidCompileSdk = "36"
 androidMinSdk = "26"
 androidTargetSdk = "36"
@@ -11,6 +14,8 @@ androidTargetSdk = "36"
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-sqlite = { module = "androidx.sqlite:sqlite", version.ref = "androidxSqlite" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "androidxSqlite" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

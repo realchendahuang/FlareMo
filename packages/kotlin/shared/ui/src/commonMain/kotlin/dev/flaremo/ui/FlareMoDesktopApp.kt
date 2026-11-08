@@ -26,8 +26,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.flaremo.core.db.MemoRepository
+import dev.flaremo.core.model.Memo
 import dev.flaremo.ui.components.MemoCard
 import dev.flaremo.ui.theme.FlareMoTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 /**
  * 桌面端根视图（Windows 走这一份；开发期在 macOS 的 JVM 上验证）。
@@ -36,22 +42,26 @@ import dev.flaremo.ui.theme.FlareMoTheme
  * `[留白 10 | 侧栏 312 | 拖拽条 8 | 内容列 640 | 留白]`，整组居中。
  */
 @Composable
-fun FlareMoDesktopApp(modifier: Modifier = Modifier) {
+fun FlareMoDesktopApp(repository: MemoRepository, modifier: Modifier = Modifier) {
     FlareMoTheme {
         val colors = FlareMoTheme.colors
+        var memos by remember { mutableStateOf<List<Memo>>(repository.list()) }
 
         Row(modifier = modifier.fillMaxSize().background(colors.background)) {
             Spacer(Modifier.width(10.dp))
-            Sidebar()
+            Sidebar(memoCount = memos.size)
             Spacer(Modifier.width(8.dp))
-            ContentColumn(Modifier.width(640.dp).fillMaxHeight())
+            ContentColumn(
+                memos = memos,
+                modifier = Modifier.width(640.dp).fillMaxHeight(),
+            )
             Spacer(Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun Sidebar() {
+private fun Sidebar(memoCount: Int) {
     val colors = FlareMoTheme.colors
     val typography = FlareMoTheme.typography
 
@@ -76,7 +86,7 @@ private fun Sidebar() {
                 .background(colors.secondary.copy(alpha = 0.5f))
                 .padding(vertical = 10.dp),
         ) {
-            StatCell(Modifier.weight(1f), "${SampleMemos.all.size}", "记录")
+            StatCell(Modifier.weight(1f), "$memoCount", "记录")
             StatCell(Modifier.weight(1f), "4", "标签")
             StatCell(Modifier.weight(1f), "1", "连续天数")
         }
@@ -157,7 +167,7 @@ private fun NavRow(label: String, active: Boolean, showIcon: Boolean = true) {
 }
 
 @Composable
-private fun ContentColumn(modifier: Modifier) {
+private fun ContentColumn(memos: List<Memo>, modifier: Modifier) {
     val colors = FlareMoTheme.colors
     val typography = FlareMoTheme.typography
 
@@ -187,7 +197,7 @@ private fun ContentColumn(modifier: Modifier) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            for (memo in SampleMemos.all) {
+            for (memo in memos) {
                 MemoCard(memo)
             }
             Spacer(Modifier.height(64.dp))

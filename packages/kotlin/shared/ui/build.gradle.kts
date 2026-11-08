@@ -21,7 +21,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core-model"))
+            api(project(":core-model"))
+            api(project(":core-db"))
             api(compose.runtime)
             api(compose.foundation)
             api(compose.material3)

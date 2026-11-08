@@ -1,6 +1,7 @@
 package dev.flaremo.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
+import dev.flaremo.core.db.MemoRepository
+import dev.flaremo.core.model.Memo
 import dev.flaremo.ui.components.MemoCard
 import dev.flaremo.ui.theme.FlareMoTheme
 
@@ -41,11 +44,12 @@ import dev.flaremo.ui.theme.FlareMoTheme
  * 所以输入框常驻吸底、时间线在它上面滚动。对应 Apple 端 `FMPhoneRoot`。
  */
 @Composable
-fun FlareMoPhoneApp(modifier: Modifier = Modifier) {
+fun FlareMoPhoneApp(repository: MemoRepository, modifier: Modifier = Modifier) {
     FlareMoTheme {
         val colors = FlareMoTheme.colors
         var draft by remember { mutableStateOf("") }
-        val memos = SampleMemos.all
+        // 读的就是本地库；写完立刻重读（v1 的数据量下重读是亚毫秒级）。
+        var memos by remember { mutableStateOf<List<Memo>>(repository.list()) }
 
         Column(
             modifier = modifier
@@ -65,7 +69,18 @@ fun FlareMoPhoneApp(modifier: Modifier = Modifier) {
             ) {
                 items(memos, key = { it.id }) { memo -> MemoCard(memo) }
             }
-            ComposerBar(draft = draft, onDraftChange = { draft = it }, onSend = { draft = "" })
+            ComposerBar(
+                draft = draft,
+                onDraftChange = { draft = it },
+                onSend = {
+                    val trimmed = draft.trim()
+                    if (trimmed.isNotEmpty()) {
+                        repository.create(trimmed)
+                        draft = ""
+                        memos = repository.list()
+                    }
+                },
+            )
         }
     }
 }
@@ -133,6 +148,7 @@ private fun ComposerBar(draft: String, onDraftChange: (String) -> Unit, onSend: 
                 modifier = Modifier
                     .size(30.dp)
                     .clip(CircleShape)
+                    .clickable(enabled = hasContent, onClick = onSend)
                     .background(
                         if (hasContent) {
                             Brush.linearGradient(listOf(colors.brand400, colors.brandCoral))

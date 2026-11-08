@@ -560,9 +560,27 @@ packages/kotlin/
 
 ### 6.4 数据层
 
-- **Room 3 + `BundledSQLiteDriver`**：Android/JVM 用同一份打包 SQLite（版本可控），`androidx.room3.Fts5` 官方支持。
-- **CJK 搜索必须复刻服务端降级逻辑**（§5.4）：本地 trigram + 短 CJK 查询 LIKE，否则两端结果不一致。
-- 启动时若 FTS5 不可用要能降级（建表失败不能崩）。
+**v1 实际实现：`androidx.sqlite` + `BundledSQLiteDriver` + 手写 SQL**（不是 Room）。
+
+原因（2026-11-09 实测，不是偏好）：
+1. **Room 没有 3.x**。文档原先写的 "Room 3.0.3" 不存在，Android Maven 上最新是 **2.8.5**。
+2. **Room 的代码生成依赖 KSP**，而 AGP 9 起 Kotlin 编译内置进 android 插件，
+   KSP 与「AGP 9 内置 Kotlin」目前没打通；为它把 AGP 降回 8.x 得不偿失。
+3. 我们的表只有三张（memos / outbox / sync_state），手写 SQL 的维护成本低于
+   引入一整套注解处理器；而 `BundledSQLiteDriver` 仍然满足「SQLite 版本钉在依赖里、
+   不依赖系统/ROM」这条硬要求（§6.4 原本的理由）。
+
+保持不变的约定：
+- SQLite 版本来自依赖（`androidx.sqlite:sqlite-bundled`），不依赖系统 SQLite
+- 五条 PRAGMA 与 Apple 端一致（WAL / synchronous=FULL / foreign_keys / busy_timeout / temp_store）
+- 表结构、列名、软删语义、`version` 乐观锁、ISO 毫秒文本时间都与 D1 和 Apple 端对齐
+- `schema 变更 = 整库重建`（本地库是副本，不做迁移链，§7.7）
+
+接口层留了 `MemoRepository`（`core:db`），视图只认它；将来 KSP 与 AGP 9 打通、
+或者 Room 出了 KMP 版本，换实现不动上层。
+
+**已知欠账**：`core:domain` 这一层暂时并进了 `core:db`（只有 repository + 实现两个文件，
+单独开一个模块是空壳）。等同步引擎落地时再拆。
 
 ### 6.5 导航 / DI / UI
 
