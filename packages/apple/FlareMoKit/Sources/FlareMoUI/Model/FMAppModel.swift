@@ -63,6 +63,9 @@ public final class FMAppModel {
             self.memoStore = store
             self.isPreview = false
             startObserving(store: store)
+            // 首帧不等观测回调：直接读一次。ValueObservation 的首个值会走异步回调，
+            // 否则打开 App 的第一帧是空列表（能看到闪一下）。
+            refresh()
         } catch {
             self.database = nil
             self.memoStore = nil

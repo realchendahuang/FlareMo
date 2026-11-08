@@ -6,7 +6,8 @@ import SwiftUI
 /// 开发用渲染器。
 ///
 /// 两个用途：
-///   `swift run flaremo-preview`            → 渲染 PNG 到 ./Temp/preview/
+///   `swift run flaremo-preview`            → 用假数据渲染 PNG 到 ./Temp/preview/
+///   `swift run flaremo-preview --live`     → 用**真实本地库**渲染 PNG（看到的就是 App 里的样子）
 ///   `swift run flaremo-preview --window`   → 直接开一个窗口看真实交互
 ///
 /// 为什么需要它：Xcode 工程还没建好时（以及快照测试要固定尺寸时），
@@ -24,11 +25,15 @@ struct FlareMoPreviewApp {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
+        if CommandLine.arguments.contains("--live") {
+            renderSnapshots(model: FMAppModel(), suffix: "live")
+            return
+        }
         if CommandLine.arguments.contains("--window") {
             openWindow()
             app.run()
         } else {
-            renderSnapshots()
+            renderSnapshots(model: PreviewData.model, suffix: "workspace")
         }
     }
 
@@ -58,7 +63,7 @@ struct FlareMoPreviewApp {
     // MARK: 渲染模式
 
     @MainActor
-    private static func renderSnapshots() {
+    private static func renderSnapshots(model: FMAppModel, suffix: String) {
         let outputDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("Temp/preview", isDirectory: true)
         try? FileManager.default.createDirectory(
@@ -67,13 +72,13 @@ struct FlareMoPreviewApp {
         )
 
         let size = CGSize(width: 1360, height: 860)
-        let root = FMWorkspaceRoot(model: PreviewData.model)
+        let root = FMWorkspaceRoot(model: model)
 
         for (name, appearance) in [
             ("light", NSAppearance.Name.aqua),
             ("dark", NSAppearance.Name.darkAqua),
         ] {
-            let url = outputDirectory.appendingPathComponent("workspace-\(name).png")
+            let url = outputDirectory.appendingPathComponent("\(suffix)-\(name).png")
             if snapshot(root, size: size, appearance: appearance, scale: 2, to: url) {
                 print("✓ \(url.path)")
             } else {
