@@ -50,6 +50,8 @@ export const attachments = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
+    // Optimistic-lock / sync version (migration 0048). See memos.version.
+    version: integer("version").notNull().default(1),
   },
   (table) => [
     index("attachments_user_created_idx").on(table.userId, table.createdAt),
@@ -122,6 +124,8 @@ export const articles = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
+    // Optimistic-lock / sync version (migration 0048). See memos.version.
+    version: integer("version").notNull().default(1),
   },
   (table) => [
     uniqueIndex("articles_slug_idx").on(table.slug),

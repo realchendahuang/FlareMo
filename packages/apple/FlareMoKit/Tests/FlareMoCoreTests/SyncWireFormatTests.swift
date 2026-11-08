@@ -38,8 +38,10 @@ struct SyncWireFormatTests {
                         "visibility":"private","status":"normal","pinned":false,"source":"web","client_id":"c1",
                         "payload":{},"created_at":"2026-11-08T17:43:14.284Z","updated_at":"2026-11-08T17:43:14.284Z",
                         "deleted_at":null,"version":1}],
-              "attachments":[{"id":"attachments/b70d","memo_id":"memos/375d","r2_key":"uploads/demo.txt",
-                              "filename":"demo.txt","size":7,"mime":"text/plain","sha256":null,"state":"ready",
+              "attachments":[{"id":"attachments/afb5","user_id":"local-user","memo_id":"memos/375d",
+                              "article_id":null,"r2_key":"uploads/demo.txt","filename":"demo.txt",
+                              "content_type":"text/plain","size":7,"thumbnail_size":null,"state":"ready",
+                              "client_id":"c2","etag":null,
                               "created_at":"2026-11-08T17:43:14.316Z","updated_at":"2026-11-08T17:43:14.316Z",
                               "deleted_at":null,"version":1}],
               "articles":[],
@@ -54,8 +56,11 @@ struct SyncWireFormatTests {
         )
         #expect(response.memos.first?.content == "离线写的第一条 #sync")
         #expect(response.attachments.first?.size == 7)
+        #expect(response.attachments.first?.contentType == "text/plain")
         #expect(response.attachments.first?.filename == "demo.txt")
         #expect(response.attachments.first?.r2Key == "uploads/demo.txt")
+        // 服务端没有 sha256 列：这个字段必须是可选的，否则整条 decode 会炸
+        #expect(response.attachments.first?.clientId == "c2")
         #expect(response.relations.first?.type == "comment")
         #expect(response.relations.first?.relatedMemoId == "memos/375d")
     }

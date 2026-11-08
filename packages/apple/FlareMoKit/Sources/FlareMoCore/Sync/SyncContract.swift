@@ -100,14 +100,20 @@ public struct RemoteRelation: Codable, Sendable, Hashable {
 /// 附件元数据（二进制本身走 S3 兼容直传，不经过 hydrate）。
 public struct RemoteAttachment: Codable, Sendable, Hashable {
     public var id: String
+    public var userId: String?
     public var memoId: String?
+    public var articleId: String?
     public var r2Key: String
     public var filename: String?
-    /// 字节数。服务端字段名是 `size`（不是 `bytes`）——线格式以实际响应为准。
+    /// 字节数。服务端字段名是 `size`（不是 `bytes`）。
     public var size: Int
-    public var mime: String
-    public var sha256: String?
+    /// MIME 类型。**服务端的列名是 `content_type`，没有 `mime` 这一列**——
+    /// 线格式以真实响应为准，写 `mime` 会直接解码失败。
+    public var contentType: String
+    public var thumbnailSize: Int?
     public var state: String
+    public var clientId: String?
+    public var etag: String?
     public var createdAt: String
     public var updatedAt: String
     public var deletedAt: String?

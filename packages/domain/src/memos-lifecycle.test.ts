@@ -111,9 +111,9 @@ describe("D1 parameter budgeting", () => {
       (_, index) => `attachments/a${index}`,
     );
     const now = new Date().toISOString();
-    for (let offset = 0; offset < names.length; offset += 10) {
+    for (let offset = 0; offset < names.length; offset += 9) {
       await db.insert(attachments).values(
-        names.slice(offset, offset + 10).map((name) => ({
+        names.slice(offset, offset + 9).map((name) => ({
           id: name,
           userId: owner.id,
           r2Key: `r2/${name}`,

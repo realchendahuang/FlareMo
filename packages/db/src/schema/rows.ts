@@ -17,6 +17,7 @@ import type {
   memosWebhooks,
   pushSubscriptions,
 } from "./social";
+import type { nativePushDevices, syncChanges } from "./sync";
 import type { projects, taskActivity, tasks } from "./tasks";
 import type { embeddingTasks, usageCounters } from "./usage";
 
@@ -71,3 +72,7 @@ export type TaskActivityRow = typeof taskActivity.$inferSelect;
 export type NewTaskActivityRow = typeof taskActivity.$inferInsert;
 export type MemoInsightRow = typeof memoInsights.$inferSelect;
 export type NewMemoInsightRow = typeof memoInsights.$inferInsert;
+export type SyncChangeRow = typeof syncChanges.$inferSelect;
+export type NewSyncChangeRow = typeof syncChanges.$inferInsert;
+export type NativePushDeviceRow = typeof nativePushDevices.$inferSelect;
+export type NewNativePushDeviceRow = typeof nativePushDevices.$inferInsert;

@@ -277,6 +277,26 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 - **实时性不靠长连接**：服务端有变更 → APNs/FCM 静默推送 → 客户端唤醒后 pull 一次。**SSE 只作桌面可选通道，移动端一律不挂**（理由见 §4.10）；断线超过 7 天或收 410 用 pull 补洞。
 - **不要**用 `GET /api/app/memos?order_by=updated_at` 当同步（分页 + CEL 限制会漏记录），它只作旧实例的降级兼容。
 
+#### 4.4.1 实现落地后补充的口径（2026-11-09，以后端实现为准）
+
+- **`memo_relations.updated_at` 的 1970 占位**：迁移 0048 给它 `DEFAULT '1970-01-01T00:00:00.000Z'`，
+  而新写入的评论关系不会填这一列。0049 的触发器和 `/sync/hydrate` 都把 1970 归一成 `created_at`，
+  否则客户端会收到一堆 1970 的变更时间。**客户端不要再自己做这层归一。**
+- **`/sync/hydrate` 会返回软删行（tombstone）**：客户端需要镜像 `deleted_at` + `version`，
+  不能只靠 `op=delete` 事件——两者最终状态一致，但 hydrate 这条路径是幂等的、更可靠。
+- **`sync_changes` 的裁剪必须按 `seq` 前缀删**。裁剪任务（按 `FLAREMO_TRASH_RETENTION_DAYS`）
+  要先用 cutoff 算出对应 `max(seq)` 水位，再 `DELETE WHERE seq <= watermark`；
+  **绝不能按 `updated_at` 删任意行**——那样 `seq` 中间会出现空洞，
+  而 410 的判定依赖全局 `min(seq)`，空洞是发现不了的，客户端会静默漏数据。
+- **`/instance` 的 capabilities 按实际能力给值**（不许写"计划中"的能力）：
+  当前是 `sync_changes:1 / sync_hydrate:1 / soft_delete_tombstone:1 / optimistic_lock:0 /
+  native_push:[] / direct_upload:0 / pat_grant:0`。客户端据此降级——
+  `optimistic_lock:0` 就意味着**别指望 409**，冲突只能靠 LWW 兜底。
+- **附件正文的 MIME 列名是 `content_type`**，真实响应里没有 `mime` / `sha256` 两个字段。
+  客户端按 `content_type` 解码（Apple 侧已改，被这条坑过一次）。
+- **团队可见行不进个人同步流**：触发器按 `NEW.user_id` 记账，每个用户只拿到自己写的行。
+  v1 按「个人副本」处理；产品若要求团队行也落本地，需要另加 fan-out 规则（§4.12 #7）。
+
 ### 4.5 冲突与幂等
 
 - **LWW + 乐观锁**，单语句原子更新：`UPDATE memos SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?`，`changes = 0` → 返回 409，客户端拉最新版本后重试。`attachments` / `articles` 同一套（都是 `version` 列）。

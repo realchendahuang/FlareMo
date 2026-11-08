@@ -337,6 +337,20 @@
       "when": 1794140131051,
       "tag": "0047_memo_insights",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1794159269281,
+      "tag": "0048_dapper_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1794159273703,
+      "tag": "0049_native_sync_triggers",
+      "breakpoints": true
     }
   ]
 }

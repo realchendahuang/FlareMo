@@ -26,6 +26,14 @@ export const RESTORE_TABLES = [
   "app_clients",
   "device_authorizations",
   "device_refresh_tokens",
+  // Native sync: `sync_changes` is the monotonic cursor every native client
+  // stores. Restoring it keeps those cursors contiguous; dropping it would
+  // force every client into a full rebuild on the next pull. Its rows are
+  // references, so the dump stays small.
+  "sync_changes",
+  // Registered APNs/FCM tokens are user state like the refresh tokens above:
+  // a restored instance should keep waking the same devices.
+  "native_push_devices",
   "memos",
   "memos_sse_events",
   "memo_tags",

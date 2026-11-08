@@ -7,5 +7,6 @@ export * from "./schema/memos";
 export * from "./schema/ops";
 export * from "./schema/rows";
 export * from "./schema/social";
+export * from "./schema/sync";
 export * from "./schema/tasks";
 export * from "./schema/usage";
