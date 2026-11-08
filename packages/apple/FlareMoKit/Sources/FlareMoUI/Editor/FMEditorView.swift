@@ -295,12 +295,16 @@ import SwiftUI
                         value: FMColor.mutedForeground.nsColor,
                         range: spanRange
                     )
-                case .tag, .highlight:
+                case .tag:
                     storage.addAttribute(
                         .foregroundColor,
                         value: FMColor.brand500.nsColor,
                         range: spanRange
                     )
+                case .highlight:
+                    // `==高亮==` 不上色：Web 端没有这个语法，原生端单独点亮
+                    // 会让同一条记录两端看起来不一样。要支持就两端一起加。
+                    break
                 }
             }
         }

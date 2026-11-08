@@ -448,6 +448,13 @@ xcrun simctl launch booted app.flaremo.ios
 
 `swift-markdown` 解析成块模型 → 自绘 SwiftUI（只渲染阅读态：卡片、详情、回顾）。块模型与编辑器的样式计算共用一份，放内核包做单测。**v1 不做代码高亮**；要做时用 Highlightr 2.3.0（MIT，JavaScriptCore，有主线程成本）或构建期把 shiki 转 token JSON。
 
+已落地（`FlareMoMarkdown`）：
+
+- **块模型**：`FMBlock`（paragraph / heading / bullet / ordered / quote / codeBlock / divider / todo）+ `FMBlockParser`（swift-markdown AST）。渲染器还需要文字，所以另给 `FMBlockParser.contents(in:) -> [FMBlockContent]`（块 + 块文本，span 偏移相对块文本的 UTF-16）。
+- **行内扫描器**：`FMInlineScanner`（手写单遍，**不用 AST**——逐键解析太慢且会丢标记符号位置）。10KB 文本 debug 1.05ms / release 0.105ms，单测断言 <3ms，另有防 O(n²) 的刁钻输入组。
+- 有意降级：行内标记不跨行；嵌套强调用「就近收尾」配对（`**粗 *斜* 体**` 正确，`*斜 **粗** 斜*` 会配错但不吞后文）；4 空格缩进行不认块级；表格/图片/HTML 在块模型里降级（对齐 Web 的 skipHtml）。
+- **`==高亮==` 不进 v1**：扫描器能识别，但编辑器与阅读态都不上色——Web 端没有这个语法，原生端单独支持只会让同一条记录两端显示不同。要支持就两端一起加。
+
 ### 5.7 系统集成
 
 | 能力 | macOS | iOS |
