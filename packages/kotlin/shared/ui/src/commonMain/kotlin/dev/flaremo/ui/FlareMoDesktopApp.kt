@@ -53,6 +53,14 @@ fun FlareMoDesktopApp(repository: MemoRepository, modifier: Modifier = Modifier)
             Spacer(Modifier.width(8.dp))
             ContentColumn(
                 memos = memos,
+                onTogglePin = { memo ->
+                    repository.setPinned(memo.id, !memo.pinned)
+                    memos = repository.list()
+                },
+                onDelete = { memo ->
+                    repository.delete(memo.id)
+                    memos = repository.list()
+                },
                 modifier = Modifier.width(640.dp).fillMaxHeight(),
             )
             Spacer(Modifier.weight(1f))
@@ -167,7 +175,12 @@ private fun NavRow(label: String, active: Boolean, showIcon: Boolean = true) {
 }
 
 @Composable
-private fun ContentColumn(memos: List<Memo>, modifier: Modifier) {
+private fun ContentColumn(
+    memos: List<Memo>,
+    onTogglePin: (Memo) -> Unit,
+    onDelete: (Memo) -> Unit,
+    modifier: Modifier,
+) {
     val colors = FlareMoTheme.colors
     val typography = FlareMoTheme.typography
 
@@ -198,7 +211,11 @@ private fun ContentColumn(memos: List<Memo>, modifier: Modifier) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             for (memo in memos) {
-                MemoCard(memo)
+                MemoCard(
+                    memo = memo,
+                    onTogglePin = { onTogglePin(memo) },
+                    onDelete = { onDelete(memo) },
+                )
             }
             Spacer(Modifier.height(64.dp))
         }

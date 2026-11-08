@@ -67,7 +67,19 @@ fun FlareMoPhoneApp(repository: MemoRepository, modifier: Modifier = Modifier) {
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(memos, key = { it.id }) { memo -> MemoCard(memo) }
+                items(memos, key = { it.id }) { memo ->
+                    MemoCard(
+                        memo = memo,
+                        onTogglePin = {
+                            repository.setPinned(memo.id, !memo.pinned)
+                            memos = repository.list()
+                        },
+                        onDelete = {
+                            repository.delete(memo.id)
+                            memos = repository.list()
+                        },
+                    )
+                }
             }
             ComposerBar(
                 draft = draft,
