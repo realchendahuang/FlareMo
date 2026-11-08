@@ -3,6 +3,41 @@
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
 
+## v0.31.0
+
+**第三方客户端接入（设备授权/配对码）+ AI 洞察契约。** 新增 2 个纯增量 migration（0046、0047），无 Cloudflare 资源变化，无 Memos 兼容面变化，旧 PAT 与旧客户端行为不变。
+
+### 新增
+
+- **设备授权接入（RFC 8628）**：`POST /connect/device` 申请配对码，用户在 Web 批准（`POST /api/app/connect/approve`），客户端用 `POST /connect/token` 兑换短期 access token + refresh token（`grant_type=refresh_token` 刷新并轮换）。access token 就是 `memos_pat_`，沿用现有 scope 与校验路径。
+- **设置「已连接应用」**：列出第三方客户端、权限、最后使用与状态，可一键撤销；撤销同时失效该客户端的 access/refresh token。
+- **Web 配对页 `/connect`**：输入 8 位配对码完成批准，支持 `?code=` 预填与 `verification_uri_complete` 回跳；未登录跳登录并保留配对码。
+- **AI 洞察契约**：`/api/app/insights` 提供任务创建、pending 队列、结果读回、删除与幂等写回（`pending → running → done | failed`，`failed` 可重试）。FlareMo 只存契约与结果，模型执行器外置（DSH 插件、Workers AI 或其他 agent）。
+- **memo 详情页洞察入口**：创建任务后轮询最多 60 秒，展示结构化或纯文本结果，支持重试与删除。
+- 定时维护新增过期配对码与失效 refresh token 清理；持久化清单把连接表归入灾备恢复、洞察表归入可重建。
+
+### 数据库
+
+- `0046_agent_access`：新增 `app_clients`、`device_authorizations`、`device_refresh_tokens`（纯增量）。
+- `0047_memo_insights`：新增 `memo_insights`（派生数据，可重建，不进导出包）。
+
+### 认证与安全
+
+- 配对码（`user_code`）与设备码（`device_code`）只存 SHA-256，5 分钟过期、一次性、限速；`/connect/*` 是公开端点，按 IP 与设备码限速。
+- 只有浏览器会话能批准配对码；只有 PAT 能写回洞察结果（浏览器会话只能创建、读取、删除自己的任务）。
+- 「已连接应用」只展示有客户端身份归属的第三方令牌，手动 PAT 仍留在「个人访问令牌」列表。
+
+### 升级说明
+
+- 直接升级即可：部署会先应用 0046/0047 两个增量 migration，旧 Worker 与旧客户端不受影响。
+- 没有新的环境变量或 Cloudflare 绑定；不需要新增 secret。
+- 洞察任务需要外部执行器才会产出结果；未接入执行器时任务停留在 pending，Web 端会显示等待状态。
+
+### 已知问题
+
+- 洞察执行器尚未随上游提供（按设计外置）；DSH 插件 `dsh-flaremo` 是第一个参考实现。
+- 设备授权的 Web 批准页与已连接应用页尚未跑 e2e（用例已写，按项目规则 opt-in）。
+
 ## v0.30.2
 
 **PAT 默认有效期改为 365 天，并恢复 notes-only 令牌的永久有效选项。** 无 D1 migration，无 Cloudflare 资源变化；已有令牌继续按原有效期运行。
