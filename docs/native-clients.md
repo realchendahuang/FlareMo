@@ -612,6 +612,18 @@ packages/kotlin/
   - 注意架构：ARM 虚拟机 + ARM JDK 产出 arm64 包；要出 **x64 包**需在虚拟机里装 x64 JDK（模拟执行，慢但可行），或最终交给 `windows-latest` 出 x64。
 - **Windows 代码签名是硬成本**：Azure Artifact Signing（原 Trusted Signing）约 $9.99/月，但**个人仅限美/加，机构仅限美/加/欧/英——中国个人开发者拿不到**；只能走 OV 证书（约 $200–400/年，通常需企业主体），或接受 SmartScreen 红警。**虚拟机解决构建，不解决证书。**
 - **MSIX 无第一方支持**（jpackage 只出 MSI/EXE）；Windows Store 上架 v1 不做。
+- **打包链路已在 macOS 上验证**（`createDistributable` 出 `FlareMo.app`、
+  `packageDmg` 出 73MB 的 `FlareMo-1.0.0.dmg`）：Windows 上是同一条 `jpackage` 调用，
+  只把 `targetFormats` 换成 `Msi/Exe` 并在 Windows 上跑。**两个已踩到的坑**：
+  1. **`packageVersion` 主版本必须 ≥ 1**，写 `0.1.0` 会被 jpackage 直接跳过、不出安装包
+     （报 "app-version 中的第一个数字不能为零"）。现在钉 `1.0.0`。
+  2. **Homebrew 的 JDK 会被 Compose 插件拦**（`checkJdkVendor`），本地验证临时用
+     `compose.desktop.packaging.checkJdkVendor=false` 放行；**正式发版换
+     Temurin / Corretto**，别用 Homebrew 的分发去打安装包。
+- **Windows 虚拟机尚未建好**：UTM 5.0.8 已装，但缺 Windows 11 ARM64 镜像
+  （UUP dump 的 `get.php` 参数组合没试通；`utmctl` 还需要用户授权 Apple Events）。
+  这两步都需要人：镜像要么用微软官方下载页（需 Apple/微软账号登录），
+  要么用户提供已有的 ISO。**不影响写代码**，只影响「在 Windows 上打包/验收」这一步。
 - Android 签名免费（keystore + Play App Signing）。
 
 ### 6.9 最容易翻车的三个点（Kotlin 侧）

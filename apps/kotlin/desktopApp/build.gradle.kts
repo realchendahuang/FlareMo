@@ -26,7 +26,8 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg)
             packageName = "FlareMo"
-            packageVersion = "0.1.0"
+            // jpackage 要求主版本号 ≥ 1（"0.1.0" 会被直接跳过，不出安装包）。
+            packageVersion = "1.0.0"
             description = "FlareMo 桌面端"
             vendor = "FlareMo"
 
