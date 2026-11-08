@@ -1163,6 +1163,28 @@ const messages = {
   "connect.clientType.web": "Web",
   "connect.clientType.script": "Script",
   "connect.clientType.manual": "Manual token",
+  "insight.title": "AI insight",
+  "insight.description":
+    "Let a connected AI client read this note and return a short insight.",
+  "insight.generate": "Generate insight",
+  "insight.creating": "Submitting…",
+  "insight.pending": "Waiting for the AI client…",
+  "insight.pendingHint": "Usually back within a minute.",
+  "insight.timeoutTitle": "No result yet",
+  "insight.timeoutDescription":
+    "An AI client may not have picked the task up yet.",
+  "insight.checkAgain": "Check again",
+  "insight.failedTitle": "Insight failed",
+  "insight.failedFallback": "The AI client didn't report a reason.",
+  "insight.loadFailed": "Couldn't load the insight. Try again.",
+  "insight.retry": "Retry",
+  "insight.delete": "Delete",
+  "insight.deleteTitle": "Delete this insight?",
+  "insight.deleteDescription": "This can't be undone.",
+  "insight.deleted": "Insight deleted",
+  "insight.emptyResult": "The AI client returned an empty result.",
+  "insight.createFailed": "Couldn't create the insight task. Try again later.",
+  "insight.deleteFailed": "Couldn't delete the insight. Try again.",
 } as const;
 
 export const enUS = messages satisfies Record<TranslationKey, string>;

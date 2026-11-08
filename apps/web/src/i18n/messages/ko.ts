@@ -1169,6 +1169,29 @@ const messages = {
   "connect.clientType.web": "웹",
   "connect.clientType.script": "스크립트",
   "connect.clientType.manual": "수동 토큰",
+  "insight.title": "AI 인사이트",
+  "insight.description":
+    "연결된 AI 클라이언트가 이 노트를 읽고 짧은 인사이트를 돌려주도록 합니다.",
+  "insight.generate": "인사이트 생성",
+  "insight.creating": "보내는 중…",
+  "insight.pending": "AI 클라이언트의 처리를 기다리는 중…",
+  "insight.pendingHint": "보통 1분 안에 돌아옵니다.",
+  "insight.timeoutTitle": "아직 결과가 없습니다",
+  "insight.timeoutDescription":
+    "AI 클라이언트가 아직 작업을 가져가지 않았을 수 있습니다.",
+  "insight.checkAgain": "다시 확인",
+  "insight.failedTitle": "인사이트 생성 실패",
+  "insight.failedFallback": "AI 클라이언트가 실패 이유를 알려주지 않았습니다.",
+  "insight.loadFailed": "인사이트를 불러오지 못했습니다. 다시 시도해 주세요.",
+  "insight.retry": "다시 시도",
+  "insight.delete": "삭제",
+  "insight.deleteTitle": "이 인사이트를 삭제할까요?",
+  "insight.deleteDescription": "삭제하면 되돌릴 수 없습니다.",
+  "insight.deleted": "인사이트를 삭제했습니다",
+  "insight.emptyResult": "AI 클라이언트가 빈 결과를 반환했습니다.",
+  "insight.createFailed":
+    "인사이트 작업을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  "insight.deleteFailed": "삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ko = messages;

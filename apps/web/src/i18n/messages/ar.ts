@@ -1142,6 +1142,28 @@ const messages = {
   "connect.clientType.web": "ويب",
   "connect.clientType.script": "نص برمجي",
   "connect.clientType.manual": "رمز يدوي",
+  "insight.title": "رؤية بالذكاء الاصطناعي",
+  "insight.description":
+    "دع عميل ذكاء اصطناعي متصلًا يقرأ هذه الملاحظة ويعيد رؤية قصيرة.",
+  "insight.generate": "أنشئ الرؤية",
+  "insight.creating": "جارٍ الإرسال…",
+  "insight.pending": "في انتظار عميل الذكاء الاصطناعي…",
+  "insight.pendingHint": "يعود عادة خلال دقيقة.",
+  "insight.timeoutTitle": "لا نتيجة بعد",
+  "insight.timeoutDescription":
+    "ربما لم يأخذ عميل الذكاء الاصطناعي المهمة بعد.",
+  "insight.checkAgain": "تحقق مجددًا",
+  "insight.failedTitle": "تعذر إنشاء الرؤية",
+  "insight.failedFallback": "لم يذكر عميل الذكاء الاصطناعي سبب الفشل.",
+  "insight.loadFailed": "تعذر تحميل الرؤية. أعد المحاولة.",
+  "insight.retry": "إعادة المحاولة",
+  "insight.delete": "حذف",
+  "insight.deleteTitle": "حذف هذه الرؤية؟",
+  "insight.deleteDescription": "لا يمكن التراجع عن هذا الإجراء.",
+  "insight.deleted": "تم حذف الرؤية",
+  "insight.emptyResult": "أعاد عميل الذكاء الاصطناعي نتيجة فارغة.",
+  "insight.createFailed": "تعذر إنشاء مهمة الرؤية. أعد المحاولة لاحقًا.",
+  "insight.deleteFailed": "تعذر حذف الرؤية. أعد المحاولة لاحقًا.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ar = messages;

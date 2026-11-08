@@ -11,6 +11,7 @@ export * from "./api/capture";
 export { ApiError, AUTHENTICATION_REQUIRED_EVENT } from "./api/client";
 export * from "./api/connect";
 export * from "./api/data-tasks";
+export * from "./api/insights";
 export * from "./api/integrations";
 export * from "./api/memos";
 export * from "./api/notifications";

@@ -10,6 +10,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
 import { memoExcerpt } from "@/lib/memo";
 import { stripResourceName } from "@/lib/utils";
+import { InsightSection } from "./insight-section";
 
 /**
  * The read view's optional to-do wiring. Absent (undefined) while the viewer
@@ -63,6 +64,11 @@ export function ContentTab({
         onToggleTask={taskInteraction?.onToggleTask}
         onConvertTask={taskInteraction?.onConvertTask}
       />
+      {/* Comments on their own page point back to their memo; insight is only
+          meaningful for a note itself, and only while it is a live note. */}
+      {!parentName && context.memo.state === "normal" && (
+        <InsightSection memoId={context.memo.id} />
+      )}
       {!parentName && (
         <MemoComments
           canComment={context.memo.state === "normal"}

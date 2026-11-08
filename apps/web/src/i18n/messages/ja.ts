@@ -1177,6 +1177,30 @@ const messages = {
   "connect.clientType.web": "Web",
   "connect.clientType.script": "スクリプト",
   "connect.clientType.manual": "手動トークン",
+  "insight.title": "AI インサイト",
+  "insight.description":
+    "接続済みの AI クライアントにこのノートを読ませ、短いインサイトを返してもらいます。",
+  "insight.generate": "インサイトを生成",
+  "insight.creating": "送信しています…",
+  "insight.pending": "AI クライアントの処理を待っています…",
+  "insight.pendingHint": "通常は 1 分以内に返ります。",
+  "insight.timeoutTitle": "まだ結果がありません",
+  "insight.timeoutDescription":
+    "AI クライアントがまだタスクを受け取っていない可能性があります。",
+  "insight.checkAgain": "再確認",
+  "insight.failedTitle": "インサイトの生成に失敗しました",
+  "insight.failedFallback": "AI クライアントは失敗理由を返していません。",
+  "insight.loadFailed":
+    "インサイトを読み込めませんでした。もう一度お試しください。",
+  "insight.retry": "再試行",
+  "insight.delete": "削除",
+  "insight.deleteTitle": "このインサイトを削除しますか？",
+  "insight.deleteDescription": "削除すると元に戻せません。",
+  "insight.deleted": "インサイトを削除しました",
+  "insight.emptyResult": "AI クライアントは空の結果を返しました。",
+  "insight.createFailed":
+    "インサイトのタスクを作成できませんでした。後でもう一度お試しください。",
+  "insight.deleteFailed": "削除できませんでした。後でもう一度お試しください。",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ja = messages;

@@ -1184,6 +1184,28 @@ const messages = {
   "connect.clientType.web": "Веб",
   "connect.clientType.script": "Скрипт",
   "connect.clientType.manual": "Ручной токен",
+  "insight.title": "ИИ-инсайт",
+  "insight.description":
+    "Подключённый ИИ-клиент прочитает эту заметку и вернёт короткий инсайт.",
+  "insight.generate": "Создать инсайт",
+  "insight.creating": "Отправляем…",
+  "insight.pending": "Ждём ИИ-клиента…",
+  "insight.pendingHint": "Обычно результат приходит в течение минуты.",
+  "insight.timeoutTitle": "Результата пока нет",
+  "insight.timeoutDescription": "Возможно, ИИ-клиент ещё не забрал задачу.",
+  "insight.checkAgain": "Проверить снова",
+  "insight.failedTitle": "Не удалось создать инсайт",
+  "insight.failedFallback": "ИИ-клиент не указал причину сбоя.",
+  "insight.loadFailed": "Не удалось загрузить инсайт. Попробуйте снова.",
+  "insight.retry": "Повторить",
+  "insight.delete": "Удалить",
+  "insight.deleteTitle": "Удалить этот инсайт?",
+  "insight.deleteDescription": "Отменить это действие нельзя.",
+  "insight.deleted": "Инсайт удалён",
+  "insight.emptyResult": "ИИ-клиент вернул пустой результат.",
+  "insight.createFailed":
+    "Не удалось создать задачу инсайта. Повторите попытку позже.",
+  "insight.deleteFailed": "Не удалось удалить инсайт. Повторите попытку позже.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ru = messages;

@@ -1206,6 +1206,29 @@ const messages = {
   "connect.clientType.web": "Web",
   "connect.clientType.script": "Script",
   "connect.clientType.manual": "Jeton manuel",
+  "insight.title": "Analyse IA",
+  "insight.description":
+    "Laissez un client IA connecté lire cette note et proposer une courte analyse.",
+  "insight.generate": "Générer l'analyse",
+  "insight.creating": "Envoi…",
+  "insight.pending": "En attente du client IA…",
+  "insight.pendingHint": "Généralement en moins d'une minute.",
+  "insight.timeoutTitle": "Pas encore de résultat",
+  "insight.timeoutDescription":
+    "Le client IA n'a peut-être pas encore pris la tâche.",
+  "insight.checkAgain": "Vérifier à nouveau",
+  "insight.failedTitle": "Échec de l'analyse",
+  "insight.failedFallback": "Le client IA n'a pas indiqué de raison.",
+  "insight.loadFailed": "Impossible de charger l'analyse. Réessayez.",
+  "insight.retry": "Réessayer",
+  "insight.delete": "Supprimer",
+  "insight.deleteTitle": "Supprimer cette analyse ?",
+  "insight.deleteDescription": "Cette action est irréversible.",
+  "insight.deleted": "Analyse supprimée",
+  "insight.emptyResult": "Le client IA a renvoyé un résultat vide.",
+  "insight.createFailed":
+    "Impossible de créer la tâche d'analyse. Réessayez plus tard.",
+  "insight.deleteFailed": "Impossible de supprimer l'analyse. Réessayez.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const fr = messages;

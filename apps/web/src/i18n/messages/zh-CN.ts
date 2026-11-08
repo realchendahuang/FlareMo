@@ -1089,6 +1089,27 @@ const messages = {
   "connect.clientType.web": "网页",
   "connect.clientType.script": "脚本",
   "connect.clientType.manual": "手动令牌",
+  "insight.title": "AI 洞察",
+  "insight.description":
+    "让已连接的 AI 客户端读一遍这条记录，给出一份简短洞察。",
+  "insight.generate": "生成洞察",
+  "insight.creating": "正在提交…",
+  "insight.pending": "正在等待 AI 客户端处理…",
+  "insight.pendingHint": "一般一分钟内返回。",
+  "insight.timeoutTitle": "暂时没有结果",
+  "insight.timeoutDescription": "AI 客户端可能还没有取走这个任务。",
+  "insight.checkAgain": "再次检查",
+  "insight.failedTitle": "洞察生成失败",
+  "insight.failedFallback": "AI 客户端没有给出失败原因。",
+  "insight.loadFailed": "读取洞察失败，请重试。",
+  "insight.retry": "重试",
+  "insight.delete": "删除",
+  "insight.deleteTitle": "删除这条洞察？",
+  "insight.deleteDescription": "删除后无法恢复。",
+  "insight.deleted": "已删除这条洞察",
+  "insight.emptyResult": "AI 客户端返回了空结果。",
+  "insight.createFailed": "洞察任务创建失败，请稍后重试。",
+  "insight.deleteFailed": "删除失败，请稍后重试。",
 } as const;
 
 export const zhCN = messages;

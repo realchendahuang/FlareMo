@@ -1191,6 +1191,30 @@ const messages = {
   "connect.clientType.web": "Web",
   "connect.clientType.script": "Script",
   "connect.clientType.manual": "Token manual",
+  "insight.title": "Análisis con IA",
+  "insight.description":
+    "Deja que un cliente de IA conectado lea esta nota y devuelva un análisis breve.",
+  "insight.generate": "Generar análisis",
+  "insight.creating": "Enviando…",
+  "insight.pending": "Esperando al cliente de IA…",
+  "insight.pendingHint": "Normalmente tarda menos de un minuto.",
+  "insight.timeoutTitle": "Aún no hay resultado",
+  "insight.timeoutDescription":
+    "Puede que el cliente de IA aún no haya tomado la tarea.",
+  "insight.checkAgain": "Comprobar de nuevo",
+  "insight.failedTitle": "El análisis falló",
+  "insight.failedFallback": "El cliente de IA no indicó el motivo.",
+  "insight.loadFailed": "No se pudo cargar el análisis. Inténtalo de nuevo.",
+  "insight.retry": "Reintentar",
+  "insight.delete": "Eliminar",
+  "insight.deleteTitle": "¿Eliminar este análisis?",
+  "insight.deleteDescription": "Esta acción no se puede deshacer.",
+  "insight.deleted": "Análisis eliminado",
+  "insight.emptyResult": "El cliente de IA devolvió un resultado vacío.",
+  "insight.createFailed":
+    "No se pudo crear la tarea de análisis. Inténtalo más tarde.",
+  "insight.deleteFailed":
+    "No se pudo eliminar el análisis. Inténtalo de nuevo.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const es = messages;
