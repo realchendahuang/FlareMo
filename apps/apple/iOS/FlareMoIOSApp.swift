@@ -8,9 +8,12 @@ import SwiftUI
 /// 所以这里用 `FMPhoneRoot`（输入框吸底 + 时间线），而不是把桌面的三栏硬塞进来。
 @main
 struct FlareMoIOSApp: App {
+    /// 本地库（SQLite）→ 界面；iOS 与 macOS 共用同一个 `FMAppModel`。
+    @State private var model = FMAppModel()
+
     var body: some Scene {
         WindowGroup {
-            FMPhoneRoot()
+            FMPhoneRoot(model: model)
                 .background(FMColor.background.color)
         }
     }

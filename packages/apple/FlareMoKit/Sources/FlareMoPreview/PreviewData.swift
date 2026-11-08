@@ -5,6 +5,13 @@ import Foundation
 /// 接上本地库之后这个文件只服务于预览，不会进 App 的运行时路径。
 @MainActor
 enum PreviewData {
+    /// 不打开数据库的预览模型（App 里用的是真库）。
+    static let model = FMAppModel(
+        previewMemos: memos,
+        stats: stats,
+        tags: tags
+    )
+
     static let stats = FMSidebarStats(recordCount: 1284, tagCount: 37, streakDays: 12)
 
     static let tags = ["产品", "读书", "灵感", "会议", "旅行"]

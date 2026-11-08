@@ -9,13 +9,22 @@ import SwiftUI
 public struct FMMemoCard: View {
     private let memo: MemoPresentation
     private let index: Int
+    private let onTogglePin: (() -> Void)?
+    private let onDelete: (() -> Void)?
 
     @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(memo: MemoPresentation, index: Int = 0) {
+    public init(
+        memo: MemoPresentation,
+        index: Int = 0,
+        onTogglePin: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
+    ) {
         self.memo = memo
         self.index = index
+        self.onTogglePin = onTogglePin
+        self.onDelete = onDelete
     }
 
     public var body: some View {
@@ -104,16 +113,29 @@ public struct FMMemoCard: View {
         .frame(height: 18)
     }
 
+    /// 只显示真的接上了的能力：置顶与删除走本地库，评论功能还没做就不放按钮。
+    @ViewBuilder
     private var actionRow: some View {
         HStack(spacing: 2) {
-            cardAction("pin", label: memo.isPinned ? "取消置顶" : "置顶")
-            cardAction("bubble.left", label: "评论 \(memo.commentCount)")
-            cardAction("ellipsis", label: "更多操作")
+            if let onTogglePin {
+                cardAction(
+                    "pin",
+                    label: memo.isPinned ? "取消置顶" : "置顶",
+                    action: onTogglePin
+                )
+            }
+            if let onDelete {
+                cardAction("trash", label: "删除", action: onDelete)
+            }
         }
     }
 
-    private func cardAction(_ systemImage: String, label: String) -> some View {
-        Button {} label: {
+    private func cardAction(
+        _ systemImage: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 12))
                 .foregroundStyle(FMColor.mutedForeground.color)

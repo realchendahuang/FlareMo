@@ -7,15 +7,28 @@ import SwiftUI
 /// 结构不用改。
 public struct FMMemoTimeline: View {
     private let memos: [MemoPresentation]
+    private let onTogglePin: ((MemoPresentation) -> Void)?
+    private let onDelete: ((MemoPresentation) -> Void)?
 
-    public init(memos: [MemoPresentation]) {
+    public init(
+        memos: [MemoPresentation],
+        onTogglePin: ((MemoPresentation) -> Void)? = nil,
+        onDelete: ((MemoPresentation) -> Void)? = nil
+    ) {
         self.memos = memos
+        self.onTogglePin = onTogglePin
+        self.onDelete = onDelete
     }
 
     public var body: some View {
         LazyVStack(alignment: .leading, spacing: FMWorkspaceMetrics.cardSpacing) {
             ForEach(Array(memos.enumerated()), id: \.element.id) { index, memo in
-                FMMemoCard(memo: memo, index: index)
+                FMMemoCard(
+                    memo: memo,
+                    index: index,
+                    onTogglePin: onTogglePin.map { action in { action(memo) } },
+                    onDelete: onDelete.map { action in { action(memo) } }
+                )
                     .transition(.opacity.combined(with: .offset(y: 6)))
                     .animation(
                         FMAnimationPolicy.animation(FMDuration(milliseconds: 200), curve: FMMotion.expo)

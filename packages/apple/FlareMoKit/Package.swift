@@ -64,7 +64,7 @@ let package = Package(
         ),
         .target(
             name: "FlareMoUI",
-            dependencies: ["FlareMoDesign"],
+            dependencies: ["FlareMoDesign", "FlareMoCore", "FlareMoMarkdown"],
             swiftSettings: [
                 .defaultIsolation(MainActor.self),
             ]
@@ -85,6 +85,10 @@ let package = Package(
             swiftSettings: [
                 .defaultIsolation(MainActor.self),
             ]
+        ),
+        .testTarget(
+            name: "FlareMoUITests",
+            dependencies: ["FlareMoUI"]
         ),
         .testTarget(
             name: "FlareMoDesignTests",

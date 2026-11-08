@@ -8,16 +8,12 @@ import SwiftUI
 /// 里，这样 iOS 端能复用同一批视图，将来建 Xcode 工程时它也只是一层壳。
 @main
 struct FlareMoMacApp: App {
-    /// 全局速记窗开关（⌘⇧Space）。
-    @State private var quickCapturePresented = false
+    /// 本地库 → 界面的唯一数据入口。
+    @State private var model = FMAppModel()
 
     var body: some Scene {
         WindowGroup("FlareMo") {
-            FMWorkspaceRoot(
-                memos: SampleMemos.all,
-                stats: SampleMemos.stats,
-                tags: SampleMemos.tags
-            )
+            FMWorkspaceRoot(model: model)
             .frame(minWidth: 980, minHeight: 620)
             .background(FMColor.background.color)
         }

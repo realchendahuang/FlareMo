@@ -36,12 +36,8 @@ struct FlareMoPreviewApp {
 
     @MainActor
     private static func openWindow() {
-        let content = FMWorkspaceRoot(
-            memos: PreviewData.memos,
-            stats: PreviewData.stats,
-            tags: PreviewData.tags
-        )
-        .frame(minWidth: 1200, minHeight: 780)
+        let content = FMWorkspaceRoot(model: PreviewData.model)
+            .frame(minWidth: 1200, minHeight: 780)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1360, height: 860),
@@ -71,11 +67,7 @@ struct FlareMoPreviewApp {
         )
 
         let size = CGSize(width: 1360, height: 860)
-        let root = FMWorkspaceRoot(
-            memos: PreviewData.memos,
-            stats: PreviewData.stats,
-            tags: PreviewData.tags
-        )
+        let root = FMWorkspaceRoot(model: PreviewData.model)
 
         for (name, appearance) in [
             ("light", NSAppearance.Name.aqua),

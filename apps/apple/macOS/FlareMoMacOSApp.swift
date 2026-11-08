@@ -9,9 +9,12 @@ import SwiftUI
 /// 逻辑的"没有 Xcode 也能跑"版本，两者故意保持极薄以免漂移。
 @main
 struct FlareMoMacOSApp: App {
+    /// 本地库（SQLite）→ 界面。界面永远读它，导航不发网络请求。
+    @State private var model = FMAppModel()
+
     var body: some Scene {
         WindowGroup("FlareMo") {
-            FMWorkspaceRoot()
+            FMWorkspaceRoot(model: model)
                 .frame(minWidth: 980, minHeight: 620)
                 .background(FMColor.background.color)
         }

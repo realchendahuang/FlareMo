@@ -8,10 +8,11 @@ import SwiftUI
 /// 侧栏、多窗口、快捷键这些桌面概念不往下搬（搬下去只会变成缩小版网页）。
 public struct FMPhoneRoot: View {
     @State private var composerText = ""
-    @State private var memos: [MemoPresentation]
 
-    public init(memos: [MemoPresentation] = []) {
-        _memos = State(initialValue: memos)
+    private let model: FMAppModel
+
+    public init(model: FMAppModel) {
+        self.model = model
     }
 
     public var body: some View {
@@ -69,10 +70,18 @@ public struct FMPhoneRoot: View {
 
     private var timeline: some View {
         ScrollView {
-            if memos.isEmpty {
+            if model.memos.isEmpty {
                 FMMemoTimelineEmptyState()
             } else {
-                FMMemoTimeline(memos: memos)
+                FMMemoTimeline(
+                    memos: model.memos,
+                    onTogglePin: { memo in
+                        model.setPinned(memo.id, pinned: !memo.isPinned)
+                    },
+                    onDelete: { memo in
+                        model.deleteMemo(memo.id)
+                    }
+                )
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
             }
@@ -130,12 +139,7 @@ public struct FMPhoneRoot: View {
     }
 
     private func send() {
-        let trimmed = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        memos.insert(
-            MemoPresentation(id: UUID().uuidString, content: trimmed, createdAt: .now),
-            at: 0
-        )
+        guard model.createMemo(content: composerText) else { return }
         composerText = ""
     }
 }
