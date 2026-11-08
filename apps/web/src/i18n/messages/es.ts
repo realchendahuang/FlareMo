@@ -1140,6 +1140,57 @@ const messages = {
   "review.doneWeek": "Esta semana escribiste {count} notas nuevas.",
   "review.doneWeekEmpty":
     "Aún no hay notas nuevas esta semana. ¿Escribes una hoy?",
+  "settings.nav.connectedApps": "Aplicaciones conectadas",
+  "connect.title": "Aprobar un emparejamiento",
+  "connect.description":
+    "Tu cliente muestra un código de emparejamiento de 8 caracteres. Introdúcelo para que la aplicación acceda a FlareMo en tu nombre.",
+  "connect.codeLabel": "Código de emparejamiento",
+  "connect.codePlaceholder": "XXXX-XXXX",
+  "connect.codeHint": "8 letras o dígitos, sin 0, O, 1 ni I.",
+  "connect.submit": "Aprobar emparejamiento",
+  "connect.submitting": "Aprobando…",
+  "connect.approvedTitle": "Emparejamiento aprobado",
+  "connect.approvedDescription": "«{name}» ya puede acceder a tu FlareMo.",
+  "connect.grantedScopes": "Acceso concedido",
+  "connect.manageApps": "Gestionar aplicaciones conectadas",
+  "connect.errorIncomplete":
+    "Un código de emparejamiento tiene 8 caracteres; revisa si falta alguno.",
+  "connect.errorNotFound":
+    "No encontramos ese código de emparejamiento. Revísalo e inténtalo de nuevo.",
+  "connect.errorExpired":
+    "Ese código de emparejamiento ha caducado. Inicia el emparejamiento de nuevo desde tu cliente.",
+  "connect.errorUsed":
+    "Ese código de emparejamiento ya se usó. Inicia el emparejamiento de nuevo desde tu cliente.",
+  "connect.errorSession":
+    "Tu sesión ha caducado. Inicia sesión de nuevo y reinténtalo.",
+  "connect.errorFailed":
+    "El emparejamiento no se completó. Inténtalo de nuevo en un momento.",
+  "connect.scope.notes": "Notas",
+  "connect.scope.admin": "Gestión",
+  "connect.scope.notesDetail":
+    "Leer y escribir notas, tareas, artículos, adjuntos y herramientas MCP.",
+  "connect.scope.adminDetail":
+    "Gestionar también miembros, plugins y mantenimiento de la instancia.",
+  "connect.appsTitle": "Aplicaciones conectadas",
+  "connect.appsFooter":
+    "El enlace de emparejamiento lo da tu cliente. Al revocar se pierde el acceso de inmediato; para reconectar hace falta un nuevo emparejamiento.",
+  "connect.appsEmptyTitle": "Aún no hay aplicaciones conectadas",
+  "connect.appsEmptyDescription":
+    "Inicia un emparejamiento desde un cliente y apruébalo: aparecerá aquí con sus permisos.",
+  "connect.lastUsed": "Último uso {date}",
+  "connect.neverUsed": "Aún sin usar",
+  "connect.revoke": "Revocar",
+  "connect.revokeTitle": "¿Revocar «{name}»?",
+  "connect.revokeDescription":
+    "Pierde el acceso de inmediato y tendrá que emparejarse de nuevo para reconectar.",
+  "connect.revokedToast": "«{name}» revocada",
+  "connect.revokeFailed":
+    "No se pudo revocar la aplicación. Inténtalo de nuevo.",
+  "connect.status.expired": "Caducado",
+  "connect.clientType.device": "Dispositivo",
+  "connect.clientType.web": "Web",
+  "connect.clientType.script": "Script",
+  "connect.clientType.manual": "Token manual",
 } as const satisfies Record<TranslationKey, string>;
 
 export const es = messages;

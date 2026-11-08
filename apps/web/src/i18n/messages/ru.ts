@@ -1134,6 +1134,56 @@ const messages = {
   "review.doneWeek": "На этой неделе новых заметок: {count}.",
   "review.doneWeekEmpty":
     "На этой неделе новых заметок пока нет. Может, напишете сегодня?",
+  "settings.nav.connectedApps": "Подключённые приложения",
+  "connect.title": "Подтверждение сопряжения",
+  "connect.description":
+    "Клиент показывает 8-символьный код сопряжения. Введите его, чтобы приложение получило доступ к FlareMo от вашего имени.",
+  "connect.codeLabel": "Код сопряжения",
+  "connect.codePlaceholder": "XXXX-XXXX",
+  "connect.codeHint": "8 букв или цифр, без 0, O, 1 и I.",
+  "connect.submit": "Подтвердить сопряжение",
+  "connect.submitting": "Подтверждаем…",
+  "connect.approvedTitle": "Сопряжение подтверждено",
+  "connect.approvedDescription":
+    "«{name}» теперь имеет доступ к вашему FlareMo.",
+  "connect.grantedScopes": "Предоставленный доступ",
+  "connect.manageApps": "Управление приложениями",
+  "connect.errorIncomplete":
+    "В коде сопряжения должно быть 8 символов — проверьте, не пропущен ли один.",
+  "connect.errorNotFound":
+    "Код сопряжения не найден. Проверьте его и попробуйте снова.",
+  "connect.errorExpired":
+    "Срок действия кода сопряжения истёк. Запустите сопряжение в клиенте заново.",
+  "connect.errorUsed":
+    "Этот код сопряжения уже использован. Запустите сопряжение в клиенте заново.",
+  "connect.errorSession": "Сеанс истёк. Войдите снова и повторите попытку.",
+  "connect.errorFailed":
+    "Не удалось выполнить сопряжение. Повторите попытку позже.",
+  "connect.scope.notes": "Заметки",
+  "connect.scope.admin": "Управление",
+  "connect.scope.notesDetail":
+    "Читать и писать заметки, задачи, статьи, вложения и инструменты MCP.",
+  "connect.scope.adminDetail":
+    "Также управлять участниками, плагинами и обслуживанием экземпляра.",
+  "connect.appsTitle": "Подключённые приложения",
+  "connect.appsFooter":
+    "Ссылку для сопряжения выдаёт клиент. После отзыва доступ прекращается сразу, а для повторного подключения нужно новое сопряжение.",
+  "connect.appsEmptyTitle": "Подключённых приложений пока нет",
+  "connect.appsEmptyDescription":
+    "Запустите сопряжение в клиенте и подтвердите его — приложение появится здесь вместе со своими правами.",
+  "connect.lastUsed": "Последнее использование {date}",
+  "connect.neverUsed": "Ещё не использовалось",
+  "connect.revoke": "Отозвать",
+  "connect.revokeTitle": "Отозвать «{name}»?",
+  "connect.revokeDescription":
+    "Приложение сразу потеряет доступ, а для повторного подключения понадобится новое сопряжение.",
+  "connect.revokedToast": "«{name}» отозван",
+  "connect.revokeFailed": "Не удалось отозвать приложение. Повторите попытку.",
+  "connect.status.expired": "Истёк",
+  "connect.clientType.device": "Устройство",
+  "connect.clientType.web": "Веб",
+  "connect.clientType.script": "Скрипт",
+  "connect.clientType.manual": "Ручной токен",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ru = messages;

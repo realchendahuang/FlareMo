@@ -1155,6 +1155,57 @@ const messages = {
   "review.doneWeek": "Cette semaine, vous avez écrit {count} nouvelles notes.",
   "review.doneWeekEmpty":
     "Aucune nouvelle note cette semaine. Pourquoi ne pas en écrire une aujourd'hui ?",
+  "settings.nav.connectedApps": "Applications connectées",
+  "connect.title": "Approuver un appairage",
+  "connect.description":
+    "Votre client affiche un code d'appairage à 8 caractères. Saisissez-le pour autoriser l'application à accéder à FlareMo en votre nom.",
+  "connect.codeLabel": "Code d'appairage",
+  "connect.codePlaceholder": "XXXX-XXXX",
+  "connect.codeHint": "8 lettres ou chiffres, sans 0, O, 1 ni I.",
+  "connect.submit": "Approuver l'appairage",
+  "connect.submitting": "Approbation…",
+  "connect.approvedTitle": "Appairage approuvé",
+  "connect.approvedDescription":
+    "« {name} » peut désormais accéder à votre FlareMo.",
+  "connect.grantedScopes": "Accès accordé",
+  "connect.manageApps": "Gérer les applications connectées",
+  "connect.errorIncomplete":
+    "Un code d'appairage compte 8 caractères — vérifiez qu'il n'en manque pas.",
+  "connect.errorNotFound":
+    "Ce code d'appairage est introuvable. Vérifiez-le et réessayez.",
+  "connect.errorExpired":
+    "Ce code d'appairage a expiré. Relancez l'appairage depuis votre client.",
+  "connect.errorUsed":
+    "Ce code d'appairage a déjà été utilisé. Relancez l'appairage depuis votre client.",
+  "connect.errorSession":
+    "Votre session a expiré. Reconnectez-vous puis réessayez.",
+  "connect.errorFailed":
+    "L'appairage n'a pas abouti. Réessayez dans un instant.",
+  "connect.scope.notes": "Notes",
+  "connect.scope.admin": "Gestion",
+  "connect.scope.notesDetail":
+    "Lire et écrire notes, tâches, articles, pièces jointes et outils MCP.",
+  "connect.scope.adminDetail":
+    "Gérer aussi les membres, extensions et la maintenance de l'instance.",
+  "connect.appsTitle": "Applications connectées",
+  "connect.appsFooter":
+    "Le lien d'appairage est fourni par votre client. La révocation coupe l'accès immédiatement ; une nouvelle connexion exige un nouvel appairage.",
+  "connect.appsEmptyTitle": "Aucune application connectée",
+  "connect.appsEmptyDescription":
+    "Lancez un appairage depuis un client et approuvez-le : il apparaîtra ici avec ses accès.",
+  "connect.lastUsed": "Dernière utilisation {date}",
+  "connect.neverUsed": "Pas encore utilisé",
+  "connect.revoke": "Révoquer",
+  "connect.revokeTitle": "Révoquer « {name} » ?",
+  "connect.revokeDescription":
+    "Elle perd immédiatement l'accès et devra s'appairer à nouveau pour se reconnecter.",
+  "connect.revokedToast": "« {name} » a été révoquée",
+  "connect.revokeFailed": "Impossible de révoquer l'application. Réessayez.",
+  "connect.status.expired": "Expiré",
+  "connect.clientType.device": "Appareil",
+  "connect.clientType.web": "Web",
+  "connect.clientType.script": "Script",
+  "connect.clientType.manual": "Jeton manuel",
 } as const satisfies Record<TranslationKey, string>;
 
 export const fr = messages;

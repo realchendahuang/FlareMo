@@ -51,6 +51,13 @@ export async function apiRequest<T>(
     throw new ApiError(message, response.status);
   }
 
+  // 204 No Content is a successful write that carries no body to parse (the
+  // connected-app revoke endpoint answers 204). Callers await it for the
+  // outcome only.
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   if (!isJson) {
     throw new ApiError("The server returned an unexpected response.", 502);
   }

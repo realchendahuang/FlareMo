@@ -90,6 +90,7 @@ export const queryKeys = {
     detail: (articleId: string) => ["article", articleId] as const,
   },
   personalAccessTokens: ["personal-access-tokens"] as const,
+  connectedApps: ["connected-apps"] as const,
   authBootstrapStatus: ["auth-bootstrap-status"] as const,
   authRegistrationStatus: ["auth-registration-status"] as const,
   authProviders: ["auth-providers"] as const,

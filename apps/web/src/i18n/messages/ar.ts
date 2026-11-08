@@ -1093,6 +1093,55 @@ const messages = {
   "review.doneWeek": "كتبت هذا الأسبوع {count} ملاحظات جديدة.",
   "review.doneWeekEmpty":
     "لا ملاحظات جديدة هذا الأسبوع بعد. ما رأيك أن تكتب واحدة اليوم؟",
+  "settings.nav.connectedApps": "التطبيقات المتصلة",
+  "connect.title": "الموافقة على الاقتران",
+  "connect.description":
+    "يعرض عميلك رمز اقتران من 8 أحرف. أدخله ليتمكن التطبيق من الوصول إلى FlareMo باسمك.",
+  "connect.codeLabel": "رمز الاقتران",
+  "connect.codePlaceholder": "XXXX-XXXX",
+  "connect.codeHint": "8 أحرف أو أرقام، دون 0 أو O أو 1 أو I.",
+  "connect.submit": "الموافقة على الاقتران",
+  "connect.submitting": "جارٍ الموافقة…",
+  "connect.approvedTitle": "تمت الموافقة على الاقتران",
+  "connect.approvedDescription":
+    "يستطيع «{name}» الآن الوصول إلى FlareMo الخاص بك.",
+  "connect.grantedScopes": "الوصول الممنوح",
+  "connect.manageApps": "إدارة التطبيقات المتصلة",
+  "connect.errorIncomplete":
+    "يتكون رمز الاقتران من 8 أحرف — تحقق من عدم فقدان أي حرف.",
+  "connect.errorNotFound":
+    "لم نعثر على رمز الاقتران هذا. تحقق منه وحاول مرة أخرى.",
+  "connect.errorExpired":
+    "انتهت صلاحية رمز الاقتران هذا. ابدأ الاقتران من جديد في عميلك.",
+  "connect.errorUsed":
+    "سبق استخدام رمز الاقتران هذا. ابدأ الاقتران من جديد في عميلك.",
+  "connect.errorSession":
+    "انتهت جلسة الدخول. سجّل الدخول مجددًا ثم أعد المحاولة.",
+  "connect.errorFailed": "لم يتم الاقتران. أعد المحاولة بعد قليل.",
+  "connect.scope.notes": "الملاحظات",
+  "connect.scope.admin": "الإدارة",
+  "connect.scope.notesDetail":
+    "قراءة وكتابة الملاحظات والمهام والمقالات والمرفقات وأدوات MCP.",
+  "connect.scope.adminDetail": "إدارة الأعضاء والإضافات وصيانة النسخة أيضًا.",
+  "connect.appsTitle": "التطبيقات المتصلة",
+  "connect.appsFooter":
+    "يوفّر عميلك رابط الاقتران. الإلغاء يقطع الوصول فورًا، وإعادة الاتصال تتطلب اقترانًا جديدًا.",
+  "connect.appsEmptyTitle": "لا توجد تطبيقات متصلة بعد",
+  "connect.appsEmptyDescription":
+    "ابدأ الاقتران من عميل ووافق عليه، وسيظهر هنا مع صلاحياته.",
+  "connect.lastUsed": "آخر استخدام {date}",
+  "connect.neverUsed": "لم يُستخدم بعد",
+  "connect.revoke": "إلغاء",
+  "connect.revokeTitle": "إلغاء «{name}»؟",
+  "connect.revokeDescription":
+    "يفقد الوصول فورًا وعليه الاقتران من جديد لإعادة الاتصال.",
+  "connect.revokedToast": "تم إلغاء «{name}»",
+  "connect.revokeFailed": "تعذر إلغاء التطبيق. أعد المحاولة.",
+  "connect.status.expired": "منتهي الصلاحية",
+  "connect.clientType.device": "جهاز",
+  "connect.clientType.web": "ويب",
+  "connect.clientType.script": "نص برمجي",
+  "connect.clientType.manual": "رمز يدوي",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ar = messages;

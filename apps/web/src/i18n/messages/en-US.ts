@@ -1115,6 +1115,54 @@ const messages = {
   "review.doneWeek": "This week you wrote {count} new notes.",
   "review.doneWeekEmpty":
     "No new notes this week yet. Why not write one today?",
+  "settings.nav.connectedApps": "Connected apps",
+  "connect.title": "Approve a pairing",
+  "connect.description":
+    "Your client shows an 8-character pairing code. Enter it to let the app access FlareMo as you.",
+  "connect.codeLabel": "Pairing code",
+  "connect.codePlaceholder": "XXXX-XXXX",
+  "connect.codeHint": "8 letters or digits, without 0, O, 1 or I.",
+  "connect.submit": "Approve pairing",
+  "connect.submitting": "Approving…",
+  "connect.approvedTitle": "Pairing approved",
+  "connect.approvedDescription": "“{name}” can now access your FlareMo.",
+  "connect.grantedScopes": "Granted access",
+  "connect.manageApps": "Manage connected apps",
+  "connect.errorIncomplete":
+    "A pairing code has 8 characters — check for a missing one.",
+  "connect.errorNotFound":
+    "We couldn't find that pairing code. Check it and try again.",
+  "connect.errorExpired":
+    "That pairing code has expired. Start pairing again from your client.",
+  "connect.errorUsed":
+    "That pairing code was already used. Start pairing again from your client.",
+  "connect.errorSession": "Your session has expired. Sign in again and retry.",
+  "connect.errorFailed": "Pairing didn't go through. Try again in a moment.",
+  "connect.scope.notes": "Notes",
+  "connect.scope.admin": "Management",
+  "connect.scope.notesDetail":
+    "Read and write notes, tasks, articles, attachments and MCP tools.",
+  "connect.scope.adminDetail":
+    "Also manage members, plugins and instance maintenance.",
+  "connect.appsTitle": "Connected apps",
+  "connect.appsFooter":
+    "Your client provides the pairing link. Revoking cuts access immediately; reconnecting needs a new pairing.",
+  "connect.appsEmptyTitle": "No connected apps yet",
+  "connect.appsEmptyDescription":
+    "Pair from a client and approve it, and it will show up here with its access.",
+  "connect.lastUsed": "Last used {date}",
+  "connect.neverUsed": "Not used yet",
+  "connect.revoke": "Revoke",
+  "connect.revokeTitle": "Revoke “{name}”?",
+  "connect.revokeDescription":
+    "It loses access immediately and must pair again to reconnect.",
+  "connect.revokedToast": "Revoked “{name}”",
+  "connect.revokeFailed": "Couldn't revoke the app. Try again.",
+  "connect.status.expired": "Expired",
+  "connect.clientType.device": "Device",
+  "connect.clientType.web": "Web",
+  "connect.clientType.script": "Script",
+  "connect.clientType.manual": "Manual token",
 } as const;
 
 export const enUS = messages satisfies Record<TranslationKey, string>;

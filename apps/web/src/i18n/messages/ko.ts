@@ -1119,6 +1119,56 @@ const messages = {
   "review.doneWeek": "이번 주에 새 기록 {count}개를 썼어요.",
   "review.doneWeekEmpty":
     "이번 주에는 아직 새 기록이 없어요. 오늘 하나 써 볼까요?",
+  "settings.nav.connectedApps": "연결된 앱",
+  "connect.title": "페어링 승인",
+  "connect.description":
+    "클라이언트에 8자리 페어링 코드가 표시됩니다. 입력하면 그 앱이 나로 FlareMo에 접근할 수 있습니다.",
+  "connect.codeLabel": "페어링 코드",
+  "connect.codePlaceholder": "XXXX-XXXX",
+  "connect.codeHint": "영문자 또는 숫자 8자리이며 0, O, 1, I는 쓰지 않습니다.",
+  "connect.submit": "페어링 승인",
+  "connect.submitting": "승인하는 중…",
+  "connect.approvedTitle": "페어링이 승인되었습니다",
+  "connect.approvedDescription":
+    "이제 “{name}”이(가) 내 FlareMo에 접근할 수 있습니다.",
+  "connect.grantedScopes": "부여된 권한",
+  "connect.manageApps": "연결된 앱 관리",
+  "connect.errorIncomplete":
+    "페어링 코드는 8자리입니다. 빠진 글자가 없는지 확인해 주세요.",
+  "connect.errorNotFound":
+    "해당 페어링 코드를 찾을 수 없습니다. 확인 후 다시 입력해 주세요.",
+  "connect.errorExpired":
+    "이 페어링 코드는 만료되었습니다. 클라이언트에서 페어링을 다시 시작해 주세요.",
+  "connect.errorUsed":
+    "이 페어링 코드는 이미 사용되었습니다. 클라이언트에서 페어링을 다시 시작해 주세요.",
+  "connect.errorSession":
+    "로그인 상태가 만료되었습니다. 다시 로그인한 뒤 시도해 주세요.",
+  "connect.errorFailed": "페어링하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  "connect.scope.notes": "노트",
+  "connect.scope.admin": "관리",
+  "connect.scope.notesDetail":
+    "노트, 할 일, 글, 첨부 파일, MCP 도구를 읽고 씁니다.",
+  "connect.scope.adminDetail":
+    "구성원, 플러그인, 인스턴스 유지보수도 관리합니다.",
+  "connect.appsTitle": "연결된 앱",
+  "connect.appsFooter":
+    "페어링 링크는 클라이언트가 제공합니다. 철회하면 즉시 접근이 끊기며, 다시 연결하려면 새로 페어링해야 합니다.",
+  "connect.appsEmptyTitle": "연결된 앱이 아직 없습니다",
+  "connect.appsEmptyDescription":
+    "클라이언트에서 페어링을 시작해 승인하면 권한과 함께 여기에 표시됩니다.",
+  "connect.lastUsed": "마지막 사용 {date}",
+  "connect.neverUsed": "아직 사용 안 함",
+  "connect.revoke": "철회",
+  "connect.revokeTitle": "“{name}”을(를) 철회할까요?",
+  "connect.revokeDescription":
+    "즉시 접근 권한을 잃으며 다시 연결하려면 새로 페어링해야 합니다.",
+  "connect.revokedToast": "“{name}”을(를) 철회했습니다",
+  "connect.revokeFailed": "철회하지 못했습니다. 다시 시도해 주세요.",
+  "connect.status.expired": "만료됨",
+  "connect.clientType.device": "기기",
+  "connect.clientType.web": "웹",
+  "connect.clientType.script": "스크립트",
+  "connect.clientType.manual": "수동 토큰",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ko = messages;

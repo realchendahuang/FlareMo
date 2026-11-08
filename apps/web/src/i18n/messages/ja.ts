@@ -1126,6 +1126,57 @@ const messages = {
   "review.doneWeek": "今週は {count} 件の新しいメモを書きました。",
   "review.doneWeekEmpty":
     "今週はまだ新しいメモがありません。今日ひとつ書いてみましょう。",
+  "settings.nav.connectedApps": "接続済みアプリ",
+  "connect.title": "ペアリングを承認",
+  "connect.description":
+    "クライアントに 8 桁のペアリングコードが表示されます。入力すると、そのアプリがあなたとして FlareMo にアクセスできるようになります。",
+  "connect.codeLabel": "ペアリングコード",
+  "connect.codePlaceholder": "XXXX-XXXX",
+  "connect.codeHint": "英数字 8 桁（0・O・1・I は使いません）。",
+  "connect.submit": "ペアリングを承認",
+  "connect.submitting": "承認しています…",
+  "connect.approvedTitle": "ペアリングを承認しました",
+  "connect.approvedDescription":
+    "「{name}」があなたの FlareMo にアクセスできるようになりました。",
+  "connect.grantedScopes": "許可された権限",
+  "connect.manageApps": "接続済みアプリを管理",
+  "connect.errorIncomplete":
+    "ペアリングコードは 8 桁です。入力漏れがないか確認してください。",
+  "connect.errorNotFound":
+    "そのペアリングコードは見つかりませんでした。確認してもう一度入力してください。",
+  "connect.errorExpired":
+    "このペアリングコードは期限切れです。クライアントからもう一度ペアリングを開始してください。",
+  "connect.errorUsed":
+    "このペアリングコードは使用済みです。クライアントからもう一度ペアリングを開始してください。",
+  "connect.errorSession":
+    "ログイン状態が切れました。もう一度ログインしてから試してください。",
+  "connect.errorFailed":
+    "ペアリングできませんでした。しばらくしてからもう一度お試しください。",
+  "connect.scope.notes": "ノート",
+  "connect.scope.admin": "管理",
+  "connect.scope.notesDetail":
+    "ノート・タスク・記事・添付・MCP ツールの読み書き。",
+  "connect.scope.adminDetail":
+    "メンバー・プラグイン・インスタンスのメンテナンスも管理できます。",
+  "connect.appsTitle": "接続済みアプリ",
+  "connect.appsFooter":
+    "ペアリングリンクはクライアントが発行します。失効させると即座にアクセスできなくなり、再接続には新しいペアリングが必要です。",
+  "connect.appsEmptyTitle": "接続済みのアプリはまだありません",
+  "connect.appsEmptyDescription":
+    "クライアントからペアリングを開始して承認すると、権限とともにここに表示されます。",
+  "connect.lastUsed": "最終使用 {date}",
+  "connect.neverUsed": "未使用",
+  "connect.revoke": "失効させる",
+  "connect.revokeTitle": "「{name}」を失効させますか？",
+  "connect.revokeDescription":
+    "即座にアクセスできなくなり、再接続には新しいペアリングが必要です。",
+  "connect.revokedToast": "「{name}」を失効させました",
+  "connect.revokeFailed": "失効させられませんでした。もう一度お試しください。",
+  "connect.status.expired": "期限切れ",
+  "connect.clientType.device": "デバイス",
+  "connect.clientType.web": "Web",
+  "connect.clientType.script": "スクリプト",
+  "connect.clientType.manual": "手動トークン",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ja = messages;

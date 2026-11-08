@@ -89,6 +89,11 @@ const AccountPage = lazy(() =>
     default: module.AccountPage,
   })),
 );
+const ConnectPage = lazy(() =>
+  import("@/pages/connect-page").then((module) => ({
+    default: module.ConnectPage,
+  })),
+);
 const DailyReviewPage = lazy(() =>
   import("@/pages/daily-review-page").then((module) => ({
     default: module.DailyReviewPage,
@@ -322,6 +327,25 @@ const accountRoute = createRoute({
   }),
 });
 
+function ConnectRoutePage() {
+  const { code } = connectRoute.useSearch();
+  return <ConnectPage initialCode={code} />;
+}
+
+// The pairing-code approval page. It sits beside the explorer sidebar like the
+// other workspace pages so the guard (`AuthenticatedRoute`) redirects a signed
+// out visitor to /login and returns them here with `?code=` intact.
+const connectRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/connect",
+  // Clients hand out `verification_uri_complete` with the code prefilled
+  // (`/connect?code=ABCD-EFGH`), so the page opens with it already filled in.
+  validateSearch: (search: Record<string, unknown>): { code?: string } => ({
+    code: typeof search.code === "string" ? search.code : undefined,
+  }),
+  component: ConnectRoutePage,
+});
+
 function DailyReviewRoutePage() {
   return <DailyReviewPage />;
 }
@@ -433,6 +457,7 @@ const router = createRouter({
       randomWalkRoute,
       projectsRoute,
       articlesRoute,
+      connectRoute,
     ]),
     shareRoute,
     loginRoute,
