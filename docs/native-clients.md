@@ -121,7 +121,7 @@ FlareMo/
 - **四类实体的现状**：`attachments` / `articles` 都已有 `updated_at` + `deleted_at`；**评论不是独立表**——它是一条完整的 `memos` 行，外加一条 `memo_relations(memo_id=评论, related_memo_id=父记录, type='comment')`，所以给 `memos` 加 `version` 就顺带覆盖了评论的乐观锁。
 - **软删天然是 tombstone**：`memos.status` + `deleted_at` 已有，进回收站即写 `deletedAt/updatedAt`。
 - **幂等创建**：`memos_user_client_id_idx UNIQUE(user_id, client_id)` 已存在，`createMemo` 命中即返回已有记录，离线重放可直接复用。
-- **SSE**：`/api/v1/sse` 支持 `Last-Event-ID`，保留 7 天。
+- **SSE**：`/api/v1/sse` 支持 `Last-Event-ID`，保留 7 天。**注意它是兼容层**：服务端每个连接每 5 秒查一次 D1（`memos-sse.ts` 的 `eventPollIntervalMs`），Web 端目前没有任何消费者。原生端不以它作同步源（见 §4.10）。
 - **OpenAPI 3.1**：`packages/contracts/src/openapi-current/` 手写 path 表 + `zod.toJSONSchema` 产 schema，只覆盖 `/api/v1`。
 
 ### 4.2 缺口清单
@@ -250,7 +250,7 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 
 - 返回的是**引用**，不内联正文：客户端按 `entity` 批量补正文（`POST /api/app/sync/hydrate`，一次 ≤200 个 id，返回 memo/attachment/article 三类正文）。这样一次同步响应不会被长文撑爆，弱网也不至于整轮重来。**hydrate 计入上面的「同步端点 2 人日」。**
 - 删除记录保留 **30 天**（`FLAREMO_TRASH_RETENTION_DAYS` 默认 30，之后硬删；`sync_changes` 同步裁剪）。`since` 早于裁剪点服务端返回 **410**，客户端走「全量重建」路径。
-- 前台挂 SSE 实时，断线超过 7 天或收 410 用 pull 补洞；后台一律 pull。
+- **实时性不靠长连接**：服务端有变更 → APNs/FCM 静默推送 → 客户端唤醒后 pull 一次。**SSE 只作桌面可选通道，移动端一律不挂**（理由见 §4.10）；断线超过 7 天或收 410 用 pull 补洞。
 - **不要**用 `GET /api/app/memos?order_by=updated_at` 当同步（分页 + CEL 限制会漏记录），它只作旧实例的降级兼容。
 
 ### 4.5 冲突与幂等
@@ -298,6 +298,7 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 
 - **ASR 放行 Bearer**：拆 `apps/worker/src/context.ts:347` 的 `getBrowserRequestContext`（首行硬拒 `authorization`），抽出 `requireCookieSession`；调用点 `routes/capture-api.ts` 的 `/status`、`/ws`、`/transcribe` 与 `bridgeCapture` 回调共 4 处换成 `getRequestContext`；`/ws` 的 Origin 校验保留。
 - **APNs**：Workers 出站 `fetch` 走 HTTP/2，可行；provider token 用 WebCrypto ES256 签，与现有 VAPID 同思路。**FCM v1**：HTTPS POST + OAuth2 JWT，同理。设备表见 §4.3。
+- **实时通道怎么选**：`/api/v1/sse` 是 Memos 兼容层，实现是「每个连接每 5 秒查一次 D1」（Workers 没有跨 isolate 的 pub/sub），成本随「连接数 × 常开时长」线性放大。所以原生端：**桌面窗口可见时可挂，移动端不挂，后台一律断开**；实时性由 APNs/FCM 唤醒 + pull 提供，空闲时零连接、零查询。真要优化这个端点，把 `eventPollIntervalMs` 调大是一行改动；换成 Durable Object 做真广播另算架构成本，现在不做。
 - **原生 v1 的语音走批量转写**（`asr/batch.ts` + `/transcribe`），不做流式 WebSocket——流式要处理 PCM 帧与断线续传，成本是批量的数倍。
 
 ### 4.11 已定事项
@@ -377,7 +378,7 @@ apps/apple/FlareMo.xcodeproj
 | --- | --- | --- |
 | 速记入口 | `MenuBarExtra` + 全局热键（⌘⇧Space）+ 服务菜单 + 拖入文件 | Share Extension + App Intents（Siri「记一条」）+ WidgetKit |
 | 搜索 | 应用内搜索 + `CoreSpotlight` | 应用内 + `CoreSpotlight` |
-| 同步 | 前台 SSE + 定时 pull | 前台 SSE + `BGTaskScheduler`（不保证执行时间，不能当唯一入口） |
+| 同步 | 前台 pull + 可选 SSE（窗口可见时） | 前台 pull + APNs 唤醒；`BGTaskScheduler` 只兜底 |
 | 通知 | `UNUserNotificationCenter` | APNs |
 | 多窗口 | ✅ | — |
 | Live Activity | — | v1 不做（无「进行中」语义） |
@@ -420,7 +421,7 @@ apps/kotlin/
 └── desktopApp/     # Windows 窗口、托盘、热键、文件关联、更新器
 packages/kotlin/
 ├── core/model/     # 数据模型（与 contracts 对齐）
-├── core/network/   # Ktor + 手写轻量 client（约 30 端点）+ SSE
+├── core/network/   # Ktor + 手写轻量 client（约 30 端点；SSE 仅桌面可选）
 ├── core/db/        # Room 3 + BundledSQLiteDriver + FTS5
 ├── core/domain/    # 同步引擎、仓库层
 └── shared/ui/      # Compose 多平台 UI（只依赖 Compose API）
@@ -434,7 +435,7 @@ packages/kotlin/
 | --- | --- | --- | --- | --- |
 | 语言 / 构建 | Kotlin / Gradle / AGP | 2.4.21 / 9.5.0 / 9.3.0 | Apache-2.0 | 年底有大版本变更 |
 | UI | Compose Multiplatform | 1.12.2 | Apache-2.0 | 1.13 破坏性变更 |
-| 网络 | Ktor client（+SSE, OkHttp 引擎） | 3.6.0 | Apache-2.0 | 引擎影响 Android 体积 |
+| 网络 | Ktor client（OkHttp 引擎；SSE 插件仅桌面用） | 3.6.0 | Apache-2.0 | 引擎影响 Android 体积 |
 | 序列化 | kotlinx.serialization | 1.9.x | Apache-2.0 | — |
 | 数据库 | Room 3 + `BundledSQLiteDriver` | 3.0.3 | Apache-2.0 | 版本线较新；FTS5 需手写迁移 |
 | DI | Koin | 4.2.x | Apache-2.0 | 错误只在运行时暴露 |
