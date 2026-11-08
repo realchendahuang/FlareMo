@@ -313,6 +313,21 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 
 **配套要求（必做，非待定）**：`POST /api/app/memos` 与 `/api/app/articles` 必须接受**客户端生成的 UUIDv7 id**并保持幂等，否则离线创建的笔记在同步前无法被引用、排期或评论（本地存储的做法见 §7.7）。工作量约 0.5 人日，未计入上面的估算。
 
+### 4.12 本地库已实现、待 M0 确认的契约细节
+
+本地库（`FlareMoCore/Database`）已按 §7.7 落地并通过 58 个单测。下面这些点
+客户端**已经按某一种解释写好了**，M0 落地服务端时必须逐条对齐，否则同步层要返工：
+
+| # | 客户端当前做法 | 需要服务端确认的点 |
+| --- | --- | --- |
+| 1 | create 的 outbox body 带 `{id, content, visibility, source, client_id, payload, created_at, updated_at, team_id?}`，`id` 用客户端 UUIDv7 | 服务端 `createMemo` 现在**忽略客户端 id**（自己生成，只用 `payload.client_id` 做幂等）。§7.7 要求接受客户端 id，M0 要改 |
+| 2 | 乐观锁字段放在 outbox payload 的 `expected_version` | 服务端用 body 字段还是 `If-Match` header |
+| 3 | 软删 = `op:delete` + payload `{status:"trashed", deleted_at, expected_version}` | 服务端回收站是 PATCH status，push 层需要明确映射 |
+| 4 | `source` 默认 `"apple"`（≤64 字符） | 来源统计口径：`apple` / `native` / `macos` 用哪个 |
+| 5 | blob 路径 `<appSupport>/blobs/<sha 前2>/<sha 次2>/<sha 全>` | §7.7 写的 `<sha2>/<sha2>/<sha>` 两级各指什么 |
+| 6 | `blobs.state` 取值 `staged / ready / missing` | 与 `attachments.state`（ready/deleting/missing）的对应关系 |
+| 7 | 本地列表/搜索不按 `user_id` 过滤（本地库 = 当前用户可见副本） | v1 若把团队可见行也同步进本地，这是否是预期 |
+| 8 | 分页按服务端默认 `(pinned, created_at, id)`；`order_by=updated_at` 的降级轮询留给同步层 | §7.6 降级路径是否仍要保留 |
 ---
 
 ## 5. Apple 端（macOS 先，iOS 第三步）
@@ -416,8 +431,8 @@ xcrun simctl launch booted app.flaremo.ios
 ### 5.4 数据层与搜索
 
 - 本地用 **GRDB + 系统 SQLite**，与 D1 同构；直接复用 `migrations/*.sql` 里可复用的部分，语义（软删、`updated_at` 毫秒文本、游标）与云端一致。
-- **FTS5 caveat（必须验收）**：服务端 `memos_fts` 用 `unicode61`，CJK 连续文本被当单 token，所以服务端中文搜索实为 `LIKE %关键词%` 降级（`memos-read.ts:117`）。本地若用 `trigram` 召回更好但**要求 ≥3 字符**，两个汉字的查询搜不到，且与 Web 端结果不一致。
-  **策略**：本地建 `trigram` 索引 + **短 CJK 查询（<3 字符）降级 LIKE**，行为对齐服务端；在线时优先服务端搜索。把「中文两字搜索」写进 M1 验收项。
+- **FTS5 caveat（必须验收）**：服务端 `memos_fts` 用 `unicode61`，CJK 连续文本被当单 token，所以服务端中文搜索实为 `LIKE %关键词%` 降级（`memos-read.ts:117`）。本地若用 `trigram` 召回更好但**要求 ≥3 字符**——这个限制**与语言无关**，英文两字母（如 `ai`）同样不召回。
+  **策略**：本地建 `trigram` 索引 + **任何 <3 字符的查询降级 LIKE**（不分语言，纯标点同样降级），行为对齐服务端；在线时优先服务端搜索。把「中文两字搜索」与「英文两字母搜索」一起写进 M1 验收项。
 - 同步引擎：单写者 outbox + 水位游标 + `client_id` 幂等 + 冷启动全量对齐（见 §7.5）。
 
 ### 5.5 编辑器
