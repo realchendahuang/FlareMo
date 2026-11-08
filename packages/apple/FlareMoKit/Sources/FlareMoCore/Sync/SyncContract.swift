@@ -18,7 +18,9 @@ public struct SyncChange: Codable, Sendable, Hashable {
 /// `GET /api/app/sync/changes?since=`
 public struct SyncChangesPage: Codable, Sendable, Hashable {
     public var changes: [SyncChange]
-    public var nextSince: Int
+    /// 线上字段是 `next_seq`。`convertFromSnakeCase` 只把 `next_seq` 解成 `nextSeq`，
+    /// 所以属性名必须跟线格式同形——叫 `nextSince` 会解不出来。
+    public var nextSeq: Int
     public var hasMore: Bool
 }
 
@@ -100,8 +102,10 @@ public struct RemoteAttachment: Codable, Sendable, Hashable {
     public var id: String
     public var memoId: String?
     public var r2Key: String
+    public var filename: String?
+    /// 字节数。服务端字段名是 `size`（不是 `bytes`）——线格式以实际响应为准。
+    public var size: Int
     public var mime: String
-    public var bytes: Int
     public var sha256: String?
     public var state: String
     public var createdAt: String

@@ -76,11 +76,11 @@ public struct SyncEngine: Sendable {
             try markDeleted(memoIDs: deletedMemoIDs)
         }
 
-        try syncState.advanceSeq(to: page.nextSince)
+        try syncState.advanceSeq(to: page.nextSeq)
         try syncState.recordPull()
         return PullSummary(
             applied: page.changes.count,
-            nextSince: page.nextSince,
+            nextSince: page.nextSeq,
             hasMore: page.hasMore
         )
     }

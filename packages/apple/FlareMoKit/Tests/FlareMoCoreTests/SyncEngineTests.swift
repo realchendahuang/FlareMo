@@ -32,7 +32,7 @@ struct SyncEngineTests {
         func fetchChanges(since: Int, limit: Int) async throws -> SyncChangesPage {
             changesCalls.append((since, limit))
             if changesPages.isEmpty {
-                return SyncChangesPage(changes: [], nextSince: since, hasMore: false)
+                return SyncChangesPage(changes: [], nextSeq: since, hasMore: false)
             }
             return changesPages.removeFirst()
         }
@@ -108,7 +108,7 @@ struct SyncEngineTests {
                 changes: [
                     SyncChange(seq: 7, entity: "memo", entityId: memo.id, op: "upsert", version: 1)
                 ],
-                nextSince: 7,
+                nextSeq: 7,
                 hasMore: false
             )
         )
@@ -141,7 +141,7 @@ struct SyncEngineTests {
                 changes: [
                     SyncChange(seq: 9, entity: "memo", entityId: memoID, op: "delete", version: 2)
                 ],
-                nextSince: 9,
+                nextSeq: 9,
                 hasMore: false
             )
         )
