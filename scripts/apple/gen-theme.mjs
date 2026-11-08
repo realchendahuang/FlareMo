@@ -63,7 +63,7 @@ function parseRules(css) {
     }
     if (ch === "}") {
       const frame = stack.pop();
-      if (frame && frame.collect) {
+      if (frame?.collect) {
         rules.push({
           selector: frame.selector,
           atRules: stack.filter((f) => f.isAt).map((f) => f.selector),

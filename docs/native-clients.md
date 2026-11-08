@@ -327,17 +327,60 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 ### 5.2 工程结构与模块
 
 ```
-apps/apple/FlareMo.xcodeproj
-├── FlareMo-macOS        (SwiftUI, macOS 26+)
-├── FlareMo-iOS          (SwiftUI, iOS 26+)      # M3 才建
-├── FlareMoShareExtension(iOS)                    # M3
-└── packages/apple/FlareMoKit/
-    ├── Core/     API 客户端（生成的）、Auth、Sync、Store（GRDB）、Models
-    ├── Design/   Theme（生成）、组件、字体
-    └── Markdown/ 解析 + 内联样式计算（纯逻辑，可单测）
+apps/apple/
+├── FlareMo.xcodeproj            # 壳工程：macOS + iOS 两个 target（iOS 在 M3 建）
+└── scripts/package-macos.sh     # 手搓 .app：工程没好时也能双击跑起来
+
+packages/apple/FlareMoKit/       # 本地 SwiftPM 包，全部逻辑在这里
+├── Package.swift                # GRDB / swift-markdown 锁精确版本
+├── Makefile                     # 自动在 Xcode 与 CLT 之间选工具链
+├── Sources/
+│   ├── FlareMoCore/             # 本地库（GRDB）、API 客户端、同步、模型
+│   ├── FlareMoDesign/           # 生成 token + 排版阶梯 + 纸纹/阴影/动效策略
+│   ├── FlareMoMarkdown/         # 解析 + 行内样式计算（纯逻辑，可单测）
+│   ├── FlareMoUI/               # 工作区界面：侧栏/时间线/输入框/设置
+│   ├── FlareMoMac/              # macOS App 壳：@main、菜单、快捷键
+│   └── FlareMoPreview/          # 开发渲染器：渲染 PNG 或直接开窗口
+└── Tests/
 ```
 
-**编辑器不放进共享包**：`NSTextView`（macOS）与 `UITextView`（iOS）的视图层各写一份，样式计算层（纯 Swift）放 `Markdown/` 共享。
+**界面也进包，App 工程只当壳**：这样 macOS 与 iOS 共享同一批 SwiftUI 视图，
+`FlareMoMac`/将来的 `FlareMoIOS` 各自只写入口与平台专属集成（菜单栏、分享扩展、
+WidgetKit）。快照测试与预览器也因此不需要起 App。
+
+**编辑器不放进共享包**：`NSTextView`（macOS）与 `UITextView`（iOS）的视图层各写一份，样式计算层（纯 Swift）放 `FlareMoMarkdown/` 共享。
+
+### 5.2.1 本机开发环境（已落地）
+
+Xcode 27.2 未装好、或许可协议（`sudo xcodebuild -license accept`）还没接受时，
+**内核包照样能编译与单测**——Command Line Tools 自带 Swift 6.4.2 与 macOS SDK：
+
+```bash
+cd packages/apple/FlareMoKit
+make build          # 编译
+make test           # 单测
+make theme          # 重新生成 Theme.swift（= pnpm apple:theme）
+make fmt            # swift-format（需 Xcode 工具链）
+```
+
+两个已知坑，Makefile 已经处理：
+
+1. **SwiftUI 的属性包装是宏**（`@State`/`@Binding`），宏插件 `libSwiftUIMacros.dylib`
+   只在 Xcode 里，不在 CLT 里。用 CLT 编译必须显式给：
+   `-Xswiftc -plugin-path -Xswiftc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins`
+2. **Xcode 装好但许可未接受时**，`xcode-select` 指向 Xcode 会让 `swift build` 直接报
+   license 错误。用 `DEVELOPER_DIR=/Library/Developer/CommandLineTools` 回落。
+
+看界面（不需要 Xcode 工程、不需要模拟器）：
+
+```bash
+swift run flaremo-preview            # 渲染 light/dark PNG 到 ./Temp/preview/
+swift run flaremo-preview --window   # 直接开一个窗口看真实交互
+apps/apple/scripts/package-macos.sh  # 打成 Temp/build/FlareMo.app，双击可跑
+```
+
+预览器走 `NSHostingView` 的真实布局再截位图，不用 SwiftUI 的 `ImageRenderer`——
+后者给 `GeometryReader` 的提议尺寸不可靠，会让依赖窗口宽度的布局算错列宽。
 
 ### 5.3 依赖清单（全部过 D7 白名单）
 
