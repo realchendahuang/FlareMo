@@ -43,6 +43,9 @@ const BUILD_OPTIONS = {
   target: ['es2020'],
   jsx: 'transform', // 经典运行时：JSX → React.createElement
   external: ['react'],
+  // Geist Variable 的 latin 子集（29KB woff2）以 data URI 打进 bundle：
+  // 客户端插件没有独立的资源路由，字体必须自包含（见 theme.js 的 @font-face）。
+  loader: { '.woff2': 'dataurl' },
   minify: true,
   charset: 'utf8', // 中文保持原字符，不转 \uXXXX
   logLevel: 'silent',
@@ -55,18 +58,17 @@ const BUILD_OPTIONS = {
  * @returns {string} the full dist/client.js text.
  */
 export function wrapBundle(code, pkgName) {
-  const indented = code
-    .split('\n')
-    .map((line) => (line.length > 0 ? `    ${line}` : line))
-    .join('\n')
-
+  // ⚠️ 不要给 code 的每一行补缩进：esbuild 的 minify 会把 "\n" 字符串压成
+  // 内含真实换行的模板字面量（`<换行>`），逐行重排会把包装器的缩进空格写进
+  // 字符串值里 —— 2026-11-08 这 bug 把 markdown 解析器的 replace(/\r\n?/g, "\n")
+  // 变成 replace(..., "\n    ")，整篇正文退化成单个段落。原样嵌入最安全。
   return `${WRAPPER_HEADER}
 window.__ModuleLoader__.load({
   id: ${JSON.stringify(pkgName)},
   factory(require) {
     var module = { exports: {} };
     var exports = module.exports;
-${indented}
+${code}
     return module.exports;
   },
 });
