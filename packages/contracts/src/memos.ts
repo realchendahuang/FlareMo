@@ -53,7 +53,27 @@ export const memoPayloadSchema = z
   })
   .passthrough();
 
+/**
+ * Client-generated memo id (docs/native-clients.md §7.7 global rule 1: the
+ * client owns the primary key so an offline note can be referenced, scheduled,
+ * or commented on before it ever reaches the server). Accepts `memos/<uuid>`
+ * or a bare uuid; the domain layer normalizes the prefix and the case. Only
+ * UUID-shaped values are allowed — this becomes the row's primary key and part
+ * of its URL, so a free-form string is not accepted.
+ */
+export const createMemoIdSchema = z
+  .string()
+  .trim()
+  .max(64)
+  .regex(
+    /^(?:memos\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Must be a UUID or memos/<uuid>",
+  );
+
 export const createMemoSchema = z.object({
+  // Optional: omitted by every server-side caller (web, MCP, IM, import),
+  // which keeps the server-generated id path unchanged.
+  id: createMemoIdSchema.optional(),
   content: z.string().trim().min(1).max(100_000),
   visibility: memoVisibilitySchema.default("private"),
   payload: memoPayloadSchema.optional(),

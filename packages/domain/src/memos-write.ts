@@ -3,7 +3,7 @@ import type { FlareMoDb, MemoRow } from "@flaremo/db";
 import { memoRelations, memoRevisions, memos, memoTags } from "@flaremo/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { insertEmbeddingTask } from "./embedding-outbox";
-import { ConflictError, ForbiddenError } from "./errors";
+import { ConflictError, ForbiddenError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
 import { isCommentMemo } from "./memo-comment-filter";
 import {
@@ -34,6 +34,24 @@ import {
   type TeamViewer,
 } from "./team-permissions";
 
+/**
+ * Client-generated memo id, in `memos/<uuid>` or bare-uuid form. Mirrors the
+ * `createMemoSchema.id` rule from @flaremo/contracts: direct domain callers
+ * (MCP, Connect, import) do not round-trip through zod, so the shape is
+ * enforced here too. Returns the normalized `memos/<lowercase uuid>`.
+ */
+const REQUESTED_MEMO_ID_PATTERN =
+  /^(?:memos\/)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+function normalizeRequestedMemoId(id: string | undefined): string | null {
+  if (!id) return null;
+  const uuid = REQUESTED_MEMO_ID_PATTERN.exec(id.trim())?.[1];
+  if (!uuid) {
+    throw new ValidationError("Memo id must be a UUID or memos/<uuid>.");
+  }
+  return `memos/${uuid.toLowerCase()}`;
+}
+
 export async function createMemo(
   db: FlareMoDb,
   user: TeamViewer,
@@ -53,6 +71,23 @@ export async function createMemo(
     const existing = await getMemoByClientId(db, user.id, clientId);
     if (existing) return existing;
   }
+  // Offline clients create the row locally first and upload it under their own
+  // id (§7.7 rule 1). Replaying that upload must return the row it already
+  // wrote instead of inserting a second copy under a server-generated id.
+  // A row owned by someone else is a conflict, never a read: returning it
+  // would leak another account's memo.
+  const requestedId = normalizeRequestedMemoId(input.id);
+  if (requestedId) {
+    const existingById = await db
+      .select()
+      .from(memos)
+      .where(eq(memos.id, requestedId))
+      .get();
+    if (existingById) {
+      if (existingById.userId === user.id) return existingById;
+      throw new ConflictError("Memo id is already in use");
+    }
+  }
   const tags = normalizeMemoTags(payload.tags ?? extractTags(input.content));
   payload.tags = tags;
   // The task-list flags are domain truth, not client courtesy: recomputing
@@ -63,7 +98,7 @@ export async function createMemo(
     has_incomplete_tasks: hasUncheckedTaskList(input.content),
   };
   const row = {
-    id: createResourceId("memos"),
+    id: requestedId ?? createResourceId("memos"),
     userId: user.id,
     teamId: resolveMemoTeamId(user, input.visibility),
     content: input.content,
@@ -154,10 +189,22 @@ export async function createMemo(
     }
   } catch (error) {
     // A second tab can submit the same queued entry at the same time. The
-    // unique `(user_id, client_id)` index is the final idempotency boundary.
+    // unique `(user_id, client_id)` index is the final idempotency boundary;
+    // the primary key plays that role for a client-generated id.
     if (clientId) {
       const existing = await getMemoByClientId(db, user.id, clientId);
       if (existing) return existing;
+    }
+    if (requestedId) {
+      const existingById = await db
+        .select()
+        .from(memos)
+        .where(eq(memos.id, requestedId))
+        .get();
+      if (existingById) {
+        if (existingById.userId === user.id) return existingById;
+        throw new ConflictError("Memo id is already in use");
+      }
     }
     throw error;
   }

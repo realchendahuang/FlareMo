@@ -2,18 +2,17 @@ import type { ListMemosResponse } from "@flaremo/contracts";
 import type { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, json } from "../test-support/app";
-import { createTestRuntime } from "../test-support/runtime";
+import { createTestRuntime, fetchWorker } from "../test-support/runtime";
 
 let mf: Miniflare;
 let env: Env;
 let sessionCookie: string;
 
-const { fetchApp, createMemo, bootstrapAndSignIn } = createAppTestHarness(
-  () => ({
+const { fetchApp, createMemo, bootstrapAndSignIn, createActivatedMember } =
+  createAppTestHarness(() => ({
     env,
     sessionCookie,
-  }),
-);
+  }));
 
 describe("FlareMo memo CRUD API", () => {
   beforeEach(async () => {
@@ -214,5 +213,102 @@ describe("FlareMo memo CRUD API", () => {
       ),
     );
     expect(result.memos.map((memo) => memo.name)).toContain(created.name);
+  });
+
+  it("accepts a client-generated memo id and replays it idempotently", async () => {
+    const clientId = "0199dd00-0000-7000-8000-000000000001";
+
+    function createWithId(id: unknown, content: string) {
+      return fetchApp("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content, id }),
+      });
+    }
+
+    // The id the offline client already wrote locally is the row's primary key.
+    const first = await json<{ id: string; name: string }>(
+      await createWithId(`memos/${clientId}`, "offline created"),
+    );
+    expect(first.name).toBe(`memos/${clientId}`);
+    expect(first.id).toBe(clientId);
+
+    // Replaying the same upload returns the same row instead of inserting a
+    // second copy under a server-generated id.
+    const replay = await json<{ id: string; name: string }>(
+      await createWithId(`memos/${clientId}`, "offline created"),
+    );
+    expect(replay.name).toBe(first.name);
+    const list = await json<{ memos: { name: string }[] }>(
+      await fetchApp("http://flaremo.test/api/app/memos?page_size=100"),
+    );
+    expect(
+      list.memos.filter((memo) => memo.name === `memos/${clientId}`),
+    ).toHaveLength(1);
+
+    // A bare uuid is accepted and normalized to the `memos/<uuid>` form.
+    const bareUuid = "0199dd00-0000-7000-8000-000000000002";
+    const bare = await json<{ name: string }>(
+      await createWithId(bareUuid, "bare uuid"),
+    );
+    expect(bare.name).toBe(`memos/${bareUuid}`);
+
+    // Omitting `id` keeps the server-generated id path (web/MCP callers).
+    const generated = await json<{ name: string }>(
+      await fetchApp("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: "server generated id" }),
+      }),
+    );
+    expect(generated.name).toMatch(
+      /^memos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+
+    // Malformed ids are rejected before touching D1.
+    for (const bad of ["not-a-uuid", "memos/0199dd00", "articles/0199dd00"]) {
+      const response = await createWithId(bad, "bad id");
+      expect(response.status).toBe(400);
+      const body = (await response.json()) as { error?: { message?: string } };
+      expect(body.error?.message).toContain("Must be a UUID or memos/<uuid>");
+    }
+
+    // The change log references the client id, so the next pull hydrates the
+    // local row instead of inserting a duplicate.
+    const changes = await json<{
+      changes: { entity: string; entity_id: string }[];
+    }>(
+      await fetchApp(
+        "http://flaremo.test/api/app/sync/changes?since=0&limit=100",
+      ),
+    );
+    expect(
+      changes.changes.some(
+        (change) =>
+          change.entity === "memo" && change.entity_id === `memos/${clientId}`,
+      ),
+    ).toBe(true);
+
+    // Another account cannot claim (or read) an id that already exists.
+    const member = await createActivatedMember(
+      "memo-id-member@example.com",
+      "Memo Id Member",
+    );
+    const hijack = await fetchWorker(
+      new Request("http://flaremo.test/api/app/memos", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: member.cookie,
+          origin: "http://flaremo.test",
+        },
+        body: JSON.stringify({
+          content: "hijack attempt",
+          id: `memos/${clientId}`,
+        }),
+      }),
+      env,
+    );
+    expect(hijack.status).toBe(409);
   });
 });
