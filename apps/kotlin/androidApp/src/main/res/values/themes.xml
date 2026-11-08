@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动主题只做一件事：让窗口背景与 Compose 的纸面同色，避免白闪。 -->
+    <style name="Theme.FlareMo" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FAF7F2</item>
+        <item name="android:statusBarColor">#FAF7F2</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

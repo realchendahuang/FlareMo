@@ -496,6 +496,33 @@ xcrun simctl launch booted app.flaremo.ios
 - **minSdk 26 / targetSdk 36**（Play 自 2026-08-31 起要求新应用与更新 ≥36）/ compileSdk 37（若 API 37 未定稿则用 36）。
 - 锁定版本，不跟随升级：Gradle 9.8/9.9 与 AGP 10.0（年底）会改 DSL；CMP 1.13 移除 JRE 字体是破坏性变更。
 
+#### 6.1.1 本机实测落地（2026-11-09）
+
+工程已建好并跑通（Android APK 装上模拟器、桌面窗口在 macOS JVM 上起得来）。
+实际落地与上面清单有**三处偏差**，都是被工具链逼的，不是随手升级：
+
+| 项 | 计划 | 实际 | 原因 |
+| --- | --- | --- | --- |
+| Compose Multiplatform | 1.12.2 | **1.11.1** | 1.12.x 的 androidx compose 1.12.1 要求 `compileSdk 37`，而 SDK 里只有 `android-37.2-beta*`，没有稳定版 37。等稳定 37 发布再升 |
+| Gradle | 9.5.0 | **9.5.0（wrapper）** | 机器上装的是 9.8.2，wrapper 钉 9.5.0，命令行一律走 `./gradlew` |
+| 模块路径 | `core:model`、`shared:ui` | **`core-model`、`shared-ui`** | Gradle 会为嵌套的 `:core:model` 自动创建 `apps/kotlin/core/` 中转项目，而内核目录在 `packages/kotlin/`，必然报 "projectDirectory does not exist"。平铺命名 + `projectDir` 指过去 |
+
+**AGP 9 的三个硬坑**（踩过，写下来省下一次）：
+
+1. **`org.jetbrains.kotlin.android` 插件必须删掉**。AGP 9.0 起 Kotlin 支持内置，
+   叠加会直接报 `The 'org.jetbrains.kotlin.android' plugin is no longer required`。
+   Android App 模块只留 `com.android.application` + `org.jetbrains.kotlin.plugin.compose`。
+2. **KMP 模块不能用 `com.android.library`**，必须换成
+   `com.android.kotlin.multiplatform.library`（AGP 9 起两者不兼容），
+   并且 Android 目标写在 `kotlin { androidLibrary { namespace/compileSdk/minSdk } }` 里，
+   **不再有 `androidTarget()` 和顶层 `android {}` 块**。
+3. **JDK 必须是 21**。机器上同时有 brew 默认的 JDK 27，Gradle 会挑 27 并报
+   `Unsupported class file major version`，所以在 `gradle.properties` 里钉
+   `org.gradle.java.home=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`。
+
+另外：`enableEdgeToEdge()` 之后内容会画到状态栏下面，
+Compose 侧要显式 `Modifier.safeDrawingPadding()`，否则标题栏会和系统图标重叠。
+
 ### 6.2 工程结构
 
 ```
@@ -761,7 +788,97 @@ packages/kotlin/
 
 ---
 
-## 12. 参考
+## 12. 本机开发环境（四端，已落地）
+
+2026-11-09 在这台机器（M5 Pro / 48GB / macOS 27.3）上装好并验证过的东西。
+**命令与路径都实测过**，换机器时按这张表重装即可。
+
+### 12.1 总览
+
+| 端 | 状态 | 工具链位置 | 验证方式 |
+| --- | --- | --- | --- |
+| macOS | ✅ 可构建可运行 | `/Applications/Xcode.app`（27.2 / 27B52）+ CLT | `cd apps/apple && xcodebuild -scheme FlareMo-macOS build` |
+| iOS | ✅ 可构建、模拟器可跑 | 同上 + iOS 27.2 SDK / 模拟器运行时 | `xcodebuild -scheme FlareMo-iOS -destination 'platform=iOS Simulator,name=iPhone 17' build` |
+| Android | ✅ 可构建、模拟器可跑 | `~/Library/Android/sdk` | `cd apps/kotlin && ./gradlew :androidApp:assembleDebug` |
+| Windows | ⚠️ 代码可编译，安装包需要 Windows | Compose Desktop（JVM，与 Android 同一份代码） | `./gradlew :desktopApp:compileKotlin` |
+
+### 12.2 已安装（含版本与路径）
+
+**Apple 侧**
+
+| 组件 | 版本 | 说明 |
+| --- | --- | --- |
+| Xcode | 27.2 (27B52) | App Store 安装；`sudo xcodebuild -license accept` 已接受 |
+| Swift | 6.4.2 | CLT 自带，Xcode 工具链同版本 |
+| iOS SDK / 运行时 | 27.2 | 模拟器设备：iPhone 17 / 18 Pro / iPad Pro 13(M5) |
+
+**JVM / Android 侧**
+
+| 组件 | 版本 | 路径 |
+| --- | --- | --- |
+| OpenJDK | 21.0.13 | `/opt/homebrew/opt/openjdk@21`（brew formula，**不需要 sudo**） |
+| Gradle | 9.8.2 | `/opt/homebrew/bin/gradle`；工程内用 wrapper 钉 9.5.0 |
+| Android cmdline-tools | 15641748 | `~/Library/Android/sdk/cmdline-tools/latest` |
+| Android platform | android-36 | `compileSdk/targetSdk = 36` |
+| Build-tools | 36.1.0 | |
+| Emulator | 37.2.13 | `~/Library/Android/sdk/emulator` |
+| System image | android-36 google_apis arm64-v8a | AVD 名：`flaremo-pixel`（Pixel 7 配置） |
+| Android Studio | 最新 cask | `/Applications/Android Studio.app`（`studio` 命令） |
+
+**Windows 侧（虚拟机）**
+
+| 组件 | 版本 | 说明 |
+| --- | --- | --- |
+| UTM | 5.0.8 | `/Applications/UTM.app` |
+
+`~/.zshrc` 里加了一段带标记的块（`# >>> flaremo dev env >>>`），导出
+`JAVA_HOME` / `ANDROID_HOME` 与三处 PATH。删掉那段即可回滚。
+
+### 12.3 三个必须知道的坑
+
+1. **机器上有两个 JDK**（brew 默认 27、我们装 21）。Gradle 默认拿 27，AGP/Kotlin 会报
+   `Unsupported class file major version`。Kotlin 工程必须在 `gradle.properties` 里钉：
+   `org.gradle.java.home=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`
+2. **CLT 不带 SwiftUI 宏插件**（`libSwiftUIMacros.dylib` 只在 Xcode 平台目录里）。
+   用 CLT 编 Apple 侧必须补 `-Xswiftc -plugin-path -Xswiftc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins`；
+   `packages/apple/FlareMoKit/Makefile` 已自动处理。
+3. **Xcode 许可未接受时** `xcode-select` 指向 Xcode 会让 `swift build` 直接报 license 错误，
+   用 `DEVELOPER_DIR=/Library/Developer/CommandLineTools` 回落（Makefile 同样已处理）。
+
+### 12.4 常用命令
+
+```bash
+# Apple 内核包
+cd packages/apple/FlareMoKit && make build && make test
+
+# Apple App
+cd apps/apple && xcodebuild -scheme FlareMo-macOS -configuration Debug build
+cd apps/apple && xcodebuild -scheme FlareMo-iOS -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17' build
+
+# 设计 token（Swift + Kotlin 一起生成）
+pnpm apple:theme          # 或 node scripts/apple/gen-theme.mjs
+
+# Android
+emulator -avd flaremo-pixel &          # 已在跑就跳过
+cd apps/kotlin && ./gradlew :androidApp:assembleDebug
+adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
+
+# 桌面（Windows 用同一份）
+cd apps/kotlin && ./gradlew :desktopApp:run
+```
+
+### 12.5 还没搞定的
+
+- **Windows 安装包**：`jpackage` 只能在 Windows 上跑。需要一台 Windows 11 ARM64 虚拟机，
+  镜像还没拿到（UUP dump 的 `get.php` 参数组合没试通，下一轮换微软官方 ISO 页面走浏览器）。
+  **不影响开发**：桌面端代码在 macOS 上就能编译运行，只有「打成 .exe/.msi」这一步卡着。
+- **Xcode 组件**：`/Applications/Xcode.app` 仍在安装（App Store 还在写盘，缺 `Simulator.app`
+  等 GUI 组件）。命令行构建、模拟器 headless 运行都不受影响，只是暂时不能手点模拟器窗口。
+
+---
+
+## 13. 参考
 
 - Xcode 27.2 系统要求：https://developer.apple.com/xcode/system-requirements
 - Xcode 项目格式（JSON）：https://developer.apple.com/documentation/xcode/updating-your-xcode-project-configuration-file-format

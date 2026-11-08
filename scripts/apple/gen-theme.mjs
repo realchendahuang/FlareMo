@@ -24,6 +24,10 @@ const OUT_PATH = resolve(
   REPO,
   "packages/apple/FlareMoKit/Sources/FlareMoDesign/Generated/Theme.swift",
 );
+const KT_OUT_PATH = resolve(
+  REPO,
+  "packages/kotlin/shared/ui/src/commonMain/kotlin/dev/flaremo/ui/theme/Theme.kt",
+);
 
 /* ------------------------------------------------------------------ *
  * 1. 解析 CSS
@@ -657,6 +661,196 @@ extension UIColor {
 #endif`,
 );
 
+
+/* ------------------------------------------------------------------ *
+ * 6. 输出 Kotlin（Compose Multiplatform）
+ *
+ * Compose 同样没有 oklch，走的是同一套转换；颜色值必须与 Swift 侧逐位相同，
+ * 否则 Android/Windows 与 macOS/iOS 的观感会漂。
+ * ------------------------------------------------------------------ */
+
+const ktColor = (c) => {
+    const hex = [c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+    const alpha = Math.round(c.a * 255).toString(16).padStart(2, "0").toUpperCase();
+    return `Color(0x${alpha}${hex})`;
+};
+
+const ktColorsBlock = (themeKey) => {
+    const lines = [];
+    for (const group of COLOR_GROUPS) {
+        for (const prop of group.tokens) {
+            const token = colorToken(prop);
+            lines.push(`        ${camel(prop)} = ${ktColor(token[themeKey])},`);
+        }
+    }
+    return lines.join("\n");
+};
+
+const ktRadius = (name) => {
+  const factor = radiusMultipliers.get(name) ?? (name === "lg" ? 1 : undefined);
+  if (factor === undefined) {
+    throw new Error(`圆角阶梯里没有 --radius-${name}，检查 index.css 的 @theme 块`);
+  }
+  return `${Number((radiusBase * factor).toFixed(2))}.dp`;
+};
+
+const KT_COLOR_FIELDS = COLOR_GROUPS.flatMap((g) => g.tokens)
+    .map((prop) => `    /** \`${prop}\` */\n    val ${camel(prop)}: Color,`)
+    .join("\n");
+
+const kotlin = `// 本文件由 scripts/apple/gen-theme.mjs 从 apps/web/src/index.css 生成，请勿手改。
+// 重新生成：node scripts/apple/gen-theme.mjs（或 pnpm apple:theme）
+//
+// Compose 没有 oklch，颜色在生成期就转成 ARGB；同一份转换也用于 Swift 侧，
+// 两端色值逐位相同。禁止在 Kotlin 里手写十六进制色值。
+
+package dev.flaremo.ui.theme
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+/** Ember 配色的全部颜色 token，亮/暗各一份。 */
+@Immutable
+data class FlareMoColors(
+${KT_COLOR_FIELDS}
+)
+
+val FlareMoLightColors = FlareMoColors(
+${ktColorsBlock("light")}
+)
+
+val FlareMoDarkColors = FlareMoColors(
+${ktColorsBlock("dark")}
+)
+
+/** 圆角阶梯（基准 ${radiusBase}dp）。控件/卡片/弹窗是常用三档。 */
+@Immutable
+data class FlareMoRadii(
+    val sm: Dp = ${ktRadius("sm")},
+    val md: Dp = ${ktRadius("md")},
+    val lg: Dp = ${ktRadius("lg")},
+    val xl: Dp = ${ktRadius("xl")},
+    val xxl: Dp = ${ktRadius("2xl")},
+    val xxxl: Dp = ${ktRadius("3xl")},
+    val control: Dp = ${ktRadius("lg")},
+    val card: Dp = ${ktRadius("xl")},
+    val dialog: Dp = ${ktRadius("2xl")},
+)
+
+/** 动效时长三档（毫秒）与曲线。 */
+@Immutable
+data class FlareMoMotion(
+    val feedbackMs: Int = ${ms(light.get("--duration-fast"))},
+    val overlayMs: Int = ${ms(light.get("--duration-overlay"))},
+    val surfaceMs: Int = ${ms(light.get("--duration-surface"))},
+)
+
+/** 全站排版阶梯，字号/行高（sp）与 Web 端 Type Scale 对齐。 */
+@Immutable
+data class FlareMoTypography(
+    /** 统计大数 text-2xl */
+    val display: TextStyle = TextStyle(fontSize = 24.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold),
+    /** 页面大标题 text-xl */
+    val title: TextStyle = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
+    /** 弹窗/区域标题 text-base */
+    val headline: TextStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+    /** 卡片标题 */
+    val cardTitle: TextStyle = TextStyle(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium),
+    /** 笔记正文 15sp / leading-7 */
+    val body: TextStyle = TextStyle(fontSize = 15.sp, lineHeight = 28.sp),
+    /** UI 说明 text-sm */
+    val callout: TextStyle = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
+    /** 侧栏/导航项 13.5sp */
+    val navigation: TextStyle = TextStyle(fontSize = 13.5.sp, lineHeight = 18.sp),
+    /** 分组标签 text-xs */
+    val label: TextStyle = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, lineHeight = 16.sp),
+    /** 辅助信息（硬下限 12sp，汉字再小会粘连） */
+    val caption: TextStyle = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
+    /** 代码 */
+    val monospace: TextStyle = TextStyle(fontSize = 13.sp, lineHeight = 20.sp),
+)
+
+private val LocalFlareMoColors = staticCompositionLocalOf { FlareMoLightColors }
+private val LocalFlareMoRadii = staticCompositionLocalOf { FlareMoRadii() }
+private val LocalFlareMoTypography = staticCompositionLocalOf { FlareMoTypography() }
+private val LocalFlareMoMotion = staticCompositionLocalOf { FlareMoMotion() }
+
+/** 全局主题入口：\`FlareMoTheme { ... }\` 包住整棵 UI 树。 */
+@Composable
+fun FlareMoTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val colors = if (darkTheme) FlareMoDarkColors else FlareMoLightColors
+    CompositionLocalProvider(
+        LocalFlareMoColors provides colors,
+        LocalFlareMoRadii provides FlareMoRadii(),
+        LocalFlareMoTypography provides FlareMoTypography(),
+        LocalFlareMoMotion provides FlareMoMotion(),
+    ) {
+        // 把 token 映射进 Material3，让 M3 组件（TextField 等）也吃到同一套颜色。
+        MaterialTheme(
+            colorScheme = if (darkTheme) {
+                darkColorScheme(
+                    primary = colors.primary,
+                    onPrimary = colors.primaryForeground,
+                    background = colors.background,
+                    onBackground = colors.foreground,
+                    surface = colors.card,
+                    onSurface = colors.cardForeground,
+                    surfaceVariant = colors.muted,
+                    onSurfaceVariant = colors.mutedForeground,
+                    outline = colors.border,
+                    error = colors.destructive,
+                )
+            } else {
+                lightColorScheme(
+                    primary = colors.primary,
+                    onPrimary = colors.primaryForeground,
+                    background = colors.background,
+                    onBackground = colors.foreground,
+                    surface = colors.card,
+                    onSurface = colors.cardForeground,
+                    surfaceVariant = colors.muted,
+                    onSurfaceVariant = colors.mutedForeground,
+                    outline = colors.border,
+                    error = colors.destructive,
+                )
+            },
+            content = content,
+        )
+    }
+}
+
+/** 取当前主题值的唯一入口。 */
+object FlareMoTheme {
+    val colors: FlareMoColors
+        @Composable @ReadOnlyComposable get() = LocalFlareMoColors.current
+
+    val radii: FlareMoRadii
+        @Composable @ReadOnlyComposable get() = LocalFlareMoRadii.current
+
+    val typography: FlareMoTypography
+        @Composable @ReadOnlyComposable get() = LocalFlareMoTypography.current
+
+    val motion: FlareMoMotion
+        @Composable @ReadOnlyComposable get() = LocalFlareMoMotion.current
+}
+`;
+
 if (process.argv.includes("--check")) {
   if (!existsSync(OUT_PATH)) {
     console.error(`✗ 缺少生成物：${OUT_PATH}`);
@@ -669,7 +863,17 @@ if (process.argv.includes("--check")) {
     );
     process.exit(1);
   }
-  console.log("✓ Theme.swift 是最新的");
+  if (existsSync(KT_OUT_PATH)) {
+    if (readFileSync(KT_OUT_PATH, "utf8") !== kotlin) {
+      console.error(
+        "✗ Theme.kt 与 index.css 不一致，跑 node scripts/apple/gen-theme.mjs 重新生成",
+      );
+      process.exit(1);
+    }
+    console.log("✓ Theme.swift 与 Theme.kt 都是最新的");
+  } else {
+    console.log("✓ Theme.swift 是最新的（Theme.kt 还没生成：Kotlin 工程未建）");
+  }
   process.exit(0);
 }
 
@@ -677,3 +881,14 @@ writeFileSync(OUT_PATH, normalized, "utf8");
 console.log(
   `✓ 已生成 ${OUT_PATH.replace(`${REPO}/`, "")} (${normalized.length} 字节)`,
 );
+
+// Kotlin 工程还没建时（目录不存在）只提示不报错——生成器要能在骨架之前跑。
+const ktDirectory = dirname(KT_OUT_PATH);
+if (existsSync(ktDirectory)) {
+  writeFileSync(KT_OUT_PATH, kotlin, "utf8");
+  console.log(
+    `✓ 已生成 ${KT_OUT_PATH.replace(`${REPO}/`, "")} (${kotlin.length} 字节)`,
+  );
+} else {
+  console.log(`· 跳过 Theme.kt：${ktDirectory.replace(`${REPO}/`, "")} 还不存在`);
+}
