@@ -27,6 +27,7 @@ let package = Package(
         .library(name: "FlareMoUI", targets: ["FlareMoUI"]),
         .executable(name: "flaremo-preview", targets: ["FlareMoPreview"]),
         .executable(name: "FlareMoMac", targets: ["FlareMoMac"]),
+        .executable(name: "flaremo-probe", targets: ["FlareMoProbe"]),
     ],
     dependencies: [
         // §5.3 依赖白名单。版本一律锁精确版本，不用 range：
@@ -77,6 +78,12 @@ let package = Package(
             swiftSettings: [
                 .defaultIsolation(MainActor.self),
             ]
+        ),
+        // 联调探针：设备配对 + 一轮真实同步，命令行跑，用来验证「客户端 ↔ 实例」这条链。
+        .executableTarget(
+            name: "FlareMoProbe",
+            dependencies: ["FlareMoCore"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         // macOS App 本体：一层壳，界面全在 FlareMoUI。
         .executableTarget(

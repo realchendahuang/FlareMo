@@ -34,6 +34,9 @@ public final class FMAppModel {
     private let database: AppDatabase?
     private let memoStore: MemoStore?
     private let isPreview: Bool
+
+    /// 实例连接与同步。界面只读它的状态；它自己管 Keychain 与后台循环。
+    public let sync: FMSyncCoordinator
     private var listObservation: AnyDatabaseCancellable?
     private var outboxObservation: AnyDatabaseCancellable?
 
@@ -49,6 +52,7 @@ public final class FMAppModel {
         self.memos = previewMemos
         self.stats = stats
         self.tags = tags
+        self.sync = FMSyncCoordinator(database: nil)
     }
 
     /// - Parameter databaseDirectory: 指定本地库目录（测试注入临时目录用）；
@@ -62,6 +66,7 @@ public final class FMAppModel {
             let store = MemoStore(database: database, userId: Self.localUserId)
             self.memoStore = store
             self.isPreview = false
+            self.sync = FMSyncCoordinator(database: database)
             startObserving(store: store)
             // 首帧不等观测回调：直接读一次。ValueObservation 的首个值会走异步回调，
             // 否则打开 App 的第一帧是空列表（能看到闪一下）。
@@ -70,6 +75,7 @@ public final class FMAppModel {
             self.database = nil
             self.memoStore = nil
             self.isPreview = false
+            self.sync = FMSyncCoordinator(database: nil)
             self.openFailure = String(describing: error)
         }
     }

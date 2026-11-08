@@ -31,7 +31,7 @@ struct FlareMoMacOSApp: App {
         }
 
         Settings {
-            FMSettingsView()
+            FMSettingsView(sync: model.sync)
         }
     }
 }

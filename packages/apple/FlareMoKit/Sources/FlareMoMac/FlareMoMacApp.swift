@@ -26,7 +26,7 @@ struct FlareMoMacApp: App {
 
         // 设置窗（⌘,）。SwiftUI 会把它挂到 App 菜单的「设置…」上。
         Settings {
-            FMSettingsView()
+            FMSettingsView(sync: model.sync)
         }
     }
 }

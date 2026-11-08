@@ -56,6 +56,8 @@ public struct FMWorkspaceRoot: View {
         .fmPaperGrain()
         .animation(FMAnimationPolicy.animation(FMWorkspaceMetrics.sidebarMotion), value: sidebarVisible)
         .frame(minWidth: 780, minHeight: 520)
+        // 启动即恢复上次的连接（Keychain 里有凭据就进入可同步状态）。
+        .task { await model.sync.restoreSession() }
     }
 
     // MARK: 内容列
