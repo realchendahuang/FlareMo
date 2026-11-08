@@ -1,3 +1,4 @@
+export * from "./schema/agent-access";
 export * from "./schema/auth";
 export * from "./schema/content";
 export * from "./schema/instance";

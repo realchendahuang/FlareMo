@@ -1,3 +1,4 @@
+export * from "./agent-access";
 export * from "./articles";
 export * from "./attachments";
 export * from "./auth";

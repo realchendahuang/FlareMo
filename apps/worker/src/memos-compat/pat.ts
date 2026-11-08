@@ -11,10 +11,13 @@ import {
   MAX_MEMOS_PAT_EXPIRES_IN_DAYS,
   type MemosPatScope,
   memosPatPermissionsFor,
+  normalizeMemosPatScopes,
   PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS,
 } from "@flaremo/contracts";
 import { ValidationError } from "@flaremo/domain";
 import { type FlareMoAuth, MEMOS_PAT_CONFIG_ID } from "../auth-env";
+
+export { normalizeMemosPatScopes };
 
 export type PersonalAccessTokenLike = {
   id: string;
@@ -71,18 +74,6 @@ export function normalizeMemosPatExpiresInDays(
     );
   }
   return value;
-}
-
-/** Default to notes; an admin request always remains an additive superset. */
-export function normalizeMemosPatScopes(
-  scopes: readonly MemosPatScope[] | null | undefined,
-): MemosPatScope[] {
-  const selected = [...new Set(scopes ?? [])];
-  if (selected.length === 0) return [DEFAULT_MEMOS_PAT_SCOPE];
-  if (selected.includes("admin") && !selected.includes("notes")) {
-    return ["notes", "admin"];
-  }
-  return selected;
 }
 
 export type CreateMemosPersonalAccessTokenInput = {

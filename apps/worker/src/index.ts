@@ -39,6 +39,8 @@ import { authApi } from "./routes/auth-api";
 import { brandingApi } from "./routes/branding-api";
 import { emailSettingsApi } from "./routes/email-settings-api";
 import { memosApi } from "./routes/memos-api";
+import { connectApi } from "./routes/connect-api";
+import { connectAppsApi } from "./routes/connect-apps-api";
 import { memosConnectApi } from "./routes/memos-connect";
 import { isLegacyWireRequest, memosCurrentApi } from "./routes/memos-current";
 import { memosFileApi } from "./routes/memos-file-api";
@@ -261,6 +263,7 @@ export function createFlareMoApp(
     return voiceSettingsApi;
   });
   app.route("/api/app/account", accountApi);
+  app.route("/api/app/connect", connectAppsApi);
   // Registered before adminApi so these owner settings routes win; paths
   // adminApi owns (/plugins GET/PUT) still fall through to it.
   app.route("/api/app/admin/plugins", pluginsStoreApi);
@@ -319,6 +322,7 @@ export function createFlareMoApp(
     const { mcpStreamableApi } = await import("./routes/mcp");
     return mcpStreamableApi;
   });
+  app.route("/", connectApi);
   app.route("/", memosConnectApi);
   app.route("/", memosSseApi);
   app.route("/api/v1", memosSocialApi);

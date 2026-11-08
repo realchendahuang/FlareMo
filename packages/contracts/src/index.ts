@@ -1,3 +1,4 @@
+export * from "./agent-access";
 export * from "./articles";
 export * from "./attachment-refs";
 export * from "./branding";

@@ -19,6 +19,7 @@
 - [plugin-platform-standard.md](./plugin-platform-standard.md)：插件平台规范（分享卡片模板）。
 - [plugins.md](./plugins.md)：插件目录结构、构建与发布。
 - [agent-ingestion.md](./agent-ingestion.md)：Agent 与 IM 渠道写入。
+- [agent-access-design.md](./agent-access-design.md)：第三方客户端接入（设备授权/配对码、令牌生命周期、已连接应用、多实例）与 AI 洞察契约。
 - [seo-share-pages-best-practices.md](./seo-share-pages-best-practices.md)：公开分享页/文章页 SEO 与 SSR。
 
 ## 部署与运维
