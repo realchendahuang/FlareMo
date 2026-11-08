@@ -8,6 +8,7 @@ import SwiftUI
 /// 侧栏、多窗口、快捷键这些桌面概念不往下搬（搬下去只会变成缩小版网页）。
 public struct FMPhoneRoot: View {
     @State private var composerText = ""
+    @State private var settingsPresented = false
 
     private let model: FMAppModel
 
@@ -27,6 +28,19 @@ public struct FMPhoneRoot: View {
         }
         .background(FMColor.background.color)
         .fmPaperGrain()
+        .sheet(isPresented: $settingsPresented) {
+            NavigationStack {
+                FMSettingsView(sync: model.sync)
+                    .navigationTitle("设置")
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("完成") { settingsPresented = false }
+                        }
+                    }
+            }
+            .frame(minHeight: 460)
+        }
+        .task { await model.sync.restoreSession() }
     }
 
     // MARK: 页头
@@ -55,12 +69,18 @@ public struct FMPhoneRoot: View {
 
             Spacer(minLength: 0)
 
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 15))
-                .foregroundStyle(FMColor.mutedForeground.color)
-                .frame(width: 30, height: 30)
-                .contentShape(Rectangle())
-                .accessibilityLabel("搜索")
+            // 搜索还没做，这里先放"设置"——手机上连接实例的入口就在设置里。
+            Button {
+                settingsPresented = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 15))
+                    .foregroundStyle(FMColor.mutedForeground.color)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("设置")
         }
         .padding(.horizontal, 16)
         .frame(height: 48)
