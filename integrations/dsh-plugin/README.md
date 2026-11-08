@@ -1,5 +1,7 @@
 # dsh-flaremo
 
+> 本目录以 **MIT** 授权（见本目录 `LICENSE`）；FlareMo 主仓库其余部分为 AGPL-3.0-only。插件与内核只通过 HTTP 契约交互，不引用内核代码。
+
 FlareMo 笔记工作台的 **DSH 插件**：中栏全局面板 + 左栏「笔记」入口 + 设置页连接配置 +
 **洞察执行器**（拉 FlareMo 的 pending 洞察任务 → 用 DSH 模型生成 → 写回结果）。
 工作台读的是 **真实 FlareMo 数据**（设备授权 + typert RPC），未连接时退回示例数据。
