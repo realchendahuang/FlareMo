@@ -117,6 +117,9 @@ FlareMo/
 ### 4.1 已经具备的（不用重做）
 
 - **客户端接入层已实现并提交**：`apps/worker/src/routes/connect-api.ts` 提供 `POST /connect/device`、`POST /connect/token`、`POST /api/app/connect/approve`、`GET|DELETE /api/app/connect/apps/:id`，配对页 `apps/web/src/pages/connect-page.tsx` 已上线，三张表（`app_clients` / `device_authorizations` / `device_refresh_tokens`）已建（migration `0046`）。access 14 天、refresh 90 天。
+  - ⚠️ **`client_type` 的真实枚举是 `device | web | script`**（`packages/contracts/src/agent-access.ts` 的 `APP_CLIENT_TYPES`），**没有 `mac` / `windows` / `ios` / `android`**。客户端要区分平台得先扩这个枚举，否则传平台名会 400。
+  - ⚠️ **`access_denied` 目前不可达**：服务端只有批准路径，没有拒绝路径。客户端照契约实现了 `.denied` 分支，但现状只会遇到 `authorization_pending` / `expired_token`。
+  - ⚠️ **refresh token 轮换没有宽限期**：刷新成功会立刻作废旧的一对。客户端如果在「刷新成功、写 Keychain 之前」崩溃，就只能重新配对。M0 应给旧 refresh 留几十秒宽限。
 - **增量同步所需的索引**：`memos_user_updated_id_idx (user_id, updated_at, id)` 已存在；`updated_at` 是 `toISOString()` 毫秒文本，字典序 = 时间序。D10 定案后同步走 `sync_changes.seq`，这个索引留给「全量对齐 / 降级轮询」用。
 - **四类实体的现状**：`attachments` / `articles` 都已有 `updated_at` + `deleted_at`；**评论不是独立表**——它是一条完整的 `memos` 行，外加一条 `memo_relations(memo_id=评论, related_memo_id=父记录, type='comment')`，所以给 `memos` 加 `version` 就顺带覆盖了评论的乐观锁。
 - **软删天然是 tombstone**：`memos.status` + `deleted_at` 已有，进回收站即写 `deletedAt/updatedAt`。
@@ -332,11 +335,15 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 - **降级**：实例没有 `direct_upload` 能力或签名失败 → 回落 `POST /api/v1/attachments` multipart。
 - **代价**：Worker 不再承担 25MiB 流量，但多了一个可直接写的签名面——URL 必须短时（建议 10 分钟）、绑定单对象、限制大小与 content-type。
 
-### 4.9 纯 PAT 换发（D11）
+### 4.9 纯 PAT 换发（D11，**未实现**）
 
 - `POST /connect/token` 新增 `grant_type=urn:flaremo:grant-type:pat`：客户端用用户手动创建的 PAT 换 access + refresh，供没有浏览器会话的场景（脚本、换机后只剩 PAT）。
 - 兑换时校验 PAT 的 scope（`notes` / `admin`）与撤销状态，并把令牌归因到 `app_clients`，保证「已连接应用」页能看见、能撤销。
 - 风险控制：按 PAT 限流（如每小时 N 次）、写审计、`admin` scope 的 PAT 是否允许换发需要单独确认（默认**不允许**，管理面必须走浏览器会话）。
+
+**现状（2026-11-09 核实）**：`connect-api.ts` 只有 `device_code` 与 `refresh_token` 两个 grant，
+其它落到 `unsupported_grant_type`；`/api/app/instance` 也自报 `pat_grant: 0`。
+本节是**待做**，不是已定案——文档之前把它写在「已新增」里是错的。
 
 ### 4.10 推送与 ASR
 
