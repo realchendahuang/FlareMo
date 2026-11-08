@@ -90,40 +90,22 @@ FlareMo 要长出一套**通用的第三方客户端接入层**，而不是给�
 - 浏览器批准端点复用 `getBrowserRequestContext`（cookie 会话），不接受 `authorization` 头。
 - 撤销复用 Better Auth api-key 的 `updateApiKey({enabled:false})`，不新建令牌体系。
 
-### 4.4 数据模型
+### 4.4 数据模型（实现）
 
-新增两张表，令牌本身继续用 `auth_apikeys`（Better Auth api-key 插件），不另起炉灶：
+实际实现是三张表（migration `0046_agent_access`），令牌本身继续用 `auth_apikeys`（Better Auth api-key 插件），不另起炉灶；时间戳沿用 domain 表的 ISO text。
 
-```sql
--- 第三方客户端身份（本地客户端可动态注册，Web 客户端后续走注册）
-CREATE TABLE app_clients (
-  id            TEXT PRIMARY KEY,
-  name          TEXT NOT NULL,              -- 应用显示名，用户批准页展示
-  client_type   TEXT NOT NULL,              -- 'device' | 'web' | 'script'
-  redirect_uri  TEXT,                       -- 第二阶段 OAuth 用，第一版为空
-  created_at    INTEGER NOT NULL,
-  last_seen_at  INTEGER
-);
+| 表 | 作用 |
+| --- | --- |
+| `app_clients` | 客户端身份：`name`、`client_type`、`redirect_uri`（OAuth 预留）、`created_by_auth_user_id`、`last_seen_at` |
+| `device_authorizations` | 一次性的设备授权请求：`user_code_hash` / `device_code_hash` 只存 SHA-256；`auth_user_id` 在浏览器批准前为 NULL |
+| `device_refresh_tokens` | 可轮换的 refresh token：`token_hash`、`access_key_id`（指向 `auth_apikeys.id`）、过期与撤销时间 |
 
--- 设备授权请求（一次性）
-CREATE TABLE device_authorizations (
-  id             TEXT PRIMARY KEY,
-  client_id      TEXT NOT NULL REFERENCES app_clients(id),
-  user_id        TEXT NOT NULL,
-  user_code_hash TEXT NOT NULL,             -- 只存哈希
-  device_code_hash TEXT NOT NULL,
-  scopes         TEXT NOT NULL,             -- JSON 数组
-  status         TEXT NOT NULL,             -- 'pending' | 'approved' | 'redeemed' | 'expired'
-  expires_at     INTEGER NOT NULL,
-  approved_at    INTEGER,
-  redeemed_at    INTEGER,
-  created_at     INTEGER NOT NULL
-);
-CREATE UNIQUE INDEX device_authorizations_user_code_idx ON device_authorizations(user_code_hash);
-CREATE UNIQUE INDEX device_authorizations_device_code_idx ON device_authorizations(device_code_hash);
-```
+关键点：
 
-`auth_apikeys` 复用现有字段：`referenceId`（用户）、`configId`（PAT 配置）、`metadata` 记 `client_id` 与 `scopes`；`lastRequest` 就是最后使用时间（已存在）。
+- `device_authorizations.auth_user_id` **可空**——生成时还没有用户，浏览器批准时才绑定。
+- access token 就是一条 `auth_apikeys` 行，现有 PAT 校验路径（`verifyApiKey` + scope 判定）不需要改动。
+- refresh token 每次刷新轮换：旧的 access token 置为 disabled、旧 refresh token 撤销、发新的一对。
+- `auth_apikeys.lastRequest` 就是「已连接应用」里的最后使用时间。
 
 ### 4.5 安全要求
 
@@ -131,7 +113,7 @@ CREATE UNIQUE INDEX device_authorizations_device_code_idx ON device_authorizatio
 - `device_code`：32 字节随机、只存哈希、与 `user_code` 分离。
 - 轮询间隔：`interval` 秒（默认 5），客户端必须遵守，服务端对超频返回 `slow_down`。
 - 生成与兑换都限速；同一实例单位时间最多 N 次。
-- 兑换成功即删除/失效设备授权记录，`device_code` 重放返回 `expired`。
+- 兑换成功把设备授权标记为 `redeemed`；重放返回 `invalid_grant`，过期返回 `expired_token`。
 - 配对码只能由浏览器会话生成，且用户能在「已连接应用」里看到来源。
 
 ## 5. 手动 PAT（保留并升级）
@@ -151,7 +133,9 @@ CREATE UNIQUE INDEX device_authorizations_device_code_idx ON device_authorizatio
 | 续期 | `POST /connect/token` 带 `grant_type=refresh_token` |
 | 过期 | access 过期由客户端自动刷新；refresh 过期才需要重新配对 |
 | 撤销 | 撤销应用 = 该应用全部 refresh/access 失效；单项撤销也可做 |
-| 轮换 | 每次刷新可选轮换 refresh token（推荐，降低泄漏窗口） |
+| 轮换 | 每次刷新轮换 refresh token：旧 access token 禁用、旧 refresh 撤销，降低泄漏窗口 |
+
+实现：access token = `auth_apikeys` 行（14 天）；refresh token = `device_refresh_tokens` 行（90 天，轮换即重建）。
 
 **体验红线**：正常使用下，用户只在首次配对时输一次码；此后不得要求重复配对。
 

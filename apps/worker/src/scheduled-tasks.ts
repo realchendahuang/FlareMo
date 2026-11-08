@@ -4,6 +4,7 @@ import {
   beginFlaremoMemberRemoval,
   claimMemberRemovalJob,
   classifyPushFailure,
+  cleanupExpiredDeviceData,
   createDailyReviewNotifications,
   createDueTodayTaskNotifications,
   createOverdueTaskNotifications,
@@ -228,6 +229,8 @@ export async function runScheduledMaintenance(
     memberRemovalJobs: 0,
     exportTasks: 0,
     ssePruned: 0,
+    deviceAuthorizations: 0,
+    deviceRefreshTokens: 0,
     attachmentCleanup: 0,
     trashPurged: 0,
     staleDataTasks: 0,
@@ -604,6 +607,14 @@ export async function runScheduledMaintenance(
   });
 
   const failedSteps = steps.filter((step) => !step.ok);
+  // Expired pairing codes and dead refresh tokens are housekeeping only: a
+  // failed pass must not change the outcome of the real maintenance work.
+  await runMaintenanceStep("device-access-cleanup", steps, async () => {
+    const cleaned = await cleanupExpiredDeviceData(db);
+    counts.deviceAuthorizations = cleaned.authorizations;
+    counts.deviceRefreshTokens = cleaned.refreshTokens;
+  });
+
   console.log(
     JSON.stringify({
       message: "scheduled maintenance complete",

@@ -2,6 +2,26 @@
 
 FlareMo 的私有 API 始终需要 Better Auth 应用层凭据：浏览器使用 HttpOnly cookie session，外部 Agent、自动化脚本和 IM Bot 使用可撤销的 `memos_pat_` Personal Access Token。Cloudflare Access 是可选的外层 policy；生产仍启用 Access 时，再附加 Access Service Token。Access Service Token 单独不能成为 FlareMo 用户身份。
 
+## 第三方客户端接入（设备授权）
+
+FlareMo 支持按 OAuth 2.0 Device Authorization Grant（RFC 8628）让第三方客户端接入，界面上的「配对码」就是其中的 `user_code`。设计见 `docs/agent-access-design.md`。
+
+用户流程：在 Web 设置 →「已连接应用」生成配对码，在客户端输入，批准后即可使用；之后可随时在「已连接应用」里撤销。
+
+客户端实现：
+
+```text
+POST /connect/device   {client_name, client_type, scopes?}
+  → {device_code, user_code, verification_uri, expires_in, interval}
+用户在浏览器批准：POST /api/app/connect/approve {user_code}
+POST /connect/token    {grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code}
+  → {access_token, refresh_token, expires_in, scope}
+POST /connect/token    {grant_type: "refresh_token", refresh_token}
+  → 新的 access_token + refresh_token（旧的 access token 与 refresh token 同时失效）
+```
+
+拿到的 `access_token` 就是 `memos_pat_`，用法与下文的 Personal Access Token 完全一致（`Authorization: Bearer`）。
+
 ## Agent 直接提交
 
 先在 FlareMo Web 界面创建一个有明确用途和过期时间的 `memos_pat_` PAT。若目标部署仍启用 Cloudflare Access，再按 [部署指南](./deploy.md#3-创建-service-token) 创建 Access Service Token，然后：
