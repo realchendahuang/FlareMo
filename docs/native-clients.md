@@ -311,6 +311,8 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 
 遗留待定：`admin` 类 PAT 是否允许换发；`sync_changes` 是否也给 `shares` / `tasks` 用（v1 不同步，任务在原生端只读或后续补）。
 
+**配套要求（必做，非待定）**：`POST /api/app/memos` 与 `/api/app/articles` 必须接受**客户端生成的 UUIDv7 id**并保持幂等，否则离线创建的笔记在同步前无法被引用、排期或评论（本地存储的做法见 §7.7）。工作量约 0.5 人日，未计入上面的估算。
+
 ---
 
 ## 5. Apple 端（macOS 先，iOS 第三步）
@@ -543,6 +545,80 @@ packages/kotlin/
 
 - 客户端启动时读 `/api/app/instance` 的 `capabilities`，按能力降级；缺失能力不阻塞启动。
 - 原生端不承诺兼容「N 个版本前」的实例：能力缺失即降级到 `order_by=updated_at asc` 轮询，再缺失即提示升级实例。这条要在设置页写清楚。
+
+### 7.7 本地存储（最佳实践）
+
+**一句话：本地 SQLite 是唯一事实源，UI 是它的响应式视图，网络只负责搬运变化。没有「缓存层」这个概念。**
+
+#### 引擎与连接
+
+| 项 | 取值 |
+| --- | --- |
+| Apple | GRDB 7 + 系统 SQLite（WAL） |
+| Kotlin | Room 3 + `BundledSQLiteDriver`（SQLite 版本钉死在依赖里，不依赖系统） |
+| PRAGMA | `journal_mode=WAL`、`synchronous=FULL`、`foreign_keys=ON`、`busy_timeout=5000`、`temp_store=MEMORY` |
+| 连接 | 单写连接 + 多读连接（WAL 下读写并发）；写连接串行 |
+| 事务 | 一次用户动作 = 一个事务（实体 + outbox + FTS 触发器一起提交） |
+
+`synchronous=FULL` 的理由：速记是「打完字就合盖」的场景，宁可多一次 fsync，也不能丢。
+
+#### 表分三层
+
+**① 事实层**：`memos`、`memo_relations`、`attachments`（只存元数据）、`articles`、`tasks`，与服务端 1:1。外加三张本地表：`outbox`（待上送操作）、`sync_state`（`seq` 水位、`generation`、最后拉取/推送时间）、`blobs`（二进制元数据：sha256、bytes、mime、remote_key、state、last_used_at）。
+
+**② 派生层**：`memos_fts`（FTS5 + `trigram`）、`tags`、计数与回顾候选。规则：派生层不许出现无法重算的数据；`derived_schema_version` 一变就整层删掉重建。
+
+**③ 二进制层**：文件系统，内容寻址 `<appSupport>/blobs/<sha2>/<sha2>/<sha>`，库里只存 sha 与状态。
+
+#### 写入路径
+
+```
+用户动作 → 事务{ 写实体（本地立刻可见） + 写 outbox + FTS 触发器 } → UI 立即刷新
+              ↓
+      outbox 单写者循环：按 created_at 串行上送 → 成功删行；409 → LWW 覆盖后删行
+              ↓
+      附件：文件先落 blobs(state=staged) → upload-url 直传 → complete → ready
+```
+
+`outbox` 必备列：`id`、`op`、`entity`、`entity_id`、`payload`、`idempotency_key`、`depends_on`、`attempts`、`next_attempt_at`、`created_at`。`depends_on` 表达「附件依赖 memo 已创建」「评论依赖父记录已创建」。
+
+#### 读取路径
+
+页面只查本地库，**导航不发起任何网络请求**。Apple 用 GRDB `ValueObservation`、Kotlin 用 Room `Flow`，UI 订阅查询；同步在后台把变化写进库，UI 自然刷新。这是「打开就是最新」的唯一可靠做法，也是原生端比 Web 快的那一半来源。
+
+#### 三个全局约定
+
+1. **ID 由客户端生成**：新建实体一律 UUIDv7（按时间有序、索引友好），服务端接受客户端 id（幂等）。这样离线创建的笔记在同步前就能被引用、排期、评论。
+2. **时间**：`updated_at` 直接存服务端格式（ISO 毫秒文本），索引与排序沿用；同毫秒用 `(updated_at, id)` 兜底。
+3. **删除**：镜像 `deleted_at`，查询默认过滤；30 天后随服务端一起清掉。
+
+#### 二进制策略
+
+- 缩略图：随列表预取，LRU 淘汰，硬上限 200MB。
+- 原图 / 音频：按需下载，LRU 淘汰，硬上限 2GB（可配置）；**被 outbox 引用或用户标记「离线保留」的永不淘汰**。
+- 未同步的本地文件永不删除；服务端确认并 complete 之后才允许进入淘汰候选。
+- iOS：blobs 目录加 `isExcludedFromBackup`；数据库正常参与备份（它才是数据）。
+
+#### 冲突与重建
+
+- 推：`PATCH ... expected_version`；409 → 拉该条最新，LWW 覆盖本地，删 outbox 行；用户正在编辑的那条给一次「重试 / 接受服务端」选择。
+- 拉：`seq` 单调，事务内批量 upsert（每批约 200 行）。
+- **本地库是副本**：schema 变更不做迁移——bump 版本 → 保留 outbox → 整库重建 → 全量对齐。这是本地端最大的省钱点，不要把服务端那套迁移纪律抄过来。
+- 收到 410 → `generation++` → 清空事实层（保留 outbox）→ 全量对齐。
+
+#### 安全
+
+- 数据库放受保护目录（iOS `Application Support` + Data Protection；Android 应用私有目录；桌面用户目录）。
+- 应用层生物识别门禁（Face ID / Touch ID / Windows Hello / Android Biometric）只做 UI 门，不加密文件——真正的静态加密交给 OS（Data Protection / Android FBE / FileVault / BitLocker）。
+- **不用 SQLCipher**：它与「Apple 用系统 SQLite」的决定冲突（要自编 SQLite），而在 OS 加密之上收益很小。
+
+#### 明确不做
+
+- 不把二进制塞进 SQLite。
+- 不用 iCloud/CloudKit 做同步（同步只认自托管实例的 `seq`）。
+- 不引入 Realm / WatermelonDB / PouchDB。
+- 不把 Markdown 当唯一存储格式（必须有列可查）。
+- 不给本地库写迁移脚本。
 
 ---
 
