@@ -479,22 +479,26 @@ export async function listConnectedApps(
   }
 
   const now = nowIso();
-  return keys.map((key) => {
+  // Only third-party clients appear here: manual PATs already have their own
+  // token list, and a revoked key must disappear instead of lingering as
+  // "expired" (the auth row stays for audit but is disabled).
+  const rows: ConnectedAppDto[] = [];
+  for (const key of keys) {
     const client = clientByKey.get(key.id);
-    const scopes = memosPatScopesFromPermissions(key.permissions) ?? ["notes"];
-    const expired =
-      key.expiresAt !== null && key.expiresAt.toISOString() <= now;
-    return {
+    if (client === undefined || !key.enabled) continue;
+    const expired = key.expiresAt !== null && key.expiresAt.toISOString() <= now;
+    rows.push({
       id: key.id,
-      name: client?.name ?? key.name ?? "Manual token",
-      clientType: client?.clientType ?? "manual",
-      scopes,
+      name: client.name,
+      clientType: client.clientType,
+      scopes: memosPatScopesFromPermissions(key.permissions) ?? ["notes"],
       createdAt: key.createdAt.toISOString(),
       lastUsedAt: isoFromMs(key.lastRequest),
       expiresAt: isoFromMs(key.expiresAt),
-      status: expired || !key.enabled ? "expired" : "active",
-    };
-  });
+      status: expired ? "expired" : "active",
+    });
+  }
+  return rows;
 }
 
 /** Delete expired device authorizations and dead refresh tokens. */
