@@ -176,16 +176,16 @@ FlareMo 是自托管产品，用户可能连接多个实例（SaaS、自托管�
 
 ```sql
 CREATE TABLE memo_insights (
-  id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL,
+  id          TEXT PRIMARY KEY,        -- 'insights/<uuid>'
+  user_id     TEXT NOT NULL,           -- FK users.id, cascade
   kind        TEXT NOT NULL,           -- 'note' | 'digest' | 'map'
   input       TEXT NOT NULL,           -- JSON：memo_ids / tag / query
   status      TEXT NOT NULL,           -- 'pending' | 'running' | 'done' | 'failed'
-  result      TEXT,                    -- JSON：结构化洞察
+  result      TEXT,                    -- JSON：结构化洞察，≤ 64 KB
   executor    TEXT,                    -- 'dsh' | 'workers-ai' | 'external' | null
   error       TEXT,
-  created_at  INTEGER NOT NULL,
-  updated_at  INTEGER NOT NULL
+  created_at  TEXT NOT NULL,           -- ISO 8601
+  updated_at  TEXT NOT NULL
 );
 ```
 
@@ -196,18 +196,22 @@ CREATE TABLE memo_insights (
 | 方法 | 路径 | 认证 | 说明 |
 | --- | --- | --- | --- |
 | POST | `/api/app/insights` | PAT / 浏览器 | 创建任务 `{kind, memo_ids?, tag?, query?}` |
-| GET | `/api/app/insights?status=pending` | PAT | 执行器拉取待执行任务 |
+| GET | `/api/app/insights?status=pending&limit=50` | PAT / 浏览器 | 执行器拉 pending；浏览器可列自己的历史（只读自己的行） |
 | GET | `/api/app/insights/:id` | PAT / 浏览器 | 读取结果 |
 | PUT | `/api/app/insights/:id` | PAT | 写回结果（幂等，按 id + status 校验） |
 | DELETE | `/api/app/insights/:id` | 浏览器 | 删除派生结果 |
 
 ### 9.4 状态机
 
-`pending → running → done | failed`；`failed` 可被重试（新建任务或 reset 到 pending）。
+`pending → running → done | failed`；`failed → pending` 允许重试（清空上一轮的 result/error/executor）。
+
+- `done` / `failed` 为 first-write-wins：重复写回原样返回当前行（幂等）。
+- 非法迁移返回 400。
+- 只有 PAT 能写回结果（`PUT`）；浏览器会话只能创建、读取、删除自己的洞察。
 
 ### 9.5 权限
 
-- `notes` scope 可创建/拉取/写回洞察。
+- `notes` scope 可创建、拉取、写回洞察；浏览器会话可创建、读取、删除，但不能写回结果。
 - 洞察内容继承笔记的可见性；跨用户不可见。
 - 后续是否加只读 `read` scope，见第 12 节。
 
