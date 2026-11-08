@@ -34,6 +34,10 @@
 - **D6 单向事实源**：`packages/contracts`（接口）与 `apps/web/src/index.css`（设计 token）是唯一事实源，原生端只消费、不反写。
 - **D7 许可证白名单**：新依赖只允许 MIT / Apache-2.0 / BSD / OFL。GPL 系一律不进（见 §5.10 的 STTextView 坑）。
 - **D8 原生端必须能连任意自托管实例**：登录页填实例域名，认证走设备授权（RFC 8628 配对码），不用 cookie session。
+- **D9 附件走 R2 的 S3 兼容 API 直传**：Worker 只签发短时 URL，二进制不过 Worker；`/api/v1/attachments` 的 multipart 保留为降级路径（旧实例或签名失败时用）。
+- **D10 四类实体统一进同步**：`memos`（评论本身也是 memo 行）/ `attachments` / `articles` / `memo_relations` 全部进增量同步与乐观锁；用**统一变更日志表 + 单调 `seq` 游标**，不用 `(updated_at, id)` 复合游标（避免同毫秒并列与跨表游标合并）。
+- **D11 允许纯 PAT 换发设备令牌**：`POST /connect/token` 新增一个 `grant_type`，没有浏览器会话的客户端也能续期；换发出来的令牌仍归因到 `app_clients`，可撤销。
+- **D12 Windows 构建与联调在本地虚拟机跑**：macOS 上开 Windows 虚拟机承担打包与签名验证；x64 产物仍需 x64 JDK 或 CI 产出（见 §6.8）。
 
 ### 1.2 本方案要推翻的现有书面边界
 
@@ -113,7 +117,8 @@ FlareMo/
 ### 4.1 已经具备的（不用重做）
 
 - **客户端接入层已实现并提交**：`apps/worker/src/routes/connect-api.ts` 提供 `POST /connect/device`、`POST /connect/token`、`POST /api/app/connect/approve`、`GET|DELETE /api/app/connect/apps/:id`，配对页 `apps/web/src/pages/connect-page.tsx` 已上线，三张表（`app_clients` / `device_authorizations` / `device_refresh_tokens`）已建（migration `0046`）。access 14 天、refresh 90 天。
-- **增量同步所需的索引**：`memos_user_updated_id_idx (user_id, updated_at, id)` 已存在；`updated_at` 是 `toISOString()` 毫秒文本，字典序 = 时间序，复合游标可直接走索引。
+- **增量同步所需的索引**：`memos_user_updated_id_idx (user_id, updated_at, id)` 已存在；`updated_at` 是 `toISOString()` 毫秒文本，字典序 = 时间序。D10 定案后同步走 `sync_changes.seq`，这个索引留给「全量对齐 / 降级轮询」用。
+- **四类实体的现状**：`attachments` / `articles` 都已有 `updated_at` + `deleted_at`；**评论不是独立表**——它是一条完整的 `memos` 行，外加一条 `memo_relations(memo_id=评论, related_memo_id=父记录, type='comment')`，所以给 `memos` 加 `version` 就顺带覆盖了评论的乐观锁。
 - **软删天然是 tombstone**：`memos.status` + `deleted_at` 已有，进回收站即写 `deletedAt/updatedAt`。
 - **幂等创建**：`memos_user_client_id_idx UNIQUE(user_id, client_id)` 已存在，`createMemo` 命中即返回已有记录，离线重放可直接复用。
 - **SSE**：`/api/v1/sse` 支持 `Last-Event-ID`，保留 7 天。
@@ -123,23 +128,43 @@ FlareMo/
 
 | 缺口 | 现状 | 工作量 |
 | --- | --- | --- |
-| `memos.version` 乐观锁列 | 无 | 0.5 人日 |
-| `GET /api/app/sync/changes` 增量同步 | 无（CEL `updated_ts` 不下推、>5000 行报错，不能拿来当同步） | 2 人日 |
+| `version` 列（`memos` / `attachments` / `articles`） | 无；评论本身是 `memos` 行，加在 `memos` 上即覆盖 | 0.5 人日 |
+| `memo_relations.updated_at`（评论关系的增量同步） | 只有 `created_at` | 0.5 人日 |
+| `sync_changes` 变更日志表 + 触发器 + 回填 | 无 | 1.5 人日 |
+| `GET /api/app/sync/changes`（`seq` 游标） | 无（CEL `updated_ts` 不下推、>5000 行报错，不能拿来当同步） | 2 人日 |
 | `GET /api/app/instance` 能力发现 | 无（只有 `/api/app/health` 返回 version） | 0.5 人日 |
 | `/api/app` 的 OpenAPI | 无 | 1.5–2 人日 |
+| **附件 S3 直传**：`upload-url` + `complete` 两个端点、R2 SigV4 签名、缩略图双对象 | 无签名直传，只能 multipart 经 Worker | 2–3 人日 |
+| **纯 PAT 换发**：`POST /connect/token` 新增 `grant_type` | 只有 `device_code` / `refresh_token` | 1 人日 |
 | APNs / FCM 推送注册 | 只有 VAPID Web Push | 2.5 人日 |
 | ASR 放行 Bearer | `getBrowserRequestContext` 首行硬拒 `authorization` | 0.5 人日 |
-| 附件直传（可选） | 无签名直传，只能 multipart 经 Worker | 待定 |
 
-**合计约 8.5 人日**（不含附件直传）。这是 M0 的可执行总量。
+**合计约 12.5–14 人日**，对应 M0 的 3 周。三项新决定（D9/D10/D11）让 M0 从 8.5 人日涨到 13 人日上下，但换来的是「附件不弱网卡死」「四类实体一套游标」「无浏览器也能续期」。
 
 ### 4.3 迁移 0048
 
 下一个可用编号是 `0048`（`0046` / `0047` 已用）。**必须用 `pnpm db:generate` 生成**（同时写 `migrations/meta/_journal.json` 与 `0048_snapshot.json`；`packages/db/src/test-migrations.ts` 按 journal 建库，手写 SQL 会漏 snapshot）。D1 只支持 `ADD COLUMN`（默认值必须常量），不支持改列。
 
+**拆成两个迁移**：`0048` 用 `pnpm db:generate` 生成（列 + 新表）；`0049` 用 `pnpm exec drizzle-kit generate --custom` 生成后手写（触发器 + 回填，见 §4.3.1）。仓库里 `0038` / `0044` 就是这类手写迁移，FTS 触发器也早有先例。
+
 ```sql
--- migrations/0048_native_sync.sql
+-- migrations/0048_native_sync.sql（生成）
 ALTER TABLE `memos` ADD `version` integer NOT NULL DEFAULT 1;
+ALTER TABLE `attachments` ADD `version` integer NOT NULL DEFAULT 1;
+ALTER TABLE `articles` ADD `version` integer NOT NULL DEFAULT 1;
+ALTER TABLE `memo_relations` ADD `updated_at` text NOT NULL DEFAULT '1970-01-01T00:00:00.000Z';
+
+-- 统一变更日志：客户端只认一个单调 seq，四类实体共用
+CREATE TABLE `sync_changes` (
+  `seq` integer PRIMARY KEY AUTOINCREMENT,
+  `user_id` text NOT NULL,
+  `entity` text NOT NULL,        -- 'memo' | 'attachment' | 'article' | 'relation'
+  `entity_id` text NOT NULL,
+  `op` text NOT NULL,            -- 'upsert' | 'delete'
+  `version` integer NOT NULL DEFAULT 0,
+  `updated_at` text NOT NULL
+);
+CREATE INDEX `sync_changes_user_seq_idx` ON `sync_changes` (`user_id`, `seq`);
 
 CREATE TABLE `native_push_devices` (
   `id` text PRIMARY KEY NOT NULL,
@@ -156,40 +181,84 @@ CREATE UNIQUE INDEX `native_push_devices_token_idx` ON `native_push_devices` (`p
 CREATE INDEX `native_push_devices_user_idx` ON `native_push_devices` (`user_id`);
 ```
 
+#### 4.3.1 触发器与回填（0049，手写迁移）
+
+把**所有写路径**都落到 `sync_changes`，客户端只消费一个 `seq`：
+
+```sql
+-- migrations/0049_native_sync_triggers.sql（generate --custom）
+CREATE TRIGGER `sync_memos_ai` AFTER INSERT ON `memos` BEGIN
+  INSERT INTO `sync_changes` (`user_id`,`entity`,`entity_id`,`op`,`version`,`updated_at`)
+  VALUES (NEW.`user_id`, 'memo', NEW.`id`,
+          CASE WHEN NEW.`deleted_at` IS NULL THEN 'upsert' ELSE 'delete' END,
+          NEW.`version`, NEW.`updated_at`);
+END;
+
+CREATE TRIGGER `sync_memos_au` AFTER UPDATE ON `memos` BEGIN
+  INSERT INTO `sync_changes` (`user_id`,`entity`,`entity_id`,`op`,`version`,`updated_at`)
+  VALUES (NEW.`user_id`, 'memo', NEW.`id`,
+          CASE WHEN NEW.`deleted_at` IS NULL THEN 'upsert' ELSE 'delete' END,
+          NEW.`version`, NEW.`updated_at`);
+END;
+
+-- attachments / articles：结构与上面同构，entity 分别为 'attachment' / 'article'
+-- memo_relations：AFTER INSERT / AFTER DELETE 两个触发器，entity='relation'，
+--   entity_id 用 NEW.`memo_id`（评论 memo 的 id），
+--   user_id 由 `SELECT `user_id` FROM `memos` WHERE `id` = NEW.`memo_id`` 取
+
+UPDATE `memo_relations` SET `updated_at` = `created_at`
+WHERE `updated_at` = '1970-01-01T00:00:00.000Z';
+
+-- 回填：存量各生成一条，客户端第一次拉取即可对齐
+INSERT INTO `sync_changes` (`user_id`,`entity`,`entity_id`,`op`,`version`,`updated_at`)
+SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 'delete' END,`version`,`updated_at` FROM `memos`;
+-- attachments / articles / memo_relations 同理，各自一条 INSERT ... SELECT
+```
+
+- **清理**：`sync_changes` 在 cron 维护 pass 里按 30 天裁剪（与 `FLAREMO_TRASH_RETENTION_DAYS` 对齐，`apps/worker/src/scheduled-tasks.ts` 已有逐 pass 隔离的骨架）；客户端 `since` 早于裁剪点即 410。
+- **写放大**：每次写多一条 INSERT，只存引用不存正文，单行约 100B；1 万条回填约 1MB，可接受。
+- **为什么不用 `(updated_at, id)`**：跨四张表要合并四个游标；同毫秒并列要靠 id 兜底；而 `seq` 天然全序、一个 `since` 拉全部。
+- **最后写入者胜（LWW）**：乐观锁仍用各表的 `version`。评论是 append-only（`memos-comments.ts` 只创建、不编辑），关系行用 `updated_at` 参与同步即可。
+
 ### 4.4 增量同步契约
 
 | 方法 | 路径 | 认证 | 关键字段 | 状态 |
 | --- | --- | --- | --- | --- |
-| GET | `/api/app/sync/changes` | Bearer | `since`、`limit≤200`、`include_deleted`、`next_cursor` | 新增 |
+| GET | `/api/app/sync/changes` | Bearer | `since`(seq)、`limit≤500`、`next_seq`、`has_more` | 新增 |
 | POST | `/api/app/memos` | Bearer | `payload.client_id` 幂等 | 已有 |
 | PATCH | `/api/app/memos/:id` | Bearer | 新增 `expected_version`（或 `If-Match`） | 部分 |
-| POST | `/api/v1/attachments` | Bearer | multipart + `client_id`，25 MiB | 已有 |
+| POST | `/api/app/attachments/upload-url` | Bearer | 返回原图 + 缩略图两个直传 URL | 新增 |
+| POST | `/api/app/attachments/:id/complete` | Bearer | HEAD 校验对象落盘后置 ready | 新增 |
+| POST | `/api/v1/attachments` | Bearer | multipart + `client_id`，25 MiB（降级路径） | 已有 |
 | GET | `/api/app/instance` | 匿名可缓存 | `version` + `capabilities` | 新增 |
 | GET | `/api/v1/sse` | Bearer | `Last-Event-ID`，7 天 | 已有 |
 
-游标：`base64({u:<updated_at>,id})`，排序恒为 `(updated_at, id) ASC`，复合键保证同毫秒稳定。
+游标：**单调递增的整数 `seq`**（来自 `sync_changes.seq`），不用 `(updated_at, id)`。一个游标覆盖四类实体，跨表无需合并。
 
 ```json
-// GET /api/app/sync/changes?since=<cursor>&limit=200
+// GET /api/app/sync/changes?since=1024&limit=500
 {
   "changes": [
-    { "id": "memo_xxx", "op": "upsert", "version": 7, "updated_at": "2026-11-08T12:00:00.123Z", "memo": { "..." : "..." } },
-    { "id": "memo_yyy", "op": "delete", "version": 3, "updated_at": "2026-11-08T12:01:00.456Z" }
+    { "seq": 1025, "entity": "memo",       "id": "memo_xxx",  "op": "upsert", "version": 7, "updated_at": "2026-11-08T12:00:00.123Z" },
+    { "seq": 1026, "entity": "relation",   "id": "memo_zzz",  "op": "upsert", "version": 0, "updated_at": "2026-11-08T12:00:01.000Z" },
+    { "seq": 1027, "entity": "attachment", "id": "att_aaa",   "op": "delete", "version": 3, "updated_at": "2026-11-08T12:01:00.456Z" }
   ],
-  "next_cursor": "eyJ1Ijoi...",
+  "next_seq": 1027,
   "has_more": true
 }
 ```
 
-- 删除记录保留 **30 天**（`FLAREMO_TRASH_RETENTION_DAYS` 默认 30，之后硬删）。`since` 早于 30 天服务端返回 **410**，客户端走「全量重建」路径。
+- 返回的是**引用**，不内联正文：客户端按 `entity` 批量补正文（`POST /api/app/sync/hydrate`，一次 ≤200 个 id，返回 memo/attachment/article 三类正文）。这样一次同步响应不会被长文撑爆，弱网也不至于整轮重来。**hydrate 计入上面的「同步端点 2 人日」。**
+- 删除记录保留 **30 天**（`FLAREMO_TRASH_RETENTION_DAYS` 默认 30，之后硬删；`sync_changes` 同步裁剪）。`since` 早于裁剪点服务端返回 **410**，客户端走「全量重建」路径。
 - 前台挂 SSE 实时，断线超过 7 天或收 410 用 pull 补洞；后台一律 pull。
-- **不要**用 `GET /api/app/memos?order_by=updated_at` 当同步（分页 + CEL 限制会漏记录），它只作降级兼容。
+- **不要**用 `GET /api/app/memos?order_by=updated_at` 当同步（分页 + CEL 限制会漏记录），它只作旧实例的降级兼容。
 
 ### 4.5 冲突与幂等
 
-- **LWW + 乐观锁**，单语句原子更新：`UPDATE memos SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?`，`changes = 0` → 返回 409，客户端拉最新版本后重试。
+- **LWW + 乐观锁**，单语句原子更新：`UPDATE memos SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?`，`changes = 0` → 返回 409，客户端拉最新版本后重试。`attachments` / `articles` 同一套（都是 `version` 列）。
 - **不做字段级合并**：`content` 是整篇 Markdown，字段级合并会产出脏文本。
-- 创建幂等靠 `client_id`；附件同理。
+- **评论是 append-only**：`memos-comments.ts` 只创建评论（评论本身是一条 `memos` 行），没有编辑入口，所以不需要编辑冲突处理；删除走 memo 的软删，客户端的删除同步由 `entity=memo` + `entity=relation` 两条共同覆盖。
+- 创建幂等靠 `client_id`（`memos_user_client_id_idx`）；附件同理。
 
 ### 4.6 能力发现
 
@@ -198,8 +267,9 @@ CREATE INDEX `native_push_devices_user_idx` ON `native_push_devices` (`user_id`)
 ```json
 { "version": "0.31.0",
   "api_versions": ["app-v1"],
-  "capabilities": { "sync_changes": 1, "optimistic_lock": 1, "soft_delete_tombstone": 1,
-                    "native_push": ["apns", "fcm"], "direct_upload": 0 } }
+  "capabilities": { "sync_changes": 1, "sync_hydrate": 1, "optimistic_lock": 1,
+                    "soft_delete_tombstone": 1, "native_push": ["apns", "fcm"],
+                    "direct_upload": 1, "pat_grant": 1 } }
 ```
 
 客户端按 `capabilities` 降级：没有 `sync_changes` 就退回 `order_by=updated_at asc` 轮询；旧实例 404 不阻塞启动。
@@ -210,17 +280,35 @@ CREATE INDEX `native_push_devices_user_idx` ON `native_push_devices` (`user_id`)
 - **推荐**新建 `packages/contracts/src/openapi-app/`，照搬 `openapi-current/` 的结构：path 表手写、schema 用 `zod.toJSONSchema` 从现有 Zod 批量生成，路由加 `/api/app/openapi.json`（同缓存策略）。零路由改动。
 - 门禁：`apps/worker/src/compatibility/openapi-coverage.test.ts` 已用 Hono 路由表对 `/api/v1` 双向断言，把 `includes("/api/v1")` 扩到 `/api/app` 即可；生成物只当测试夹具，不入库。
 
-### 4.8 ASR 与推送
+### 4.8 附件直传（D9）
 
-- **ASR 放行 Bearer**：拆 `apps/worker/src/context.ts:347` 的 `getBrowserRequestContext`，抽出 `requireCookieSession`；调用点 `routes/capture-api.ts` 的 `/status`、`/ws`、`/transcribe` 与 `bridgeCapture` 回调共 4 处换成 `getRequestContext`；`/ws` 的 Origin 校验保留。
+- **路径**：`POST /api/app/attachments/upload-url` 返回 `{attachment_id, original:{url,headers}, thumbnail:{url,headers}, expires_at}`；客户端直接 `PUT` 到 R2（原图 + 640px 缩略图两个对象），完成后 `POST /api/app/attachments/:id/complete`，Worker 用 `HEAD` 校验对象存在与大小再置 `ready`。
+- **签名**：走 R2 的 S3 兼容 API + SigV4，用 WebCrypto 的 HMAC-SHA256 在 Worker 内手写签名（约 200 行）；需要新增 secret `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_ACCOUNT_ID`——**只靠 binding 签不了预签名 URL**。
+- **原生端不需要 CORS**（HTTP 客户端不受浏览器同源策略约束）；Web 端若复用该端点需要给 bucket 配 CORS，v1 不做。
+- **降级**：实例没有 `direct_upload` 能力或签名失败 → 回落 `POST /api/v1/attachments` multipart。
+- **代价**：Worker 不再承担 25MiB 流量，但多了一个可直接写的签名面——URL 必须短时（建议 10 分钟）、绑定单对象、限制大小与 content-type。
+
+### 4.9 纯 PAT 换发（D11）
+
+- `POST /connect/token` 新增 `grant_type=urn:flaremo:grant-type:pat`：客户端用用户手动创建的 PAT 换 access + refresh，供没有浏览器会话的场景（脚本、换机后只剩 PAT）。
+- 兑换时校验 PAT 的 scope（`notes` / `admin`）与撤销状态，并把令牌归因到 `app_clients`，保证「已连接应用」页能看见、能撤销。
+- 风险控制：按 PAT 限流（如每小时 N 次）、写审计、`admin` scope 的 PAT 是否允许换发需要单独确认（默认**不允许**，管理面必须走浏览器会话）。
+
+### 4.10 推送与 ASR
+
+- **ASR 放行 Bearer**：拆 `apps/worker/src/context.ts:347` 的 `getBrowserRequestContext`（首行硬拒 `authorization`），抽出 `requireCookieSession`；调用点 `routes/capture-api.ts` 的 `/status`、`/ws`、`/transcribe` 与 `bridgeCapture` 回调共 4 处换成 `getRequestContext`；`/ws` 的 Origin 校验保留。
 - **APNs**：Workers 出站 `fetch` 走 HTTP/2，可行；provider token 用 WebCrypto ES256 签，与现有 VAPID 同思路。**FCM v1**：HTTPS POST + OAuth2 JWT，同理。设备表见 §4.3。
 - **原生 v1 的语音走批量转写**（`asr/batch.ts` + `/transcribe`），不做流式 WebSocket——流式要处理 PCM 帧与断线续传，成本是批量的数倍。
 
-### 4.9 需要你拍板的三件事
+### 4.11 已定事项
 
-1. **附件是否引入 S3 直传**（需要新增凭据与签名端点）。不做的话，原生端所有附件仍经 Worker 中转，弱网上传体验差、Worker 流量计费高。
-2. **`version` 列是否也同步给 comments / attachments / articles**（目前只规划 `memos`）。
-3. **是否允许纯 PAT 续发**（`approve`/`apps` 走 cookie 会话，PAT 被 401；如要纯 PAT 续命需新增 `grant_type=pat_refresh`，可能违背接入层的安全设计）。
+原「待拍板」三项已于 2026-11-08 定案，落到 D9 / D10 / D11：
+
+1. **附件直传** ✅ 做（R2 S3 兼容 API，multipart 保留降级）。
+2. **`version` 覆盖范围** ✅ `memos` / `attachments` / `articles` 加 `version`；评论本身是 `memos` 行，自动覆盖；`memo_relations` 加 `updated_at` 参与同步。
+3. **纯 PAT 续发** ✅ 允许，新增 `grant_type`，`admin` scope 默认不开放。
+
+遗留待定：`admin` 类 PAT 是否允许换发；`sync_changes` 是否也给 `shares` / `tasks` 用（v1 不同步，任务在原生端只读或后续补）。
 
 ---
 
@@ -391,8 +479,9 @@ packages/kotlin/
 
 ### 6.8 构建、签名、更新（第四步的真实成本中心）
 
-- **Windows 产物必须在 Windows runner 上打**：GitHub Actions `windows-latest` 预装 WiX，可直接 `packageMsi`；或 Conveyor 交叉构建。
-- **Windows 代码签名是硬成本**：Azure Artifact Signing（原 Trusted Signing）约 $9.99/月，但**个人仅限美/加，机构仅限美/加/欧/英——中国个人开发者拿不到**；只能走 OV 证书（约 $200–400/年，通常需企业主体），或接受 SmartScreen 红警。
+- **Windows 产物必须在 Windows 上打**（jpackage 不能从 macOS 交叉编译）。**D12：用本地 Windows 虚拟机承担**——在 M5 Pro 上开 Windows ARM 虚拟机（Parallels/UTM，Win11 ARM + x64 模拟）跑打包、签名验证与 IME 真机验收，比等 CI 快得多；GitHub Actions `windows-latest`（预装 WiX）或 Conveyor 作为备选/发布流水线。
+  - 注意架构：ARM 虚拟机 + ARM JDK 产出 arm64 包；要出 **x64 包**需在虚拟机里装 x64 JDK（模拟执行，慢但可行），或最终交给 `windows-latest` 出 x64。
+- **Windows 代码签名是硬成本**：Azure Artifact Signing（原 Trusted Signing）约 $9.99/月，但**个人仅限美/加，机构仅限美/加/欧/英——中国个人开发者拿不到**；只能走 OV 证书（约 $200–400/年，通常需企业主体），或接受 SmartScreen 红警。**虚拟机解决构建，不解决证书。**
 - **MSIX 无第一方支持**（jpackage 只出 MSI/EXE）；Windows Store 上架 v1 不做。
 - Android 签名免费（keystore + Play App Signing）。
 
@@ -438,15 +527,16 @@ packages/kotlin/
 
 ```
 写入：本地事务写 memo + version++ → 写入 outbox(pending) → 立即返回
+附件：本地先落文件 → 取 upload-url → 直传 R2 → complete 置 ready（离线则排队）
 上送：单写者串行 POST/PATCH（带 client_id / expected_version）
-拉取：GET /sync/changes?since=<watermark> → 事务内 upsert/delete → 更新 watermark
+拉取：GET /sync/changes?since=<seq> → 取引用 → POST /sync/hydrate 补正文 → 事务内 upsert/delete → 更新 seq 水位
 冲突：409 → 拉该条最新 → 覆盖本地（LWW）或提示用户
-冷启动：watermark 为空或收到 410 → 全量对齐（分页拉全量 + 重建本地库）
+冷启动：seq 为空或收到 410 → 全量对齐（分页拉全量 + 重建本地库）
 ```
 
-- **单写者**：同一时刻只跑一个 pull 与一个 push，避免 cursor 竞态。
+- **单写者**：同一时刻只跑一个 pull 与一个 push，避免 `seq` 竞态；`seq` 是单调整数，客户端只存一个水位。
 - **本地优先**：断网可读可写；草稿与附件先落本地，联网后重放。
-- **验收**：飞行模式写 10 条 → 恢复网络 → 服务端恰好 10 条（无重复）；两台设备交替编辑同一 memo，最终一致且无脏文本。
+- **验收**：飞行模式写 10 条 → 恢复网络 → 服务端恰好 10 条（无重复）；带 1 张图与 1 条评论的完整往返；两台设备交替编辑同一 memo，最终一致且无脏文本。
 
 ### 7.6 版本兼容
 
@@ -459,13 +549,13 @@ packages/kotlin/
 
 | 里程碑 | 内容 | 估时（agent 口径） | 验收标准 |
 | --- | --- | --- | --- |
-| **M0 后端契约** | 0048 迁移、`version`、`/sync/changes`、`/instance`、`/api/app` OpenAPI、ASR Bearer、APNs/FCM、覆盖测试 | 2 周 | OpenAPI 覆盖测试全绿；curl 跑通同步往返；ASR 用 Bearer 转写成功 |
+| **M0 后端契约** | 0048 列/表、0049 触发器与回填、`/sync/changes` + `/sync/hydrate`、`/instance`、`/api/app` OpenAPI、**附件 S3 直传**、**纯 PAT 换发**、ASR Bearer、APNs/FCM、覆盖测试 | 3 周（12.5–14 人日） | OpenAPI 覆盖测试全绿；curl 跑通「同步 → hydrate → 409 冲突」；直传 PUT 成功且 complete 置 ready；PAT 换发拿到 refresh |
 | **M1 macOS** | 5 屏 + 本地库 + 同步引擎 + 菜单栏/全局热键/服务菜单/拖拽 + Sparkle + 公证 | 4–6 周 | 飞行模式可写可读；⌘⇧Space 唤起即写；DMG 公证通过；中文两字搜索正确 |
 | **M2 Android** | 同 5 屏 + `ACTION_SEND` + WorkManager + 通知 + Play 内测 | 3–5 周 | 从任意 App 分享速记；断网恢复无重复；Play 内测通过 |
 | **M3 iOS** | 复用 macOS 内核 + Share Extension + App Intents + Widget + TestFlight | 2–3 周 | 分享扩展可用；Siri 可速记；TestFlight 外部测试 |
-| **M4 Windows** | 复用 Android + `desktop-integration`（Nucleus 或 JNA）+ MSI + 自建更新 | 3–4 周 | 真机 IME 验收（中英混切/候选框）；MSI 安装升级；无 SmartScreen 红警（或已知豁免） |
+| **M4 Windows** | 复用 Android + `desktop-integration`（Nucleus 或 JNA）+ MSI（**本地 Windows 虚拟机打包**）+ 自建更新 | 3–4 周 | 虚拟机里 MSI 安装/升级跑通；IME 验收（中英混切/候选框/150% 缩放）；无 SmartScreen 红警（或已知豁免） |
 
-合计约 **14–20 周**到四端可用。**M1 之前必须完成**：Xcode 安装、Apple Developer 账号、AGPL §7 例外条款、demo 实例与演示账号。
+合计约 **15–21 周**到四端可用（M0 因三项新决定从 2 周变成 3 周）。**M1 之前必须完成**：Xcode 安装、Apple Developer 账号、AGPL §7 例外条款、demo 实例与演示账号、Windows 虚拟机。
 
 ---
 
@@ -474,7 +564,7 @@ packages/kotlin/
 | # | 风险 | 影响 | 缓解 |
 | --- | --- | --- | --- |
 | R1 | Windows IME / DPI / 字体 | 中文用户无法输入 | M4 之前先做 spike；真机验收清单化 |
-| R2 | Windows 签名拿不到（中国个人） | 安装红警、渠道受限 | 接受红警 / OV 证书 / 走开源分发不签名 |
+| R2 | Windows 签名拿不到（中国个人） | 安装红警、渠道受限 | 接受红警 / OV 证书 / 走开源分发不签名；**本地虚拟机只解决构建与联调，不解决证书** |
 | R3 | AGPL 与 App Store 冲突 | iOS 无法上架 | 加 §7 additional permission（M1 前） |
 | R4 | 搜索语义漂移 | 用户认为「搜不到」 | §7.4 三条验收 + 两端同一份查询语法 |
 | R5 | 依赖许可证 | 发布链路重做 | D7 白名单 + 每次新增依赖过 SPDX |
@@ -483,6 +573,9 @@ packages/kotlin/
 | R8 | 两栈契约漂移 | 行为不一致 | 契约只从 OpenAPI 生成；契约覆盖测试 |
 | R9 | 验证矩阵膨胀 | 每功能目检成本高 | 固定「5 屏 × zh/en × 明暗」矩阵；RTL 后置 |
 | R10 | Web 端功能继续增长 | 原生端追不上 | 明确原生端不做 parity；每季度评审一次要不要补功能 |
+| R11 | R2 签名直传暴露写入口 | 越权上传、存储滥用 | URL 10 分钟过期 + 绑定单对象 + 大小/类型白名单；未 complete 的对象由附件 GC 清理 |
+| R12 | `sync_changes` 写放大与裁剪窗口 | 同步漏记录 / 表增长 | 30 天裁剪与回收站对齐；410 触发全量重建；cron 逐 pass 隔离 |
+| R13 | Windows 虚拟机是 ARM，x64 产物仍需 x64 JDK 或 CI | 发布包架构不对 | 虚拟机内装 x64 JDK，或最终交给 `windows-latest`；打包前校验 arch |
 
 ---
 
