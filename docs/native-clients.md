@@ -364,7 +364,7 @@ SELECT `user_id`,'memo',`id`, CASE WHEN `deleted_at` IS NULL THEN 'upsert' ELSE 
 
 | # | 客户端当前做法 | 需要服务端确认的点 |
 | --- | --- | --- |
-| 1 | create 的 outbox body 带 `{id, content, visibility, source, client_id, payload, created_at, updated_at, team_id?}`，`id` 用客户端 UUIDv7 | 服务端 `createMemo` 现在**忽略客户端 id**（自己生成，只用 `payload.client_id` 做幂等）。§7.7 要求接受客户端 id，M0 要改 |
+| 1 | create 的 outbox body 带 `{id, content, visibility, source, client_id, payload, created_at, updated_at, team_id?}`，`id` 用客户端 UUIDv7 | **已于 2026-11-09 在真实 Worker 上复现**：`POST /api/app/memos` 带 `client_id` 仍返回服务端自己生成的 `memos/<uuid>`。不修的话客户端上送后本地行与服务器行是两个 id，下一次 pull 会**重复插入同一条内容**。§7.7 要求接受客户端 id，M0 必须改（这是同步可用性的一级阻塞） |
 | 2 | 乐观锁字段放在 outbox payload 的 `expected_version` | 服务端用 body 字段还是 `If-Match` header |
 | 3 | 软删 = `op:delete` + payload `{status:"trashed", deleted_at, expected_version}` | 服务端回收站是 PATCH status，push 层需要明确映射 |
 | 4 | `source` 默认 `"apple"`（≤64 字符） | 来源统计口径：`apple` / `native` / `macos` 用哪个 |
