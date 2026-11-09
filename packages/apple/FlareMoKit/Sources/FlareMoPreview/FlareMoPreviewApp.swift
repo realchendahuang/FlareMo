@@ -25,6 +25,10 @@ struct FlareMoPreviewApp {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
+        if CommandLine.arguments.contains("--reading") {
+            renderReadingSample()
+            return
+        }
         if CommandLine.arguments.contains("--detail") {
             let model = PreviewData.model
             if let first = PreviewData.memos.first { model.openDetail(memoID: first.id) }
@@ -64,6 +68,33 @@ struct FlareMoPreviewApp {
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // MARK: 阅读态样例
+
+    /// 把所有块级形态与行内样式一次性渲染出来，改渲染时先看这张。
+    @MainActor
+    private static func renderReadingSample() {
+        let size = CGSize(width: 720, height: 1400)
+        let view = ScrollView {
+            FMBlockView(markdown: FMReadingSample.markdown)
+                .padding(24)
+        }
+        .background(FMColor.background.color)
+
+        let outputDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("Temp/preview", isDirectory: true)
+        try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        for (name, appearance) in [
+            ("light", NSAppearance.Name.aqua),
+            ("dark", NSAppearance.Name.darkAqua),
+        ] {
+            let url = outputDirectory.appendingPathComponent("reading-\(name).png")
+            if snapshot(view, size: size, appearance: appearance, scale: 2, to: url) {
+                print("✓ \(url.path)")
+            }
+        }
     }
 
     // MARK: 渲染模式

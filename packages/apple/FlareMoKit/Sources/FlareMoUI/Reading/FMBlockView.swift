@@ -134,6 +134,8 @@ public struct FMBlockView: View {
             if ordered {
                 Text("\(index + 1).")
                     .font(FMReadingMetrics.body.font.monospacedDigit())
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .frame(width: FMReadingMetrics.orderedMarkerWidth(count: count), alignment: .trailing)
             } else {
                 Text("•")

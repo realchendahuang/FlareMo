@@ -93,22 +93,11 @@ public struct FMMemoDetailView: View {
     // MARK: 正文
 
     private var memoBody: some View {
-        // 阅读态用块模型渲染（FMBlockView 到位后替换这一段）。
-        // 现在先用行内 Markdown：标题/列表等块级语法会退化成纯文本，但不会画错。
-        Text(attributed)
-            .font(.system(size: 15))
-            .lineSpacing(28 - 15 * 1.2)
-            .foregroundStyle(FMColor.foreground.color)
+        // 阅读态走块模型：标题/列表/引用/代码块/分隔线/待办都按块渲染，
+        // 不是把 Markdown 当纯文本行内处理。
+        FMBlockView(markdown: memo.content)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var attributed: AttributedString {
-        var options = AttributedString.MarkdownParsingOptions()
-        options.interpretedSyntax = .inlineOnlyPreservingWhitespace
-        return (try? AttributedString(markdown: memo.content, options: options))
-            ?? AttributedString(memo.content)
     }
 
     private func tagRow(_ tags: [String]) -> some View {

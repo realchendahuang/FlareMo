@@ -106,7 +106,9 @@ public enum FMReadingMetrics {
     /// 有序列表序号列宽：按最大序号位数算，保证所有行正文起点相同、序号右对齐。
     public static func orderedMarkerWidth(count: Int) -> CGFloat {
         let digits = CGFloat(String(max(count, 1)).count)
-        return max(bulletWidth, digits * 9 + 2)
+        // 宽度要容得下「数字 + 句点」：只按数字位算的话 "1." 会折成两行，
+        // 视觉上变成数字在上、句点掉到下一行（这个坑真踩到过）。
+        return max(bulletWidth, digits * 9 + 9)
     }
 
     /// 待办复选框边长（Web `size-[15px]`）。
