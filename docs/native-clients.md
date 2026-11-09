@@ -539,6 +539,22 @@ xcrun simctl launch booted app.flaremo.ios
 
 ---
 
+### 5.7 界面快照测试与无障碍
+
+**快照测试**（`Tests/FlareMoUITests/SnapshotTests.swift`）覆盖五块关键界面：速记卡片、时间线、详情页、阅读态样例、快速捕获面板。
+
+- 基线不是 PNG，是 24×24 **RGB** 降采样的 base64（存 `SnapshotBaselines.swift`）。二进制进仓库会越来越大、review 时看不见、冲突了没法合。
+- 只比**平均通道差**（容差 3/255），不比逐字节相等：同机字体渲染稳定，但换 macOS 版本会有细微波纹。
+- 一开始用的是灰度指纹，实测**抓不到「品牌色改成灰色」**——亮度一样指纹就一样。改 RGB 后能抓到。
+- 录制：`FLAREMO_RECORD_SNAPSHOTS=1 swift test --filter SnapshotTests`，把打印的 `SNAPSHOT name=… hash=…` 抄进基线表。**重新录基线必须在提交信息里写清楚「为什么样子变了」**，否则它就是一块遮羞布。
+- 敏感性验证过：把卡片底色从 `card` 改成 `foreground`，两个快照的差异分别是 77 和 82（容差 3），一改就红。
+
+**无障碍**
+
+- 卡片是 `onTapGesture` 而不是 `Button`，读屏软件默认认不出它可点。显式加了 `accessibilityElement(children: .combine)` + `.isButton` + 一句自然语言的标签（`MemoPresentation.accessibilitySummary`：时间 → 标签 → 正文 → 评论数 → 附件 → 置顶）和 `.accessibilityAction`。
+- **不要让 VoiceOver 逐块念卡片**：时间、标签、正文是视觉排版，分开念会碎成一地，所以合并成一句。
+- 所有纯图标按钮都有 `accessibilityLabel`；输入框补了「搜索记录 / 速记内容 / 评论内容」这类说明标签；装饰性的分隔线与图标一律 `accessibilityHidden`。
+
 ## 6. Kotlin 端（Android 第二步，Windows 第四步复用）
 
 ### 6.1 工具链

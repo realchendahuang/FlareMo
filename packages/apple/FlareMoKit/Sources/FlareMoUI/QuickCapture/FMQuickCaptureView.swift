@@ -42,6 +42,7 @@ public struct FMQuickCaptureView: View {
             .padding(.bottom, 6)
 
             TextEditor(text: $text)
+                .accessibilityLabel("速记内容")
                 .font(.system(size: 15))
                 .lineSpacing(28 - 15 * 1.2)
                 .scrollContentBackground(.hidden)

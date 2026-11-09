@@ -41,6 +41,28 @@ public struct MemoPresentation: Identifiable, Hashable, Sendable {
     }
 
     /// 去掉第一行之后的剩余正文。
+    /// 读屏软件念出来的一整句话。
+    ///
+    /// 卡片是视觉排版（时间、标签、正文分块），直接让 VoiceOver 逐块念会碎成一地。
+    /// 这里按「时间 → 标签 → 正文 → 附加信息」的顺序拼成一句自然语言。
+    public var accessibilitySummary: String {
+        var parts: [String] = [MemoTimeLabel.string(for: createdAt)]
+        if !tags.isEmpty {
+            parts.append("标签 " + tags.joined(separator: "、"))
+        }
+        parts.append(content.replacingOccurrences(of: "\n", with: " "))
+        if commentCount > 0 {
+            parts.append("\(commentCount) 条评论")
+        }
+        if hasAttachment {
+            parts.append("含附件")
+        }
+        if isPinned {
+            parts.append("已置顶")
+        }
+        return parts.joined(separator: "，")
+    }
+
     public var remainder: String {
         var lines = content.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         guard !lines.isEmpty else { return "" }

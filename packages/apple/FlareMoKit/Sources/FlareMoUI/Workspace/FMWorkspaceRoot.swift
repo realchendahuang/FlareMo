@@ -193,6 +193,7 @@ public struct FMWorkspaceRoot: View {
             TextField("搜索", text: searchBinding)
                 .textFieldStyle(.plain)
                 .focused($searchFocused)
+                .accessibilityLabel("搜索记录")
                 .font(.system(size: 12.5))
                 .foregroundStyle(FMColor.foreground.color)
             if !model.searchQuery.isEmpty {
