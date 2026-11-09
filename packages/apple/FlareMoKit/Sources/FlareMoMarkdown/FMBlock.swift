@@ -25,11 +25,16 @@ public enum FMBlock: Sendable, Equatable {
     case paragraph([FMInlineSpan])
     case heading(level: Int, spans: [FMInlineSpan])
     case bulletList([[FMInlineSpan]])
-    case orderedList([[FMInlineSpan]])
+    /// `start` 是作者写的起始序号（`3. 三` → 3），从 1 开始编号会把内容改错。
+    case orderedList(start: Int, lines: [[FMInlineSpan]])
     case quote([[FMInlineSpan]])
     case codeBlock(language: String?, code: String)
     case divider
     case todo(checked: Bool, spans: [FMInlineSpan])
+    /// 作者敲出来的多余空行（一行一个块）。
+    /// 速记的「呼吸感」是作者敲出来的：Web 端 `protectLiteralLayout` 会把
+    /// `\n\n\n` 里多出来的那一行渲染成 1.75rem 高的空段落，折掉会让原生端读起来比 Web 紧。
+    case blankLine
 }
 
 /// 块 + 它的内容文本。`block` 里所有 span 的偏移都相对 `text`。
@@ -51,7 +56,7 @@ public struct FMBlockContent: Sendable, Equatable {
     public func line(at line: Int) -> (text: String, spans: [FMInlineSpan])? {
         switch block {
         case let .bulletList(lines),
-             let .orderedList(lines),
+             let .orderedList(_, lines),
              let .quote(lines):
             guard line >= 0, line < lines.count else { return nil }
             let textLines = Self.lines(of: text)
@@ -79,10 +84,10 @@ public struct FMBlockContent: Sendable, Equatable {
              let .todo(_, spans):
             return spans
         case let .bulletList(lines),
-             let .orderedList(lines),
+             let .orderedList(_, lines),
              let .quote(lines):
             return lines.flatMap { $0 }
-        case .codeBlock, .divider:
+        case .codeBlock, .divider, .blankLine:
             return []
         }
     }
@@ -98,12 +103,13 @@ extension FMBlock: CustomStringConvertible {
         case let .paragraph(spans): return "paragraph(\(spans.count) spans)"
         case let .heading(level, spans): return "heading(h\(level), \(spans.count) spans)"
         case let .bulletList(lines): return "bulletList(\(lines.count) items)"
-        case let .orderedList(lines): return "orderedList(\(lines.count) items)"
+        case let .orderedList(start, lines): return "orderedList(start: \(start), \(lines.count) items)"
         case let .quote(lines): return "quote(\(lines.count) lines)"
         case let .codeBlock(language, code):
             return "codeBlock(\(language ?? "-"), \(code.utf16.count) units)"
         case .divider: return "divider"
         case let .todo(checked, spans): return "todo(\(checked), \(spans.count) spans)"
+        case .blankLine: return "blankLine"
         }
     }
 }

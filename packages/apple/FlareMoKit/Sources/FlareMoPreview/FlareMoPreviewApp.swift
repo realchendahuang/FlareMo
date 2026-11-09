@@ -25,6 +25,10 @@ struct FlareMoPreviewApp {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
+        if CommandLine.arguments.contains("--quick") {
+            renderQuickCapture()
+            return
+        }
         if CommandLine.arguments.contains("--reading") {
             renderReadingSample()
             return
@@ -68,6 +72,32 @@ struct FlareMoPreviewApp {
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // MARK: 快速捕获面板
+
+    /// 菜单栏快速捕获面板长什么样（⌘⇧Space 呼出来的那个）。
+    @MainActor
+    private static func renderQuickCapture() {
+        let view = FMQuickCaptureView(
+            text: .constant(""),
+            onSubmit: { _ in }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: FMRadius.xl, style: .continuous))
+
+        let outputDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("Temp/preview", isDirectory: true)
+        try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        for (name, appearance) in [
+            ("light", NSAppearance.Name.aqua),
+            ("dark", NSAppearance.Name.darkAqua),
+        ] {
+            let url = outputDirectory.appendingPathComponent("quick-\(name).png")
+            if snapshot(view, size: CGSize(width: 320, height: 190), appearance: appearance, scale: 2, to: url) {
+                print("✓ \(url.path)")
+            }
+        }
     }
 
     // MARK: 阅读态样例
