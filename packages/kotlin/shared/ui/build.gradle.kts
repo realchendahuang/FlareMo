@@ -23,6 +23,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":core-model"))
             api(project(":core-db"))
+            api(project(":core-sync"))
             api(compose.runtime)
             api(compose.foundation)
             api(compose.material3)

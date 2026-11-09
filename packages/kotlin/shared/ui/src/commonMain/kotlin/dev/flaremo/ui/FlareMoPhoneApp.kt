@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +36,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import dev.flaremo.core.db.MemoRepository
 import dev.flaremo.core.model.Memo
+import dev.flaremo.core.sync.SyncController
 import dev.flaremo.ui.components.MemoCard
 import dev.flaremo.ui.theme.FlareMoTheme
 
@@ -44,12 +47,21 @@ import dev.flaremo.ui.theme.FlareMoTheme
  * 所以输入框常驻吸底、时间线在它上面滚动。对应 Apple 端 `FMPhoneRoot`。
  */
 @Composable
-fun FlareMoPhoneApp(repository: MemoRepository, modifier: Modifier = Modifier) {
+fun FlareMoPhoneApp(
+    repository: MemoRepository,
+    sync: SyncController? = null,
+    modifier: Modifier = Modifier,
+) {
     FlareMoTheme {
         val colors = FlareMoTheme.colors
         var draft by remember { mutableStateOf("") }
         // 读的就是本地库；写完立刻重读（v1 的数据量下重读是亚毫秒级）。
         var memos by remember { mutableStateOf<List<Memo>>(repository.list()) }
+        // 同步跑完（或本地条数变了）就重读本地库；v1 的数据量下重读是亚毫秒级。
+        val syncState = sync?.state?.collectAsState()?.value
+        LaunchedEffect(syncState?.lastSyncAtEpochMillis, syncState?.memoCount) {
+            memos = repository.list()
+        }
 
         Column(
             modifier = modifier
@@ -60,6 +72,7 @@ fun FlareMoPhoneApp(repository: MemoRepository, modifier: Modifier = Modifier) {
                 .safeDrawingPadding(),
         ) {
             PhoneHeader()
+            PhoneSyncStrip(sync = sync)
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(

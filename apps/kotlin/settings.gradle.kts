@@ -19,8 +19,18 @@ dependencyResolutionManagement {
 
 rootProject.name = "FlareMoKotlin"
 
-include(":androidApp", ":desktopApp", ":core-model", ":core-db", ":shared-ui")
+include(
+    ":androidApp",
+    ":desktopApp",
+    ":core-model",
+    ":core-db",
+    ":core-network",
+    ":core-sync",
+    ":shared-ui",
+)
 
 project(":core-model").projectDir = file("../../packages/kotlin/core/model")
 project(":core-db").projectDir = file("../../packages/kotlin/core/db")
+project(":core-network").projectDir = file("../../packages/kotlin/core/network")
+project(":core-sync").projectDir = file("../../packages/kotlin/core/sync")
 project(":shared-ui").projectDir = file("../../packages/kotlin/shared/ui")

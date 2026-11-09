@@ -25,6 +25,8 @@ kotlin {
             implementation(project(":core-model"))
             api(libs.androidx.sqlite)
             api(libs.androidx.sqlite.bundled)
+            api(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

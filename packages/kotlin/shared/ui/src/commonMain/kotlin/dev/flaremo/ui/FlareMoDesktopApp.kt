@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.flaremo.core.db.MemoRepository
 import dev.flaremo.core.model.Memo
+import dev.flaremo.core.sync.SyncController
 import dev.flaremo.ui.components.MemoCard
 import dev.flaremo.ui.theme.FlareMoTheme
 import androidx.compose.runtime.getValue
@@ -42,14 +45,30 @@ import androidx.compose.runtime.setValue
  * `[留白 10 | 侧栏 312 | 拖拽条 8 | 内容列 640 | 留白]`，整组居中。
  */
 @Composable
-fun FlareMoDesktopApp(repository: MemoRepository, modifier: Modifier = Modifier) {
+fun FlareMoDesktopApp(
+    repository: MemoRepository,
+    sync: SyncController? = null,
+    modifier: Modifier = Modifier,
+) {
     FlareMoTheme {
         val colors = FlareMoTheme.colors
         var memos by remember { mutableStateOf<List<Memo>>(repository.list()) }
+        val syncState = sync?.state?.collectAsState()?.value
+        LaunchedEffect(syncState?.lastSyncAtEpochMillis, syncState?.memoCount) {
+            memos = repository.list()
+        }
 
         Row(modifier = modifier.fillMaxSize().background(colors.background)) {
             Spacer(Modifier.width(10.dp))
-            Sidebar(memoCount = memos.size)
+            Column(modifier = Modifier.width(312.dp).fillMaxHeight()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    Sidebar(memoCount = memos.size)
+                }
+                SyncSidebarPanel(
+                    sync = sync,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                )
+            }
             Spacer(Modifier.width(8.dp))
             ContentColumn(
                 memos = memos,

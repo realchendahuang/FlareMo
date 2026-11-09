@@ -16,6 +16,8 @@ kotlin {
 
 dependencies {
     implementation(project(":shared-ui"))
+    implementation(project(":core-sync"))
+    implementation(project(":core-network"))
     implementation(compose.desktop.currentOs)
 }
 
