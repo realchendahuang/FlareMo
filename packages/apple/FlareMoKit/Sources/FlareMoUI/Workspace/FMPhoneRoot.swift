@@ -13,6 +13,7 @@ public struct FMPhoneRoot: View {
     @State private var path: [String] = []
     /// 全屏编辑器（写长内容用；吸底输入框只负责一句话）。
     @State private var composePresented = false
+    @State private var searchPresented = false
 
     private let model: FMAppModel
 
@@ -56,8 +57,29 @@ public struct FMPhoneRoot: View {
                 if ProcessInfo.processInfo.arguments.contains("-FLAREMO_OPEN_COMPOSE") {
                     composePresented = true
                 }
+                if ProcessInfo.processInfo.arguments.contains("-FLAREMO_OPEN_SEARCH") {
+                    searchPresented = true
+                }
             }
         #endif
+        .sheet(isPresented: $searchPresented) {
+            NavigationStack {
+                FMSearchSheet(model: model) { memo in
+                    searchPresented = false
+                    model.openDetail(memoID: memo.id)
+                    path.append(memo.id)
+                }
+                .navigationTitle("搜索")
+                #if os(iOS)
+                    .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完成") { searchPresented = false }
+                    }
+                }
+            }
+        }
         #if os(iOS)
             .fullScreenCover(isPresented: $composePresented) {
                 FMComposeSheet(text: $composerText) {
@@ -125,18 +147,31 @@ public struct FMPhoneRoot: View {
 
             Spacer(minLength: 0)
 
-            // 搜索还没做，这里先放"设置"——手机上连接实例的入口就在设置里。
-            Button {
-                settingsPresented = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 15))
-                    .foregroundStyle(FMColor.mutedForeground.color)
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
+            HStack(spacing: 4) {
+                Button {
+                    searchPresented = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 15))
+                        .foregroundStyle(FMColor.mutedForeground.color)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("搜索")
+
+                Button {
+                    settingsPresented = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 15))
+                        .foregroundStyle(FMColor.mutedForeground.color)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("设置")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("设置")
         }
         .padding(.horizontal, 16)
         .frame(height: 48)

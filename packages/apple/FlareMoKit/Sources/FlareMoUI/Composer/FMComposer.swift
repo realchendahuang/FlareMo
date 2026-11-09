@@ -1,3 +1,4 @@
+#if os(macOS)
 import FlareMoDesign
 import SwiftUI
 
@@ -187,3 +188,4 @@ public struct FMComposer: View {
         .accessibilityLabel("发送")
     }
 }
+#endif

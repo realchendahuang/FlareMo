@@ -1,3 +1,4 @@
+#if os(macOS)
 import FlareMoCore
 import FlareMoDesign
 import SwiftUI
@@ -276,3 +277,4 @@ struct FMStoreFailureNotice: View {
         }
     }
 }
+#endif
