@@ -68,6 +68,14 @@ struct FMReadingMetricsTests {
         #expect(FMReadingMetrics.orderedMarkerWidth(count: 0) >= FMReadingMetrics.bulletWidth)
     }
 
+    @Test("有序列表序号列宽要放得下「数字 + 句点」")
+    func orderedMarkerWidthFitsPeriod() {
+        // 回归：宽度曾经只按「数字位数 × 9」算，正好等于数字的宽度，
+        // 「1.」里的句点被挤到下一行（数字在上、句点掉下来）。
+        #expect(FMReadingMetrics.orderedMarkerWidth(count: 9) >= 18)
+        #expect(FMReadingMetrics.orderedMarkerWidth(count: 120) >= 27)
+    }
+
     @Test("待办复选框在 28pt 正文行高里垂直居中")
     func todoBoxInset() {
         #expect(FMReadingMetrics.todoBoxSize == 15)
