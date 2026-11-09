@@ -108,7 +108,7 @@ struct FMBlockParserBlockTests {
 
     @Test("有序列表")
     func orderedList() {
-        #expect(describe(FMBlockParser.contents(in: "1. 甲\n2. 乙")) == ["ordered[();()] text=|甲⏎乙|"])
+        #expect(describe(FMBlockParser.contents(in: "1. 甲\n2. 乙")) == ["ordered(1)[();()] text=|甲⏎乙|"])
     }
 
     @Test("待办单独成块，同级的普通项各自并成列表块")
@@ -197,5 +197,87 @@ struct FMBlockParserLineTests {
         let contents = FMBlockParser.contents(in: "普通文本")
         #expect(contents.first?.line(at: 0)?.text == "普通文本")
         #expect(contents.first?.line(at: 1) == nil)
+    }
+}
+
+@Suite("块模型：空行与有序序号")
+struct FMBlockParserWhitespaceTests {
+    @Test("一个空行是块与块的正常分隔，不产出空行块")
+    func singleBlankLine() {
+        #expect(
+            describe(FMBlockParser.contents(in: "甲\n\n乙")) == [
+                "paragraph[] text=|甲|",
+                "paragraph[] text=|乙|",
+            ]
+        )
+    }
+
+    @Test(
+        "多余空行按行产出 blankLine（Web 端也是保留作者敲出来的呼吸感）",
+        arguments: [
+            ("甲\n\n\n乙", ["paragraph[] text=|甲|", "blankLine text=||", "paragraph[] text=|乙|"]),
+            (
+                "甲\n\n\n\n乙",
+                [
+                    "paragraph[] text=|甲|",
+                    "blankLine text=||",
+                    "blankLine text=||",
+                    "paragraph[] text=|乙|",
+                ]
+            ),
+        ]
+    )
+    func extraBlankLines(source: String, expected: [String]) {
+        #expect(describe(FMBlockParser.contents(in: source)) == expected)
+    }
+
+    @Test("文档开头 / 结尾的空行不保留（顶部留白由页面决定）")
+    func leadingTrailingIgnored() {
+        #expect(
+            describe(FMBlockParser.contents(in: "\n\n甲\n\n\n乙\n\n\n")) == [
+                "paragraph[] text=|甲|",
+                "blankLine text=||",
+                "paragraph[] text=|乙|",
+            ]
+        )
+    }
+
+    @Test("列表 / 引用后面的多余空行同样保留")
+    func blankLinesAfterStructuredBlocks() {
+        #expect(
+            describe(FMBlockParser.contents(in: "- 一\n- 二\n\n\n```swift\ncode\n```")) == [
+                "bullet[();()] text=|一⏎二|",
+                "blankLine text=||",
+                "code(swift)|code text=|code|",
+            ]
+        )
+        #expect(
+            describe(FMBlockParser.contents(in: "> 引用\n\n\n段落")) == [
+                "quote[()] text=|引用|",
+                "blankLine text=||",
+                "paragraph[] text=|段落|",
+            ]
+        )
+    }
+
+    @Test("空行计数只数紧挨着块开头的那一串")
+    func blankLinesBeforeCountsOnlyAdjacentRun() {
+        let lines = "甲\n\n乙\n\n\n丙".split(separator: "\n", omittingEmptySubsequences: false)
+        // 第 6 行是「丙」，上面紧挨着两个空行（第 5、4 行）。
+        #expect(FMBlockParser.blankLinesBefore(line: 6, in: lines) == 2)
+        #expect(FMBlockParser.blankLinesBefore(line: 3, in: lines) == 1)
+        #expect(FMBlockParser.blankLinesBefore(line: 1, in: lines) == 0)
+    }
+
+    @Test("有序列表保留作者写的起始序号")
+    func orderedListStart() {
+        #expect(
+            describe(FMBlockParser.contents(in: "3. 三\n4. 四")) == ["ordered(3)[();()] text=|三⏎四|"]
+        )
+        #expect(
+            FMBlockParser.blocks(in: "9. 九\n10. 十") == [
+                .orderedList(start: 9, lines: [[], []]),
+            ]
+        )
     }
 }

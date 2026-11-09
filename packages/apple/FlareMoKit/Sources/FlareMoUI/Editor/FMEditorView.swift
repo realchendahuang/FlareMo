@@ -320,10 +320,12 @@ import SwiftUI
             }
         }
 
+        /// 与阅读态、Web 的 `.memo-markdown` 同口径：h1 20 / h2 18 / h3 16。
+        /// 编辑时看到的层级和读的时候不一致，是最容易被忽略的不一致。
         private static func headingSize(level: Int) -> CGFloat {
             switch level {
             case 1: 20
-            case 2: 17
+            case 2: 18
             case 3: 16
             default: bodyFontSize
             }

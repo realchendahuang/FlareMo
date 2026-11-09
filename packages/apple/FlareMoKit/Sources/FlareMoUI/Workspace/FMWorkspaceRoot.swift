@@ -98,7 +98,11 @@ public struct FMWorkspaceRoot: View {
                                 model.deleteMemo(openMemo.id)
                                 model.closeDetail()
                             },
-                            onAddComment: { model.addComment($0) }
+                            onAddComment: { model.addComment($0) },
+                            onTagClick: { tag in
+                                model.closeDetail()
+                                model.searchQuery = "#" + tag
+                            }
                         )
                     } else {
                         FMComposer(text: $composerText, focusSignal: composerFocusSignal) {

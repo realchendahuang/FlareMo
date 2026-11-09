@@ -60,14 +60,16 @@ func describe(_ block: FMBlock) -> String {
         return "heading(\(level))[\(describe(spans).joined(separator: ","))]"
     case let .bulletList(lines):
         return "bullet[\(describeLines(lines))]"
-    case let .orderedList(lines):
-        return "ordered[\(describeLines(lines))]"
+    case let .orderedList(start, lines):
+        return "ordered(\(start))[\(describeLines(lines))]"
     case let .quote(lines):
         return "quote[\(describeLines(lines))]"
     case let .codeBlock(language, code):
         return "code(\(language ?? "nil"))|\(code)"
     case .divider:
         return "divider"
+    case .blankLine:
+        return "blankLine"
     case let .todo(checked, spans):
         return "todo(\(checked))[\(describe(spans).joined(separator: ","))]"
     }
@@ -97,9 +99,9 @@ func inlineSpans(of block: FMBlock) -> [FMSourceSpan] {
     switch block {
     case let .paragraph(spans), let .heading(_, spans), let .todo(_, spans):
         return spans
-    case let .bulletList(lines), let .orderedList(lines), let .quote(lines):
+    case let .bulletList(lines), let .orderedList(_, lines), let .quote(lines):
         return lines.flatMap { $0 }
-    case .codeBlock, .divider:
+    case .codeBlock, .divider, .blankLine:
         return []
     }
 }

@@ -18,9 +18,8 @@ import Testing
 private let testPalette = FMReadingPalette(
     body: .black,
     secondary: .gray,
-    inlineCode: .red,
+    inlineCodeBackground: .white,
     link: .blue,
-    tag: .green,
     strikethrough: .gray,
     quoteBar: .orange,
     codeBackground: .white,
@@ -38,11 +37,22 @@ private func spans(of content: FMBlockContent) -> [FMInlineSpan] {
     switch content.block {
     case let .paragraph(spans), let .heading(_, spans), let .todo(_, spans):
         return spans
-    case let .bulletList(lines), let .orderedList(lines), let .quote(lines):
+    case let .bulletList(lines), let .orderedList(_, lines), let .quote(lines):
         return lines.flatMap { $0 }
-    case .codeBlock, .divider:
+    case .codeBlock, .divider, .blankLine:
         return []
     }
+}
+
+/// 找出「文字包含 `text`」的那一段（标签不参与分段时，它和相邻正文在同一段里）。
+private func part(containing text: String, in attributed: AttributedString) -> AttributedSubstring? {
+    for run in attributed.runs {
+        let slice = attributed[run.range]
+        if String(slice.characters).contains(text) {
+            return slice
+        }
+    }
+    return nil
 }
 
 /// 在属性字符串里找出文字正好等于 `text` 的那一段（用于取它的属性）。
@@ -131,10 +141,11 @@ struct FMReadingInlineTests {
         #expect(bold.font == Font.system(size: 15, weight: .bold))
         #expect(bold.foregroundColor == testPalette.body)
 
-        // 行内代码：等宽小一号 + 品牌色
+        // 行内代码：等宽 0.85em + muted 底，正文色不加改动（Web `bg-muted/70 text-[0.85em]`）
         let code = try #require(part(of: "码", in: attributed))
-        #expect(code.font == Font.system(size: 14, design: .monospaced))
-        #expect(code.foregroundColor == testPalette.inlineCode)
+        #expect(code.font == Font.system(size: 15 * 0.85, design: .monospaced))
+        #expect(code.backgroundColor == testPalette.inlineCodeBackground)
+        #expect(code.foregroundColor == testPalette.body)
 
         // 链接：品牌色 + 下划线 + 真的 URL
         let link = try #require(part(of: "链", in: attributed))
@@ -142,9 +153,10 @@ struct FMReadingInlineTests {
         #expect(link.underlineStyle != nil)
         #expect(link.link == URL(string: "https://a.b"))
 
-        // 标签：品牌色（不带下划线、不带链接）
-        let tag = try #require(part(of: "#标签", in: attributed))
-        #expect(tag.foregroundColor == testPalette.tag)
+        // 标签：阅读态就是普通文字（不上色、无下划线、默认不可点）——
+        // 不可点时标签不参与分段，会和相邻正文并成同一段。
+        let tag = try #require(part(containing: "#标签", in: attributed))
+        #expect(tag.foregroundColor == testPalette.body)
         #expect(tag.underlineStyle == nil)
         #expect(tag.link == nil)
 
@@ -172,6 +184,33 @@ struct FMReadingInlineTests {
         #expect(boldItalic.font == Font.system(size: 15, weight: .bold).italic())
     }
 
+    @Test("onTagClick 存在时：标签挂自定义 scheme 链接，但外观仍是普通文字")
+    func clickableTags() throws {
+        let content = FMBlockParser.contents(in: "#读书 很好")[0]
+        let attributed = FMReadingInline.attributed(
+            text: content.text,
+            spans: spans(of: content),
+            style: FMReadingMetrics.body,
+            color: testPalette.body,
+            palette: testPalette,
+            tagLinks: true
+        )
+        let tag = try #require(part(of: "#读书", in: attributed))
+        #expect(tag.link == FMReadingInline.tagLinkURL("读书"))
+        #expect(tag.foregroundColor == testPalette.body)
+        #expect(tag.underlineStyle == nil)
+    }
+
+    @Test("标签链接 scheme 双向可逆（中文、斜杠、下划线都不能丢）")
+    func tagLinkRoundTrip() throws {
+        for name in ["读书", "笔记/读书", "swift_6-2", "标签😀"] {
+            let url = try #require(FMReadingInline.tagLinkURL(name))
+            #expect(FMReadingInline.tagName(from: url) == name)
+        }
+        #expect(FMReadingInline.tagName(from: URL(string: "https://flaremo.app")!) == nil)
+        #expect(FMReadingInline.tagLinkURL("") == nil)
+    }
+
     @Test("标题里的行内代码跟着标题字号走")
     func inlineCodeInHeading() throws {
         let content = FMBlockParser.contents(in: "## 标题 `码`")[0]
@@ -184,6 +223,6 @@ struct FMReadingInlineTests {
             palette: testPalette
         )
         let code = try #require(part(of: "码", in: attributed))
-        #expect(code.font == Font.system(size: style.size - 1, design: .monospaced))
+        #expect(code.font == Font.system(size: style.size * 0.85, design: .monospaced))
     }
 }

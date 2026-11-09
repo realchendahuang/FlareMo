@@ -39,7 +39,7 @@ struct FMReadingMetricsTests {
     @Test("标题档位：1–3 级 20/17/16 semibold，4–6 级退化为正文加粗")
     func headingStyles() {
         #expect(FMReadingMetrics.heading(level: 1).size == 20)
-        #expect(FMReadingMetrics.heading(level: 2).size == 17)
+        #expect(FMReadingMetrics.heading(level: 2).size == 18)
         #expect(FMReadingMetrics.heading(level: 3).size == 16)
         for level in 1...3 {
             #expect(FMReadingMetrics.heading(level: level).weight == .semibold)
@@ -66,6 +66,22 @@ struct FMReadingMetricsTests {
         #expect(FMReadingMetrics.orderedMarkerWidth(count: 3) == FMReadingMetrics.orderedMarkerWidth(count: 9))
         #expect(FMReadingMetrics.orderedMarkerWidth(count: 120) > FMReadingMetrics.orderedMarkerWidth(count: 9))
         #expect(FMReadingMetrics.orderedMarkerWidth(count: 0) >= FMReadingMetrics.bulletWidth)
+        // 起始序号参与列宽：8. 开头的三项最大是 10，要按两位数留宽。
+        #expect(FMReadingMetrics.orderedMarkerWidth(count: 3, start: 8) > FMReadingMetrics.orderedMarkerWidth(count: 3))
+    }
+
+    @Test("空行块：前后各 12pt 块距 + 自身 4pt，合计约一行留白")
+    func blankLineSpacing() {
+        #expect(
+            FMReadingMetrics.spacing(previous: .paragraph([]), current: .blankLine)
+                == FMReadingMetrics.blockSpacing
+        )
+        #expect(
+            FMReadingMetrics.spacing(previous: .blankLine, current: .paragraph([]))
+                == FMReadingMetrics.blockSpacing
+        )
+        let total = FMReadingMetrics.blockSpacing * 2 + FMReadingMetrics.paragraphSpacing
+        #expect(total == 28)
     }
 
     @Test("有序列表序号列宽要放得下「数字 + 句点」")

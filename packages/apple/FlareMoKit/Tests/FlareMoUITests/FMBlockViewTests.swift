@@ -23,6 +23,7 @@ private func typeName(_ block: FMBlock) -> String {
     case .codeBlock: return "codeBlock"
     case .divider: return "divider"
     case .todo: return "todo"
+    case .blankLine: return "blankLine"
     }
 }
 
@@ -92,10 +93,11 @@ struct FMBlockViewTests {
         #expect(items.count == 2)
         #expect(contents[2].text == "项目一\n项目二")
 
-        guard case let .orderedList(ordered) = contents[3].block else {
+        guard case let .orderedList(start, ordered) = contents[3].block else {
             Issue.record("第四块应当是有序列表")
             return
         }
+        #expect(start == 1)
         #expect(ordered.count == 2)
         #expect(contents[3].text == "甲\n乙")
 
@@ -141,13 +143,17 @@ struct FMBlockViewTests {
     @Test("样例文档覆盖所有块类型与 1–6 级标题（预览器目检用同一份）")
     func sampleCoversEveryKind() {
         let contents = FMBlockParser.contents(in: FMReadingSample.markdown)
-        #expect(contents.count == 16)
+        #expect(contents.count == 18)
 
         #expect(
             Set(contents.map { typeName($0.block) }) == [
                 "paragraph", "heading", "bulletList", "orderedList", "quote", "codeBlock", "divider", "todo",
+                "blankLine",
             ]
         )
+
+        // 样例里那条「隔了两个空行」的段落会产出 1 个 blankLine 块。
+        #expect(contents.filter { typeName($0.block) == "blankLine" }.count == 1)
 
         let headingLevels = contents.compactMap { content -> Int? in
             guard case let .heading(level, _) = content.block else { return nil }
@@ -162,10 +168,17 @@ struct FMBlockViewTests {
         #expect(bulletCount == 3)
 
         let orderedCount = contents.compactMap { content -> Int? in
-            guard case let .orderedList(lines) = content.block else { return nil }
+            guard case let .orderedList(_, lines) = content.block else { return nil }
             return lines.count
         }.first
         #expect(orderedCount == 3)
+
+        // 样例里的有序列表从 3 开始，用来目检「起始序号被保留」。
+        let orderedStart = contents.compactMap { content -> Int? in
+            guard case let .orderedList(start, _) = content.block else { return nil }
+            return start
+        }.first
+        #expect(orderedStart == 3)
 
         let todoStates = contents.compactMap { content -> Bool? in
             guard case let .todo(checked, _) = content.block else { return nil }
@@ -173,11 +186,34 @@ struct FMBlockViewTests {
         }
         #expect(todoStates == [false, true])
 
-        // 每个块要么有文本、要么是分隔线；不能出现「块解析出来但内容全空」的漏字。
+        // 每个块要么有文本、要么是分隔线 / 空行；不能出现「块解析出来但内容全空」的漏字。
         for content in contents {
-            if case .divider = content.block { continue }
+            switch content.block {
+            case .divider, .blankLine: continue
+            default: break
+            }
             #expect(!content.text.isEmpty, "块没有内容：\(content.block)")
         }
+    }
+
+    @Test("注入的正文色与标签回调被原样存下来")
+    func injectedParameters() {
+        let view = FMBlockView(markdown: "正文", textColor: .red) { tag in
+            _ = tag
+        }
+        #expect(view.textColor == .red)
+        #expect(view.onTagClick != nil)
+
+        let plain = FMBlockView(contents: [])
+        #expect(plain.textColor == nil)
+        #expect(plain.onTagClick == nil)
+    }
+
+    @Test("多空行文档：blankLine 块能被视图吃到并求值 body")
+    func blankLinesRender() {
+        let view = FMBlockView(markdown: "第一段\n\n\n第二段")
+        #expect(view.contents.map { typeName($0.block) } == ["paragraph", "blankLine", "paragraph"])
+        _ = view.body
     }
 
     @Test("所有块类型都能安全求值 body（无异步、无状态）")

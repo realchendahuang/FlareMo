@@ -15,6 +15,14 @@
 //  - 不做代码高亮（§5.6 明写 v1 不做）。
 //  - 没有对应 case 的语法降级成文字而不是丢弃：表格每行是一段段落、图片只留 alt 文本、
 //    HTML 直接丢（Web 端 `skipHtml` 也是丢）。
+//  - 作者敲出来的多余空行保留成 `.blankLine` 块（一行一个）。Web 端靠 `protectLiteralLayout`
+//    把 `\n\n\n` 里多出来的那一行渲染成 1.75rem 的空段落；不保留的话原生端读起来会比 Web 紧。
+//  - 有序列表保留作者写的起始序号（`3. 三` 从 3 开始编号）。
+//
+//  已知降级（v1 接受，写在 `FMBlockView` 的注释里同步一份）：
+//  - 嵌套列表压平成父项文字（模型是「列表 = 每项一行」）；
+//  - 引用里的待办只剩文字，勾选状态不展示（`quote` 只有行）；
+//  - 引用里多个段落之间只有行距，没有段间距。
 //
 
 import Foundation
@@ -32,11 +40,39 @@ public enum FMBlockParser {
     public static func contents(in source: String) -> [FMBlockContent] {
         guard !source.isEmpty else { return [] }
         let document = Document(parsing: source)
+        // 空行只能从源码行里数：cmark 的 AST 把空行吃掉了，节点上只有行号范围。
+        // 规则：某个顶层块开始的那几行前面如果有 N 个空行，其中 1 个是块与块的正常分隔，
+        // 多出来的 N-1 行各产出一个 `.blankLine`。文档开头 / 结尾的空行不保留
+        // （详情页上面还有标题栏，顶部留白由页面自己决定）。
+        let lines = source.split(separator: "\n", omittingEmptySubsequences: false)
         var output: [FMBlockContent] = []
         for child in document.children {
+            if !output.isEmpty, let range = child.range {
+                let blankCount = blankLinesBefore(line: range.lowerBound.line, in: lines)
+                if blankCount > 1 {
+                    for _ in 1..<blankCount {
+                        output.append(FMBlockContent(block: .blankLine, text: ""))
+                    }
+                }
+            }
             collect(block: child, into: &output)
         }
         return output
+    }
+
+    /// 第 `line`（1 起）上面紧挨着的空行数。
+    static func blankLinesBefore(line: Int, in lines: [Substring]) -> Int {
+        var count = 0
+        var index = line - 1
+        while index >= 1, index <= lines.count {
+            if lines[index - 1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                count += 1
+                index -= 1
+            } else {
+                break
+            }
+        }
+        return count
     }
 }
 
@@ -225,9 +261,9 @@ extension FMBlockParser {
                 FMBlockContent(block: .heading(level: heading.level, spans: collector.spans), text: collector.text)
             )
         } else if let list = block as? UnorderedList {
-            collect(list: list, ordered: false, into: &output)
+            collect(list: list, ordered: false, start: 1, into: &output)
         } else if let list = block as? OrderedList {
-            collect(list: list, ordered: true, into: &output)
+            collect(list: list, ordered: true, start: Int(list.startIndex), into: &output)
         } else if let quote = block as? BlockQuote {
             var builder = LinesBuilder()
             appendQuoteBlocks(quote.children, into: &builder)
@@ -286,7 +322,7 @@ extension FMBlockParser {
 
     // MARK: 列表
 
-    static func collect(list: some BlockMarkup, ordered: Bool, into output: inout [FMBlockContent]) {
+    static func collect(list: some BlockMarkup, ordered: Bool, start: Int, into output: inout [FMBlockContent]) {
         var group: [InlineCollector] = []
         func flushGroup() {
             guard !group.isEmpty else { return }
@@ -295,7 +331,12 @@ extension FMBlockParser {
                 builder.add(collector)
             }
             output.append(
-                FMBlockContent(block: ordered ? .orderedList(builder.lines) : .bulletList(builder.lines), text: builder.text)
+                FMBlockContent(
+                    block: ordered
+                        ? .orderedList(start: start, lines: builder.lines)
+                        : .bulletList(builder.lines),
+                    text: builder.text
+                )
             )
             group.removeAll(keepingCapacity: true)
         }

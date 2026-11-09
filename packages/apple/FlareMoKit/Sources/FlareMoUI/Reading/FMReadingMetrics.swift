@@ -7,9 +7,9 @@
 //  数字不是新发明的，全部对齐 Web 端 `apps/web/src/index.css` 的 `.memo-markdown`：
 //  - 正文 15pt / 行高 28（`text-[15px] leading-7`）；
 //  - 块间距 12（`> * + *` 的 `mt-3`），段落之间 4（`p + p` 的 `mt-1`）；
-//  - 标题 h1/h2/h3 = `text-xl`/`text-lg`/`text-base`，原生端取 20/17/16 —— 其中
-//    17 与 `FMEditorStyler.headingSize` 完全一致，保证「写的时候」和「读的时候」
-//    是同一套层级，不会同一条记录在编辑态 17pt、发出后变 18pt；
+//  - 标题 h1/h2/h3 = `text-xl`/`text-lg`/`text-base` → 20/18/16。h2 的 18 是按 Web
+//    事实源定的；编辑器 `FMEditorStyler.headingSize` 目前还是 17，两处对齐留给编辑器
+//    那一轮（不在本模块顺手改，避免把光标/行高行为一起动到）；
 //  - 列表项之间 4（`li + li` 的 `mt-1`）；
 //  - 引用竖线、颜色见 `FMReadingPalette`。
 //
@@ -31,9 +31,8 @@ public enum FMReadingMetrics {
     /// 标题 1：20pt semibold（Web `text-xl`）。
     public static let heading1 = FMTextStyle(size: 20, weight: .semibold, lineHeight: 28, trackingEm: -0.02)
 
-    /// 标题 2：17pt semibold。17 不是排版阶梯里的独立档位，而是沿用
-    /// `FMEditorStyler.headingSize(level: 2)` 的原生端取值（Web 是 `text-lg` 18）。
-    public static let heading2 = FMTextStyle(size: 17, weight: .semibold, lineHeight: 26, trackingEm: -0.015)
+    /// 标题 2：18pt semibold（Web `text-lg` = 18/28 + `tracking-tight`）。
+    public static let heading2 = FMTextStyle(size: 18, weight: .semibold, lineHeight: 28, trackingEm: -0.02)
 
     /// 标题 3：16pt semibold（Web `text-base`）。
     public static let heading3 = FMTextStyle(size: 16, weight: .semibold, lineHeight: 24)
@@ -103,9 +102,11 @@ public enum FMReadingMetrics {
     /// 列表标记与正文的间距（Web `ps-6` 里序号右缘到正文的间隙）。
     public static let listMarkerSpacing: CGFloat = 8
 
-    /// 有序列表序号列宽：按最大序号位数算，保证所有行正文起点相同、序号右对齐。
-    public static func orderedMarkerWidth(count: Int) -> CGFloat {
-        let digits = CGFloat(String(max(count, 1)).count)
+    /// 有序列表序号列宽：按**最大序号**的位数算，保证所有行正文起点相同、序号右对齐。
+    /// `start` 要参与计算：`8.` 开头的三项列表最大序号是 10，得按两位数留宽。
+    public static func orderedMarkerWidth(count: Int, start: Int = 1) -> CGFloat {
+        let last = max(start + max(count, 1) - 1, start)
+        let digits = CGFloat(String(last).count)
         // 宽度要容得下「数字 + 句点」：只按数字位算的话 "1." 会折成两行，
         // 视觉上变成数字在上、句点掉到下一行（这个坑真踩到过）。
         return max(bulletWidth, digits * 9 + 9)
@@ -135,9 +136,10 @@ public enum FMReadingMetrics {
 struct FMReadingPalette: Equatable {
     let body: Color
     let secondary: Color
-    let inlineCode: Color
+    /// 行内代码的底（Web `bg-muted/70`）。AttributedString 画不出圆角与描边，
+    /// 只能先给底色；字号比例在 `FMReadingInline` 里按 0.85em 处理。
+    let inlineCodeBackground: Color
     let link: Color
-    let tag: Color
     let strikethrough: Color
     let quoteBar: Color
     let codeBackground: Color
@@ -150,13 +152,13 @@ struct FMReadingPalette: Equatable {
     let todoUncheckedFill: Color
 
     /// 跟随系统外观的 token 取色（`FMColorToken.color` 自带亮暗解析）。
-    static var standard: FMReadingPalette {
+    /// `bodyText` 是注入的正文色（详情页放在卡片底上时传 `cardForeground`）。
+    static func standard(bodyText: Color = FMColor.foreground.color) -> FMReadingPalette {
         FMReadingPalette(
-            body: FMColor.foreground.color,
+            body: bodyText,
             secondary: FMColor.mutedForeground.color,
-            inlineCode: FMColor.brand500.color,
+            inlineCodeBackground: FMColor.muted.color.opacity(0.7),
             link: FMColor.brand500.color,
-            tag: FMColor.brand500.color,
             strikethrough: FMColor.mutedForeground.color,
             quoteBar: FMColor.primary.color.opacity(0.45),
             codeBackground: FMColor.card.color,

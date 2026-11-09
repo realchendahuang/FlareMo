@@ -13,6 +13,9 @@ public struct FMMemoDetailView: View {
     private let onTogglePin: () -> Void
     private let onDelete: () -> Void
     private let onAddComment: (String) -> Void
+    /// 正文里点 `#标签`。`nil` 时标签是纯文字（不挂点击）。
+    /// 路由由 Workspace 决定：通常是「关掉详情 → 用 `#标签` 填搜索框」。
+    private let onTagClick: ((String) -> Void)?
 
     @State private var commentDraft = ""
     @FocusState private var commentFocused: Bool
@@ -23,7 +26,8 @@ public struct FMMemoDetailView: View {
         onClose: @escaping () -> Void,
         onTogglePin: @escaping () -> Void = {},
         onDelete: @escaping () -> Void = {},
-        onAddComment: @escaping (String) -> Void = { _ in }
+        onAddComment: @escaping (String) -> Void = { _ in },
+        onTagClick: ((String) -> Void)? = nil
     ) {
         self.memo = memo
         self.comments = comments
@@ -31,6 +35,7 @@ public struct FMMemoDetailView: View {
         self.onTogglePin = onTogglePin
         self.onDelete = onDelete
         self.onAddComment = onAddComment
+        self.onTagClick = onTagClick
     }
 
     public var body: some View {
@@ -95,7 +100,7 @@ public struct FMMemoDetailView: View {
     private var memoBody: some View {
         // 阅读态走块模型：标题/列表/引用/代码块/分隔线/待办都按块渲染，
         // 不是把 Markdown 当纯文本行内处理。
-        FMBlockView(markdown: memo.content)
+        FMBlockView(markdown: memo.content, onTagClick: onTagClick)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -103,15 +108,22 @@ public struct FMMemoDetailView: View {
     private func tagRow(_ tags: [String]) -> some View {
         HStack(spacing: 6) {
             ForEach(tags, id: \.self) { tag in
-                Text(tag)
-                    .font(.system(size: 12))
-                    .foregroundStyle(FMColor.primary.color.opacity(0.9))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
-                    .background {
-                        RoundedRectangle(cornerRadius: FMRadius.sm, style: .continuous)
-                            .fill(FMColor.primary.color.opacity(0.08))
-                    }
+                Button {
+                    onTagClick?(tag)
+                } label: {
+                    Text(tag)
+                        .font(.system(size: 12))
+                        .foregroundStyle(FMColor.primary.color.opacity(0.9))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background {
+                            RoundedRectangle(cornerRadius: FMRadius.sm, style: .continuous)
+                                .fill(FMColor.primary.color.opacity(0.08))
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(onTagClick == nil)
+                .accessibilityLabel("按标签 \(tag) 搜索")
             }
         }
     }
