@@ -9,15 +9,18 @@ public struct FMMemoTimeline: View {
     private let memos: [MemoPresentation]
     private let onTogglePin: ((MemoPresentation) -> Void)?
     private let onDelete: ((MemoPresentation) -> Void)?
+    private let onOpen: ((MemoPresentation) -> Void)?
 
     public init(
         memos: [MemoPresentation],
         onTogglePin: ((MemoPresentation) -> Void)? = nil,
-        onDelete: ((MemoPresentation) -> Void)? = nil
+        onDelete: ((MemoPresentation) -> Void)? = nil,
+        onOpen: ((MemoPresentation) -> Void)? = nil
     ) {
         self.memos = memos
         self.onTogglePin = onTogglePin
         self.onDelete = onDelete
+        self.onOpen = onOpen
     }
 
     public var body: some View {
@@ -27,7 +30,8 @@ public struct FMMemoTimeline: View {
                     memo: memo,
                     index: index,
                     onTogglePin: onTogglePin.map { action in { action(memo) } },
-                    onDelete: onDelete.map { action in { action(memo) } }
+                    onDelete: onDelete.map { action in { action(memo) } },
+                    onOpen: onOpen.map { action in { action(memo) } }
                 )
                     .transition(.opacity.combined(with: .offset(y: 6)))
                     .animation(

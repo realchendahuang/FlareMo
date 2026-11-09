@@ -11,6 +11,7 @@ public struct FMMemoCard: View {
     private let index: Int
     private let onTogglePin: (() -> Void)?
     private let onDelete: (() -> Void)?
+    private let onOpen: (() -> Void)?
 
     @State private var isHovering = false
     @Environment(\.colorScheme) private var colorScheme
@@ -19,12 +20,14 @@ public struct FMMemoCard: View {
         memo: MemoPresentation,
         index: Int = 0,
         onTogglePin: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        onOpen: (() -> Void)? = nil
     ) {
         self.memo = memo
         self.index = index
         self.onTogglePin = onTogglePin
         self.onDelete = onDelete
+        self.onOpen = onOpen
     }
 
     public var body: some View {
@@ -59,6 +62,8 @@ public struct FMMemoCard: View {
         }
         .fmShadow(FMShadow.xs)
         .onHover { isHovering = $0 }
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen?() }
         .animation(
             FMAnimationPolicy.animation(FMMotion.feedback),
             value: isHovering

@@ -17,6 +17,8 @@ public struct FMWorkspaceRoot: View {
     @State private var selection: FMSidebarSection = .records
     @State private var composerText = ""
     @State private var sidebarVisible = true
+    @State private var composerFocusSignal = 0
+    @FocusState private var searchFocused: Bool
 
     private let model: FMAppModel
 
@@ -56,6 +58,22 @@ public struct FMWorkspaceRoot: View {
         .fmPaperGrain()
         .animation(FMAnimationPolicy.animation(FMWorkspaceMetrics.sidebarMotion), value: sidebarVisible)
         .frame(minWidth: 780, minHeight: 520)
+        // 菜单命令在这里落地：菜单只负责写 pendingCommand，视图负责真的执行。
+        .onChange(of: model.pendingCommand) { _, command in
+            guard let command else { return }
+            switch command {
+            case .focusComposer:
+                model.closeDetail()
+                model.searchQuery = ""
+                composerFocusSignal += 1
+            case .focusSearch:
+                model.closeDetail()
+                searchFocused = true
+            case .syncNow:
+                _Concurrency.Task { await model.sync.syncNow() }
+            }
+            model.consumeCommand(command)
+        }
         // 启动即恢复上次的连接（Keychain 里有凭据就进入可同步状态）。
         .task { await model.sync.restoreSession() }
     }
@@ -68,26 +86,45 @@ public struct FMWorkspaceRoot: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    FMComposer(text: $composerText) {
-                        send()
-                    }
-
-                    if let failure = model.openFailure {
-                        FMStoreFailureNotice(message: failure) {
-                            model.refresh()
-                        }
-                    } else if model.memos.isEmpty {
-                        FMMemoTimelineEmptyState()
-                    } else {
-                        FMMemoTimeline(
-                            memos: model.memos,
-                            onTogglePin: { memo in
-                                model.setPinned(memo.id, pinned: !memo.isPinned)
+                    if !model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        searchResults
+                    } else if let openMemo = model.openMemo {
+                        FMMemoDetailView(
+                            memo: openMemo,
+                            comments: model.openMemoComments,
+                            onClose: { model.closeDetail() },
+                            onTogglePin: { model.setPinned(openMemo.id, pinned: !openMemo.isPinned) },
+                            onDelete: {
+                                model.deleteMemo(openMemo.id)
+                                model.closeDetail()
                             },
-                            onDelete: { memo in
-                                model.deleteMemo(memo.id)
-                            }
+                            onAddComment: { model.addComment($0) }
                         )
+                    } else {
+                        FMComposer(text: $composerText, focusSignal: composerFocusSignal) {
+                            send()
+                        }
+
+                        if let failure = model.openFailure {
+                            FMStoreFailureNotice(message: failure) {
+                                model.refresh()
+                            }
+                        } else if model.memos.isEmpty {
+                            FMMemoTimelineEmptyState()
+                        } else {
+                            FMMemoTimeline(
+                                memos: model.memos,
+                                onTogglePin: { memo in
+                                    model.setPinned(memo.id, pinned: !memo.isPinned)
+                                },
+                                onDelete: { memo in
+                                    model.deleteMemo(memo.id)
+                                },
+                                onOpen: { memo in
+                                    model.openDetail(memoID: memo.id)
+                                }
+                            )
+                        }
                     }
                 }
                 .padding(.bottom, 64)
@@ -149,13 +186,22 @@ public struct FMWorkspaceRoot: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
                 .foregroundStyle(FMColor.mutedForeground.color)
-            Text("搜索")
+            TextField("搜索", text: searchBinding)
+                .textFieldStyle(.plain)
+                .focused($searchFocused)
                 .font(.system(size: 12.5))
-                .foregroundStyle(FMColor.mutedForeground.color.opacity(0.9))
-            Spacer(minLength: 0)
-            Text("⌘K")
-                .font(.system(size: 10.5).monospacedDigit())
-                .foregroundStyle(FMColor.mutedForeground.color.opacity(0.7))
+                .foregroundStyle(FMColor.foreground.color)
+            if !model.searchQuery.isEmpty {
+                Button {
+                    model.searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(FMColor.mutedForeground.color)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("清空搜索")
+            }
         }
         .padding(.horizontal, 8)
         .frame(width: 168, height: 28)
@@ -164,6 +210,30 @@ public struct FMWorkspaceRoot: View {
                 .fill(FMColor.secondary.color.opacity(0.55))
         }
         .accessibilityLabel("搜索")
+    }
+}
+
+extension FMWorkspaceRoot {
+    /// `model` 是引用类型（@Observable），要手动做 Binding 才能双向绑到输入框。
+    fileprivate var searchBinding: Binding<String> {
+        Binding(get: { model.searchQuery }, set: { model.searchQuery = $0 })
+    }
+
+    /// 搜索结果。本地 FTS 命中即出，不需要网络；<3 字符由 MemoStore 自动降级 LIKE。
+    fileprivate var searchResults: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(model.searchResults.isEmpty ? "没有匹配的记录" : "\(model.searchResults.count) 条结果")
+                .font(.system(size: 12))
+                .foregroundStyle(FMColor.mutedForeground.color)
+            ForEach(model.searchResults) { memo in
+                FMMemoCard(
+                    memo: memo,
+                    onTogglePin: { model.setPinned(memo.id, pinned: !memo.isPinned) },
+                    onDelete: { model.deleteMemo(memo.id) },
+                    onOpen: { model.openDetail(memoID: memo.id) }
+                )
+            }
+        }
     }
 }
 

@@ -44,19 +44,24 @@ import SwiftUI
         private let minHeight: CGFloat
         private let maxHeight: CGFloat
         private let onFocusChange: ((Bool) -> Void)?
+        /// 每 +1 一次就抢一次焦点。SwiftUI 的 @FocusState 管不到 NSViewRepresentable，
+        /// 所以用「信号计数」这种笨但可靠的办法。
+        private let focusSignal: Int
 
         public init(
             text: Binding<String>,
             placeholder: String = "",
             minHeight: CGFloat = 44,
             maxHeight: CGFloat = 220,
-            onFocusChange: ((Bool) -> Void)? = nil
+            onFocusChange: ((Bool) -> Void)? = nil,
+            focusSignal: Int = 0
         ) {
             _text = text
             self.placeholder = placeholder
             self.minHeight = minHeight
             self.maxHeight = maxHeight
             self.onFocusChange = onFocusChange
+            self.focusSignal = focusSignal
         }
 
         public func makeCoordinator() -> Coordinator {
@@ -101,6 +106,12 @@ import SwiftUI
 
         public func updateNSView(_ scrollView: NSScrollView, context: Context) {
             guard let textView = scrollView.documentView as? NSTextView else { return }
+            if focusSignal != context.coordinator.lastFocusSignal {
+                context.coordinator.lastFocusSignal = focusSignal
+                DispatchQueue.main.async {
+                    textView.window?.makeFirstResponder(textView)
+                }
+            }
             // 只有外部真的改了内容才回写，否则每次打字都会被 updateNSView 打断光标。
             if textView.string != text {
                 context.coordinator.isApplyingExternalChange = true
@@ -122,6 +133,8 @@ import SwiftUI
             var onFocusChange: ((Bool) -> Void)?
             weak var textView: NSTextView?
             var isApplyingExternalChange = false
+            /// 上次处理过的焦点信号，用来判断这次 updateNSView 是不是新请求。
+            var lastFocusSignal = 0
 
             /// 已经上过样式的段落范围，用来算"这次改了哪几段"。
             private var styledRange: NSRange = NSRange(location: 0, length: 0)

@@ -23,10 +23,14 @@ struct FlareMoMacOSApp: App {
         .defaultSize(width: 1360, height: 860)
         .commands {
             CommandGroup(after: .newItem) {
-                Button("新建速记") {}
+                Button("新建速记") { model.pendingCommand = .focusComposer }
                     .keyboardShortcut("n", modifiers: .command)
-                Button("快速记录") {}
-                    .keyboardShortcut(" ", modifiers: [.command, .shift])
+                Button("搜索") { model.pendingCommand = .focusSearch }
+                    .keyboardShortcut("k", modifiers: .command)
+            }
+            CommandGroup(after: .saveItem) {
+                Button("立即同步") { model.pendingCommand = .syncNow }
+                    .keyboardShortcut("r", modifiers: .command)
             }
         }
 

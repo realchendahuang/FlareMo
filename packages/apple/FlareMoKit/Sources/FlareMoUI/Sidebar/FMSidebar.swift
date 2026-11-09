@@ -123,7 +123,9 @@ public struct FMSidebar: View {
 
     private var navRows: some View {
         VStack(spacing: 2) {
-            ForEach(FMSidebarSection.allCases) { section in
+            // 只列真的能切的分区：回顾 / 待办 / 文章还没做，
+            // 列出来点进去还是时间线，属于「点了没反应」，先不显示。
+            ForEach(FMSidebarSection.visible) { section in
                 FMNavRow(
                     title: section.title,
                     systemImage: section.systemImage,
@@ -193,6 +195,9 @@ public struct FMSidebarStats: Hashable, Sendable {
 
 /// 侧栏导航分区。
 public enum FMSidebarSection: String, CaseIterable, Identifiable, Sendable {
+    /// 侧栏当前真的可用的分区。每实现一个就往这里加一个。
+    public static var visible: [FMSidebarSection] { [.records] }
+
     case records
     case review
     case todos

@@ -14,6 +14,7 @@ public struct FMComposer: View {
     @Binding private var text: String
     private let placeholder: String
     private let onSend: () -> Void
+    private let focusSignal: Int
 
     @FocusState private var isFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
@@ -21,10 +22,12 @@ public struct FMComposer: View {
     public init(
         text: Binding<String>,
         placeholder: String = "记点什么…",
+        focusSignal: Int = 0,
         onSend: @escaping () -> Void
     ) {
         _text = text
         self.placeholder = placeholder
+        self.focusSignal = focusSignal
         self.onSend = onSend
     }
 
@@ -69,7 +72,8 @@ public struct FMComposer: View {
                     text: $text,
                     minHeight: 44,
                     maxHeight: 220,
-                    onFocusChange: { isFocused = $0 }
+                    onFocusChange: { isFocused = $0 },
+                    focusSignal: focusSignal
                 )
                 .frame(height: 82)
                 .padding(.horizontal, 12)

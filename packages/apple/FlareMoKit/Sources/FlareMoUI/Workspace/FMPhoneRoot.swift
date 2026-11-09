@@ -9,6 +9,8 @@ import SwiftUI
 public struct FMPhoneRoot: View {
     @State private var composerText = ""
     @State private var settingsPresented = false
+    /// 详情页导航路径（存 memo id）。
+    @State private var path: [String] = []
 
     private let model: FMAppModel
 
@@ -17,9 +19,14 @@ public struct FMPhoneRoot: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            header
-            timeline
+        NavigationStack(path: $path) {
+            VStack(spacing: 0) {
+                header
+                timeline
+            }
+            .navigationDestination(for: String.self) { memoID in
+                memoDetail(for: memoID)
+            }
         }
         // 输入条走 safeAreaInset 而不是塞进 VStack：
         // 这样它会自己躲开 Home Indicator，键盘弹起时也由系统负责抬升。
@@ -41,6 +48,37 @@ public struct FMPhoneRoot: View {
             .frame(minHeight: 460)
         }
         .task { await model.sync.restoreSession() }
+    }
+
+    // MARK: 详情
+
+    @ViewBuilder
+    private func memoDetail(for memoID: String) -> some View {
+        if let memo = model.openMemo {
+            FMMemoDetailView(
+                memo: memo,
+                comments: model.openMemoComments,
+                onClose: {
+                    model.closeDetail()
+                    if !path.isEmpty { path.removeLast() }
+                },
+                onTogglePin: { model.setPinned(memo.id, pinned: !memo.isPinned) },
+                onDelete: {
+                    model.deleteMemo(memo.id)
+                    model.closeDetail()
+                    if !path.isEmpty { path.removeLast() }
+                },
+                onAddComment: { model.addComment($0) }
+            )
+            .padding(.horizontal, 16)
+            .background(FMColor.background.color)
+            .fmPaperGrain()
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+        } else {
+            Color.clear
+        }
     }
 
     // MARK: 页头
@@ -100,6 +138,10 @@ public struct FMPhoneRoot: View {
                     },
                     onDelete: { memo in
                         model.deleteMemo(memo.id)
+                    },
+                    onOpen: { memo in
+                        model.openDetail(memoID: memo.id)
+                        path.append(memo.id)
                     }
                 )
                     .padding(.horizontal, 16)

@@ -25,6 +25,12 @@ struct FlareMoPreviewApp {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
+        if CommandLine.arguments.contains("--detail") {
+            let model = PreviewData.model
+            if let first = PreviewData.memos.first { model.openDetail(memoID: first.id) }
+            renderSnapshots(model: model, suffix: "detail")
+            return
+        }
         if CommandLine.arguments.contains("--live") {
             renderSnapshots(model: FMAppModel(), suffix: "live")
             return

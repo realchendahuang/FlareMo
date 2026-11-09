@@ -27,6 +27,22 @@ public final class FMAppModel {
     public private(set) var tags: [String] = []
     /// 待上送的操作数（离线时也会涨，用来在界面上表达"还没同步出去"）。
     public private(set) var pendingOutboxCount = 0
+    /// 搜索关键词（空串表示没在搜索）。界面直接绑到搜索框。
+    public var searchQuery: String = "" {
+        didSet { if searchQuery != oldValue { runSearch() } }
+    }
+    /// 搜索结果。为空且 `searchQuery` 非空时表示"没搜到"。
+    public private(set) var searchResults: [MemoPresentation] = []
+    /// 当前详情页展示的 memo（nil 表示没打开详情）。
+    public private(set) var openMemo: MemoPresentation?
+    /// 详情页的评论（按时间正序）。
+    public private(set) var openMemoComments: [MemoPresentation] = []
+    /// 菜单命令总线。
+    ///
+    /// SwiftUI 的 `Commands`（菜单栏）和视图不在同一棵树上，没法直接调用视图里的方法。
+    /// 用一个「待执行命令」字段过渡：菜单写它，视图读它并消费掉。
+    /// 这样菜单项都是**真的能用**的，而不是点了没反应。
+    public var pendingCommand: FMAppCommand?
     /// 打开本地库失败时的原因。非 nil 时界面显示错误态而不是空列表——
     /// 空列表会让人以为数据丢了。
     public private(set) var openFailure: String?
@@ -119,6 +135,77 @@ public final class FMAppModel {
         guard let memoStore else { return }
         do {
             try memoStore.softDelete(id: memoID)
+        } catch {
+            openFailure = String(describing: error)
+        }
+    }
+
+    /// 消费一条命令（视图处理完把它清空，避免重复触发）。
+    public func consumeCommand(_ command: FMAppCommand) {
+        if pendingCommand == command { pendingCommand = nil }
+    }
+
+    // MARK: - 详情与评论
+
+    /// 打开详情页：读本地库拿最新正文 + 评论。
+    public func openDetail(memoID: String) {
+        guard let memoStore else {
+            // 预览模式没有真库：从内存列表里找到就用它，方便看详情页的样子。
+            guard isPreview else { return }
+            openMemo = memos.first { $0.id == memoID }
+            openMemoComments = []
+            return
+        }
+        do {
+            guard let memo = try memoStore.memo(id: memoID) else {
+                openMemo = nil
+                openMemoComments = []
+                return
+            }
+            openMemo = Self.presentation(from: memo)
+            openMemoComments = try memoStore.comments(for: memoID).map(Self.presentation(from:))
+        } catch {
+            openFailure = String(describing: error)
+        }
+    }
+
+    public func closeDetail() {
+        openMemo = nil
+        openMemoComments = []
+    }
+
+    /// 给某条 memo 加评论。评论在服务端不是独立表，是 memo 行 + comment 关系；
+    /// 本地走 `createComment`，离线也能写，同步时按 relation 一起上送。
+    @discardableResult
+    public func addComment(_ content: String) -> Bool {
+        guard let memoStore, let parent = openMemo else { return false }
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        do {
+            try MemoCommentStore(database: memoStore.database, userId: memoStore.userId)
+                .createComment(memoID: parent.id, content: trimmed)
+            openDetail(memoID: parent.id)
+            return true
+        } catch {
+            openFailure = String(describing: error)
+            return false
+        }
+    }
+
+    // MARK: - 搜索
+
+    private func runSearch() {
+        guard let memoStore else {
+            searchResults = []
+            return
+        }
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            searchResults = []
+            return
+        }
+        do {
+            searchResults = try memoStore.search(query, limit: 50).memos.map(Self.presentation(from:))
         } catch {
             openFailure = String(describing: error)
         }
