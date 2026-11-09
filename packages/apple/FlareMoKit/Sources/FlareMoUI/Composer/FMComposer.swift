@@ -15,6 +15,8 @@ public struct FMComposer: View {
     private let placeholder: String
     private let onSend: () -> Void
     private let focusSignal: Int
+    /// 工具条要作用在选区上，得拿到 NSTextView。
+    @StateObject private var editorController = FMEditorController()
 
     @FocusState private var isFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
@@ -73,7 +75,8 @@ public struct FMComposer: View {
                     minHeight: 44,
                     maxHeight: 220,
                     onFocusChange: { isFocused = $0 },
-                    focusSignal: focusSignal
+                    focusSignal: focusSignal,
+                    controller: editorController
                 )
                 .frame(height: 82)
                 .padding(.horizontal, 12)
@@ -109,14 +112,17 @@ public struct FMComposer: View {
     private var toolbar: some View {
         HStack(spacing: 2) {
             // 三组以发丝线分隔：插入 / 结构 / 采集（docs/design-system.md「Composer」）
-            toolButton("bold", label: "加粗")
-            toolButton("chevron.left.forwardslash.chevron.right", label: "行内代码")
+            // 只放真的能用的：图片与语音速记还没做，先不摆出来
+            // （仓库规则：不要放未实现功能的按钮）。
+            toolButton("bold", label: "加粗") { editorController.wrap("**") }
+            toolButton("italic", label: "斜体") { editorController.wrap("*") }
+            toolButton("chevron.left.forwardslash.chevron.right", label: "行内代码") {
+                editorController.wrap("`")
+            }
             toolDivider
-            toolButton("list.bullet", label: "列表")
-            toolButton("checklist", label: "待办")
-            toolDivider
-            toolButton("photo", label: "添加图片")
-            toolButton("mic", label: "语音速记")
+            toolButton("list.bullet", label: "列表") { editorController.toggleLinePrefix("- ") }
+            toolButton("checklist", label: "待办") { editorController.toggleLinePrefix("- [ ] ") }
+            toolButton("number", label: "标签") { editorController.insert("#") }
 
             Spacer(minLength: 8)
 
@@ -133,8 +139,8 @@ public struct FMComposer: View {
         .frame(height: 40)
     }
 
-    private func toolButton(_ systemImage: String, label: String) -> some View {
-        Button {} label: {
+    private func toolButton(_ systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 12))
                 .foregroundStyle(FMColor.mutedForeground.color)

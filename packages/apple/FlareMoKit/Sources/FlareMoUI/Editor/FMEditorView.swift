@@ -47,6 +47,8 @@ import SwiftUI
         /// 每 +1 一次就抢一次焦点。SwiftUI 的 @FocusState 管不到 NSViewRepresentable，
         /// 所以用「信号计数」这种笨但可靠的办法。
         private let focusSignal: Int
+        /// 工具条通过它作用到选区上。
+        private let controller: FMEditorController?
 
         public init(
             text: Binding<String>,
@@ -54,7 +56,8 @@ import SwiftUI
             minHeight: CGFloat = 44,
             maxHeight: CGFloat = 220,
             onFocusChange: ((Bool) -> Void)? = nil,
-            focusSignal: Int = 0
+            focusSignal: Int = 0,
+            controller: FMEditorController? = nil
         ) {
             _text = text
             self.placeholder = placeholder
@@ -62,6 +65,7 @@ import SwiftUI
             self.maxHeight = maxHeight
             self.onFocusChange = onFocusChange
             self.focusSignal = focusSignal
+            self.controller = controller
         }
 
         public func makeCoordinator() -> Coordinator {
@@ -74,6 +78,7 @@ import SwiftUI
             // TextKit 2：NSTextView(usingTextLayoutManager:) 是 2 的唯一正门。
             let textView = FMFocusReportingTextView(usingTextLayoutManager: true)
             textView.delegate = context.coordinator
+            controller?.textView = textView
             textView.onFocusChange = { [weak coordinator = context.coordinator] focused in
                 coordinator?.onFocusChange?(focused)
             }
