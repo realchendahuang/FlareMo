@@ -71,6 +71,32 @@ export class FlareMoRuntime extends TypertRemoteService {
     return this.execute(async () => ({ connection: await this.connection.status() }))
   }
 
+  /** 具名实例列表（alias / 地址 / 账号 / 最后同步 / 是否 active）。 */
+  async listInstances(args) {
+    return this.execute(async () => this.connection.listInstances())
+  }
+
+  /** 切换 active 实例：之后数据面默认落到它。 */
+  async switchInstance(args) {
+    return this.execute(async () => {
+      const connection = await this.connection.switchInstance(args)
+      return { connection, instances: connection.instances, activeId: connection.activeId }
+    })
+  }
+
+  /** 改实例显示名（alias，1–40 字符、唯一）。 */
+  async renameInstance(args) {
+    return this.execute(async () => this.connection.renameInstance(args))
+  }
+
+  /** 移除一个实例（清掉它的 token 与本地状态）。 */
+  async removeInstance(args) {
+    return this.execute(async () => {
+      const connection = await this.connection.removeInstance(args)
+      return { connection, instances: connection.instances, activeId: connection.activeId }
+    })
+  }
+
   /** 校验实例地址、申请配对码。 */
   async connectStart(args) {
     return this.execute(async () => ({ connection: await this.connection.connectStart(args) }))
@@ -118,7 +144,9 @@ export class FlareMoRuntime extends TypertRemoteService {
 
   /** 跑一条洞察任务：成功写回 done，失败写回 failed。 */
   async runInsight(args) {
-    return this.execute(async () => ({ result: await this.executor.runOne(args?.id) }))
+    return this.execute(async () => ({
+      result: await this.executor.runOne(args?.id, { instance: args?.instance }),
+    }))
   }
 
   /** 批量跑 pending 队列（默认 3 条，最多 10 条，逐条串行）。 */

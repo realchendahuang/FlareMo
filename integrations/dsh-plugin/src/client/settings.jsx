@@ -29,6 +29,233 @@ function InfoRow({ label, children }) {
   )
 }
 
+/** alias 的合法区间（host 侧同样是 1–40 字符；这里先做本地校验）。 */
+const ALIAS_MAX = 40
+
+/** 本地校验 alias：返回错误文案 key，合法时返回 null。 */
+function aliasProblem(tr, value, instances, selfId) {
+  const alias = typeof value === 'string' ? value.trim() : ''
+  if (alias.length < 1 || alias.length > ALIAS_MAX) return tr('aliasInvalid')
+  const taken = instances.some(
+    (row) => row.id !== selfId && typeof row.alias === 'string' && row.alias.toLowerCase() === alias.toLowerCase(),
+  )
+  if (taken) return tr('aliasTaken')
+  return null
+}
+
+/**
+ * 「实例」分组：列出全部具名实例，支持切换 / 改名 / 移除。
+ *
+ * 只做列表与动作，配对流程仍归 ConnectForm / PairingCard；每次动作成功后由容器
+ * 重新读 connectionStatus（`flow.refresh`），所以这里的 instances 永远是 host 视图。
+ *
+ * @param {{ tr: (key: string, vars?: object) => string, instances: object[],
+ *   busyId: string | null, onSwitch: (id: string) => void,
+ *   onRename: (id: string, alias: string) => Promise<string | null>,
+ *   onRemove: (id: string) => void }} props
+ * @returns {React.ReactElement} the instance list card.
+ */
+function InstanceList({ tr, instances, busyId, onSwitch, onRename, onRemove }) {
+  const [renamingId, setRenamingId] = React.useState(null)
+  const [renameValue, setRenameValue] = React.useState('')
+  const [renameError, setRenameError] = React.useState(null)
+  const [confirmingId, setConfirmingId] = React.useState(null)
+
+  const startRename = (row) => {
+    setRenamingId(row.id)
+    setRenameValue(row.alias ?? '')
+    setRenameError(null)
+    setConfirmingId(null)
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameValue('')
+    setRenameError(null)
+  }
+
+  const submitRename = async (row) => {
+    const problem = aliasProblem(tr, renameValue, instances, row.id)
+    if (problem !== null) {
+      setRenameError(problem)
+      return
+    }
+    const failure = await onRename(row.id, renameValue.trim())
+    if (failure === null) cancelRename()
+    else setRenameError(failure)
+  }
+
+  return (
+    <section className="fm-card" data-size="sm">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ ...T.h3, color: C.text }}>{tr('instances')}</span>
+        <span className="fm-badge" data-tone="neutral">
+          {instances.length}
+        </span>
+      </div>
+      <p style={{ margin: 0, ...T.caption, color: C.textSecondary, lineHeight: '19px' }}>
+        {tr('instanceAliasHint')}
+      </p>
+
+      {instances.length === 0 ? (
+        <div style={{ ...T.caption, color: C.textSecondary }}>{tr('instancesEmpty')}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {instances.map((row, index) => {
+            const active = row.active === true
+            const busy = busyId === row.id
+            return (
+              <div
+                key={row.id}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  padding: '10px 0',
+                  borderTop: index === 0 ? 'none' : `1px solid ${C.border}`,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: '1 1 200px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          ...T.h3,
+                          color: C.text,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: '100%',
+                        }}
+                      >
+                        {row.alias || row.id}
+                      </span>
+                      {active ? (
+                        <span className="fm-badge" data-tone="neutral">
+                          {tr('instanceActive')}
+                        </span>
+                      ) : null}
+                      {row.connected === false ? (
+                        <span className="fm-badge" data-tone="warning">
+                          {tr('instanceNotConnected')}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span style={{ ...T.caption, color: C.textSecondary, overflowWrap: 'anywhere' }}>
+                      {row.instanceUrl ?? ''}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
+                    {row.connected !== false && !active ? (
+                      <button
+                        type="button"
+                        className="fm-btn"
+                        data-variant="outline"
+                        data-size="xs"
+                        disabled={busy}
+                        onClick={() => onSwitch(row.id)}
+                      >
+                        {tr('switchInstance')}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="fm-btn"
+                      data-variant="ghost"
+                      data-size="xs"
+                      disabled={busy}
+                      onClick={() => (renamingId === row.id ? cancelRename() : startRename(row))}
+                    >
+                      {tr('renameInstance')}
+                    </button>
+                    <button
+                      type="button"
+                      className="fm-btn"
+                      data-variant="destructive"
+                      data-size="xs"
+                      disabled={busy}
+                      onClick={() => {
+                        if (confirmingId === row.id) {
+                          setConfirmingId(null)
+                          onRemove(row.id)
+                        } else {
+                          setRenamingId(null)
+                          setConfirmingId(row.id)
+                        }
+                      }}
+                    >
+                      {confirmingId === row.id ? `${tr('removeInstance')}？` : tr('removeInstance')}
+                    </button>
+                    {confirmingId === row.id ? (
+                      <button
+                        type="button"
+                        className="fm-btn"
+                        data-variant="ghost"
+                        data-size="xs"
+                        onClick={() => setConfirmingId(null)}
+                      >
+                        {tr('cancel')}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {confirmingId === row.id ? (
+                  <div className="fm-alert" data-tone="warning" style={{ padding: '6px 8px', fontSize: 12 }}>
+                    {tr('removeInstanceConfirm')}
+                  </div>
+                ) : null}
+
+                {renamingId === row.id ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void submitRename(row)
+                    }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <input
+                        className="fm-input"
+                        type="text"
+                        value={renameValue}
+                        maxLength={ALIAS_MAX + 8}
+                        aria-label={tr('instanceAlias')}
+                        placeholder={tr('instanceAlias')}
+                        onChange={(event) => {
+                          setRenameValue(event.target.value)
+                          setRenameError(null)
+                        }}
+                        style={{ width: 200 }}
+                      />
+                      <button type="submit" className="fm-btn" data-variant="brand" data-size="xs" disabled={busy}>
+                        {tr('save')}
+                      </button>
+                      <button
+                        type="button"
+                        className="fm-btn"
+                        data-variant="ghost"
+                        data-size="xs"
+                        onClick={cancelRename}
+                      >
+                        {tr('cancel')}
+                      </button>
+                    </div>
+                    {renameError !== null ? (
+                      <span style={{ ...T.micro, color: C.danger, lineHeight: '17px' }}>{renameError}</span>
+                    ) : null}
+                  </form>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 /** 已连接状态卡。 */
 function ConnectedPanel({ tr, connection, disconnecting, confirming, onDisconnect }) {
   const account = connection.account ?? {}
@@ -47,6 +274,11 @@ function ConnectedPanel({ tr, connection, disconnecting, confirming, onDisconnec
           }}
         />
         <span style={{ ...T.h3, color: C.text }}>{tr('connectedTitle')}</span>
+        {connection.alias ? (
+          <span className="fm-badge" data-tone="neutral">
+            {connection.alias}
+          </span>
+        ) : null}
         <span className="fm-badge" data-tone="neutral">
           {connection.instanceUrl ?? ''}
         </span>
@@ -192,6 +424,13 @@ export function SettingsSection({ t, call }) {
   const [disconnecting, setDisconnecting] = React.useState(false)
   const [confirming, setConfirming] = React.useState(false)
   const [disconnectError, setDisconnectError] = React.useState(null)
+  /** 正在切换/改名/移除的实例 id（行内按钮置灰）。 */
+  const [busyId, setBusyId] = React.useState(null)
+  /** 切换/移除失败的错误（改名错误留在行内显示）。 */
+  const [actionError, setActionError] = React.useState(null)
+
+  const { connection, connected, pending } = flow
+  const instances = Array.isArray(connection?.instances) ? connection.instances : []
 
   const disconnect = async () => {
     if (!confirming) {
@@ -211,10 +450,64 @@ export function SettingsSection({ t, call }) {
     }
   }
 
-  const { connection, connected, pending } = flow
+  /** 切换 active 实例：host 切完，设置页重新读 connectionStatus（时间线不在这里）。 */
+  const switchTo = async (id) => {
+    setBusyId(id)
+    setActionError(null)
+    try {
+      await call('switchInstance', { id })
+      await flow.refresh()
+    } catch (failure) {
+      setActionError(asApiError(failure))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  /** 改名：本地校验 alias 后调 host；成功返回 null，失败返回可显示的文案。 */
+  const rename = async (id, alias) => {
+    setBusyId(id)
+    setActionError(null)
+    try {
+      await call('renameInstance', { id, alias })
+      await flow.refresh()
+      return null
+    } catch (failure) {
+      return translateError(tr, asApiError(failure))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const remove = async (id) => {
+    setBusyId(id)
+    setActionError(null)
+    try {
+      await call('removeInstance', { id })
+      setConfirming(false)
+      await flow.refresh()
+    } catch (failure) {
+      setActionError(asApiError(failure))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const statusErrorText = flow.statusError === null ? null : translateError(tr, flow.statusError)
   const errorText = flow.error === null ? null : translateError(tr, flow.error)
   const disconnectErrorText = disconnectError === null ? null : translateError(tr, disconnectError)
+  const actionErrorText = actionError === null ? null : translateError(tr, actionError)
+
+  const list = (
+    <InstanceList
+      tr={tr}
+      instances={instances}
+      busyId={busyId}
+      onSwitch={switchTo}
+      onRename={rename}
+      onRemove={remove}
+    />
+  )
 
   return (
     <div
@@ -255,6 +548,11 @@ export function SettingsSection({ t, call }) {
           {errorText}
         </div>
       ) : null}
+      {actionErrorText !== null ? (
+        <div className="fm-alert" data-tone="danger">
+          {actionErrorText}
+        </div>
+      ) : null}
       {disconnectErrorText !== null ? (
         <div className="fm-alert" data-tone="danger">
           {disconnectErrorText}
@@ -267,8 +565,11 @@ export function SettingsSection({ t, call }) {
           <div className="fm-skeleton" style={{ width: 160, height: 12 }} />
           <div className="fm-skeleton" style={{ width: '72%', height: 12 }} />
         </div>
-      ) : connected ? (
+      ) : null}
+
+      {connected ? (
         <>
+          {list}
           <ConnectedPanel
             tr={tr}
             connection={connection}
@@ -280,32 +581,35 @@ export function SettingsSection({ t, call }) {
         </>
       ) : null}
 
-      {!connected && pending !== null ? (
-        <PairingCard
-          tr={tr}
-          pending={pending}
-          now={flow.now}
-          polling={flow.polling}
-          onPoll={flow.pollNow}
-          onCancel={flow.cancelPairing}
-        />
-      ) : null}
-
-      {!connected && pending === null ? (
+      {connection === null || !connected ? (
         <>
-          <div>
-            <div style={{ ...T.h3, color: C.text }}>{tr('notConnectedTitle')}</div>
-            <p style={{ margin: '4px 0 0', ...T.caption, color: C.textSecondary, lineHeight: '19px' }}>
-              {tr('notConnectedHint')}
-            </p>
-          </div>
-          <ConnectForm
-            tr={tr}
-            instanceUrl={flow.instanceUrl}
-            onChange={flow.setInstanceUrl}
-            busy={flow.busy}
-            onStart={flow.startPairing}
-          />
+          {pending !== null ? (
+            <PairingCard
+              tr={tr}
+              pending={pending}
+              now={flow.now}
+              polling={flow.polling}
+              onPoll={flow.pollNow}
+              onCancel={flow.cancelPairing}
+            />
+          ) : (
+            <>
+              <div>
+                <div style={{ ...T.h3, color: C.text }}>{tr('notConnectedTitle')}</div>
+                <p style={{ margin: '4px 0 0', ...T.caption, color: C.textSecondary, lineHeight: '19px' }}>
+                  {tr('notConnectedHint')}
+                </p>
+              </div>
+              <ConnectForm
+                tr={tr}
+                instanceUrl={flow.instanceUrl}
+                onChange={flow.setInstanceUrl}
+                busy={flow.busy}
+                onStart={flow.startPairing}
+              />
+            </>
+          )}
+          {instances.length > 0 ? list : null}
         </>
       ) : null}
     </div>

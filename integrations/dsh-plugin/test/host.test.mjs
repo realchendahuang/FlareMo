@@ -14,6 +14,7 @@ import { PACKAGE, METHODS, INVOCATIONS, TYPERT_MANIFEST } from '../contract.js'
 import { FlareMoError } from '../lib/errors.js'
 import { FlareMoRuntime } from '../lib/runtime.js'
 import { ConnectionStore } from '../lib/store.js'
+import { aliasFromUrl, instanceIdFor } from '../lib/connection.js'
 import * as host from '../index.js'
 
 const NOW = Date.parse('2026-11-08T12:00:00Z')
@@ -60,22 +61,43 @@ function createRuntime({ script = [], store, model, llm } = {}) {
   return { runtime, calls, ctx }
 }
 
+/**
+ * 预置「已连接」状态（v2 多实例：一条实例记录 + activeId）。
+ * @param {{ accessToken?: string, refreshToken?: string, accessExpiresAt?: string }} [options]
+ * @returns {object} v2 state payload.
+ */
+function seededState(options = {}) {
+  const id = instanceIdFor(INSTANCE)
+  return {
+    version: 2,
+    activeId: id,
+    instances: [
+      {
+        id,
+        alias: aliasFromUrl(INSTANCE),
+        instanceUrl: INSTANCE,
+        accessToken: options.accessToken ?? 'access-1',
+        refreshToken: options.refreshToken ?? 'refresh-1',
+        scope: 'notes',
+        accessExpiresAt: options.accessExpiresAt ?? new Date(NOW + 7 * 24 * 3600_000).toISOString(),
+        account: { id: 'u1', name: 'Kim' },
+        connectedAt: new Date(NOW).toISOString(),
+        lastSyncAt: new Date(NOW).toISOString(),
+      },
+    ],
+  }
+}
+
+/** 取 active 实例记录（v2 状态）。 */
+function activeOf(state) {
+  return state.instances.find((row) => row.id === state.activeId)
+}
+
 /** 预置「已连接」状态。 */
 async function seededRuntime({ script = [], model } = {}) {
   const ctx = new Context()
   const store = new ConnectionStore(ctx)
-  await store.write({
-    version: 1,
-    instanceUrl: INSTANCE,
-    accessToken: 'access-1',
-    refreshToken: 'refresh-1',
-    tokenType: 'Bearer',
-    scope: 'notes',
-    accessExpiresAt: new Date(NOW + 7 * 24 * 3600_000).toISOString(),
-    account: { id: 'u1', name: 'Kim' },
-    connectedAt: new Date(NOW).toISOString(),
-    lastSyncAt: new Date(NOW).toISOString(),
-  })
+  await store.write(seededState({ accessToken: 'access-1', refreshToken: 'refresh-1' }))
   const { fetchImpl, calls } = scriptedFetch(script)
   const runtime = new FlareMoRuntime(ctx, { fetchImpl, clock, store, model })
   return { runtime, calls, ctx, store }
@@ -181,7 +203,8 @@ test('connectStart：请求 /connect/device 并保存配对码', async () => {
   assert.equal(result.connection.connected, false)
   assert.equal(result.connection.pending.userCode, 'ABCD2345')
   assert.equal(result.connection.pending.intervalSeconds, 5)
-  assert.equal(result.connection.instanceUrl, INSTANCE, '末尾斜杠应被去掉')
+  assert.equal(result.connection.pending.instanceUrl, INSTANCE, '末尾斜杠应被去掉')
+  assert.equal(result.connection.pending.alias, aliasFromUrl(INSTANCE), '应带默认 alias')
 
   assert.equal(calls.length, 1)
   assert.equal(calls[0].url.pathname, '/connect/device')
@@ -190,7 +213,8 @@ test('connectStart：请求 /connect/device 并保存配对码', async () => {
 
   const state = await runtime.connection.readState()
   assert.equal(state.pending.deviceCode, 'device-1')
-  assert.equal(state.accessToken, undefined, '发起配对不该留下旧 token')
+  assert.equal(state.pending.instanceUrl, INSTANCE)
+  assert.equal(state.instances.length, 0, '发起配对不该凭空产生实例')
 })
 
 test('connectPoll：authorization_pending → status=pending', async () => {
@@ -275,10 +299,13 @@ test('connectPoll：批准后保存 token + 账号，且响应里没有 token', 
   assert.doesNotMatch(wire, /access-9|refresh-9/)
 
   const state = await runtime.connection.readState()
-  assert.equal(state.accessToken, 'access-9')
-  assert.equal(state.refreshToken, 'refresh-9')
-  assert.equal(state.scope, 'notes')
-  assert.ok(state.accessExpiresAt, '应记录 access token 过期时间')
+  const active = activeOf(state)
+  assert.equal(active.accessToken, 'access-9')
+  assert.equal(active.refreshToken, 'refresh-9')
+  assert.equal(active.scope, 'notes')
+  assert.ok(active.accessExpiresAt, '应记录 access token 过期时间')
+  assert.equal(active.instanceUrl, INSTANCE)
+  assert.equal(state.activeId, active.id)
 })
 
 test('connectCancel：清掉进行中的配对，状态回到未连接', async () => {
@@ -404,8 +431,9 @@ test('401：刷新 token 后用新 token 重试一次，并保存轮换后的一
   assert.equal(calls[2].headers.authorization, 'Bearer access-2')
 
   const state = await store.read()
-  assert.equal(state.accessToken, 'access-2')
-  assert.equal(state.refreshToken, 'refresh-2')
+  const active = activeOf(state)
+  assert.equal(active.accessToken, 'access-2')
+  assert.equal(active.refreshToken, 'refresh-2')
 })
 
 test('refresh 返回 invalid_grant → AUTH_EXPIRED 并断开连接', async () => {
@@ -418,7 +446,9 @@ test('refresh 返回 invalid_grant → AUTH_EXPIRED 并断开连接', async () =
   const result = await runtime.listNotes({})
   assert.equal(result.ok, false)
   assert.equal(result.code, 'AUTH_EXPIRED')
-  assert.equal(await store.read(), undefined, '失效后应删掉连接记录')
+  const state = await store.read()
+  assert.equal(state.instances.length, 1, '实例记录要留着，方便重新配对')
+  assert.equal(activeOf(state).accessToken, undefined, '失效后应清掉 token')
 
   const status = await runtime.connectionStatus({})
   assert.equal(status.connection.connected, false)
@@ -428,13 +458,7 @@ test('临近过期时先刷新再请求（不先撞 401）', async () => {
   const ctx = new Context()
   const store = new ConnectionStore(ctx)
   const soon = new Date(NOW + 10_000).toISOString()
-  await store.write({
-    version: 1,
-    instanceUrl: INSTANCE,
-    accessToken: 'stale',
-    refreshToken: 'refresh-1',
-    accessExpiresAt: soon,
-  })
+  await store.write(seededState({ accessToken: 'stale', refreshToken: 'refresh-1', accessExpiresAt: soon }))
   const { fetchImpl, calls } = scriptedFetch([
     () =>
       jsonResponse(200, {
@@ -543,7 +567,7 @@ test('disconnect：清掉本地凭据', async () => {
 test('网络错误折成 NETWORK，不泄漏异常类型', async () => {
   const ctx = new Context()
   const store = new ConnectionStore(ctx)
-  await store.write({ version: 1, instanceUrl: INSTANCE, accessToken: 'a', refreshToken: 'r', accessExpiresAt: new Date(NOW + 7 * 24 * 3600_000).toISOString() })
+  await store.write(seededState({ accessToken: 'a', refreshToken: 'r' }))
   const runtime = new FlareMoRuntime(ctx, {
     fetchImpl: async () => {
       throw new TypeError('fetch failed')
@@ -716,4 +740,210 @@ test('/flaremo insight：未连接时给出清晰错误，而不是静默成功'
   const result = await commands[0].handler({ rawInput: 'insight', attachments: [], signal: new AbortController().signal })
   assert.equal(result.kind, 'error')
   assert.match(result.text, /还没有连接|NOT_CONNECTED/)
+})
+
+
+// ── 多实例（具名切换）──────────────────────────────────────────────
+
+const SECOND = 'https://second.example.com'
+
+/**
+ * 造一个两条实例的状态：A（INSTANCE）+ B（SECOND），active 默认 A。
+ * @param {{ activeId?: string }} [options]
+ * @returns {object} v2 state payload.
+ */
+function twoInstanceState(options = {}) {
+  const first = seededState().instances[0]
+  const secondId = instanceIdFor(SECOND)
+  return {
+    version: 2,
+    activeId: options.activeId ?? first.id,
+    instances: [
+      first,
+      {
+        id: secondId,
+        alias: aliasFromUrl(SECOND),
+        instanceUrl: SECOND,
+        accessToken: 'access-b',
+        refreshToken: 'refresh-b',
+        scope: 'notes',
+        accessExpiresAt: new Date(NOW + 7 * 24 * 3600_000).toISOString(),
+        account: { id: 'u2', name: 'Second' },
+        connectedAt: new Date(NOW).toISOString(),
+        lastSyncAt: new Date(NOW).toISOString(),
+      },
+    ],
+  }
+}
+
+/** 只返回一条空笔记列表的 fetch handler。 */
+function emptyListHandler() {
+  return () => jsonResponse(200, { memos: [], next_page_token: undefined })
+}
+
+test('listInstances：返回具名列表与 activeId，不含 token', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  await store.write(twoInstanceState())
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl: async () => jsonResponse(200, {}), clock, store })
+  const result = await runtime.listInstances({})
+  assert.equal(result.ok, true)
+  assert.equal(result.instances.length, 2)
+  assert.equal(result.activeId, instanceIdFor(INSTANCE))
+  assert.deepEqual(
+    result.instances.map((row) => row.alias),
+    [aliasFromUrl(INSTANCE), aliasFromUrl(SECOND)],
+  )
+  assert.equal(result.instances[1].connected, true)
+  assert.equal(result.instances[1].active, false)
+  assert.doesNotMatch(JSON.stringify(result), /access-b|refresh-b/)
+})
+
+test('switchInstance：切 active 后数据面落到新实例', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  await store.write(twoInstanceState())
+  const { fetchImpl, calls } = scriptedFetch([emptyListHandler()])
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl, clock, store })
+
+  const switched = await runtime.switchInstance({ id: instanceIdFor(SECOND) })
+  assert.equal(switched.ok, true)
+  assert.equal(switched.connection.activeId, instanceIdFor(SECOND))
+  assert.equal(switched.connection.alias, aliasFromUrl(SECOND))
+  assert.equal(switched.connection.connected, true)
+
+  const listed = await runtime.listNotes({})
+  assert.equal(listed.ok, true)
+  assert.equal(calls[0].url.host, 'second.example.com', '数据请求应落到切换后的实例')
+  assert.equal(calls[0].headers.authorization, 'Bearer access-b')
+})
+
+test('switchInstance：id 不存在 → INSTANCE_NOT_FOUND', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  await store.write(twoInstanceState())
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl: async () => jsonResponse(200, {}), clock, store })
+  const result = await runtime.switchInstance({ id: 'inst_nope' })
+  assert.equal(result.ok, false)
+  assert.equal(result.code, 'INSTANCE_NOT_FOUND')
+})
+
+test('renameInstance：改名成功 / 重名 → ALIAS_TAKEN / 空名 → INVALID_ALIAS', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  await store.write(twoInstanceState())
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl: async () => jsonResponse(200, {}), clock, store })
+
+  const renamed = await runtime.renameInstance({ id: instanceIdFor(SECOND), alias: 'kosx' })
+  assert.equal(renamed.ok, true)
+  assert.equal(renamed.instances.find((row) => row.id === instanceIdFor(SECOND)).alias, 'kosx')
+
+  const taken = await runtime.renameInstance({ id: instanceIdFor(SECOND), alias: 'kosx'.toUpperCase() })
+  assert.equal(taken.ok, true, '同名实例自己改名（大小写不同）不算冲突')
+
+  const conflict = await runtime.renameInstance({ id: instanceIdFor(SECOND), alias: aliasFromUrl(INSTANCE) })
+  assert.equal(conflict.ok, false)
+  assert.equal(conflict.code, 'ALIAS_TAKEN')
+
+  const empty = await runtime.renameInstance({ id: instanceIdFor(SECOND), alias: '   ' })
+  assert.equal(empty.ok, false)
+  assert.equal(empty.code, 'INVALID_ALIAS')
+})
+
+test('removeInstance：移除非 active 不影响当前；移除 active 自动顶上下一个；最后一条清记录', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  await store.write(twoInstanceState())
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl: async () => jsonResponse(200, {}), clock, store })
+
+  const removedSecond = await runtime.removeInstance({ id: instanceIdFor(SECOND) })
+  assert.equal(removedSecond.ok, true)
+  assert.equal(removedSecond.connection.activeId, instanceIdFor(INSTANCE), 'active 不变')
+  assert.equal(removedSecond.connection.instances.length, 1)
+
+  const removedActive = await runtime.removeInstance({ id: instanceIdFor(INSTANCE) })
+  assert.equal(removedActive.ok, true)
+  assert.equal(removedActive.connection.connected, false)
+  assert.equal(removedActive.connection.instances.length, 0)
+  assert.equal(await store.read(), undefined, '最后一条移除后记录整体清掉')
+})
+
+test('connectStart：只新增 pending，不动其它实例', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  await store.write(twoInstanceState())
+  const { fetchImpl } = scriptedFetch([
+    () =>
+      jsonResponse(200, {
+        device_code: 'device-2',
+        user_code: 'WXYZ9876',
+        verification_uri: `${SECOND}/connect`,
+        expires_in: 300,
+        interval: 5,
+      }),
+  ])
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl, clock, store })
+  const result = await runtime.connectStart({ instanceUrl: 'https://third.example.com', alias: 'local' })
+  assert.equal(result.ok, true)
+  assert.equal(result.connection.pending.alias, 'local')
+  assert.equal(result.connection.instances.length, 2, '原有两条实例不能被清掉')
+  assert.equal(result.connection.connected, true, '当前 active 实例仍然可用')
+})
+
+test('每实例独立刷新：一个实例 401 不影响另一个实例的 token', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  const state = twoInstanceState()
+  state.instances[0].accessToken = 'access-a'
+  state.instances[0].refreshToken = 'refresh-a'
+  state.instances[0].accessExpiresAt = new Date(NOW + 10_000).toISOString()
+  await store.write(state)
+
+  // 只给 A 的刷新脚本；B 不应该发任何请求。
+  const { fetchImpl, calls } = scriptedFetch([
+    () =>
+      jsonResponse(200, {
+        access_token: 'access-a2',
+        refresh_token: 'refresh-a2',
+        expires_in: 1209600,
+        scope: 'notes',
+      }),
+    () => jsonResponse(200, { memos: [] }),
+  ])
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl, clock, store })
+  const result = await runtime.listNotes({})
+  assert.equal(result.ok, true)
+  assert.equal(calls[0].url.pathname, '/connect/token')
+  assert.equal(calls[1].headers.authorization, 'Bearer access-a2')
+
+  const after = await store.read()
+  assert.equal(activeOf(after).accessToken, 'access-a2')
+  const second = after.instances.find((row) => row.id === instanceIdFor(SECOND))
+  assert.equal(second.accessToken, 'access-b', '另一个实例的 token 不能被顺手改掉')
+  assert.equal(second.refreshToken, 'refresh-b')
+})
+
+test('v1 单实例状态：自动迁移成一条具名实例', async () => {
+  const ctx = new Context()
+  const store = new ConnectionStore(ctx)
+  // 绕过 store.write（它总是写 v2），模拟磁盘上还留着旧版本记录。
+  store.memory = {
+    version: 1,
+    instanceUrl: INSTANCE,
+    accessToken: 'legacy',
+    refreshToken: 'legacy-refresh',
+    accessExpiresAt: new Date(NOW + 7 * 24 * 3600_000).toISOString(),
+    account: { id: 'u1', name: 'Kim' },
+    connectedAt: new Date(NOW).toISOString(),
+  }
+  const runtime = new FlareMoRuntime(ctx, { fetchImpl: async () => jsonResponse(200, { memos: [] }), clock, store })
+  const status = await runtime.connectionStatus({})
+  assert.equal(status.connection.connected, true)
+  assert.equal(status.connection.instanceUrl, INSTANCE)
+  assert.equal(status.connection.alias, aliasFromUrl(INSTANCE))
+  assert.equal(status.connection.instances.length, 1)
+
+  const state = await runtime.connection.readState()
+  assert.equal(state.version, 2)
+  assert.equal(activeOf(state).accessToken, 'legacy')
 })

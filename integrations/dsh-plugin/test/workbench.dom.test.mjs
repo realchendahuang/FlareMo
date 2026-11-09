@@ -54,34 +54,97 @@ const NOTE = {
   commentCount: 2,
 }
 
-/** 假 remote handle：方法返回真实的双层信封。 */
+/** 假 remote handle：方法返回真实的双层信封（含多实例的 instances / activeId）。 */
 function createHandle({ connected }) {
   const calls = []
+  /** 两条具名实例；active 由 switchInstance 改写。 */
+  const instances = [
+    {
+      id: 'inst-kosx',
+      alias: 'kosx',
+      instanceUrl: 'https://notes.example.com',
+      account: { id: 'u1', name: 'Kim' },
+      connected: true,
+      connectedAt: '2026-11-01T10:00:00Z',
+      lastSyncAt: '2026-11-08T10:00:00Z',
+    },
+    {
+      id: 'inst-saas',
+      alias: 'saas',
+      instanceUrl: 'https://saas.example.com',
+      account: { id: 'u2', name: 'Kim' },
+      connected: true,
+      connectedAt: '2026-11-02T10:00:00Z',
+      lastSyncAt: '2026-11-07T10:00:00Z',
+    },
+  ]
+  let activeId = 'inst-kosx'
+
+  const instanceRows = () => instances.map((row) => ({ ...row, active: row.id === activeId }))
+  const activeRow = () => instances.find((row) => row.id === activeId) ?? null
+  const connectionView = () => {
+    if (!connected) {
+      return { connected: false, instanceUrl: null, account: null, pending: null, activeId: null, instances: [] }
+    }
+    const row = activeRow()
+    return {
+      connected: true,
+      instanceUrl: row?.instanceUrl ?? null,
+      instanceId: row?.id ?? null,
+      alias: row?.alias ?? null,
+      account: row?.account ?? null,
+      scope: 'notes',
+      lastSyncAt: row?.lastSyncAt ?? null,
+      connectedAt: row?.connectedAt ?? null,
+      accessExpiresAt: '2026-11-15T10:00:00Z',
+      activeId,
+      instances: instanceRows(),
+      pending: null,
+    }
+  }
+
   const handle = {
     async connectionStatus(args) {
       calls.push({ method: 'connectionStatus', args })
+      return { ok: true, value: { ok: true, connection: connectionView() } }
+    },
+    async listInstances(args) {
+      calls.push({ method: 'listInstances', args })
+      return { ok: true, value: { ok: true, instances: instanceRows(), activeId } }
+    },
+    async switchInstance(args) {
+      calls.push({ method: 'switchInstance', args })
+      if (instances.some((row) => row.id === args?.id)) activeId = args.id
       return {
         ok: true,
-        value: {
-          ok: true,
-          connection: connected
-            ? {
-                connected: true,
-                instanceUrl: 'https://notes.example.com',
-                account: { id: 'u1', name: 'Kim' },
-                scope: 'notes',
-                lastSyncAt: '2026-11-08T10:00:00Z',
-                connectedAt: '2026-11-01T10:00:00Z',
-                accessExpiresAt: '2026-11-15T10:00:00Z',
-                pending: null,
-              }
-            : { connected: false, instanceUrl: null, account: null, pending: null },
-        },
+        value: { ok: true, connection: connectionView(), instances: instanceRows(), activeId },
+      }
+    },
+    async renameInstance(args) {
+      calls.push({ method: 'renameInstance', args })
+      const row = instances.find((item) => item.id === args?.id)
+      if (row !== undefined && typeof args?.alias === 'string') row.alias = args.alias
+      return { ok: true, value: { ok: true, instances: instanceRows(), activeId } }
+    },
+    async removeInstance(args) {
+      calls.push({ method: 'removeInstance', args })
+      const index = instances.findIndex((item) => item.id === args?.id)
+      if (index >= 0) {
+        instances.splice(index, 1)
+        if (activeId === args.id) activeId = instances[0]?.id ?? null
+      }
+      return {
+        ok: true,
+        value: { ok: true, connection: connectionView(), instances: instanceRows(), activeId },
       }
     },
     async listNotes(args) {
       calls.push({ method: 'listNotes', args })
-      return { ok: true, value: { ok: true, notes: [NOTE] } }
+      const note =
+        activeId === 'inst-saas'
+          ? { ...NOTE, id: 'real-2', title: 'SaaS 实例笔记', excerpt: '来自第二个实例的笔记' }
+          : NOTE
+      return { ok: true, value: { ok: true, notes: [note] } }
     },
     async searchNotes(args) {
       calls.push({ method: 'searchNotes', args })
@@ -140,6 +203,9 @@ function mountPanel({ connected }) {
   const documentStub = {
     getElementById: (id) => nodes.find((node) => node.id === id) ?? null,
     createElement: () => ({ id: '', textContent: '', parentNode: null }),
+    // 切换器会挂全局 pointerdown / keydown 监听；假的 document 也要有这个面。
+    addEventListener: () => {},
+    removeEventListener: () => {},
     head,
   }
   const windowStub = { innerWidth: 1440, __ModuleLoader__: { load: (row) => (entry = row) } }
@@ -298,4 +364,114 @@ test('RPC 不可用：显示连接引导与错误提示，不白屏、不放假�
   assert.doesNotMatch(text, /示例数据/)
   await act(async () => root.unmount())
   container.remove()
+})
+
+/** 渲染面板但保留容器，供交互测试用（effect 跑完后返回 settle/cleanup）。 */
+async function renderPanel({ connected }) {
+  const { component, face, calls } = mountPanel({ connected })
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const root = createRoot(container)
+  await act(async () => {
+    root.render(
+      React.createElement(component, { t: undefined, call: face.call, openConversation: face.openConversation }),
+    )
+  })
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const settle = async (rounds = 2) => {
+    for (let index = 0; index < rounds; index += 1) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+    }
+  }
+  const cleanup = async () => {
+    await act(async () => root.unmount())
+    container.remove()
+  }
+  return { container, calls, settle, cleanup }
+}
+
+test('已连接：顶栏出现实例切换器并渲染当前实例 alias', async () => {
+  const { container, cleanup } = await renderPanel({ connected: true })
+  const trigger = container.querySelector('button[aria-haspopup="menu"]')
+  assert.ok(trigger, '已连接时应渲染实例切换器')
+  assert.match(trigger.textContent, /kosx/)
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false')
+  assert.equal(container.querySelector('[role="menu"]'), null, '菜单默认收起')
+  await cleanup()
+})
+
+test('切换器：点开菜单选另一个实例 → switchInstance 后重新拉新实例笔记', async () => {
+  const { container, calls, settle, cleanup } = await renderPanel({ connected: true })
+
+  const trigger = container.querySelector('button[aria-haspopup="menu"]')
+  await act(async () => {
+    trigger.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+  })
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true')
+  const menu = container.querySelector('[role="menu"]')
+  assert.ok(menu, '点开后应出现实例菜单')
+  assert.match(menu.textContent, /kosx/)
+  assert.match(menu.textContent, /saas/)
+  assert.match(menu.textContent, /saas\.example\.com/)
+
+  const row = [...menu.querySelectorAll('button[role="menuitem"]')].find((button) =>
+    button.textContent.includes('saas'),
+  )
+  assert.ok(row, '菜单里应有一行 saas')
+  await act(async () => {
+    row.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+  })
+  await settle()
+
+  const switched = calls.find((call) => call.method === 'switchInstance')
+  assert.ok(switched, '点击非 active 行应调 switchInstance')
+  assert.equal(switched.args.id, 'inst-saas') // bundle 在另一个 realm，只比字段
+  assert.equal(calls.filter((call) => call.method === 'listNotes').length, 2, '切换后应重新拉笔记')
+  assert.match(container.textContent, /SaaS 实例笔记/, '时间线应跟随 active 实例')
+  assert.equal(container.querySelector('[role="menu"]'), null, '切换后菜单收起')
+  await cleanup()
+})
+
+test('未连接：不显示实例切换器（仍是连接引导）', async () => {
+  const { container, cleanup } = await renderPanel({ connected: false })
+  assert.equal(container.querySelector('button[aria-haspopup="menu"]'), null)
+  assert.match(container.textContent, /连接 FlareMo 实例/)
+  assert.match(container.textContent, /生成配对码/)
+  await cleanup()
+})
+
+test('切换器「添加实例」→ 连接引导带「返回工作台」，返回后回到三栏', async () => {
+  const { container, settle, cleanup } = await renderPanel({ connected: true })
+
+  const trigger = container.querySelector('button[aria-haspopup="menu"]')
+  await act(async () => {
+    trigger.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+  })
+  const addRow = [...container.querySelectorAll('button[role="menuitem"]')].find((button) =>
+    button.textContent.includes('添加实例'),
+  )
+  assert.ok(addRow, '菜单底部应有「添加实例」')
+  await act(async () => {
+    addRow.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+  })
+  await settle()
+
+  assert.match(container.textContent, /返回工作台/)
+  assert.ok(container.querySelector('input'), '添加实例应出现实例地址输入框')
+  assert.ok(container.querySelector('button[aria-haspopup="menu"]'), '添加实例时切换器仍在')
+
+  const back = [...container.querySelectorAll('button')].find((button) =>
+    button.textContent.includes('返回工作台'),
+  )
+  await act(async () => {
+    back.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+  })
+  await settle()
+  assert.match(container.textContent, /时间线/)
+  assert.match(container.textContent, /真实笔记：设备授权/)
+  await cleanup()
 })

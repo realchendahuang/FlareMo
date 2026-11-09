@@ -21,11 +21,15 @@ export const SERVICE_EXPORT_NAME = 'FlareMoRuntime'
 /**
  * 服务方法 = wire 方法。顺序也是文档顺序。
  *
- * connectionStatus  连接状态（不含 token）
- * connectStart      校验实例 URL 并发起设备授权，返回配对码
+ * connectionStatus  连接状态（不含 token；含实例列表与 activeId）
+ * listInstances     具名实例列表（alias / 实例地址 / 账号 / 最后同步 / 是否 active）
+ * switchInstance    切换 active 实例（时间线/搜索/详情/洞察全部跟随）
+ * renameInstance    改实例 alias（显示名，唯一）
+ * removeInstance    移除一个实例（清掉它的 token 与本地状态）
+ * connectStart      校验实例 URL 并发起设备授权，返回配对码（可带 alias）
  * connectPoll       轮询一次：pending / connected / expired / denied
  * connectCancel     取消进行中的配对（清掉 host 里的 pending）
- * disconnect        清掉本地连接（不要求服务端吊销也成功）
+ * disconnect        移除当前 active 实例（不要求服务端吊销也成功）
  * listNotes         按时间/标签列出笔记（分页）
  * searchNotes       用 FlareMo 服务端搜索（q 语法，见 /api/app/memos）
  * getNote           单条笔记 + 关系/反链（会话右栏与详情会用到）
@@ -36,6 +40,10 @@ export const SERVICE_EXPORT_NAME = 'FlareMoRuntime'
  */
 export const METHODS = [
   'connectionStatus',
+  'listInstances',
+  'switchInstance',
+  'renameInstance',
+  'removeInstance',
   'connectStart',
   'connectPoll',
   'connectCancel',

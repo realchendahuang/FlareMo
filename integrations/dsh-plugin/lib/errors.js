@@ -18,6 +18,12 @@ export const CODES = {
   NO_PENDING_CONNECT: 'NO_PENDING_CONNECT',
   /** 实例地址不合法。 */
   INVALID_INSTANCE_URL: 'INVALID_INSTANCE_URL',
+  /** 指定的实例 id / alias 不在列表里（可能刚被移除）。 */
+  INSTANCE_NOT_FOUND: 'INSTANCE_NOT_FOUND',
+  /** 实例 alias 已被别的实例占用。 */
+  ALIAS_TAKEN: 'ALIAS_TAKEN',
+  /** 实例 alias 不合法（空 / 超过 40 字符）。 */
+  INVALID_ALIAS: 'INVALID_ALIAS',
   /** 设备授权已过期。 */
   CONNECT_EXPIRED: 'CONNECT_EXPIRED',
   /** 用户在 FlareMo 里拒绝了授权。 */

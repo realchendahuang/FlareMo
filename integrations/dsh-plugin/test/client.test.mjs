@@ -299,3 +299,34 @@ test('RPC 信封：成功拆两层、失败带 code 抛错、未挂载给 REMOTE
     (error) => error instanceof ApiError && error.code === 'REMOTE_UNAVAILABLE',
   )
 })
+
+test('词典：多实例 key 与失败码在 zh / en 两侧齐全、数量相等', async () => {
+  const { ZH, EN } = await import('../src/client/i18n.js')
+  const keys = [
+    'instances',
+    'instancesEmpty',
+    'instanceActive',
+    'switchInstance',
+    'addInstance',
+    'backToWorkbench',
+    'renameInstance',
+    'removeInstance',
+    'removeInstanceConfirm',
+    'instanceAlias',
+    'instanceAliasHint',
+    'cancel',
+    'save',
+    'aliasInvalid',
+    'aliasTaken',
+    'instanceNotConnected',
+  ]
+  for (const key of keys) {
+    assert.equal(typeof ZH[key], 'string', `zh 缺少 ${key}`)
+    assert.equal(typeof EN[key], 'string', `en 缺少 ${key}`)
+  }
+  for (const code of ['INSTANCE_NOT_FOUND', 'ALIAS_TAKEN', 'INVALID_ALIAS']) {
+    assert.equal(typeof ZH[`err.${code}`], 'string', `zh 缺少 err.${code}`)
+    assert.equal(typeof EN[`err.${code}`], 'string', `en 缺少 err.${code}`)
+  }
+  assert.deepEqual(Object.keys(ZH).sort(), Object.keys(EN).sort(), 'zh / en key 必须一一对应')
+})

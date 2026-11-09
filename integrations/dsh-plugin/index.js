@@ -80,9 +80,13 @@ async function runCommand(runtime, raw) {
   const status = await runtime.connection.status()
   if (status.connected) {
     const who = status.account?.name ?? status.account?.username ?? '已授权账号'
+    const label = status.alias === null ? status.instanceUrl : `${status.alias}（${status.instanceUrl}）`
+    const others = status.instances.length > 1
+      ? `；另有 ${status.instances.length - 1} 个实例，可在工作台顶栏切换`
+      : ''
     return {
       kind: 'success',
-      text: `FlareMo 已连接：${status.instanceUrl}（${who}）。工作台在左栏「笔记」；\`/flaremo insight\` 处理洞察任务。`,
+      text: `FlareMo 已连接：${label}（${who}）${others}。工作台在左栏「笔记」；\`/flaremo insight\` 在 active 实例上处理洞察任务。`,
     }
   }
   return {

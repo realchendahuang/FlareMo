@@ -16,9 +16,9 @@ FlareMo 笔记工作台的 **DSH 插件**：中栏全局面板 + 左栏「笔记
 
 | 席位 | 注册方式 | 内容 |
 | --- | --- | --- |
-| 中栏全局面板（`main` keyed slot，key=`flaremo`） | `ctx.slots.inject('main', …)` | 三栏工作台：左时间线 / 中详情（Markdown）/ 右洞察或笔记信息 |
+| 中栏全局面板（`main` keyed slot，key=`flaremo`） | `ctx.slots.inject('main', …)` | 三栏工作台：左时间线 / 中详情（Markdown）/ 右洞察或笔记信息；顶栏实例切换器（多实例具名切换） |
 | 左栏入口行（`sidebar.panellist`，id=`flaremo`，order=5） | `ctx.slots.inject('sidebar.panellist', …)` | 「笔记」+ 便笺图标 |
-| 设置页 section（`settings.section`，id=`dsh-flaremo`，order=40） | `ctx.slots.inject('settings.section', …)` | 实例地址 + 配对码流程 + 连接状态 + 断开 |
+| 设置页 section（`settings.section`，id=`dsh-flaremo`，order=40） | `ctx.slots.inject('settings.section', …)` | 实例列表（切换/改名/移除）+ 配对码流程 + 连接状态 + 断开 |
 | Host RPC 服务（`ctx.flaremo` / wire namespace `flaremo`） | `ctx.typert.register(TYPERT_MANIFEST)` | 8 个方法，见下 |
 | Host 洞察执行器（`lib/insight-executor.js`） | 随 RPC 暴露 | 认领 pending 任务 → 取笔记 → 调 DSH 模型 → 写回 done/failed |
 | Host 命令 `/flaremo` | `ctx.commands.register`（可选服务，迟到绑定） | `status` 报告连接状态；`insight [id]` 处理洞察队列 |
@@ -27,21 +27,42 @@ FlareMo 笔记工作台的 **DSH 插件**：中栏全局面板 + 左栏「笔记
 
 | 方法 | 参数 | 返回（成功 envelope 里的字段） |
 | --- | --- | --- |
-| `connectionStatus` | — | `connection`（`connected` / `instanceUrl` / `account` / `scope` / `lastSyncAt` / `accessExpiresAt` / `pending`，**无 token**） |
-| `connectStart` | `{ instanceUrl, clientName? }` | `connection`（`pending` 里有 `userCode` / `verificationUri` / `expiresAt` / `intervalSeconds`） |
+| `connectionStatus` | — | `connection`（`connected` / `instanceId` / `instanceUrl` / `alias` / `account` / `scope` / `lastSyncAt` / `accessExpiresAt` / `activeId` / `instances[]` / `pending`，**无 token**） |
+| `listInstances` | — | `{ instances, activeId }`（`instances[]` = `{ id, alias, instanceUrl, account, connected, connectedAt, lastSyncAt, active }`） |
+| `switchInstance` | `{ id }` | `{ connection, instances, activeId }`（切完时间线/搜索/详情/洞察全跟随） |
+| `renameInstance` | `{ id, alias }` | `{ instances, activeId }`（alias 1–40 字、唯一） |
+| `removeInstance` | `{ id }` | `{ connection, instances, activeId }`（移除 active 时自动顶上下一个） |
+| `connectStart` | `{ instanceUrl, clientName?, alias? }` | `connection`（`pending` 里有 `userCode` / `verificationUri` / `expiresAt` / `intervalSeconds` / `instanceUrl` / `alias`；**只新增/更新这一条，不动其它实例**） |
 | `connectPoll` | — | `{ status: 'pending' \| 'connected' \| 'expired' \| 'denied', intervalSeconds?, connection? }` |
 | `connectCancel` | — | `connection`（pending 已清掉） |
-| `disconnect` | — | `connection`（已断开） |
-| `listNotes` | `{ pageSize?, pageToken?, orderBy?, tag? }` | `{ notes, nextPageToken? }` |
-| `searchNotes` | `{ query, pageSize? }` | `{ notes, nextPageToken? }`（`query` → FlareMo 的 `q`） |
-| `getNote` | `{ id }` | `{ note, relations, backlinks, canManage, canGovern }` |
-| `listTags` | — | `{ tags: [{ name, count }] }`（层级已拍平） |
-| `listPendingInsights` | `{ limit? }` | `{ insights, count, model: { available, provider, model, reason } }` |
-| `runInsight` | `{ id }` | `{ result: { id, kind, status: 'done' \| 'failed' \| 'skipped', code?, error?, notes?, model?, result? } }` |
-| `runPendingInsights` | `{ limit? }`（默认 3，最多 10） | `{ results, done, failed, skipped, pendingBefore, limit, model }` |
+| `disconnect` | — | `connection`（移除当前 active 实例；还有别的实例时自动切到下一个） |
+| `listNotes` | `{ pageSize?, pageToken?, orderBy?, tag?, instance? }` | `{ notes, nextPageToken? }`（`instance` 缺省 = active） |
+| `searchNotes` | `{ query, pageSize?, instance? }` | `{ notes, nextPageToken? }`（`query` → FlareMo 的 `q`） |
+| `getNote` | `{ id, instance? }` | `{ note, relations, backlinks, canManage, canGovern }` |
+| `listTags` | `{ instance? }` | `{ tags: [{ name, count }] }`（层级已拍平） |
+| `listPendingInsights` | `{ limit?, instance? }` | `{ insights, count, model: { available, provider, model, reason } }` |
+| `runInsight` | `{ id, instance? }` | `{ result: { id, kind, status: 'done' \| 'failed' \| 'skipped', code?, error?, notes?, model?, result? } }` |
+| `runPendingInsights` | `{ limit?, instance? }`（默认 3，最多 10） | `{ results, done, failed, skipped, pendingBefore, limit, model }` |
 
 失败统一是 `{ ok:false, code, message, params? }`；client 用 `err.<CODE>` 查词典
-（`NOT_CONNECTED` / `INVALID_INSTANCE_URL` / `AUTH_EXPIRED` / `NETWORK` / `TIMEOUT` / …）。
+（`NOT_CONNECTED` / `INVALID_INSTANCE_URL` / `INSTANCE_NOT_FOUND` / `ALIAS_TAKEN` /
+`INVALID_ALIAS` / `AUTH_EXPIRED` / `NETWORK` / `TIMEOUT` / …）。
+
+### 多实例（具名切换）
+
+FlareMo 是自托管产品，同一个人可能连多个实例（SaaS、自托管、本地开发）。按
+`docs/agent-access-design.md` §8 做「具名切换」，**不做聚合视图**：
+
+- 每个实例有稳定的 `id`（由规范化 URL 派生，重新配对不会长出重复记录）和一个可改的
+  `alias`（默认取 host，如 `app-flaremo-app`，1–40 字符、唯一）；
+- 凭据里存 `{ version: 2, activeId, instances[] }`：每实例一对独立 token，refresh 单飞
+  也按实例隔离；旧的 v1 单实例记录在第一次读到时自动迁移；
+- 数据面默认落到 `active` 实例，也可以显式带 `{ instance }`（id 或 alias）；
+- 工作台顶栏有切换器，切完时间线 / 搜索 / 详情 / 洞察队列全部跟随；设置页管实例列表
+  （改名 / 切换 / 移除）；
+- 洞察执行器跟着 active 实例跑，写回也落在任务来源的那个实例上；
+- 移除实例 = 清掉它的 token 与本地状态；移除 active 时自动把下一个设为 active；
+  最后一个移除后凭据记录整体删掉。
 
 ## 连接一个 FlareMo 实例（设备授权，RFC 8628）
 
@@ -156,7 +177,7 @@ dsh-flaremo/
 ├── scripts/
 │   ├── build-client.mjs      esbuild CJS + window.__ModuleLoader__.load wrapper
 │   └── check-client.mjs      产物形状检查
-├── test/                     105 个用例（见下）
+├── test/                     118 个用例（见下）
 └── dist/client.js            构建产物（提交进仓库，包里的 ./client 指向它）
 ```
 
@@ -166,13 +187,15 @@ dsh-flaremo/
 npm install      # dependencies（typert-protocol）+ devDependencies（esbuild / react / jsdom）
 npm run build    # src/client → dist/client.js
 npm run check    # node --check（host 入口 / contract / 产物）+ 产物形状检查
-npm test         # 105 个用例：host 状态机、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown、构建包装
+npm test         # 118 个用例：host 状态机、多实例存储/迁移/切换、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown、构建包装
 ```
 
 测试都离线：
 
 - `test/host.test.mjs`：真实 Cordis `Context` + 脚本化 `fetch` 跑设备授权、slow_down、批准、
-  401 → refresh → 重试、invalid_grant → 断开、数据映射、标签拍平、错误码；
+  401 → refresh → 重试、invalid_grant → 断开、数据映射、标签拍平、错误码，以及多实例
+  （listInstances / switchInstance / renameInstance / removeInstance、每实例独立刷新、
+  connectStart 不清其它实例、v1 → v2 迁移）；
 - `test/store.test.mjs`：凭据 grant 记录读写、`undefined` 清理、版本不符、服务缺席的内存降级；
 - `test/client.test.mjs`：vm 跑 `dist/client.js`、三个 slot 注册、`$mount` 描述符、样式注入、
   Remote 双层信封拆解（成功 / 失败 / 未挂载）；

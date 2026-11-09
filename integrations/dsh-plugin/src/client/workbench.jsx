@@ -167,12 +167,16 @@ function InfoLine({ label, value }) {
  * 造型是 Ember 的「空状态 → 一张卡片里的表单」：40px 小纸片图标、15px 标题、
  * 正文 14px muted；错误用 alert，表单/配对卡由 connect.jsx 自己渲染。
  *
+ * 已连接时点切换器里的「添加实例」也会复用这张引导（`adding`）：顶部多一个
+ * 「返回工作台」的 ghost 按钮，配对成功由容器切回三栏。
+ *
  * @param {{ tr: (key: string, vars?: object) => string, loadError: object | null,
  *   onRetry: () => void, call?: (method: string, args?: object) => Promise<object>,
- *   connection?: object | null, onConnected?: () => void }} props
+ *   connection?: object | null, onConnected?: () => void, adding?: boolean,
+ *   onBack?: () => void }} props
  * @returns {React.ReactElement} the connection guide.
  */
-export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConnected }) {
+export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConnected, adding = false, onBack }) {
   const flow = useConnectFlow({
     call,
     tr,
@@ -198,14 +202,30 @@ export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConne
       }}
     >
       <div style={{ width: '100%', maxWidth: 520 }}>
+        {adding ? (
+          <div style={{ marginBottom: 14 }}>
+            <button type="button" className="fm-btn" data-variant="ghost" data-size="sm" onClick={onBack}>
+              <span
+                aria-hidden="true"
+                style={{ display: 'flex', transform: 'rotate(180deg)' }}
+              >
+                <IconChevronRight size={13} />
+              </span>
+              {tr('backToWorkbench')}
+            </button>
+          </div>
+        ) : null}
+
         <div className="fm-empty" style={{ padding: '0 0 20px' }}>
           <div className="fm-empty-icon">
             <IconSparkle size={18} />
           </div>
-          <div className="fm-empty-title">{tr('guideTitle')}</div>
-          <p className="fm-empty-desc" style={{ margin: 0 }}>
-            {tr('guideBody')}
-          </p>
+          <div className="fm-empty-title">{adding ? tr('addInstance') : tr('guideTitle')}</div>
+          {adding ? null : (
+            <p className="fm-empty-desc" style={{ margin: 0 }}>
+              {tr('guideBody')}
+            </p>
+          )}
         </div>
 
         {problems.map((text) => (
@@ -247,6 +267,217 @@ export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConne
   )
 }
 
+/** 实例地址的 host（去协议/路径/账号信息）；解析失败时原样返回。 */
+function hostOf(url) {
+  if (typeof url !== 'string' || url === '') return ''
+  // 不依赖 URL 全局：插件 bundle 可能在只给了 window/document 的沙箱里跑（测试/加载器）。
+  const match = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\/([^/?#]+)/.exec(url)
+  if (match === null) return url
+  const authority = match[1]
+  const at = authority.lastIndexOf('@')
+  return at === -1 ? authority : authority.slice(at + 1)
+}
+
+/** 当前 active 实例：优先 `instances[].active`，其次按 `activeId` 匹配。 */
+function activeInstanceOf(connection) {
+  const instances = Array.isArray(connection?.instances) ? connection.instances : []
+  return (
+    instances.find((row) => row?.active === true) ??
+    instances.find((row) => row?.id === connection?.activeId) ??
+    null
+  )
+}
+
+/** 切换器菜单里的一行按钮造型（fm-btn ghost 的形状由 class 提供，这里只管版面）。 */
+const SWITCHER_ROW_STYLE = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  height: 'auto',
+  width: '100%',
+  padding: '7px 8px',
+  borderRadius: C.radiusMd,
+  textAlign: 'left',
+  whiteSpace: 'normal',
+}
+
+/**
+ * 顶栏实例切换器：按钮文案 = 当前实例 alias（没有就退回 host），右侧一个小 chevron。
+ * 点开是一张 `.fm-card` 造型的 popover（不引第三方组件），菜单项都是 `<button>`，
+ * 所以键盘天然可达；菜单外点 / Esc 关闭。
+ *
+ * @param {{ tr: (key: string, vars?: object) => string, connection: object | null,
+ *   busy: boolean, onSwitch: (id: string) => void, onAdd: () => void }} props
+ * @returns {React.ReactElement} the switcher.
+ */
+export function InstanceSwitcher({ tr, connection, busy, onSwitch, onAdd }) {
+  const [open, setOpen] = React.useState(false)
+  const rootRef = React.useRef(null)
+  const instances = Array.isArray(connection?.instances) ? connection.instances : []
+  const active = activeInstanceOf(connection)
+  const label =
+    active?.alias || connection?.alias || hostOf(connection?.instanceUrl) || tr('instanceLabel')
+
+  React.useEffect(() => {
+    if (!open) return undefined
+    const closeOnOutside = (event) => {
+      if (rootRef.current !== null && event.target && rootRef.current.contains(event.target)) return
+      setOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative', display: 'flex', flex: 'none' }}>
+      <button
+        type="button"
+        className="fm-btn"
+        data-variant="outline"
+        data-size="sm"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={tr('switchInstance')}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span
+          style={{
+            maxWidth: 150,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {label}
+        </span>
+        <span
+          aria-hidden="true"
+          style={{
+            display: 'flex',
+            transform: open ? 'rotate(180deg)' : 'none',
+            transition: `transform ${C.durationFast} ${C.easeSignal}`,
+          }}
+        >
+          <IconChevronRight size={13} />
+        </span>
+      </button>
+
+      {open ? (
+        <div
+          role="menu"
+          className="fm-card"
+          data-size="sm"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            zIndex: 30,
+            width: 288,
+            padding: 6,
+            gap: 2,
+            boxShadow: C.shadowProminent,
+          }}
+        >
+          {instances.length === 0 ? (
+            <div style={{ padding: '6px 8px', ...T.caption, color: C.textSecondary }}>
+              {tr('instancesEmpty')}
+            </div>
+          ) : (
+            instances.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                role="menuitem"
+                className="fm-btn"
+                data-variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  setOpen(false)
+                  void onSwitch(row.id)
+                }}
+                style={SWITCHER_ROW_STYLE}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}>
+                  <span
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: 1,
+                      minWidth: 0,
+                      flex: '1 1 auto',
+                    }}
+                  >
+                    <span
+                      style={{
+                        ...T.h3,
+                        color: C.text,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {row.alias || hostOf(row.instanceUrl) || row.instanceUrl || row.id}
+                    </span>
+                    <span
+                      style={{
+                        ...T.caption,
+                        color: C.textSecondary,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {hostOf(row.instanceUrl)}
+                    </span>
+                  </span>
+                  {row.connected === false ? (
+                    <span className="fm-badge" data-tone="neutral">
+                      {tr('instanceNotConnected')}
+                    </span>
+                  ) : row.active === true ? (
+                    <span className="fm-badge" data-tone="neutral">
+                      {tr('instanceActive')}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            ))
+          )}
+
+          <div style={{ height: 1, background: C.border, margin: '4px 0' }} />
+
+          <button
+            type="button"
+            role="menuitem"
+            className="fm-btn"
+            data-variant="ghost"
+            onClick={() => {
+              setOpen(false)
+              onAdd()
+            }}
+            style={{ ...SWITCHER_ROW_STYLE, ...T.caption, color: C.text }}
+          >
+            <span aria-hidden="true" style={{ display: 'flex', fontSize: 14, lineHeight: '14px' }}>
+              ＋
+            </span>
+            {tr('addInstance')}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /**
  * 工作台主组件。props 来自 slot：标准 props（t）+ entry.jsx 的 inject face。
  * @param {{ t?: (key: string) => string, call?: (method: string, args?: object) => Promise<object>,
@@ -279,6 +510,10 @@ export function Workbench({ t, call, openConversation }) {
     () => typeof window === 'undefined' || window.innerWidth >= 1120,
   )
   const [notice, setNotice] = React.useState(null)
+  /** 切换实例的进行中标记（防双击、切换器按钮置灰）。 */
+  const [switching, setSwitching] = React.useState(false)
+  /** 切换器菜单里的「添加实例」：把面板换成连接引导（配对成功后回三栏）。 */
+  const [addingInstance, setAddingInstance] = React.useState(false)
 
   // 提示条 3.2s 自动消失；同文案重复触发也要重新计时，所以带 seq。
   React.useEffect(() => {
@@ -406,6 +641,31 @@ export function Workbench({ t, call, openConversation }) {
     showNotice(tr('noticeRefresh'))
   }, [showNotice, tr])
 
+  /**
+   * 切换 active 实例：成功后清掉搜索/选择/详情（不同实例的笔记不混排），
+   * 再 bump reloadKey 让 effect 重新拉新实例的笔记与洞察队列。
+   */
+  const switchInstance = React.useCallback(
+    async (id) => {
+      if (!hasCall || switching) return
+      if (activeInstanceOf(connection)?.id === id) return
+      setSwitching(true)
+      try {
+        await call('switchInstance', { id })
+        setQuery('')
+        setRemoteResults(null)
+        setSelected(new Set())
+        setActiveId(null)
+        setReloadKey((value) => value + 1)
+      } catch (failure) {
+        showNotice(translateError(tr, asApiError(failure)))
+      } finally {
+        setSwitching(false)
+      }
+    },
+    [call, connection, hasCall, showNotice, switching, tr],
+  )
+
   const copyActive = React.useCallback(async () => {
     if (active === null) return
     const text = typeof active.content === 'string' ? active.content : noteText(active)
@@ -499,6 +759,15 @@ export function Workbench({ t, call, openConversation }) {
           <span className="fm-badge" data-tone={isRemote ? 'success' : 'neutral'}>
             {isRemote ? tr('badgeLive') : tr('badgeOffline')}
           </span>
+          {isRemote ? (
+            <InstanceSwitcher
+              tr={tr}
+              connection={connection}
+              busy={switching}
+              onSwitch={switchInstance}
+              onAdd={() => setAddingInstance(true)}
+            />
+          ) : null}
         </div>
 
         <div
@@ -568,14 +837,19 @@ export function Workbench({ t, call, openConversation }) {
       </header>
 
       {/* ── 主体：已连接（或首帧还在读状态）走三栏；未连接只给连接引导 ──── */}
-      {!loading && !isRemote ? (
+      {!loading && (addingInstance || !isRemote) ? (
         <ConnectGuide
           tr={tr}
           loadError={loadError}
           onRetry={refresh}
           call={call}
-          connection={connection}
-          onConnected={() => setReloadKey((value) => value + 1)}
+          connection={addingInstance ? { connected: false } : connection}
+          adding={addingInstance}
+          onBack={addingInstance ? () => setAddingInstance(false) : undefined}
+          onConnected={() => {
+            setAddingInstance(false)
+            setReloadKey((value) => value + 1)
+          }}
         />
       ) : (
         <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>

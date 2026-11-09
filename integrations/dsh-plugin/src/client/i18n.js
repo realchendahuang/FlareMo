@@ -95,6 +95,24 @@ export const ZH = {
   serviceUnavailable: 'FlareMo 服务还没挂载（插件可能刚启动或被禁用）。',
   serviceUnavailableHint: '重启 DSH 或到「设置 → 插件」里看插件是否加载成功。',
 
+  // 多实例（具名切换）
+  instances: '实例',
+  instancesEmpty: '还没有添加实例',
+  instanceActive: '当前',
+  switchInstance: '切换',
+  addInstance: '添加实例',
+  backToWorkbench: '返回工作台',
+  renameInstance: '改名',
+  removeInstance: '移除',
+  removeInstanceConfirm: '确认移除这个实例？本机保存的令牌会被删除。',
+  instanceAlias: '实例名',
+  instanceAliasHint: '1–40 个字符，用来区分不同实例；显示名随时可改。',
+  cancel: '取消',
+  save: '保存',
+  aliasInvalid: '实例名需要 1–40 个字符',
+  aliasTaken: '这个实例名已被占用',
+  instanceNotConnected: '未连接',
+
   // RPC 失败码
   'err.REMOTE_UNAVAILABLE': 'FlareMo 服务还没挂载',
   'err.NOT_CONNECTED': '还没有连接 FlareMo 实例',
@@ -111,6 +129,9 @@ export const ZH = {
   'err.GATEWAY_ERROR': 'DSH 网关调用失败',
   'err.INTERNAL': '内部错误',
   'err.SERVICE_UNMOUNTED': 'FlareMo 服务还没挂载',
+  'err.INSTANCE_NOT_FOUND': '实例不存在，可能已被移除',
+  'err.ALIAS_TAKEN': '这个实例名已被占用',
+  'err.INVALID_ALIAS': '实例名需要 1–40 个字符',
 
   // 工作台里的临时提示（骨架版没有真实动作）
   noticeAsk: '已按选中内容拼好注入提示词的骨架（{count} 条笔记）；真正的 AI 注入等下一版。',
@@ -216,6 +237,23 @@ export const EN = {
   serviceUnavailable: 'The FlareMo service is not mounted yet (the plugin may still be starting).',
   serviceUnavailableHint: 'Restart DSH, or check Settings → Plugins for load errors.',
 
+  instances: 'Instances',
+  instancesEmpty: 'No instances added yet',
+  instanceActive: 'Current',
+  switchInstance: 'Switch',
+  addInstance: 'Add instance',
+  backToWorkbench: 'Back to workbench',
+  renameInstance: 'Rename',
+  removeInstance: 'Remove',
+  removeInstanceConfirm: 'Remove this instance? The token saved on this machine will be deleted.',
+  instanceAlias: 'Instance name',
+  instanceAliasHint: '1–40 characters to tell instances apart; the display name can change anytime.',
+  cancel: 'Cancel',
+  save: 'Save',
+  aliasInvalid: 'Instance name must be 1–40 characters',
+  aliasTaken: 'That instance name is already taken',
+  instanceNotConnected: 'Not connected',
+
   'err.REMOTE_UNAVAILABLE': 'The FlareMo service is not mounted',
   'err.NOT_CONNECTED': 'No FlareMo instance is connected',
   'err.NO_PENDING_CONNECT': 'No pairing in progress',
@@ -231,6 +269,9 @@ export const EN = {
   'err.GATEWAY_ERROR': 'The DSH gateway call failed',
   'err.INTERNAL': 'Internal error',
   'err.SERVICE_UNMOUNTED': 'The FlareMo service is not mounted',
+  'err.INSTANCE_NOT_FOUND': 'Instance not found; it may have been removed',
+  'err.ALIAS_TAKEN': 'That instance name is already taken',
+  'err.INVALID_ALIAS': 'Instance name must be 1–40 characters',
 
   noticeAsk: 'Built a skeleton injection prompt from {count} selected note(s); real AI injection lands next version.',
   noticeCopy: 'Copied the note body to the clipboard.',

@@ -75,7 +75,7 @@ export class InsightExecutor {
   async listPending(args = {}) {
     const limit = clampInt(args.limit, 1, 100, PENDING_LIST_LIMIT)
     const [listed, model] = await Promise.all([
-      this.connection.listInsights({ status: 'pending', limit }),
+      this.connection.listInsights({ status: 'pending', limit, instance: args.instance }),
       this.modelStatus(),
     ])
     return { insights: listed.insights, count: listed.insights.length, model }
@@ -88,12 +88,13 @@ export class InsightExecutor {
    *   code?: string, error?: string|null, notes?: number, model?: string,
    *   result?: object, reason?: string, writeBackError?: string }>}
    */
-  async runOne(insightId) {
+  async runOne(insightId, options = {}) {
+    const instance = options.instance
     const id = asText(insightId).trim()
     if (id === '') throw new FlareMoError(CODES.BAD_ARGS, '缺少洞察任务 id')
 
     // 1. 先读任务：已经是终态就不占用模型
-    const existing = await this.connection.getInsight({ id })
+    const existing = await this.connection.getInsight({ id, instance })
     if (isTerminal(existing.insight.status)) {
       return {
         id: existing.insight.id,
@@ -107,11 +108,11 @@ export class InsightExecutor {
     // 2. 认领：pending → running
     let task
     try {
-      task = await this.connection.claimInsight(existing.insight.id)
+      task = await this.connection.claimInsight(existing.insight.id, { instance })
     } catch (error) {
       // 竞态：别的执行器刚把它做完 —— 重新读一次，终态就当跳过
       try {
-        const fresh = await this.connection.getInsight({ id: existing.insight.id })
+        const fresh = await this.connection.getInsight({ id: existing.insight.id, instance })
         if (isTerminal(fresh.insight.status)) {
           return {
             id: fresh.insight.id,
@@ -133,7 +134,7 @@ export class InsightExecutor {
     let noteCount = 0
     try {
       // 3. 组装笔记
-      const notes = await this.gatherNotes(task)
+      const notes = await this.gatherNotes(task, { instance })
       noteCount = notes.length
       if (notes.length === 0) {
         throw new FlareMoError(CODES.INSIGHT_NO_NOTES, '任务没有可用的笔记（可能已删除或没有权限）')
@@ -148,7 +149,7 @@ export class InsightExecutor {
 
       // 5. 解析 + 收敛 + 裁剪，然后写回 done
       const result = capResult(normalizeInsightResult(extractJsonObject(text)))
-      await this.connection.completeInsight(task.id, result)
+      await this.connection.completeInsight(task.id, result, { instance })
 
       return {
         id: task.id,
@@ -166,7 +167,7 @@ export class InsightExecutor {
       )
       let writeBackError
       try {
-        await this.connection.failInsight(task.id, message)
+        await this.connection.failInsight(task.id, message, { instance })
       } catch (failure) {
         writeBackError = errorMessage(failure)
         try {
@@ -195,12 +196,12 @@ export class InsightExecutor {
    */
   async runPending(args = {}) {
     const limit = clampInt(args.limit, 1, MAX_BATCH, DEFAULT_BATCH)
-    const listed = await this.connection.listInsights({ status: 'pending', limit })
+    const listed = await this.connection.listInsights({ status: 'pending', limit, instance: args.instance })
     const queue = listed.insights.slice(0, limit)
     const results = []
     for (const task of queue) {
       try {
-        results.push(await this.runOne(task.id))
+        results.push(await this.runOne(task.id, { instance: args.instance }))
       } catch (error) {
         // runOne 内部已兜底；这里只剩 id 非法 / 认领主流程炸掉这类情况
         results.push({
@@ -230,14 +231,14 @@ export class InsightExecutor {
    * @param {{ kind?: string, input?: object }} task - insight view.
    * @returns {Promise<object[]>} notes with content.
    */
-  async gatherNotes(task) {
+  async gatherNotes(task, options = {}) {
     const input = task?.input ?? {}
     const notes = []
 
     if (Array.isArray(input.memo_ids) && input.memo_ids.length > 0) {
       for (const memoId of input.memo_ids.slice(0, MAX_NOTES)) {
         try {
-          const fetched = await this.connection.getNote({ id: bareMemoId(memoId) })
+          const fetched = await this.connection.getNote({ id: bareMemoId(memoId), instance: options.instance })
           if (fetched?.note?.id) notes.push(fetched.note)
         } catch (error) {
           try {
@@ -251,12 +252,20 @@ export class InsightExecutor {
     }
 
     if (asText(input.tag) !== '') {
-      const listed = await this.connection.listNotes({ tag: asText(input.tag), pageSize: MAX_NOTES })
+      const listed = await this.connection.listNotes({
+        tag: asText(input.tag),
+        pageSize: MAX_NOTES,
+        instance: options.instance,
+      })
       return Array.isArray(listed?.notes) ? listed.notes.slice(0, MAX_NOTES) : []
     }
 
     if (asText(input.query) !== '') {
-      const founded = await this.connection.searchNotes({ query: asText(input.query), pageSize: MAX_NOTES })
+      const founded = await this.connection.searchNotes({
+        query: asText(input.query),
+        pageSize: MAX_NOTES,
+        instance: options.instance,
+      })
       return Array.isArray(founded?.notes) ? founded.notes.slice(0, MAX_NOTES) : []
     }
 

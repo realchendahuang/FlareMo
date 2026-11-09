@@ -19,8 +19,11 @@ import { isRecord } from './util.js'
 /** 记录 key：scope 必须是本插件注册名，id 是插件自己的寻址单位。 */
 export const RECORD_KEY = 'dsh-flaremo/default'
 
-/** payload 版本；读到别的版本当作“没有连接”，不尝试迁移。 */
-export const STATE_VERSION = 1
+/**
+ * payload 版本。v2 = 多实例（`{ activeId, instances[], pending? }`）；
+ * v1（单实例 `{ instanceUrl, accessToken, … }`）由 connection.migrateState 迁移。
+ */
+export const STATE_VERSION = 2
 
 /**
  * 去掉 undefined 键：凭据服务要求 grant payload 是能过 JSON 往返的值，
@@ -87,7 +90,8 @@ export class ConnectionStore {
     try {
       const record = await credentials.readRecord(RECORD_KEY)
       const payload = isRecord(record) ? record.payload : undefined
-      if (!isRecord(payload) || payload.version !== STATE_VERSION) return this.memory
+      // v1 也读出来，交给 connection.migrateState 升级（升级后第一次写就落成 v2）。
+      if (!isRecord(payload) || (payload.version !== 1 && payload.version !== STATE_VERSION)) return this.memory
       return payload
     } catch {
       return this.memory
