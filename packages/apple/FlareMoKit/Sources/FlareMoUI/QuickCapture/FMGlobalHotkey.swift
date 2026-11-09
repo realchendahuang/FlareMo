@@ -1,3 +1,4 @@
+#if os(macOS)
 import Carbon.HIToolbox
 import Foundation
 
@@ -98,3 +99,4 @@ public final class FMGlobalHotkey {
     /// 当前实例（Carbon 回调没有 self，只能这样取）。
     fileprivate static var current: FMGlobalHotkey?
 }
+#endif

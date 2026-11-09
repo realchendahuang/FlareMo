@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import FlareMoDesign
 import SwiftUI
@@ -93,3 +94,4 @@ public final class FMQuickCaptureController {
         panel.setFrameOrigin(origin)
     }
 }
+#endif

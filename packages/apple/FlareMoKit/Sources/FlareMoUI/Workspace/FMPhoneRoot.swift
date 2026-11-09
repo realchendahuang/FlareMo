@@ -11,6 +11,8 @@ public struct FMPhoneRoot: View {
     @State private var settingsPresented = false
     /// 详情页导航路径（存 memo id）。
     @State private var path: [String] = []
+    /// 全屏编辑器（写长内容用；吸底输入框只负责一句话）。
+    @State private var composePresented = false
 
     private let model: FMAppModel
 
@@ -48,6 +50,22 @@ public struct FMPhoneRoot: View {
             .frame(minHeight: 460)
         }
         .task { await model.sync.restoreSession() }
+        #if DEBUG
+            // 联调/截图用：启动参数 `-FLAREMO_OPEN_COMPOSE` 直接打开展开态编辑器。
+            .onAppear {
+                if ProcessInfo.processInfo.arguments.contains("-FLAREMO_OPEN_COMPOSE") {
+                    composePresented = true
+                }
+            }
+        #endif
+        #if os(iOS)
+            .fullScreenCover(isPresented: $composePresented) {
+                FMComposeSheet(text: $composerText) {
+                    composePresented = false
+                    send()
+                }
+            }
+        #endif
     }
 
     // MARK: 详情
@@ -161,6 +179,18 @@ public struct FMPhoneRoot: View {
                 .frame(height: 0.5)
 
             HStack(spacing: 10) {
+                Button {
+                    composePresented = true
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 15))
+                        .foregroundStyle(FMColor.mutedForeground.color)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("展开全屏编辑")
+
                 TextField("记点什么…", text: $composerText, axis: .vertical)
                     .font(.system(size: 15))
                     .lineLimit(1...4)
