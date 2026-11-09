@@ -406,6 +406,97 @@ test('listNotes：payload.property.title 优先作为标题', async () => {
   assert.equal(result.notes[0].excerpt, '正文第一行 正文第二行')
 })
 
+test('listNotes：state / visibility 透传到查询参数，非法值忽略', async () => {
+  const { runtime, calls } = await seededRuntime({
+    script: [
+      () => jsonResponse(200, { memos: [] }),
+      () => jsonResponse(200, { memos: [] }),
+      () => jsonResponse(200, { memos: [] }),
+    ],
+  })
+
+  const archived = await runtime.listNotes({ state: 'archived', visibility: 'public' })
+  assert.equal(archived.ok, true)
+  assert.equal(calls[0].url.searchParams.get('state'), 'archived')
+  assert.equal(calls[0].url.searchParams.get('visibility'), 'public')
+
+  await runtime.listNotes({ state: 'trashed' })
+  assert.equal(calls[1].url.searchParams.get('state'), 'trashed')
+  assert.equal(calls[1].url.searchParams.has('visibility'), false)
+
+  const ignored = await runtime.listNotes({ state: 'bogus', visibility: 'protected' })
+  assert.equal(ignored.ok, true, '非法过滤值不算错误')
+  assert.equal(calls[2].url.searchParams.has('state'), false)
+  assert.equal(calls[2].url.searchParams.has('visibility'), false)
+})
+
+test('createNote：POST /api/app/memos，默认 private / dsh，返回窄视图', async () => {
+  const { runtime, calls } = await seededRuntime({
+    script: [
+      () =>
+        jsonResponse(201, {
+          id: 'memo-new',
+          name: 'memos/memo-new',
+          content: '# 新便签\n\n第一行正文',
+          payload: { tags: ['收件箱'] },
+          create_time: '2026-11-08T12:00:00Z',
+          update_time: '2026-11-08T12:00:00Z',
+          visibility: 'private',
+          state: 'normal',
+          source: 'dsh',
+        }),
+      () =>
+        jsonResponse(201, {
+          id: 'memo-public',
+          content: '公开便签',
+          create_time: '2026-11-08T12:30:00Z',
+          update_time: '2026-11-08T12:30:00Z',
+          visibility: 'public',
+          source: 'web',
+        }),
+    ],
+  })
+
+  const result = await runtime.createNote({ content: '  # 新便签\n\n第一行正文  ' })
+  assert.equal(result.ok, true)
+  assert.equal(result.note.id, 'memo-new')
+  assert.equal(result.note.title, '新便签')
+  assert.equal(result.note.excerpt, '第一行正文')
+  assert.deepEqual(result.note.tags, ['收件箱'])
+
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url.pathname, '/api/app/memos')
+  assert.equal(calls[0].method, 'POST')
+  assert.equal(calls[0].headers.authorization, 'Bearer access-1')
+  assert.deepEqual(calls[0].body, {
+    content: '# 新便签\n\n第一行正文',
+    visibility: 'private',
+    source: 'dsh',
+  })
+
+  // 显式传的值原样透传（不覆盖成默认）
+  await runtime.createNote({ content: '公开便签', visibility: 'public', source: 'web' })
+  assert.deepEqual(calls[1].body, { content: '公开便签', visibility: 'public', source: 'web' })
+})
+
+test('createNote：空内容 / 超长 / 非法 visibility → BAD_ARGS，且不发请求', async () => {
+  const { runtime, calls } = await seededRuntime({ script: [] })
+
+  const empty = await runtime.createNote({ content: '   \n\t  ' })
+  assert.equal(empty.ok, false)
+  assert.equal(empty.code, 'BAD_ARGS')
+
+  const tooLong = await runtime.createNote({ content: 'x'.repeat(100_001) })
+  assert.equal(tooLong.ok, false, '超过 100_000 字符应本地拒绝')
+  assert.equal(tooLong.code, 'BAD_ARGS')
+
+  const badVisibility = await runtime.createNote({ content: '正文', visibility: 'protected' })
+  assert.equal(badVisibility.ok, false)
+  assert.equal(badVisibility.code, 'BAD_ARGS')
+
+  assert.equal(calls.length, 0, '参数错误不应该发给服务端')
+})
+
 test('401：刷新 token 后用新 token 重试一次，并保存轮换后的一对', async () => {
   const { runtime, calls, store } = await seededRuntime({
     script: [
@@ -554,6 +645,72 @@ test('listTags：层级树拍平并按 count 排序', async () => {
     { name: '工作', count: 3 },
     { name: '工作/项目A', count: 2 },
   ])
+})
+
+test('memoStats：GET /api/app/stats，响应转 camelCase，缺省 UTC / 84 天并夹取范围', async () => {
+  const { runtime, calls } = await seededRuntime({
+    script: [
+      () =>
+        jsonResponse(200, {
+          counts: {
+            normal: 12,
+            archived: 3,
+            trashed: 1,
+            total: 16,
+            spaces: { personal: 12, team: 0 },
+          },
+          active_days: 7,
+          tags: [
+            { name: '工作', count: 5 },
+            { name: '读书', count: 2 },
+          ],
+          activity: [
+            { date: '2026-11-08', count: 2 },
+            { date: '2026-11-07', count: 1 },
+          ],
+        }),
+      () =>
+        jsonResponse(200, {
+          counts: { normal: 0, archived: 0, trashed: 0, total: 0 },
+          active_days: 0,
+          tags: [],
+          activity: [],
+        }),
+      () =>
+        jsonResponse(200, {
+          counts: { normal: 0, archived: 0, trashed: 0, total: 0 },
+          active_days: 0,
+          tags: [],
+          activity: [],
+        }),
+    ],
+  })
+
+  const result = await runtime.memoStats({ timeZone: 'Asia/Shanghai', days: 365 })
+  assert.equal(result.ok, true)
+  assert.deepEqual(result.counts, { normal: 12, archived: 3, trashed: 1, total: 16 })
+  assert.equal(result.activeDays, 7)
+  assert.deepEqual(result.tags, [
+    { name: '工作', count: 5 },
+    { name: '读书', count: 2 },
+  ])
+  assert.deepEqual(result.activity, [
+    { date: '2026-11-08', count: 2 },
+    { date: '2026-11-07', count: 1 },
+  ])
+
+  assert.equal(calls[0].url.pathname, '/api/app/stats')
+  assert.equal(calls[0].url.searchParams.get('time_zone'), 'Asia/Shanghai')
+  assert.equal(calls[0].url.searchParams.get('days'), '365')
+  assert.equal(calls[0].headers.authorization, 'Bearer access-1')
+
+  const defaults = await runtime.memoStats({})
+  assert.equal(defaults.ok, true)
+  assert.equal(calls[1].url.searchParams.get('time_zone'), 'UTC')
+  assert.equal(calls[1].url.searchParams.get('days'), '84')
+
+  await runtime.memoStats({ days: 100_000 })
+  assert.equal(calls[2].url.searchParams.get('days'), '366', 'days 应夹到 1–366')
 })
 
 test('disconnect：清掉本地凭据', async () => {

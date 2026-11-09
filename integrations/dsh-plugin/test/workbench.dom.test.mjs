@@ -142,7 +142,13 @@ function createHandle({ connected }) {
       calls.push({ method: 'listNotes', args })
       const note =
         activeId === 'inst-saas'
-          ? { ...NOTE, id: 'real-2', title: 'SaaS 实例笔记', excerpt: '来自第二个实例的笔记' }
+          ? {
+              ...NOTE,
+              id: 'real-2',
+              title: 'SaaS 实例笔记',
+              excerpt: '来自第二个实例的笔记',
+              content: '# SaaS 实例笔记\n\n来自第二个实例的笔记',
+            }
           : NOTE
       return { ok: true, value: { ok: true, notes: [note] } }
     },
@@ -168,6 +174,23 @@ function createHandle({ connected }) {
           },
         },
       }
+    },
+    async memoStats(args) {
+      calls.push({ method: 'memoStats', args })
+      return {
+        ok: true,
+        value: {
+          ok: true,
+          counts: { normal: 1, archived: 0, trashed: 0, total: 1 },
+          activeDays: 1,
+          tags: [{ name: '工作', count: 1 }, { name: 'DSH', count: 1 }],
+          activity: [{ date: '2026-11-08', count: 1 }],
+        },
+      }
+    },
+    async createNote(args) {
+      calls.push({ method: 'createNote', args })
+      return { ok: true, value: { ok: true, note: { ...NOTE, id: 'real-new' } } }
     },
     async listPendingInsights(args) {
       calls.push({ method: 'listPendingInsights', args })
@@ -208,7 +231,13 @@ function mountPanel({ connected }) {
     removeEventListener: () => {},
     head,
   }
-  const windowStub = { innerWidth: 1440, __ModuleLoader__: { load: (row) => (entry = row) } }
+  const windowStub = {
+    innerWidth: 1440,
+    // 切换器的菜单会挂 resize 监听（真实浏览器有）；假的 window 也要有这个面。
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    __ModuleLoader__: { load: (row) => (entry = row) },
+  }
   vm.runInNewContext(
     SOURCE,
     { window: windowStub, document: documentStub, console, setTimeout, clearTimeout, setInterval, clearInterval },
@@ -260,13 +289,15 @@ test('已连接：工作台先查连接状态，再用 RPC 数据渲染时间线
   const { text, calls } = await renderWorkbench({ connected: true })
 
   assert.deepEqual(
-    calls.map((row) => row.method),
-    ['connectionStatus', 'listNotes', 'listPendingInsights'],
+    calls.slice(0, 2).map((row) => row.method),
+    ['connectionStatus', 'listNotes'],
   )
   assert.equal(calls[1].args.pageSize, 50)
-  assert.match(text, /实时/)
+  assert.ok(calls.some((row) => row.method === 'memoStats'), '侧栏应拉统计')
+  assert.ok(calls.some((row) => row.method === 'listPendingInsights'), '侧栏应拉洞察队列')
+  // 新版面：侧栏同步状态 + 时间线便签卡（内容 → Markdown → 列表标签）
+  assert.match(text, /最后同步/)
   assert.match(text, /真实笔记：设备授权/)
-  assert.match(text, /来自实例的第一条真实笔记/)
   assert.match(text, /#工作/)
   assert.match(text, /正文第一段/)
   assert.match(text, /要点一/)
@@ -289,7 +320,6 @@ test('未连接：不显示示例数据，只显示连接引导', async () => {
   assert.match(text, /实例地址/)
   assert.match(text, /生成配对码/)
   assert.match(text, /重新检查连接/)
-  assert.match(text, /未连接实例/)
   assert.doesNotMatch(text, /示例数据/)
   assert.doesNotMatch(text, /把 FlareMo 工作台搬进 DSH/)
 })
@@ -471,7 +501,7 @@ test('切换器「添加实例」→ 连接引导带「返回工作台」，返�
     back.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
   })
   await settle()
-  assert.match(container.textContent, /时间线/)
+  assert.match(container.textContent, /全部记录/)
   assert.match(container.textContent, /真实笔记：设备授权/)
   await cleanup()
 })

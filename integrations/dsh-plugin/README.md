@@ -16,7 +16,7 @@ FlareMo 笔记工作台的 **DSH 插件**：中栏全局面板 + 左栏「笔记
 
 | 席位 | 注册方式 | 内容 |
 | --- | --- | --- |
-| 中栏全局面板（`main` keyed slot，key=`flaremo`） | `ctx.slots.inject('main', …)` | 三栏工作台：左时间线 / 中详情（Markdown）/ 右洞察或笔记信息；顶栏实例切换器（多实例具名切换） |
+| 中栏全局面板（`main` keyed slot，key=`flaremo`） | `ctx.slots.inject('main', …)` | **与网页版同构的时间线页**：侧栏（实例切换 / 统计 / 月历 / 记录·归档·回收站 / 标签 / 洞察队列）+ 主列（编写框 → 便签流 → 详情）；侧栏可收起 |
 | 左栏入口行（`sidebar.panellist`，id=`flaremo`，order=5） | `ctx.slots.inject('sidebar.panellist', …)` | 「笔记」+ 便笺图标 |
 | 设置页 section（`settings.section`，id=`dsh-flaremo`，order=40） | `ctx.slots.inject('settings.section', …)` | 实例列表（切换/改名/移除）+ 配对码流程 + 连接状态 + 断开 |
 | Host RPC 服务（`ctx.flaremo` / wire namespace `flaremo`） | `ctx.typert.register(TYPERT_MANIFEST)` | 8 个方法，见下 |
@@ -36,7 +36,9 @@ FlareMo 笔记工作台的 **DSH 插件**：中栏全局面板 + 左栏「笔记
 | `connectPoll` | — | `{ status: 'pending' \| 'connected' \| 'expired' \| 'denied', intervalSeconds?, connection? }` |
 | `connectCancel` | — | `connection`（pending 已清掉） |
 | `disconnect` | — | `connection`（移除当前 active 实例；还有别的实例时自动切到下一个） |
-| `listNotes` | `{ pageSize?, pageToken?, orderBy?, tag?, instance? }` | `{ notes, nextPageToken? }`（`instance` 缺省 = active） |
+| `listNotes` | `{ pageSize?, pageToken?, orderBy?, tag?, q?, state?, visibility?, instance? }` | `{ notes, nextPageToken? }`（`state` = normal/archived/trashed；`instance` 缺省 = active） |
+| `createNote` | `{ content, visibility?, source? }` | `{ note }`（`POST /api/app/memos`；content 1–100k、visibility 只收 private/public、source 缺省 `dsh`） |
+| `memoStats` | `{ timeZone?, days?, instance? }` | `{ counts: { normal, archived, trashed, total }, activeDays, tags, activity }`（侧栏统计卡与月历） |
 | `searchNotes` | `{ query, pageSize?, instance? }` | `{ notes, nextPageToken? }`（`query` → FlareMo 的 `q`） |
 | `getNote` | `{ id, instance? }` | `{ note, relations, backlinks, canManage, canGovern }` |
 | `listTags` | `{ instance? }` | `{ tags: [{ name, count }] }`（层级已拍平） |
@@ -105,6 +107,36 @@ Token 生命周期由 host 管理：access token 14 天，临时到期前 60s �
   伪类与深色覆盖写在 CSS 里，版面用内联 style；
 - Geist Variable 的 latin 子集（29KB，SIL OFL 1.1）以 data URI 打进 bundle，汉字不额外打包。
 
+### 版面：与网页版时间线同构
+
+DSH 面板不是另起一套工作台，而是把网页版 `/`（时间线页）的骨架搬进来：
+
+```
+侧栏 260px                     主列
+┌────────────────────┐   ┌──────────────────────────────┐
+│ FlareMo  收起侧栏   │   │ 全部记录 · 搜索 · 刷新        │
+│ 实例切换（alias）   │   ├──────────────────────────────┤
+│ 42 记录 5 标签 3 连续│   │ 编写框（⌘↵ 发布）             │
+│ 月历（活动点/选日） │   │ ─ 2026-11-08 ─────────────── │
+│ 全部记录/归档/回收站│   │ 便签卡（正文 Markdown + 标签）│
+│ 标签列表           │   │ 便签卡 …                      │
+│ 洞察队列           │   │ 点卡片 → 详情（返回时间线）    │
+│ 最后同步           │   └──────────────────────────────┘
+└────────────────────┘
+```
+
+- 侧栏顺序照网页版：品牌行 → 实例切换 → 三格统计（记录/标签/连续）→
+  月历（今天有火焰描边、选中有墨色底、有记录的日子带火焰小点）→ 导航（记录/归档/
+  回收站）→ 标签（点选筛选）→ 洞察队列（插件独有）→ 同步状态；
+- 主列 = `fm-composer` 编写框（调 `createNote`，成功后回到「全部记录」并重拉）+
+  按天分组的便签卡（正文 15px Markdown、标签 chip、复制/多选/打开详情）+
+  详情页（`getNote` 不用额外拉：列表已带 20k 正文）；
+- 筛选口径：日期用 `q` 的 `after:/before:` 交给服务端，标签用 `tag`，归档/回收站用
+  `state`，搜索与它们合并成一次 `listNotes`；侧栏统计/标签/月历来自 `memoStats` +
+  `listTags`，单块失败不影响时间线。
+- 网页版有、这里**不做**的：回顾/待办/文章（插件没有对应 RPC，不放空按钮）、
+  团队空间筛选、附件上传/录音、行内编辑（改为详情页阅读）。
+
 ## 洞察执行器（AI 洞察闭环）
 
 FlareMo 只存任务与结果、**不跑模型**；模型由执行器（这里就是 DSH 插件）跑。一次任务：
@@ -172,12 +204,14 @@ dsh-flaremo/
 │   ├── i18n.js               zh + en 词典（含 err.<CODE>）
 │   ├── theme.js              Ember 设计 token + 字体 + 组件造型 CSS（与网页端同一套）
 │   ├── styles.js             颜色/字号阶梯（C / T）+ 注入样式表的出口
+│   ├── sidebar.jsx           时间线侧栏：实例切换 / 统计 / 月历 / 导航 / 标签 / 洞察队列
+│   ├── composer.jsx          编写框（⌘↵ 发布 → createNote）
 │   ├── assets/               Geist Variable latin 子集（打进 bundle，SIL OFL 1.1）
 │   └── icons.jsx             左栏图标 + 工作台小图标
 ├── scripts/
 │   ├── build-client.mjs      esbuild CJS + window.__ModuleLoader__.load wrapper
 │   └── check-client.mjs      产物形状检查
-├── test/                     118 个用例（见下）
+├── test/                     122 个用例（见下）
 └── dist/client.js            构建产物（提交进仓库，包里的 ./client 指向它）
 ```
 
@@ -187,7 +221,7 @@ dsh-flaremo/
 npm install      # dependencies（typert-protocol）+ devDependencies（esbuild / react / jsdom）
 npm run build    # src/client → dist/client.js
 npm run check    # node --check（host 入口 / contract / 产物）+ 产物形状检查
-npm test         # 118 个用例：host 状态机、多实例存储/迁移/切换、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown、构建包装
+npm test         # 122 个用例：host 状态机、多实例存储/迁移/切换、新建便签/统计/状态过滤、洞察执行器、模型调用、凭据存储、契约、客户端渲染、Markdown、构建包装
 ```
 
 测试都离线：

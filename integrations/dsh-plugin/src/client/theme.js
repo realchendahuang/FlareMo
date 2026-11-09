@@ -663,6 +663,230 @@ body[data-ds-dark-theme] .fm-input {
 .fm-scroll::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--fm-muted-foreground) 45%, transparent); }
 .fm-scroll::-webkit-scrollbar-track { background: transparent; }
 
+
+/* ── 侧栏导航行（Ember 2：激活项是一张墨色纸片，图标染火焰色）────── */
+.fm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--fm-radius-lg);
+  background: transparent;
+  color: color-mix(in oklab, var(--fm-foreground) 78%, transparent);
+  font: 400 13px/1 var(--fm-font-ui);
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color var(--fm-duration-fast) var(--fm-ease-signal),
+    color var(--fm-duration-fast) var(--fm-ease-signal),
+    box-shadow var(--fm-duration-fast) var(--fm-ease-signal);
+}
+.fm-nav-item:hover { background: var(--fm-muted); color: var(--fm-foreground); }
+.fm-nav-item[data-active="true"] {
+  border-color: color-mix(in oklab, var(--fm-foreground) 10%, transparent);
+  background-color: var(--fm-card);
+  box-shadow: var(--fm-paper-edge), var(--fm-shadow-xs);
+  color: var(--fm-foreground);
+  font-weight: 500;
+}
+.fm-nav-item[data-active="true"] svg { color: var(--fm-primary); }
+.fm-nav-item:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklab, var(--fm-ring) 25%, transparent); }
+.fm-nav-item > svg { flex: none; }
+
+/* 侧栏标签行：比导航行矮一档，可选可清 */
+.fm-tag-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--fm-radius-md);
+  background: transparent;
+  color: var(--fm-muted-foreground);
+  font: 400 12px/1 var(--fm-font-ui);
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+.fm-tag-item:hover { background: var(--fm-muted); color: var(--fm-foreground); }
+.fm-tag-item[data-active="true"] { background: var(--fm-accent); color: var(--fm-foreground); font-weight: 500; }
+.fm-tag-item:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklab, var(--fm-ring) 25%, transparent); }
+
+/* ── 迷你月历（侧栏时间视界）：日格 + 活动点 ───────────────────── */
+.fm-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.fm-cal-weekday {
+  height: 18px;
+  color: var(--fm-muted-foreground);
+  font: 500 10px/18px var(--fm-font-ui);
+  text-align: center;
+}
+.fm-cal-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--fm-radius-md);
+  background: transparent;
+  color: var(--fm-foreground);
+  font: 400 11px/1 var(--fm-font-ui);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color var(--fm-duration-fast) var(--fm-ease-signal),
+    color var(--fm-duration-fast) var(--fm-ease-signal);
+}
+.fm-cal-cell:hover { background: var(--fm-muted); }
+.fm-cal-cell[data-outside="true"] { color: color-mix(in oklab, var(--fm-muted-foreground) 55%, transparent); }
+.fm-cal-cell[data-today="true"] {
+  box-shadow: inset 0 0 0 1px var(--fm-primary);
+  font-weight: 600;
+}
+.fm-cal-cell[data-selected="true"] {
+  background: var(--fm-foreground);
+  color: var(--fm-background);
+  font-weight: 600;
+}
+.fm-cal-cell:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklab, var(--fm-ring) 25%, transparent); }
+.fm-cal-dot {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--fm-primary) 85%, transparent);
+  transform: translateX(-50%);
+}
+.fm-cal-cell[data-selected="true"] .fm-cal-dot { background: var(--fm-background); }
+
+/* ── 编写框（时间线顶部的 composer，Ember 纸卡）────────────────── */
+.fm-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklab, var(--fm-foreground) 10%, transparent);
+  border-radius: var(--fm-radius-xl);
+  background-color: var(--fm-card);
+  background-image: var(--fm-grain);
+  box-shadow: var(--fm-paper-edge), var(--fm-shadow-xs);
+}
+.fm-composer textarea {
+  width: 100%;
+  min-height: 52px;
+  max-height: 240px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--fm-foreground);
+  font: 400 15px/1.65 var(--fm-font-ui);
+  outline: none;
+  resize: none;
+  text-autospace: normal;
+  text-spacing-trim: normal;
+}
+.fm-composer textarea::placeholder { color: var(--fm-muted-foreground); }
+
+/* ── 时间线便签卡（memo card）───────────────────────────────────── */
+.fm-memo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 12px;
+  border: 1px solid color-mix(in oklab, var(--fm-foreground) 9%, transparent);
+  border-radius: var(--fm-radius-xl);
+  background-color: var(--fm-card);
+  background-image: var(--fm-grain);
+  box-shadow: var(--fm-paper-edge), var(--fm-shadow-xs);
+  transition:
+    border-color var(--fm-duration-fast) var(--fm-ease-signal),
+    box-shadow var(--fm-duration-fast) var(--fm-ease-signal);
+}
+.fm-memo:hover {
+  border-color: color-mix(in oklab, var(--fm-foreground) 14%, transparent);
+  box-shadow: var(--fm-paper-edge), var(--fm-shadow-sm);
+}
+.fm-memo-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fm-memo-time {
+  color: var(--fm-muted-foreground);
+  font: 400 11px/1 var(--fm-font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fm-memo-body {
+  overflow: hidden;
+  max-height: 16.2em;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent);
+}
+.fm-memo-body[data-clamped="false"] { max-height: none; mask-image: none; }
+/* 卡片里的正文比详情页小一档：h1 不要顶成页面标题 */
+.fm-memo-body .fm-prose { font-size: 14px; line-height: 1.7; }
+.fm-memo-body .fm-prose h1 { margin: 14px 0 6px; font-size: 16px; }
+.fm-memo-body .fm-prose h2 { margin: 12px 0 6px; font-size: 15px; }
+.fm-memo-body .fm-prose h3 { margin: 10px 0 4px; font-size: 14px; }
+.fm-memo-body .fm-prose p { margin: 0 0 8px; }
+.fm-memo-body .fm-prose ul,
+.fm-memo-body .fm-prose ol { margin: 0 0 8px; }
+.fm-memo-body .fm-prose li { margin-bottom: 3px; }
+.fm-memo-body .fm-prose blockquote { margin: 0 0 8px; }
+.fm-memo-body .fm-prose pre { margin: 0 0 8px; padding: 8px 10px; font-size: 12px; }
+
+/* ── 编写框右下角发送：Ember 唯一允许品牌渐变的地方 ─────────────── */
+.fm-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--fm-brand-gradient);
+  color: var(--fm-brand-gradient-foreground);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.22), var(--fm-shadow-sm);
+  cursor: pointer;
+  transition: filter var(--fm-duration-fast) var(--fm-ease-signal);
+}
+.fm-send:hover:not(:disabled) { filter: brightness(1.05); }
+.fm-send:disabled {
+  background: var(--fm-muted);
+  color: color-mix(in oklab, var(--fm-muted-foreground) 60%, transparent);
+  box-shadow: none;
+  cursor: default;
+}
+.fm-send:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklab, var(--fm-ring) 25%, transparent); }
+
+/* ── 侧栏统计卡：三列数字 ──────────────────────────────────────── */
+.fm-stat-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 10px 0;
+  border: 1px solid color-mix(in oklab, var(--fm-foreground) 8%, transparent);
+  border-radius: var(--fm-radius-xl);
+  background-color: var(--fm-card);
+  background-image: var(--fm-grain);
+  box-shadow: var(--fm-paper-edge), var(--fm-shadow-xs);
+}
+.fm-stat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+.fm-stat + .fm-stat { border-left: 1px solid color-mix(in oklab, var(--fm-foreground) 8%, transparent); }
+.fm-stat-value {
+  color: var(--fm-foreground);
+  font: 600 15px/1.1 var(--fm-font-heading);
+  font-variant-numeric: tabular-nums;
+}
+.fm-stat-label { color: var(--fm-muted-foreground); font: 400 10px/1 var(--fm-font-ui); }
+
 @media (prefers-reduced-motion: reduce) {
   .dsh-flaremo-root *,
   .dsh-flaremo-root *::before,

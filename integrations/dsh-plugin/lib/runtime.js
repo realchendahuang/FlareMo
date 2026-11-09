@@ -117,9 +117,14 @@ export class FlareMoRuntime extends TypertRemoteService {
     return this.execute(async () => ({ connection: await this.connection.disconnect() }))
   }
 
-  /** 列笔记（默认 created_at desc，page_size 30）。 */
+  /** 列笔记（默认 created_at desc，page_size 30；可过滤 state / visibility）。 */
   async listNotes(args) {
     return this.execute(async () => this.connection.listNotes(args))
+  }
+
+  /** 新建便签（返回 `{ note }` 窄视图）。 */
+  async createNote(args) {
+    return this.execute(async () => this.connection.createNote(args))
   }
 
   /** 服务端搜索（FlareMo 的 q 语法）。 */
@@ -135,6 +140,11 @@ export class FlareMoRuntime extends TypertRemoteService {
   /** 标签（层级拍平，带 count）。 */
   async listTags(args) {
     return this.execute(async () => this.connection.listTags(args))
+  }
+
+  /** 侧边栏统计卡 + 日历热力（counts / activeDays / tags / activity）。 */
+  async memoStats(args) {
+    return this.execute(async () => this.connection.memoStats(args))
   }
 
   /** FlareMo 上 pending 的洞察任务（附带「DSH 模型是否可用」）。 */

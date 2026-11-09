@@ -40,6 +40,12 @@ export const REFRESH_SKEW_MS = 60_000
 export const LAST_SYNC_THROTTLE_MS = 60_000
 /** 单条笔记正文进 wire 的上限（列表一次 30 条，别把面板拖垮）。 */
 export const CONTENT_LIMIT = 20_000
+/** 新建便签正文上限（与服务端 createMemoSchema 一致，超了本地就拒，不发给服务端）。 */
+export const NOTE_CONTENT_MAX = 100_000
+/** 列表 state 过滤可用的值（服务端 memoStatusSchema 的子集）。 */
+const NOTE_STATES = ['normal', 'archived', 'trashed']
+/** 可见性可用的值（服务端 memoVisibilitySchema 的子集：web 工作台只暴露这两档）。 */
+const NOTE_VISIBILITIES = ['private', 'public']
 /** alias 长度上限。 */
 export const ALIAS_MAX = 40
 
@@ -147,6 +153,17 @@ export function flattenTags(nodes, out = []) {
     flattenTags(node?.children, out)
   }
   return out
+}
+
+/** 从允许的枚举里挑一个合法值；非法 / 缺省一律当没传（不过滤、不报错）。 */
+function pickEnum(raw, allowed) {
+  const value = asText(raw).trim()
+  return allowed.includes(value) ? value : undefined
+}
+
+/** 统计计数：非法值折成 0，不把 undefined / NaN 漏给 client。 */
+function countOf(value) {
+  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
 }
 
 // ── 实例身份 ────────────────────────────────────────────────────────
@@ -804,11 +821,14 @@ export class FlareMoConnection {
   /**
    * 列笔记 / 搜索笔记共用。
    * @param {{ pageSize?: unknown, pageToken?: unknown, orderBy?: unknown,
-   *   q?: unknown, tag?: unknown, instance?: unknown }} args - RPC args.
+   *   q?: unknown, tag?: unknown, state?: unknown, visibility?: unknown,
+   *   instance?: unknown }} args - RPC args.
    * @returns {Promise<{ notes: object[], nextPageToken?: string }>}
    */
   async fetchNotes(args = {}) {
     const pageSize = clampInt(args.pageSize, 1, 100, 30)
+    const state = pickEnum(args.state, NOTE_STATES)
+    const visibility = pickEnum(args.visibility, NOTE_VISIBILITIES)
     const { instance } = await this.requireInstance(args.instance)
     const result = await this.withAuth(instance, (instanceUrl, accessToken) =>
       this.client.listMemos(instanceUrl, accessToken, {
@@ -817,6 +837,8 @@ export class FlareMoConnection {
         orderBy: asText(args.orderBy) || 'created_at desc',
         q: asText(args.q) || undefined,
         tag: asText(args.tag) || undefined,
+        state,
+        visibility,
       }),
     )
     await this.touchLastSync(instance.id)
@@ -829,6 +851,38 @@ export class FlareMoConnection {
   /** 列表（默认按创建时间倒序）。 */
   async listNotes(args = {}) {
     return this.fetchNotes(args)
+  }
+
+  /**
+   * 新建便签（网页版编写框用）。
+   * @param {{ content?: unknown, visibility?: unknown, source?: unknown,
+   *   instance?: unknown }} [args] - RPC args.
+   * @returns {Promise<{ note: object }>} narrow note view.
+   */
+  async createNote(args = {}) {
+    const content = asText(args.content).trim()
+    if (content === '') {
+      throw new FlareMoError(CODES.BAD_ARGS, '便签内容不能为空')
+    }
+    if (content.length > NOTE_CONTENT_MAX) {
+      throw new FlareMoError(CODES.BAD_ARGS, `便签内容不能超过 ${NOTE_CONTENT_MAX} 个字符`, {
+        params: { limit: NOTE_CONTENT_MAX },
+      })
+    }
+    const rawVisibility = asText(args.visibility).trim()
+    const visibility = rawVisibility === '' ? 'private' : rawVisibility
+    if (!NOTE_VISIBILITIES.includes(visibility)) {
+      throw new FlareMoError(CODES.BAD_ARGS, 'visibility 只支持 private / public', {
+        params: { value: visibility },
+      })
+    }
+    const source = asText(args.source).trim() || 'dsh'
+    const { instance } = await this.requireInstance(args.instance)
+    const dto = await this.withAuth(instance, (instanceUrl, accessToken) =>
+      this.client.createMemo(instanceUrl, accessToken, { content, visibility, source }),
+    )
+    await this.touchLastSync(instance.id)
+    return { note: toNoteView(dto) }
   }
 
   /** 服务端搜索：q 是 FlareMo 的检索语法（支持 has:attachment / is:pinned / before:…）。 */
@@ -865,6 +919,37 @@ export class FlareMoConnection {
     )
     const tags = flattenTags(tree)
     return { tags: tags.sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name)) }
+  }
+
+  /**
+   * 侧边栏统计卡 + 日历热力（服务端 snake_case → wire camelCase）。
+   * @param {{ timeZone?: unknown, days?: unknown, instance?: unknown }} [args]
+   * @returns {Promise<{ counts: { normal: number, archived: number, trashed: number,
+   *   total: number }, activeDays: number, tags: { name: string, count: number }[],
+   *   activity: { date: string, count: number }[] }>}
+   */
+  async memoStats(args = {}) {
+    const timeZone = asText(args.timeZone).trim() || 'UTC'
+    const days = clampInt(args.days, 1, 366, 84)
+    const { instance } = await this.requireInstance(args.instance)
+    const body = await this.withAuth(instance, (instanceUrl, accessToken) =>
+      this.client.getMemoStats(instanceUrl, accessToken, { timeZone, days }),
+    )
+    await this.touchLastSync(instance.id)
+    const counts = body.counts
+    const tags = Array.isArray(body.tags) ? body.tags.filter(isRecord) : []
+    const activity = Array.isArray(body.activity) ? body.activity.filter(isRecord) : []
+    return {
+      counts: {
+        normal: countOf(counts.normal),
+        archived: countOf(counts.archived),
+        trashed: countOf(counts.trashed),
+        total: countOf(counts.total),
+      },
+      activeDays: countOf(body.active_days),
+      tags: tags.map((tag) => ({ name: asText(tag.name), count: countOf(tag.count) })),
+      activity: activity.map((entry) => ({ date: asText(entry.date), count: countOf(entry.count) })),
+    }
   }
 
   // ── 洞察任务（执行器的数据面）──────────────────────────────────────

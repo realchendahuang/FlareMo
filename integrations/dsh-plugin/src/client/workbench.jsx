@@ -1,43 +1,66 @@
 /**
- * FlareMo 工作台（全局面板的组件）。
+ * FlareMo 时间线面板（DSH 全局面板），版面与网页版 `/` 同构：
  *
- * 数据只有一条来源：已连接实例时用 `call('listNotes')` / `call('searchNotes')`
- * 从 host 的 typert RPC 拿真实笔记（host 持有 token，client 只拿窄视图）。
- * 未连接 / RPC 不可用时**不造假数据**：整块换成连接引导（`ConnectGuide`）。
+ *   ┌ 侧栏（品牌 / 实例切换 / 统计 / 月历 / 导航 / 标签 / 洞察队列 / 同步）┐
+ *   │ 主列：标题栏（页面名 + 搜索 + 刷新）                               │
+ *   │       编写框 → 时间线便签流（按天分组）                            │
+ *   └──────────────────────────────────────────────────────────────────┘
  *
- * 视觉与 FlareMo 网页端同一套 Ember 设计语言（token / 字号阶梯 / 组件造型见
- * theme.js 与 styles.js）：暖白纸面 + 墨色文字 + 火焰色只留给唯一主 CTA；
- * 形状靠 class（fm-btn / fm-card / fm-note / fm-badge …），版面走内联 style。
+ * 点便签进入详情（主列内切换，侧栏保留），由「返回时间线」回去——对应网页版
+ * 的 /memo/:id 详情页。数据全部来自 host 的 typert RPC（token 不进 client）：
+ *   connectionStatus / listNotes / memoStats / listTags / listPendingInsights /
+ *   createNote / switchInstance / runPendingInsights。
+ *
+ * 未连接或添加实例时整块换成连接引导（connect.jsx 的状态机），不显示示例数据。
  */
 
 import React from 'react'
 
 import { asApiError } from './api.js'
+import { Composer } from './composer.jsx'
 import { ConnectForm, PairingCard, useConnectFlow } from './connect.jsx'
 import { createTranslator, translateError } from './i18n.js'
 import {
-  formatClock,
   formatDateTime,
   groupByDay,
-  matchesQuery,
   noteBlocks,
   noteCharCount,
   noteText,
   relatedByTag,
 } from './notes.js'
+import { activeInstanceOf, hostOf, Sidebar } from './sidebar.jsx'
 import { C, S, T } from './styles.js'
 import {
+  IconArchive,
   IconCheck,
-  IconChevronRight,
-  IconClock,
+  IconChevronLeft,
   IconCopy,
-  IconQuote,
+  IconGrid,
+  IconPanelLeft,
   IconRefresh,
   IconSearch,
   IconSparkle,
+  IconTrash,
 } from './icons.jsx'
 
-/** 正文块渲染：输出语义标签，排版由 .fm-prose 统一（theme.js）。 */
+/** 查看。 */
+const VIEWS = {
+  all: { icon: IconGrid, labelKey: 'navAll', emptyKey: 'timelineEmpty' },
+  archived: { icon: IconArchive, labelKey: 'navArchived', emptyKey: 'archiveEmpty' },
+  trashed: { icon: IconTrash, labelKey: 'navTrashed', emptyKey: 'trashEmpty' },
+}
+
+/** 侧栏切换后 day 过滤用的服务端查询：after 含、before 不含。 */
+export function dayRangeQuery(day) {
+  if (typeof day !== 'string' || day.length !== 10) return ''
+  const base = new Date(`${day}T00:00:00`)
+  if (Number.isNaN(base.getTime())) return ''
+  const next = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1)
+  const key = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
+  return `after:${day} before:${key}`
+}
+
+/** 正文块渲染：语义标签交给 .fm-prose 排版（theme.js）。 */
 export function BlockView({ block }) {
   switch (block.type) {
     case 'p':
@@ -72,109 +95,216 @@ export function BlockView({ block }) {
   }
 }
 
-/** 时间线记录行：左侧正文是 <button>；右上角选择框是兄弟 <button>。 */
-export function NoteCard({ note, active, selected, tr, onOpen, onToggle }) {
+/** 时间线便签卡（网页版 MemoCard 的只读简化版）。 */
+export function MemoCard({ note, tr, selected, onOpen, onToggle, onCopy }) {
+  const blocks = noteBlocks(note)
   return (
-    <div className="fm-note-row" style={{ marginBottom: 2 }}>
-      <button
-        type="button"
-        className="fm-note"
-        data-active={active ? 'true' : 'false'}
-        aria-current={active ? 'true' : undefined}
-        onClick={() => onOpen(note.id)}
+    <article className="fm-memo">
+      <div className="fm-memo-head">
+        <span className="fm-memo-time">{formatDateTime(note.updatedAt)}</span>
+        {note.visibility ? (
+          <span className="fm-badge" data-tone="neutral">
+            {note.visibility}
+          </span>
+        ) : null}
+        {note.commentCount > 0 ? (
+          <span style={{ ...T.micro, color: C.textSecondary }}>
+            {tr('noteCommentsCount', { count: note.commentCount })}
+          </span>
+        ) : null}
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
+          <button
+            type="button"
+            className="fm-btn"
+            data-variant="ghost"
+            data-size="icon-sm"
+            onClick={() => onCopy(note)}
+            title={tr('copyContent')}
+            aria-label={tr('copyContent')}
+          >
+            <IconCopy size={13} />
+          </button>
+          <button
+            type="button"
+            className="fm-btn"
+            data-variant="ghost"
+            data-size="icon-sm"
+            aria-pressed={selected}
+            onClick={() => onToggle(note.id)}
+            title={selected ? tr('removeSelection') : tr('addSelection')}
+            aria-label={selected ? tr('removeSelection') : tr('addSelection')}
+          >
+            <IconCheck size={13} style={{ color: selected ? C.accent : undefined }} />
+          </button>
+        </span>
+      </div>
+
+      <div
+        className="fm-memo-body"
+        role="button"
+        tabIndex={0}
+        aria-label={tr('openNote')}
+        onClick={() => onOpen(note)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onOpen(note)
+          }
+        }}
+        style={{ cursor: 'pointer' }}
       >
-        <span
-          style={{
-            display: 'block',
-            paddingRight: 24,
-            ...T.h3,
-            color: C.text,
-            ...S.clamp2,
-          }}
-        >
-          {note.title}
-        </span>
-        <span
-          style={{
-            display: 'block',
-            marginTop: 3,
-            ...T.caption,
-            color: C.textSecondary,
-            ...S.clamp2,
-          }}
-        >
-          {note.excerpt}
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-          {(note.tags ?? []).slice(0, 3).map((tag) => (
+        <div className="fm-prose">
+          {blocks.length === 0 ? (
+            <p>{note.excerpt}</p>
+          ) : (
+            blocks.map((block, index) => <BlockView key={index} block={block} />)
+          )}
+        </div>
+      </div>
+
+      {(note.tags ?? []).length > 0 ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {(note.tags ?? []).map((tag) => (
             <span key={tag} className="fm-chip">
               #{tag}
             </span>
           ))}
-          <span
-            style={{
-              marginLeft: 'auto',
-              ...T.micro,
-              color: C.textSecondary,
-              fontVariantNumeric: 'tabular-nums',
-            }}
+        </div>
+      ) : null}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+        <span style={{ ...T.micro, color: C.textSecondary }}>{note.source ?? ''}</span>
+        <button
+          type="button"
+          className="fm-btn"
+          data-variant="ghost"
+          data-size="xs"
+          onClick={() => onOpen(note)}
+          style={{ marginLeft: 'auto' }}
+        >
+          {tr('openNote')}
+        </button>
+      </div>
+    </article>
+  )
+}
+
+/** 便签详情（主列内页面，对应网页版 /memo/:id）。 */
+function NoteDetail({ tr, note, related, selected, onBack, onCopy, onToggle, onOpen, openConversation }) {
+  const blocks = noteBlocks(note)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button type="button" className="fm-btn" data-variant="ghost" data-size="sm" onClick={onBack}>
+          <IconChevronLeft size={14} />
+          {tr('backToTimeline')}
+        </button>
+      </div>
+
+      <header style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <h1 style={{ margin: 0, ...T.h1, color: C.text }}>{note.title}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', ...T.caption, color: C.textSecondary }}>
+          <span>{tr('noteUpdated', { time: formatDateTime(note.updatedAt) })}</span>
+          {note.source ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{note.source}</span>
+            </>
+          ) : null}
+          {note.visibility ? <span className="fm-badge" data-tone="neutral">{note.visibility}</span> : null}
+          {(note.tags ?? []).map((tag) => (
+            <span key={tag} className="fm-chip">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      </header>
+
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+        <div className="fm-prose">
+          {blocks.length === 0 ? (
+            <p style={{ color: C.textSecondary }}>{note.excerpt}</p>
+          ) : (
+            blocks.map((block, index) => <BlockView key={index} block={block} />)
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: `1px solid ${C.border}`, paddingTop: 12, flexWrap: 'wrap' }}>
+        <button type="button" className="fm-btn" data-variant="outline" data-size="sm" onClick={() => onCopy(note)}>
+          <IconCopy size={14} />
+          {tr('copyContent')}
+        </button>
+        <button
+          type="button"
+          className="fm-btn"
+          data-variant="ghost"
+          data-size="sm"
+          aria-pressed={selected}
+          onClick={() => onToggle(note.id)}
+        >
+          <IconCheck size={14} />
+          {selected ? tr('removeSelection') : tr('addSelection')}
+        </button>
+        <span style={{ ...T.micro, color: C.textSecondary }}>{tr('noteWords', { count: noteCharCount(note) })}</span>
+        {typeof openConversation === 'function' ? (
+          <button
+            type="button"
+            className="fm-btn"
+            data-variant="ghost"
+            data-size="sm"
+            onClick={openConversation}
+            style={{ marginLeft: 'auto' }}
           >
-            {formatClock(note.updatedAt)}
-          </span>
-        </span>
-      </button>
-      <button
-        type="button"
-        className="fm-note-check"
-        data-selected={selected ? 'true' : 'false'}
-        aria-pressed={selected}
-        aria-label={selected ? tr('removeSelection') : tr('addSelection')}
-        title={selected ? tr('removeSelection') : tr('addSelection')}
-        onClick={() => onToggle(note.id)}
-      >
-        {selected ? <IconCheck size={11} /> : null}
-      </button>
+            {tr('backToConversation')}
+          </button>
+        ) : null}
+      </div>
+
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+        <h4 style={{ margin: 0, ...T.section, color: C.textSecondary }}>{tr('relatedByTag')}</h4>
+        {related.length === 0 ? (
+          <div style={{ ...T.caption, color: C.textSecondary }}>—</div>
+        ) : (
+          related.map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              className="fm-nav-item"
+              onClick={() => onOpen(row)}
+              style={{ height: 'auto', padding: '7px 10px', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}
+            >
+              <span style={{ ...T.caption, color: C.text, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {row.title}
+              </span>
+              <span style={{ ...T.micro, color: C.textSecondary }}>{row.day}</span>
+            </button>
+          ))
+        )}
+      </section>
     </div>
   )
 }
 
-/** 右栏的一小块：小标题 + 内容（Ember 栏目标签 12px/600）。 */
-function InsightSection({ title, children }) {
+/** 时间线加载骨架。 */
+function TimelineSkeleton() {
   return (
-    <section style={{ marginBottom: 18 }}>
-      <h4 style={{ margin: '0 0 8px', ...T.section, color: C.textSecondary }}>{title}</h4>
-      {children}
-    </section>
-  )
-}
-
-/** 右栏的只读信息行；value 为空时只渲染标签（「字数 142」这类统计行）。 */
-function InfoLine({ label, value }) {
-  if (label === null || label === undefined || label === '') return null
-  const hasValue = value !== null && value !== undefined && value !== ''
-  return (
-    <div style={{ ...S.infoRow, marginBottom: 4 }}>
-      <span style={S.infoLabel}>{label}</span>
-      {hasValue ? <span style={S.infoValue}>{value}</span> : null}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {[0, 1, 2].map((row) => (
+        <div key={row} className="fm-memo">
+          <div className="fm-skeleton" style={{ width: 90, height: 10 }} />
+          <div className="fm-skeleton" style={{ width: '92%', height: 12 }} />
+          <div className="fm-skeleton" style={{ width: '78%', height: 12 }} />
+          <div className="fm-skeleton" style={{ width: '40%', height: 10 }} />
+        </div>
+      ))}
     </div>
   )
 }
 
 /**
- * 未连接时的连接引导。**不渲染任何示例数据**，也不把用户赶去设置页：
+ * 连接引导（未连接 / 添加实例）。不渲染任何示例数据，也不把用户赶去设置页：
  * 实例地址 + 配对码 + 轮询全部长在面板里（与设置页共用 connect.jsx 的状态机）。
- *
- * 造型是 Ember 的「空状态 → 一张卡片里的表单」：40px 小纸片图标、15px 标题、
- * 正文 14px muted；错误用 alert，表单/配对卡由 connect.jsx 自己渲染。
- *
- * 已连接时点切换器里的「添加实例」也会复用这张引导（`adding`）：顶部多一个
- * 「返回工作台」的 ghost 按钮，配对成功由容器切回三栏。
- *
- * @param {{ tr: (key: string, vars?: object) => string, loadError: object | null,
- *   onRetry: () => void, call?: (method: string, args?: object) => Promise<object>,
- *   connection?: object | null, onConnected?: () => void, adding?: boolean,
- *   onBack?: () => void }} props
- * @returns {React.ReactElement} the connection guide.
  */
 export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConnected, adding = false, onBack }) {
   const flow = useConnectFlow({
@@ -203,19 +333,13 @@ export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConne
     >
       <div style={{ width: '100%', maxWidth: 520 }}>
         {adding ? (
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 16 }}>
             <button type="button" className="fm-btn" data-variant="ghost" data-size="sm" onClick={onBack}>
-              <span
-                aria-hidden="true"
-                style={{ display: 'flex', transform: 'rotate(180deg)' }}
-              >
-                <IconChevronRight size={13} />
-              </span>
+              <IconChevronLeft size={14} />
               {tr('backToWorkbench')}
             </button>
           </div>
         ) : null}
-
         <div className="fm-empty" style={{ padding: '0 0 20px' }}>
           <div className="fm-empty-icon">
             <IconSparkle size={18} />
@@ -267,253 +391,44 @@ export function ConnectGuide({ tr, loadError, onRetry, call, connection, onConne
   )
 }
 
-/** 实例地址的 host（去协议/路径/账号信息）；解析失败时原样返回。 */
-function hostOf(url) {
-  if (typeof url !== 'string' || url === '') return ''
-  // 不依赖 URL 全局：插件 bundle 可能在只给了 window/document 的沙箱里跑（测试/加载器）。
-  const match = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\/([^/?#]+)/.exec(url)
-  if (match === null) return url
-  const authority = match[1]
-  const at = authority.lastIndexOf('@')
-  return at === -1 ? authority : authority.slice(at + 1)
-}
-
-/** 当前 active 实例：优先 `instances[].active`，其次按 `activeId` 匹配。 */
-function activeInstanceOf(connection) {
-  const instances = Array.isArray(connection?.instances) ? connection.instances : []
-  return (
-    instances.find((row) => row?.active === true) ??
-    instances.find((row) => row?.id === connection?.activeId) ??
-    null
-  )
-}
-
-/** 切换器菜单里的一行按钮造型（fm-btn ghost 的形状由 class 提供，这里只管版面）。 */
-const SWITCHER_ROW_STYLE = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'flex-start',
-  height: 'auto',
-  width: '100%',
-  padding: '7px 8px',
-  borderRadius: C.radiusMd,
-  textAlign: 'left',
-  whiteSpace: 'normal',
-}
-
 /**
- * 顶栏实例切换器：按钮文案 = 当前实例 alias（没有就退回 host），右侧一个小 chevron。
- * 点开是一张 `.fm-card` 造型的 popover（不引第三方组件），菜单项都是 `<button>`，
- * 所以键盘天然可达；菜单外点 / Esc 关闭。
- *
- * @param {{ tr: (key: string, vars?: object) => string, connection: object | null,
- *   busy: boolean, onSwitch: (id: string) => void, onAdd: () => void }} props
- * @returns {React.ReactElement} the switcher.
- */
-export function InstanceSwitcher({ tr, connection, busy, onSwitch, onAdd }) {
-  const [open, setOpen] = React.useState(false)
-  const rootRef = React.useRef(null)
-  const instances = Array.isArray(connection?.instances) ? connection.instances : []
-  const active = activeInstanceOf(connection)
-  const label =
-    active?.alias || connection?.alias || hostOf(connection?.instanceUrl) || tr('instanceLabel')
-
-  React.useEffect(() => {
-    if (!open) return undefined
-    const closeOnOutside = (event) => {
-      if (rootRef.current !== null && event.target && rootRef.current.contains(event.target)) return
-      setOpen(false)
-    }
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('pointerdown', closeOnOutside)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutside)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [open])
-
-  return (
-    <div ref={rootRef} style={{ position: 'relative', display: 'flex', flex: 'none' }}>
-      <button
-        type="button"
-        className="fm-btn"
-        data-variant="outline"
-        data-size="sm"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={tr('switchInstance')}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span
-          style={{
-            maxWidth: 150,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {label}
-        </span>
-        <span
-          aria-hidden="true"
-          style={{
-            display: 'flex',
-            transform: open ? 'rotate(180deg)' : 'none',
-            transition: `transform ${C.durationFast} ${C.easeSignal}`,
-          }}
-        >
-          <IconChevronRight size={13} />
-        </span>
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className="fm-card"
-          data-size="sm"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
-            zIndex: 30,
-            width: 288,
-            padding: 6,
-            gap: 2,
-            boxShadow: C.shadowProminent,
-          }}
-        >
-          {instances.length === 0 ? (
-            <div style={{ padding: '6px 8px', ...T.caption, color: C.textSecondary }}>
-              {tr('instancesEmpty')}
-            </div>
-          ) : (
-            instances.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                role="menuitem"
-                className="fm-btn"
-                data-variant="ghost"
-                disabled={busy}
-                onClick={() => {
-                  setOpen(false)
-                  void onSwitch(row.id)
-                }}
-                style={SWITCHER_ROW_STYLE}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: 1,
-                      minWidth: 0,
-                      flex: '1 1 auto',
-                    }}
-                  >
-                    <span
-                      style={{
-                        ...T.h3,
-                        color: C.text,
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {row.alias || hostOf(row.instanceUrl) || row.instanceUrl || row.id}
-                    </span>
-                    <span
-                      style={{
-                        ...T.caption,
-                        color: C.textSecondary,
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {hostOf(row.instanceUrl)}
-                    </span>
-                  </span>
-                  {row.connected === false ? (
-                    <span className="fm-badge" data-tone="neutral">
-                      {tr('instanceNotConnected')}
-                    </span>
-                  ) : row.active === true ? (
-                    <span className="fm-badge" data-tone="neutral">
-                      {tr('instanceActive')}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            ))
-          )}
-
-          <div style={{ height: 1, background: C.border, margin: '4px 0' }} />
-
-          <button
-            type="button"
-            role="menuitem"
-            className="fm-btn"
-            data-variant="ghost"
-            onClick={() => {
-              setOpen(false)
-              onAdd()
-            }}
-            style={{ ...SWITCHER_ROW_STYLE, ...T.caption, color: C.text }}
-          >
-            <span aria-hidden="true" style={{ display: 'flex', fontSize: 14, lineHeight: '14px' }}>
-              ＋
-            </span>
-            {tr('addInstance')}
-          </button>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-/**
- * 工作台主组件。props 来自 slot：标准 props（t）+ entry.jsx 的 inject face。
+ * 时间线面板主组件。props 来自 slot：标准 props（t）+ entry.jsx 的 inject face。
  * @param {{ t?: (key: string) => string, call?: (method: string, args?: object) => Promise<object>,
  *   openConversation?: () => void }} props
- * @returns {React.ReactElement} the workbench panel.
+ * @returns {React.ReactElement} the timeline panel.
  */
 export function Workbench({ t, call, openConversation }) {
   const tr = React.useMemo(() => createTranslator(t), [t])
   const hasCall = typeof call === 'function'
 
-  const [reloadKey, setReloadKey] = React.useState(0)
-  /** @type {[object | null, Function]} connection view from the host */
   const [connection, setConnection] = React.useState(null)
-  /** @type {[object[] | null, Function]} notes (null = loading) */
-  const [notes, setNotes] = React.useState(null)
-  /** 是否已连上实例并加载了真实数据；false 时整块只显示连接引导。 */
   const [connected, setConnected] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState(null)
-  const [query, setQuery] = React.useState('')
-  const [remoteResults, setRemoteResults] = React.useState(null)
-  const [searching, setSearching] = React.useState(false)
-  const [searchError, setSearchError] = React.useState(null)
-  /** FlareMo 上 pending 的洞察队列（执行器入口，只有已连接时才有）。 */
-  const [pendingInsights, setPendingInsights] = React.useState(null)
+  const [reloadKey, setReloadKey] = React.useState(0)
+  const [notes, setNotes] = React.useState([])
+  const [stats, setStats] = React.useState(null)
+  const [tags, setTags] = React.useState([])
+  const [insights, setInsights] = React.useState(null)
   const [runningInsights, setRunningInsights] = React.useState(false)
-  const [activeId, setActiveId] = React.useState(null)
+  const [view, setView] = React.useState('all')
+  const [activeTag, setActiveTag] = React.useState(null)
+  const [selectedDay, setSelectedDay] = React.useState(null)
+  const [queryInput, setQueryInput] = React.useState('')
+  const [query, setQuery] = React.useState('')
   const [selected, setSelected] = React.useState(() => new Set())
-  const [insightOpen, setInsightOpen] = React.useState(
-    () => typeof window === 'undefined' || window.innerWidth >= 1120,
-  )
-  const [notice, setNotice] = React.useState(null)
-  /** 切换实例的进行中标记（防双击、切换器按钮置灰）。 */
-  const [switching, setSwitching] = React.useState(false)
-  /** 切换器菜单里的「添加实例」：把面板换成连接引导（配对成功后回三栏）。 */
+  const [activeNote, setActiveNote] = React.useState(null)
+  const [composerPending, setComposerPending] = React.useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [addingInstance, setAddingInstance] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+  const [notice, setNotice] = React.useState(null)
+
+  // 搜索防抖 300ms
+  React.useEffect(() => {
+    const timer = setTimeout(() => setQuery(queryInput), 300)
+    return () => clearTimeout(timer)
+  }, [queryInput])
 
   // 提示条 3.2s 自动消失；同文案重复触发也要重新计时，所以带 seq。
   React.useEffect(() => {
@@ -526,44 +441,77 @@ export function Workbench({ t, call, openConversation }) {
     setNotice((previous) => ({ text, seq: (previous?.seq ?? 0) + 1 }))
   }, [])
 
-  // 首次加载 / 刷新：连接状态 → 真实笔记；未连接或失败 → 连接引导（不放假数据）
+  // 加载：连接状态 → 列表（view/tag/day/搜索）+ 统计 + 标签 + 洞察队列
   React.useEffect(() => {
     let live = true
     setLoading(true)
     setLoadError(null)
-    setActiveId(null)
     ;(async () => {
-      let view = null
+      let statusView = null
       try {
         if (hasCall) {
           const reply = await call('connectionStatus')
-          view = reply?.connection ?? null
+          statusView = reply?.connection ?? null
         }
         if (!live) return
-        setConnection(view)
-        if (view?.connected === true) {
-          const listed = await call('listNotes', { pageSize: 50 })
-          if (!live) return
-          setNotes(Array.isArray(listed?.notes) ? listed.notes : [])
-          setConnected(true)
-          try {
-            const queue = await call('listPendingInsights', { limit: 50 })
-            if (!live) return
-            setPendingInsights({
-              count: Number(queue?.count) > 0 ? Number(queue.count) : 0,
-              model: queue?.model ?? null,
-            })
-          } catch {
-            if (live) setPendingInsights(null)
-          }
-        } else {
+        setConnection(statusView)
+        if (statusView?.connected !== true) {
           setNotes([])
+          setTags([])
+          setStats(null)
+          setInsights(null)
           setConnected(false)
+          return
         }
+        setConnected(true)
+
+        const params = { pageSize: 50 }
+        if (view !== 'all') params.state = view
+        if (activeTag !== null) params.tag = activeTag
+        const parts = []
+        if (selectedDay !== null) parts.push(dayRangeQuery(selectedDay))
+        if (query.trim() !== '') parts.push(query.trim())
+        const merged = parts.filter((part) => part !== '').join(' ')
+        if (merged !== '') params.q = merged
+
+        const listed = await call('listNotes', params)
+        if (!live) return
+        setNotes(Array.isArray(listed?.notes) ? listed.notes : [])
+
+        // 侧栏三块并行加载；单块失败只影响自己，不挡时间线。
+        void (async () => {
+          try {
+            const next = await call('memoStats', {})
+            if (live) setStats(next ?? null)
+          } catch {
+            if (live) setStats(null)
+          }
+        })()
+        void (async () => {
+          try {
+            const next = await call('listTags', {})
+            if (live) setTags(Array.isArray(next?.tags) ? next.tags : [])
+          } catch {
+            if (live) setTags([])
+          }
+        })()
+        void (async () => {
+          try {
+            const next = await call('listPendingInsights', { limit: 50 })
+            if (live) {
+              setInsights({
+                count: Number(next?.count) > 0 ? Number(next.count) : 0,
+                model: next?.model ?? null,
+              })
+            }
+          } catch {
+            if (live) setInsights(null)
+          }
+        })()
       } catch (failure) {
         if (!live) return
         setLoadError(asApiError(failure))
-        setConnection(view)
+        setConnection(statusView)
         setNotes([])
         setConnected(false)
       } finally {
@@ -573,54 +521,7 @@ export function Workbench({ t, call, openConversation }) {
     return () => {
       live = false
     }
-  }, [call, hasCall, reloadKey])
-
-  // 服务端搜索：已连接 + 关键词 >= 2 才发，350ms 防抖
-  React.useEffect(() => {
-    const text = query.trim()
-    if (!connected || !hasCall || text.length < 2) {
-      setRemoteResults(null)
-      setSearching(false)
-      setSearchError(null)
-      return undefined
-    }
-    let live = true
-    const timer = setTimeout(() => {
-      setSearching(true)
-      setSearchError(null)
-      void (async () => {
-        try {
-          const reply = await call('searchNotes', { query: text, pageSize: 50 })
-          if (live) setRemoteResults(Array.isArray(reply?.notes) ? reply.notes : [])
-        } catch (failure) {
-          if (!live) return
-          setSearchError(asApiError(failure))
-          setRemoteResults([])
-        } finally {
-          if (live) setSearching(false)
-        }
-      })()
-    }, 350)
-    return () => {
-      live = false
-      clearTimeout(timer)
-    }
-  }, [query, connected, call, hasCall])
-
-  const baseNotes = Array.isArray(notes) ? notes : []
-  const trimmed = query.trim()
-  const localFiltered = trimmed === '' ? baseNotes : baseNotes.filter((note) => matchesQuery(note, trimmed))
-  const shownNotes = connected && trimmed !== '' ? (remoteResults ?? localFiltered) : localFiltered
-  const groups = groupByDay(shownNotes)
-  const active =
-    (activeId === null ? null : shownNotes.find((note) => note.id === activeId) ?? baseNotes.find((note) => note.id === activeId)) ??
-    shownNotes[0] ??
-    null
-  const activeBlocks = noteBlocks(active)
-  const isRemote = connected
-  const remoteRelated = active !== null ? relatedByTag(active, baseNotes) : []
-
-  const openNote = React.useCallback((id) => setActiveId(id), [])
+  }, [call, hasCall, reloadKey, view, activeTag, selectedDay, query])
 
   const toggleSelected = React.useCallback((id) => {
     setSelected((previous) => {
@@ -631,59 +532,85 @@ export function Workbench({ t, call, openConversation }) {
     })
   }, [])
 
-  const askAi = React.useCallback(() => {
-    showNotice(tr('noticeAsk', { count: selected.size }))
-  }, [selected.size, showNotice, tr])
+  const copyNote = React.useCallback(
+    async (note) => {
+      const text = typeof note?.content === 'string' && note.content !== '' ? note.content : noteText(note)
+      try {
+        if (typeof navigator === 'undefined' || navigator.clipboard === undefined) throw new Error('no clipboard')
+        await navigator.clipboard.writeText(text)
+        showNotice(tr('noticeCopy'))
+      } catch {
+        showNotice(tr('noticeCopyFailed'))
+      }
+    },
+    [showNotice, tr],
+  )
 
   const refresh = React.useCallback(() => {
     setReloadKey((value) => value + 1)
-    setRemoteResults(null)
     showNotice(tr('noticeRefresh'))
   }, [showNotice, tr])
 
-  /**
-   * 切换 active 实例：成功后清掉搜索/选择/详情（不同实例的笔记不混排），
-   * 再 bump reloadKey 让 effect 重新拉新实例的笔记与洞察队列。
-   */
+  const createNote = React.useCallback(
+    async (text) => {
+      if (!hasCall) throw new Error('unavailable')
+      setComposerPending(true)
+      try {
+        await call('createNote', { content: text })
+        setView('all')
+        setActiveTag(null)
+        setSelectedDay(null)
+        setQueryInput('')
+        setQuery('')
+        setActiveNote(null)
+        setReloadKey((value) => value + 1)
+        showNotice(tr('composePosted'))
+      } catch (failure) {
+        const error = asApiError(failure)
+        showNotice(`${tr('composeFailed')}：${translateError(tr, error)}`)
+        throw error
+      } finally {
+        setComposerPending(false)
+      }
+    },
+    [call, hasCall, showNotice, tr],
+  )
+
   const switchInstance = React.useCallback(
     async (id) => {
-      if (!hasCall || switching) return
-      if (activeInstanceOf(connection)?.id === id) return
-      setSwitching(true)
+      if (!hasCall) return
+      setBusy(true)
       try {
-        await call('switchInstance', { id })
+        const reply = await call('switchInstance', { id })
+        if (reply?.connection !== undefined) setConnection(reply.connection)
+        setView('all')
+        setActiveTag(null)
+        setSelectedDay(null)
+        setQueryInput('')
         setQuery('')
-        setRemoteResults(null)
+        setActiveNote(null)
         setSelected(new Set())
-        setActiveId(null)
         setReloadKey((value) => value + 1)
       } catch (failure) {
         showNotice(translateError(tr, asApiError(failure)))
       } finally {
-        setSwitching(false)
+        setBusy(false)
       }
     },
-    [call, connection, hasCall, showNotice, switching, tr],
+    [call, hasCall, showNotice, tr],
   )
 
-  const copyActive = React.useCallback(async () => {
-    if (active === null) return
-    const text = typeof active.content === 'string' ? active.content : noteText(active)
-    try {
-      if (typeof navigator === 'undefined' || navigator.clipboard === undefined) throw new Error('no clipboard')
-      await navigator.clipboard.writeText(text)
-      showNotice(tr('noticeCopy'))
-    } catch {
-      showNotice(tr('noticeCopyFailed'))
-    }
-  }, [active, showNotice, tr])
-
-  /** 跑一批洞察任务（工作台只处理 2 条，避免长时间占用面板）。 */
+  /** 跑一批洞察任务（面板只处理 2 条，避免长时间占用）。 */
   const runInsights = React.useCallback(async () => {
+    if (!hasCall) return
     setRunningInsights(true)
     try {
       const reply = await call('runPendingInsights', { limit: 2 })
-      setPendingInsights((previous) => (previous === null ? previous : { ...previous, count: Math.max(0, previous.count - (reply?.done ?? 0) - (reply?.failed ?? 0)) }))
+      setInsights((previous) =>
+        previous === null
+          ? previous
+          : { ...previous, count: Math.max(0, previous.count - (reply?.done ?? 0) - (reply?.failed ?? 0)) },
+      )
       const failed = Array.isArray(reply?.results) ? reply.results.find((row) => row.status === 'failed') : undefined
       showNotice(
         tr('executorSummary', { done: reply?.done ?? 0, failed: reply?.failed ?? 0, skipped: reply?.skipped ?? 0 }) +
@@ -694,598 +621,270 @@ export function Workbench({ t, call, openConversation }) {
     } finally {
       setRunningInsights(false)
     }
-  }, [call, showNotice, tr])
+  }, [call, hasCall, showNotice, tr])
 
-  const askThisNote = React.useCallback(() => {
-    if (active === null) return
-    const next = new Set(selected)
-    next.add(active.id)
-    setSelected(next)
-    setInsightOpen(true)
-    showNotice(tr('noticeAsk', { count: next.size }))
-  }, [active, selected, showNotice, tr])
-
+  const groups = groupByDay(notes)
+  const activeMeta = VIEWS[view] ?? VIEWS.all
+  const ActiveIcon = activeMeta.icon
+  const related = activeNote === null ? [] : relatedByTag(activeNote, notes)
+  const hasFilters = activeTag !== null || selectedDay !== null || query.trim() !== ''
   const syncLabel = tr('syncHint', {
     time: connection?.lastSyncAt ? formatDateTime(connection.lastSyncAt) : '—',
-    count: baseNotes.length,
+    count: stats?.counts?.total ?? notes.length,
   })
+
+  const openNote = React.useCallback((note) => setActiveNote(note), [])
+  const closeNote = React.useCallback(() => setActiveNote(null), [])
+  const switchView = React.useCallback((next) => {
+    setView(next)
+    setActiveNote(null)
+    setSelected(new Set())
+  }, [])
+  const selectTag = React.useCallback((tag) => {
+    setActiveTag(tag)
+    setActiveNote(null)
+  }, [])
+  const selectDay = React.useCallback((day) => {
+    setSelectedDay(day)
+    setActiveNote(null)
+  }, [])
 
   return (
     <div className="dsh-flaremo-root" style={{ height: '100%', minHeight: 0 }}>
-      {/* ── 顶栏（h-14 工具栏：墨色标题图标 + 标题 + 搜索 + 唯一火焰 CTA） ── */}
-      <header
-        className="dsh-flaremo-head"
-        style={{
-          flex: '0 0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '10px 20px',
-          borderBottom: `1px solid ${C.border}`,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <span
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 30,
-              height: 30,
-              flex: 'none',
-              border: `1px solid ${C.border}`,
-              borderRadius: C.radiusLg,
-              background: C.bgBase,
-              color: C.textSecondary,
-              boxShadow: C.shadowSoft,
-            }}
-          >
-            <IconSparkle size={16} />
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ ...T.h3, fontSize: 15, color: C.text, whiteSpace: 'nowrap' }}>{tr('title')}</div>
-            <div
-              style={{
-                ...T.micro,
-                color: C.textSecondary,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {connection?.instanceUrl ?? tr('subtitle')}
-            </div>
-          </div>
-          <span className="fm-badge" data-tone={isRemote ? 'success' : 'neutral'}>
-            {isRemote ? tr('badgeLive') : tr('badgeOffline')}
-          </span>
-          {isRemote ? (
-            <InstanceSwitcher
-              tr={tr}
-              connection={connection}
-              busy={switching}
-              onSwitch={switchInstance}
-              onAdd={() => setAddingInstance(true)}
-            />
-          ) : null}
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginLeft: 'auto',
-            minWidth: 0,
-          }}
-        >
-          {isRemote ? (
-            <>
-              <label style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 240 }}>
-                <span
-                  style={{
-                    position: 'absolute',
-                    left: 9,
-                    display: 'flex',
-                    color: C.textSecondary,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <IconSearch size={14} />
-                </span>
-                <input
-                  className="fm-input"
-                  data-size="search"
-                  type="text"
-                  value={query}
-                  placeholder={tr('searchRemoteHint')}
-                  aria-label={tr('searchPlaceholder')}
-                  onChange={(event) => setQuery(event.target.value)}
-                  style={{ paddingLeft: 30 }}
-                />
-              </label>
-              {selected.size > 0 ? (
-                <span className="fm-badge" data-tone="brand">
-                  {tr('selected', { count: selected.size })}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                className="fm-btn"
-                data-variant={selected.size > 0 ? 'brand' : 'outline'}
-                data-size="sm"
-                disabled={selected.size === 0}
-                onClick={askAi}
-              >
-                <IconSparkle size={13} />
-                {selected.size > 0 ? `${tr('askAi')} (${selected.size})` : tr('askAi')}
-              </button>
-            </>
-          ) : null}
-          <button
-            type="button"
-            className="fm-btn"
-            data-variant="outline"
-            data-size="icon-sm"
-            onClick={refresh}
-            title={tr('refresh')}
-            aria-label={tr('refresh')}
-          >
-            <IconRefresh size={14} />
-          </button>
-        </div>
-      </header>
-
-      {/* ── 主体：已连接（或首帧还在读状态）走三栏；未连接只给连接引导 ──── */}
-      {!loading && (addingInstance || !isRemote) ? (
+      {!loading && !connected && !addingInstance ? (
         <ConnectGuide
           tr={tr}
           loadError={loadError}
           onRetry={refresh}
           call={call}
-          connection={addingInstance ? { connected: false } : connection}
-          adding={addingInstance}
-          onBack={addingInstance ? () => setAddingInstance(false) : undefined}
-          onConnected={() => {
-            setAddingInstance(false)
-            setReloadKey((value) => value + 1)
-          }}
+          connection={connection}
+          onConnected={() => setReloadKey((value) => value + 1)}
         />
       ) : (
-        <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
-          {/* 左：时间线 */}
-          <aside
-            style={{
-              flex: '0 0 300px',
-              width: 300,
-              minWidth: 240,
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0,
-              borderRight: `1px solid ${C.border}`,
-              background: C.page,
-            }}
-          >
-            <div
+        <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, height: '100%' }}>
+          {sidebarCollapsed ? null : (
+            <Sidebar
+              tr={tr}
+              connection={connection}
+              stats={stats}
+              tags={tags}
+              view={view}
+              activeTag={activeTag}
+              selectedDay={selectedDay}
+              onToggleCollapse={() => setSidebarCollapsed(true)}
+              onView={switchView}
+              onTag={selectTag}
+              onDay={selectDay}
+              insights={insights}
+              runningInsights={runningInsights}
+              onRunInsights={runInsights}
+              onSwitchInstance={switchInstance}
+              onAddInstance={() => setAddingInstance(true)}
+              busy={busy}
+              syncLabel={syncLabel}
+            />
+          )}
+
+          <main style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {addingInstance ? (
+              <ConnectGuide
+                tr={tr}
+                loadError={loadError}
+                onRetry={refresh}
+                call={call}
+                connection={{ connected: false }}
+                adding
+                onBack={() => setAddingInstance(false)}
+                onConnected={() => {
+                  setAddingInstance(false)
+                  setReloadKey((value) => value + 1)
+                }}
+              />
+            ) : (
+            <>
+            <header
               style={{
                 flex: '0 0 auto',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: '12px 16px 8px',
-                ...T.section,
-                color: C.textSecondary,
+                gap: 10,
+                height: 56,
+                padding: '0 20px',
+                borderBottom: `1px solid ${C.border}`,
               }}
             >
-              <IconClock size={13} />
-              {tr('timeline')}
-              <span style={{ marginLeft: 'auto', ...T.micro, fontWeight: 400, color: C.textSecondary }}>
-                {tr('noteCount', { count: shownNotes.length })}
-              </span>
-            </div>
-            <div className="fm-scroll" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '0 8px 12px' }}>
-              {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 6px' }}>
-                  {[0, 1, 2, 3].map((row) => (
-                    <div key={row} style={{ padding: '10px 8px', borderRadius: C.radiusXl, border: `1px solid ${C.border}` }}>
-                      <div className="fm-skeleton" style={{ width: '72%', height: 12 }} />
-                      <div className="fm-skeleton" style={{ width: '94%', height: 10, marginTop: 8 }} />
-                      <div className="fm-skeleton" style={{ width: '44%', height: 10, marginTop: 6 }} />
-                    </div>
-                  ))}
-                </div>
-              ) : groups.length === 0 ? (
-                <div className="fm-empty" style={{ paddingTop: 32 }}>
-                  <div className="fm-empty-icon">
-                    <IconClock size={18} />
-                  </div>
-                  <div className="fm-empty-title">{tr('emptyRemote')}</div>
-                </div>
-              ) : (
-                groups.map((group) => (
-                  <section key={group.day}>
-                    <div
-                      style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '10px 8px 6px',
-                        background: C.page,
-                        ...T.micro,
-                        fontWeight: 600,
-                        color: C.textSecondary,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      {group.day}
-                      <span style={{ fontWeight: 400, color: C.textSecondary }}>{group.rows.length}</span>
-                    </div>
-                    {group.rows.map((note) => (
-                      <NoteCard
-                        key={note.id}
-                        note={note}
-                        active={active?.id === note.id}
-                        selected={selected.has(note.id)}
-                        tr={tr}
-                        onOpen={openNote}
-                        onToggle={toggleSelected}
-                      />
-                    ))}
-                  </section>
-                ))
-              )}
-              {searching ? (
-                <div style={{ padding: 8, textAlign: 'center', ...T.micro, color: C.textSecondary }}>
-                  {tr('loadingNotes')}
-                </div>
-              ) : null}
-              {searchError !== null ? (
-                <div style={{ padding: 8, textAlign: 'center', ...T.micro, color: C.danger }}>
-                  {translateError(tr, searchError)}
-                </div>
-              ) : null}
-            </div>
-          </aside>
-
-          {/* 中：详情 */}
-          <main style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            {active === null ? (
-              <div className="fm-empty" style={{ flex: '1 1 auto', paddingTop: 40 }}>
-                <div className="fm-empty-icon">
-                  <IconSearch size={18} />
-                </div>
-                <div className="fm-empty-title">{loading ? tr('loadingNotes') : tr('emptyRemote')}</div>
-              </div>
-            ) : (
-              <>
-                <div style={{ flex: '0 0 auto', padding: '20px 24px 14px', borderBottom: `1px solid ${C.border}` }}>
-                  <h1 style={{ margin: 0, ...T.h1, color: C.text }}>{active.title}</h1>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                      marginTop: 8,
-                      ...T.caption,
-                      color: C.textSecondary,
-                    }}
-                  >
-                    <span>{tr('noteUpdated', { time: formatDateTime(active.updatedAt) })}</span>
-                    {active.source ? (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span>
-                          {tr('noteSource')} {active.source}
-                        </span>
-                      </>
-                    ) : null}
-                    {(active.tags ?? []).map((tag) => (
-                      <span key={tag} className="fm-chip">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div
-                  className="fm-scroll"
-                  style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '20px 24px 28px' }}
-                >
-                  {activeBlocks.length === 0 ? (
-                    <p style={{ margin: 0, ...T.body, color: C.textSecondary }}>{tr('emptyRemote')}</p>
-                  ) : (
-                    <div className="fm-prose" style={{ maxWidth: 720 }}>
-                      {activeBlocks.map((block, index) => (
-                        <BlockView key={index} block={block} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div
-                  style={{
-                    flex: '0 0 auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '10px 24px',
-                    borderTop: `1px solid ${C.border}`,
-                  }}
-                >
-                  <button type="button" className="fm-btn" data-variant="ghost" data-size="sm" onClick={copyActive}>
-                    <IconCopy size={14} />
-                    {tr('copyContent')}
-                  </button>
-                  <button
-                    type="button"
-                    className="fm-btn"
-                    data-variant="ghost"
-                    data-size="sm"
-                    aria-pressed={selected.has(active.id)}
-                    onClick={() => toggleSelected(active.id)}
-                  >
-                    <IconCheck size={14} />
-                    {selected.has(active.id) ? tr('removeSelection') : tr('addSelection')}
-                  </button>
-                  {typeof openConversation === 'function' ? (
-                    <button
-                      type="button"
-                      className="fm-btn"
-                      data-variant="outline"
-                      data-size="sm"
-                      onClick={openConversation}
-                      style={{ marginLeft: 'auto' }}
-                    >
-                      {tr('backToConversation')}
-                    </button>
-                  ) : null}
-                </div>
-              </>
-            )}
-          </main>
-
-          {/* 右：洞察 / 笔记信息 */}
-          {insightOpen ? (
-            <aside
-              style={{
-                flex: '0 0 340px',
-                width: 340,
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-                borderLeft: `1px solid ${C.border}`,
-                background: C.page,
-              }}
-            >
-              <div
-                style={{
-                  flex: '0 0 auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '12px 12px 8px 16px',
-                  ...T.section,
-                  color: C.textSecondary,
-                }}
-              >
-                <IconSparkle size={13} />
-                {tr('noteInfo')}
+              {sidebarCollapsed ? (
                 <button
                   type="button"
                   className="fm-btn"
                   data-variant="ghost"
                   data-size="icon-sm"
-                  onClick={() => setInsightOpen(false)}
-                  title={tr('collapse')}
-                  aria-label={tr('collapse')}
-                  style={{ marginLeft: 'auto' }}
+                  onClick={() => setSidebarCollapsed(false)}
+                  aria-label={tr('sidebarExpand')}
+                  title={tr('sidebarExpand')}
                 >
-                  <IconChevronRight size={14} />
+                  <IconPanelLeft size={14} />
+                </button>
+              ) : null}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <span aria-hidden="true" style={{ display: 'flex', color: C.textSecondary }}>
+                  <ActiveIcon size={15} />
+                </span>
+                <span style={{ ...T.h2, color: C.text, whiteSpace: 'nowrap' }}>{tr(activeMeta.labelKey)}</span>
+                {activeNote === null && loading === false ? (
+                  <span className="fm-badge" data-tone="neutral">
+                    {tr('noteCount', { count: notes.length })}
+                  </span>
+                ) : null}
+              </span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', minWidth: 0 }}>
+                {activeNote === null ? (
+                  <label style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 230 }}>
+                    <span style={{ position: 'absolute', left: 9, display: 'flex', color: C.textSecondary, pointerEvents: 'none' }}>
+                      <IconSearch size={14} />
+                    </span>
+                    <input
+                      className="fm-input"
+                      data-size="search"
+                      type="text"
+                      value={queryInput}
+                      placeholder={tr('searchPlaceholder')}
+                      aria-label={tr('searchPlaceholder')}
+                      onChange={(event) => setQueryInput(event.target.value)}
+                      style={{ paddingLeft: 30 }}
+                    />
+                  </label>
+                ) : null}
+                <button
+                  type="button"
+                  className="fm-btn"
+                  data-variant="outline"
+                  data-size="icon-sm"
+                  onClick={refresh}
+                  title={tr('refresh')}
+                  aria-label={tr('refresh')}
+                >
+                  <IconRefresh size={14} />
                 </button>
               </div>
+            </header>
 
-              {active === null ? (
-                <div style={{ padding: '24px 16px', ...T.body, color: C.textSecondary }}>{tr('emptyInsight')}</div>
-              ) : (
-                <>
-                  <div
-                    className="fm-scroll"
-                    style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '4px 16px 12px' }}
-                  >
-                    <div className="fm-card" data-size="sm" style={{ marginBottom: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ ...T.section, color: C.text }}>{tr('executorQueue')}</span>
-                        <span
-                          className="fm-badge"
-                          data-tone={(pendingInsights?.count ?? 0) > 0 ? 'brand' : 'neutral'}
-                        >
-                          {pendingInsights === null
-                            ? '—'
-                            : (pendingInsights.count ?? 0) > 0
-                              ? tr('executorPending', { count: pendingInsights.count })
-                              : tr('executorNone')}
-                        </span>
-                        <button
-                          type="button"
-                          className="fm-btn"
-                          data-variant="outline"
-                          data-size="xs"
-                          onClick={runInsights}
-                          disabled={runningInsights || (pendingInsights?.count ?? 0) === 0}
-                          style={{ marginLeft: 'auto' }}
-                        >
-                          {runningInsights ? tr('executorRunning') : tr('executorRunShort')}
-                        </button>
+            <div className="fm-scroll" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: 680,
+                  margin: '0 auto',
+                  padding: '20px 24px 48px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                {activeNote !== null ? (
+                  <NoteDetail
+                    tr={tr}
+                    note={activeNote}
+                    related={related}
+                    selected={selected.has(activeNote.id)}
+                    onBack={closeNote}
+                    onCopy={copyNote}
+                    onToggle={toggleSelected}
+                    onOpen={openNote}
+                    openConversation={openConversation}
+                  />
+                ) : (
+                  <>
+                    <Composer tr={tr} disabled={!connected} pending={composerPending} onSubmit={createNote} />
+
+                    {loadError !== null ? (
+                      <div className="fm-alert" data-tone="danger">
+                        {loadFailedText(tr, loadError)}
                       </div>
-                      {pendingInsights?.model?.available === false ? (
-                        <div className="fm-alert" data-tone="warning" style={{ padding: '6px 8px', fontSize: 12 }}>
-                          {tr('executorModelNone', { reason: pendingInsights.model.reason ?? '未配置' })}
-                        </div>
-                      ) : null}
-                    </div>
+                    ) : null}
 
-                    <div className="fm-card" data-size="sm" style={{ marginBottom: 12 }}>
-                      <InfoLine label={tr('noteWords', { count: noteCharCount(active) })} value={null} />
-                      <InfoLine label={tr('noteVisibility')} value={active.visibility} />
-                      <InfoLine label={tr('noteSource')} value={active.source} />
-                      <InfoLine label={tr('noteCreator')} value={active.creatorName} />
-                      {(active.commentCount ?? 0) > 0 ? (
-                        <InfoLine label={tr('noteComments', { count: active.commentCount })} value={null} />
-                      ) : null}
-                    </div>
-
-                    <InsightSection title={tr('noteTags', { count: (active.tags ?? []).length })}>
-                      {(active.tags ?? []).length === 0 ? (
-                        <div style={{ ...T.caption, color: C.textSecondary }}>—</div>
-                      ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {(active.tags ?? []).map((tag) => (
-                            <span key={tag} className="fm-chip">
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </InsightSection>
-
-                    <InsightSection title={tr('relatedByTag')}>
-                      {remoteRelated.length === 0 ? (
-                        <div style={{ ...T.caption, color: C.textSecondary }}>—</div>
-                      ) : (
-                        remoteRelated.map((row) => (
+                    {hasFilters ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                        {query.trim() !== '' ? (
                           <button
-                            key={row.id}
                             type="button"
-                            className="fm-btn"
-                            data-variant="ghost"
-                            data-size="sm"
-                            onClick={() => openNote(row.id)}
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'flex-start',
-                              gap: 2,
-                              width: '100%',
-                              height: 'auto',
-                              padding: '6px 8px',
-                              textAlign: 'left',
-                              fontWeight: 400,
+                            className="fm-pill"
+                            data-active="true"
+                            onClick={() => {
+                              setQueryInput('')
+                              setQuery('')
                             }}
                           >
-                            <span style={{ ...T.caption, color: C.text }}>{row.title}</span>
-                            <span style={{ ...T.micro, color: C.textSecondary }}>{row.day}</span>
+                            {tr('filterQuery', { query: query.trim() })}
                           </button>
-                        ))
-                      )}
-                    </InsightSection>
+                        ) : null}
+                        {selectedDay !== null ? (
+                          <button type="button" className="fm-pill" data-active="true" onClick={() => setSelectedDay(null)}>
+                            {tr('filterDay', { day: selectedDay })}
+                          </button>
+                        ) : null}
+                        {activeTag !== null ? (
+                          <button type="button" className="fm-pill" data-active="true" onClick={() => setActiveTag(null)}>
+                            {tr('filterTag', { tag: activeTag })}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
 
-                    <p style={{ margin: 0, ...T.micro, color: C.textSecondary, lineHeight: '17px' }}>
-                      {tr('insightComingSoon')}
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      flex: '0 0 auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '10px 16px',
-                      borderTop: `1px solid ${C.border}`,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="fm-btn"
-                      data-variant="ghost"
-                      data-size="sm"
-                      onClick={askThisNote}
-                    >
-                      <IconSparkle size={14} />
-                      {tr('askThis')}
-                    </button>
-                    <button
-                      type="button"
-                      className="fm-btn"
-                      data-variant="ghost"
-                      data-size="sm"
-                      onClick={() => showNotice(tr('noticeQuote'))}
-                      style={{ marginLeft: 'auto' }}
-                    >
-                      <IconQuote size={14} />
-                      {tr('quoteToChat')}
-                    </button>
-                  </div>
-                </>
-              )}
-            </aside>
-          ) : (
-            <div
-              style={{
-                flex: '0 0 auto',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'center',
-                paddingTop: 10,
-                width: 36,
-                borderLeft: `1px solid ${C.border}`,
-                background: C.page,
-              }}
-            >
-              <button
-                type="button"
-                className="fm-btn"
-                data-variant="ghost"
-                data-size="icon-sm"
-                onClick={() => setInsightOpen(true)}
-                title={tr('expand')}
-                aria-label={tr('expand')}
-              >
-                <IconSparkle size={14} />
-              </button>
+                    {loading ? (
+                      <TimelineSkeleton />
+                    ) : groups.length === 0 ? (
+                      <div className="fm-empty" style={{ paddingTop: 32 }}>
+                        <div className="fm-empty-icon">
+                          <ActiveIcon size={18} />
+                        </div>
+                        <div className="fm-empty-title">{tr(activeMeta.emptyKey)}</div>
+                        <p className="fm-empty-desc" style={{ margin: 0 }}>
+                          {tr('timelineEmptyHint')}
+                        </p>
+                      </div>
+                    ) : (
+                      groups.map((group) => (
+                        <section key={group.day} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              ...T.micro,
+                              fontWeight: 600,
+                              color: C.textSecondary,
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            {group.day}
+                            <span style={{ fontWeight: 400 }}>{group.rows.length}</span>
+                          </div>
+                          {group.rows.map((note) => (
+                            <MemoCard
+                              key={note.id}
+                              note={note}
+                              tr={tr}
+                              selected={selected.has(note.id)}
+                              onOpen={openNote}
+                              onToggle={toggleSelected}
+                              onCopy={copyNote}
+                            />
+                          ))}
+                        </section>
+                      ))
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-          )}
+            </>
+            )}
+          </main>
         </div>
       )}
 
-      {/* ── 状态条 ───────────────────────────────────────────────────── */}
-      <footer
-        style={{
-          flex: '0 0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '8px 20px',
-          borderTop: `1px solid ${C.border}`,
-          ...T.micro,
-          color: C.textSecondary,
-          lineHeight: '16px',
-        }}
-      >
-        <span
-          style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}
-        >
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              flex: 'none',
-              borderRadius: 999,
-              background: isRemote ? C.success : C.textSecondary,
-            }}
-          />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {isRemote ? syncLabel : tr('footerDisconnected')}
-          </span>
-        </span>
-        <span style={{ marginLeft: 'auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {isRemote ? (connection?.instanceUrl ?? '') : null}
-        </span>
-      </footer>
-
-      {/* ── 临时提示（Ember：卡面小 toast，不是跑马灯）────────────────── */}
       {notice !== null ? (
         <div
           key={notice.seq}
@@ -1294,8 +893,8 @@ export function Workbench({ t, call, openConversation }) {
           style={{
             position: 'absolute',
             right: 20,
-            bottom: 48,
-            zIndex: 10,
+            bottom: 20,
+            zIndex: 40,
             maxWidth: 380,
             padding: '10px 12px',
             border: `1px solid ${C.border}`,
@@ -1311,4 +910,9 @@ export function Workbench({ t, call, openConversation }) {
       ) : null}
     </div>
   )
+}
+
+/** 读取失败的完整文案（带错误码翻译）。 */
+function loadFailedText(tr, error) {
+  return `${tr('loadFailed')}：${translateError(tr, error)}`
 }

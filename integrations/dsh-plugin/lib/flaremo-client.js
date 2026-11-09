@@ -3,7 +3,8 @@
  *
  * 只做“FlareMo 语义 → 结构化结果/FlareMoError”的翻译：
  *  - 设备授权三个端点：/connect/device、/connect/token（两种 grant）；
- *  - 数据面：/api/app/me、/api/app/memos、/api/app/memos/{id}、/api/app/tags。
+ *  - 数据面：/api/app/me、/api/app/memos（列表 / 新建）、/api/app/memos/{id}、
+ *    /api/app/tags、/api/app/stats。
  *
  * token 只在这层和 connection 层之间流动，永远不会进 RPC 返回值。
  */
@@ -124,6 +125,8 @@ export class FlareMoClient {
         order_by: query.orderBy,
         q: query.q,
         tag: query.tag,
+        state: query.state,
+        visibility: query.visibility,
       },
     })
     if (response.status === 401) throw this.unauthorized(response)
@@ -136,6 +139,29 @@ export class FlareMoClient {
       memos: body.memos.filter(isRecord),
       nextPageToken: asText(body.next_page_token) || undefined,
     }
+  }
+
+  /**
+   * POST /api/app/memos —— 新建便签。
+   * 服务端成功返回 201 + MemoDto（直接是笔记对象，不再包一层）。
+   * @param {string} instanceUrl - instance origin.
+   * @param {string} accessToken - bearer token.
+   * @param {{ content: string, visibility: string, source: string }} body - create body.
+   * @returns {Promise<object>} the created MemoDto.
+   */
+  async createMemo(instanceUrl, accessToken, body) {
+    const response = await this.http.request(`${instanceUrl}/api/app/memos`, {
+      method: 'POST',
+      headers: FlareMoClient.bearer(accessToken),
+      body,
+    })
+    if (response.status === 401) throw this.unauthorized(response)
+    if (!response.ok) throw this.dataFailure('新建笔记', response)
+    const dto = response.body
+    if (!isRecord(dto) || asText(dto.id) === '') {
+      throw new FlareMoError(CODES.BAD_RESPONSE, '新建笔记响应缺少笔记对象')
+    }
+    return dto
   }
 
   /** GET /api/app/memos/{bareId} —— 详情 + 关系 / 反链。 */
@@ -172,6 +198,31 @@ export class FlareMoClient {
       throw new FlareMoError(CODES.BAD_RESPONSE, '标签响应缺少 tags 数组')
     }
     return body.tags.filter(isRecord)
+  }
+
+  /**
+   * GET /api/app/stats —— 侧边栏统计 + 日历热力。
+   * 响应是 snake_case（见 memoStatsResponseSchema），camelCase 转换由上层负责。
+   * @param {string} instanceUrl - instance origin.
+   * @param {string} accessToken - bearer token.
+   * @param {{ timeZone?: string, days?: number }} [query] - stats query.
+   * @returns {Promise<object>} raw stats response body.
+   */
+  async getMemoStats(instanceUrl, accessToken, query = {}) {
+    const response = await this.http.request(`${instanceUrl}/api/app/stats`, {
+      headers: FlareMoClient.bearer(accessToken),
+      query: {
+        time_zone: query.timeZone,
+        days: query.days,
+      },
+    })
+    if (response.status === 401) throw this.unauthorized(response)
+    if (!response.ok) throw this.dataFailure('读取统计', response)
+    const body = response.body
+    if (!isRecord(body) || !isRecord(body.counts)) {
+      throw new FlareMoError(CODES.BAD_RESPONSE, '统计响应缺少 counts 对象')
+    }
+    return body
   }
 
   /** GET /api/app/insights —— 拉 pending（或其它状态）的洞察任务。 */

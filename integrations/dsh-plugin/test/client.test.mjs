@@ -228,16 +228,18 @@ test('左栏图标组件按 size 渲染', () => {
   assert.match(html, /width="16"/)
 })
 
-test('工作台首帧渲染出三栏外壳（未连接时不出现示例数据）', () => {
+test('工作台首帧渲染出侧栏 + 编写区外壳（未连接时不出现示例数据）', () => {
   const { exports } = loadPlugin()
   const { ctx, registrations } = createContext()
   exports.apply(ctx)
   const main = registrationOf(registrations, 'main')
 
   const html = renderToStaticMarkup(React.createElement(main.component, { t: undefined }))
-  assert.match(html, /FlareMo 工作台/)
-  assert.match(html, /时间线/)
+  // 版面与网页版同构：侧栏（品牌/导航）+ 主列编写框
+  assert.match(html, /FlareMo/)
+  assert.match(html, /全部记录/)
   assert.match(html, /dsh-flaremo-root/)
+  assert.match(html, /写点什么/)
   // 未连接时既不显示示例数据，也不显示「实时」
   assert.doesNotMatch(html, /示例数据/)
   assert.match(html, /未连接/)

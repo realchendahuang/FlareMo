@@ -120,3 +120,87 @@ export function IconClock({ size = 16 }) {
     </Glyph>
   )
 }
+
+/** 左箭头（月历上一月 / 详情返回）。 */
+export function IconChevronLeft({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <path d="M9.8 3.4L5.2 8l4.6 4.6" />
+    </Glyph>
+  )
+}
+
+/** 全部记录：宫格。 */
+export function IconGrid({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <rect x="2.4" y="2.4" width="4.8" height="4.8" rx="1.1" />
+      <rect x="8.8" y="2.4" width="4.8" height="4.8" rx="1.1" />
+      <rect x="2.4" y="8.8" width="4.8" height="4.8" rx="1.1" />
+      <rect x="8.8" y="8.8" width="4.8" height="4.8" rx="1.1" />
+    </Glyph>
+  )
+}
+
+/** 归档：盒子 + 盖。 */
+export function IconArchive({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <rect x="2.2" y="3" width="11.6" height="2.6" rx="0.9" />
+      <path d="M3.2 5.6v7.4h9.6V5.6" />
+      <path d="M6.4 8.4h3.2" />
+    </Glyph>
+  )
+}
+
+/** 回收站：桶 + 盖。 */
+export function IconTrash({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <path d="M3 4.6h10" />
+      <path d="M6.2 4.6V3.2h3.6v1.4" />
+      <path d="M4.2 4.6l.6 9h6.4l.6-9" />
+      <path d="M6.6 7.2v3.4M9.4 7.2v3.4" />
+    </Glyph>
+  )
+}
+
+/** 日历（侧栏时间视界标题）。 */
+export function IconCalendar({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <rect x="2.4" y="3.4" width="11.2" height="10.2" rx="1.6" />
+      <path d="M2.4 6.4h11.2M5.6 2.2v2.4M10.4 2.2v2.4" />
+    </Glyph>
+  )
+}
+
+/** 标签：吊牌。 */
+export function IconTag({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <path d="M2.6 8.1V3.2h4.9l6 6a1.2 1.2 0 010 1.7l-2.6 2.6a1.2 1.2 0 01-1.7 0z" />
+      <circle cx="5.4" cy="5.9" r="0.8" />
+    </Glyph>
+  )
+}
+
+/** 发布：纸飞机。 */
+export function IconSend({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <path d="M2.4 7.4l11.2-4.6-4.2 11-1.9-4.3z" />
+      <path d="M7.5 9.5l6.1-6.7" />
+    </Glyph>
+  )
+}
+
+/** 收起/展开侧栏。 */
+export function IconPanelLeft({ size = 16 }) {
+  return (
+    <Glyph size={size}>
+      <rect x="2.2" y="2.8" width="11.6" height="10.4" rx="1.8" />
+      <path d="M6.2 2.8v10.4" />
+    </Glyph>
+  )
+}

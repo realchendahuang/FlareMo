@@ -30,10 +30,12 @@ export const SERVICE_EXPORT_NAME = 'FlareMoRuntime'
  * connectPoll       轮询一次：pending / connected / expired / denied
  * connectCancel     取消进行中的配对（清掉 host 里的 pending）
  * disconnect        移除当前 active 实例（不要求服务端吊销也成功）
- * listNotes         按时间/标签列出笔记（分页）
+ * listNotes         按时间/标签列出笔记（分页；可过滤 state / visibility）
+ * createNote        新建便签（网页版编写框用，返回窄视图）
  * searchNotes       用 FlareMo 服务端搜索（q 语法，见 /api/app/memos）
  * getNote           单条笔记 + 关系/反链（会话右栏与详情会用到）
  * listTags          标签层级拍平后的列表（带 count）
+ * memoStats         侧边栏统计卡 + 日历热力（counts / tags / activity）
  * listPendingInsights 拉 FlareMo 上 pending 的洞察任务（带模型可用性）
  * runInsight        跑一条洞察任务（拉取 → DSH 模型 → 写回 done/failed）
  * runPendingInsights 批量跑 pending 队列（默认 3 条，最多 10 条）
@@ -49,9 +51,11 @@ export const METHODS = [
   'connectCancel',
   'disconnect',
   'listNotes',
+  'createNote',
   'searchNotes',
   'getNote',
   'listTags',
+  'memoStats',
   'listPendingInsights',
   'runInsight',
   'runPendingInsights',
