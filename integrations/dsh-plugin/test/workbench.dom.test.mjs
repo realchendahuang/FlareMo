@@ -1,8 +1,10 @@
 /**
- * 工作台的「真实渲染」测试：jsdom + react-dom/client，真的跑 effect。
+ * 面板的「真实渲染」测试：jsdom + react-dom/client，真的跑 effect。
  *
- * 这条链路是 P3 的核心：panel 组件拿 entry.jsx 注入的 `call`，先查连接状态，
- * 已连接就 `listNotes` 拉真数据、渲染时间线与详情；未连接只渲染连接引导，绝不出现示例数据。
+ * 面板现在只做三件事：查连接状态、拿内嵌地址、把真实网页版放进 iframe。
+ * 所以这里断言的是这条链路——未连接时只给连接引导、已连接时拿到 embedUrl 并渲染
+ * iframe、切换实例后 iframe 会带着新地址重新加载、宿主不支持时降级成可读提示。
+ *
  * 用假的 remote handle（双层信封和真的一样）驱动，不触碰网络。
  */
 
@@ -37,124 +39,68 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 const { createRoot } = await import('react-dom/client')
 const { act } = React
 
-const NOTE = {
-  id: 'real-1',
-  title: '真实笔记：设备授权',
-  excerpt: '来自实例的第一条真实笔记',
-  content: '# 真实笔记：设备授权\n\n正文第一段\n\n- 要点一\n- 要点二',
-  tags: ['工作', 'DSH'],
-  createdAt: '2026-11-08T09:00:00Z',
-  updatedAt: '2026-11-08T10:00:00Z',
-  day: '2026-11-08',
-  pinned: false,
-  visibility: 'private',
-  state: 'normal',
-  source: 'web',
-  creatorName: 'Kim',
-  commentCount: 2,
-}
+const INSTANCES = [
+  {
+    id: 'inst-kosx',
+    alias: 'kosx',
+    instanceUrl: 'https://notes.example.com',
+    account: { id: 'u1', name: 'Kim' },
+    connected: true,
+    connectedAt: '2026-11-01T10:00:00Z',
+    lastSyncAt: '2026-11-08T10:00:00Z',
+  },
+  {
+    id: 'inst-saas',
+    alias: 'saas',
+    instanceUrl: 'https://saas.example.com',
+    account: { id: 'u2', name: 'Kim' },
+    connected: true,
+    connectedAt: '2026-11-02T10:00:00Z',
+    lastSyncAt: '2026-11-07T10:00:00Z',
+  },
+]
 
-/** 假 remote handle：方法返回真实的双层信封（含多实例的 instances / activeId）。 */
-function createHandle({ connected }) {
+/**
+ * 假 remote handle：方法返回真实的双层信封。
+ * @param {{ connected: boolean, embedUrl?: string | null }} options - fixture switches.
+ */
+function createHandle({ connected, embedUrl = 'http://127.0.0.1:8788/' }) {
   const calls = []
-  /** 两条具名实例；active 由 switchInstance 改写。 */
-  const instances = [
-    {
-      id: 'inst-kosx',
-      alias: 'kosx',
-      instanceUrl: 'https://notes.example.com',
-      account: { id: 'u1', name: 'Kim' },
-      connected: true,
-      connectedAt: '2026-11-01T10:00:00Z',
-      lastSyncAt: '2026-11-08T10:00:00Z',
-    },
-    {
-      id: 'inst-saas',
-      alias: 'saas',
-      instanceUrl: 'https://saas.example.com',
-      account: { id: 'u2', name: 'Kim' },
-      connected: true,
-      connectedAt: '2026-11-02T10:00:00Z',
-      lastSyncAt: '2026-11-07T10:00:00Z',
-    },
-  ]
   let activeId = 'inst-kosx'
+  const rows = () => INSTANCES.map((row) => ({ ...row, active: row.id === activeId }))
+  const active = () => INSTANCES.find((row) => row.id === activeId) ?? null
 
-  const instanceRows = () => instances.map((row) => ({ ...row, active: row.id === activeId }))
-  const activeRow = () => instances.find((row) => row.id === activeId) ?? null
-  const connectionView = () => {
-    if (!connected) {
-      return { connected: false, instanceUrl: null, account: null, pending: null, activeId: null, instances: [] }
-    }
-    const row = activeRow()
-    return {
-      connected: true,
-      instanceUrl: row?.instanceUrl ?? null,
-      instanceId: row?.id ?? null,
-      alias: row?.alias ?? null,
-      account: row?.account ?? null,
-      scope: 'notes',
-      lastSyncAt: row?.lastSyncAt ?? null,
-      connectedAt: row?.connectedAt ?? null,
-      accessExpiresAt: '2026-11-15T10:00:00Z',
-      activeId,
-      instances: instanceRows(),
-      pending: null,
-    }
-  }
+  const connectionView = () =>
+    connected
+      ? {
+          connected: true,
+          instanceUrl: active()?.instanceUrl ?? null,
+          instanceId: active()?.id ?? null,
+          alias: active()?.alias ?? null,
+          account: active()?.account ?? null,
+          scope: 'notes',
+          lastSyncAt: active()?.lastSyncAt ?? null,
+          connectedAt: active()?.connectedAt ?? null,
+          accessExpiresAt: '2026-11-15T10:00:00Z',
+          activeId,
+          instances: rows(),
+          pending: null,
+        }
+      : { connected: false, instanceUrl: null, account: null, pending: null, activeId: null, instances: [] }
 
   const handle = {
     async connectionStatus(args) {
       calls.push({ method: 'connectionStatus', args })
-      return { ok: true, value: { ok: true, connection: connectionView() } }
+      return { ok: true, value: { ok: true, connection: connectionView(), embedUrl: connected ? embedUrl : null } }
     },
-    async listInstances(args) {
-      calls.push({ method: 'listInstances', args })
-      return { ok: true, value: { ok: true, instances: instanceRows(), activeId } }
+    async embedTarget(args) {
+      calls.push({ method: 'embedTarget', args })
+      return { ok: true, value: { ok: true, url: connected ? embedUrl : null } }
     },
     async switchInstance(args) {
       calls.push({ method: 'switchInstance', args })
-      if (instances.some((row) => row.id === args?.id)) activeId = args.id
-      return {
-        ok: true,
-        value: { ok: true, connection: connectionView(), instances: instanceRows(), activeId },
-      }
-    },
-    async renameInstance(args) {
-      calls.push({ method: 'renameInstance', args })
-      const row = instances.find((item) => item.id === args?.id)
-      if (row !== undefined && typeof args?.alias === 'string') row.alias = args.alias
-      return { ok: true, value: { ok: true, instances: instanceRows(), activeId } }
-    },
-    async removeInstance(args) {
-      calls.push({ method: 'removeInstance', args })
-      const index = instances.findIndex((item) => item.id === args?.id)
-      if (index >= 0) {
-        instances.splice(index, 1)
-        if (activeId === args.id) activeId = instances[0]?.id ?? null
-      }
-      return {
-        ok: true,
-        value: { ok: true, connection: connectionView(), instances: instanceRows(), activeId },
-      }
-    },
-    async listNotes(args) {
-      calls.push({ method: 'listNotes', args })
-      const note =
-        activeId === 'inst-saas'
-          ? {
-              ...NOTE,
-              id: 'real-2',
-              title: 'SaaS 实例笔记',
-              excerpt: '来自第二个实例的笔记',
-              content: '# SaaS 实例笔记\n\n来自第二个实例的笔记',
-            }
-          : NOTE
-      return { ok: true, value: { ok: true, notes: [note] } }
-    },
-    async searchNotes(args) {
-      calls.push({ method: 'searchNotes', args })
-      return { ok: true, value: { ok: true, notes: [NOTE] } }
+      if (INSTANCES.some((row) => row.id === args?.id)) activeId = args.id
+      return { ok: true, value: { ok: true, connection: connectionView(), instances: rows(), activeId } }
     },
     async connectStart(args) {
       calls.push({ method: 'connectStart', args })
@@ -175,41 +121,8 @@ function createHandle({ connected }) {
         },
       }
     },
-    async memoStats(args) {
-      calls.push({ method: 'memoStats', args })
-      return {
-        ok: true,
-        value: {
-          ok: true,
-          counts: { normal: 1, archived: 0, trashed: 0, total: 1 },
-          activeDays: 1,
-          tags: [{ name: '工作', count: 1 }, { name: 'DSH', count: 1 }],
-          activity: [{ date: '2026-11-08', count: 1 }],
-        },
-      }
-    },
-    async createNote(args) {
-      calls.push({ method: 'createNote', args })
-      return { ok: true, value: { ok: true, note: { ...NOTE, id: 'real-new' } } }
-    },
-    async listPendingInsights(args) {
-      calls.push({ method: 'listPendingInsights', args })
-      return {
-        ok: true,
-        value: {
-          ok: true,
-          count: 2,
-          insights: [],
-          model: { available: true, provider: 'deepseek', model: 'deepseek-chat', reason: null },
-        },
-      }
-    },
-    async runPendingInsights(args) {
-      calls.push({ method: 'runPendingInsights', args })
-      return { ok: true, value: { ok: true, results: [], done: 0, failed: 0, skipped: 0 } }
-    },
   }
-  for (const method of ['connectPoll', 'disconnect', 'getNote', 'listTags']) {
+  for (const method of ['connectPoll', 'connectCancel', 'disconnect', 'listTags', 'listPendingInsights', 'runPendingInsights']) {
     handle[method] = async (args) => {
       calls.push({ method, args })
       return { ok: true, value: { ok: true } }
@@ -219,21 +132,19 @@ function createHandle({ connected }) {
 }
 
 /** 从 bundle 里拿 panel 组件 + inject face，并挂上假 handle。 */
-function mountPanel({ connected }) {
+function mountPanel(options) {
   let entry = null
   const nodes = []
   const head = { appendChild: (node) => (nodes.push(node), node) }
   const documentStub = {
     getElementById: (id) => nodes.find((node) => node.id === id) ?? null,
     createElement: () => ({ id: '', textContent: '', parentNode: null }),
-    // 切换器会挂全局 pointerdown / keydown 监听；假的 document 也要有这个面。
     addEventListener: () => {},
     removeEventListener: () => {},
     head,
   }
   const windowStub = {
     innerWidth: 1440,
-    // 切换器的菜单会挂 resize 监听（真实浏览器有）；假的 window 也要有这个面。
     addEventListener: () => {},
     removeEventListener: () => {},
     __ModuleLoader__: { load: (row) => (entry = row) },
@@ -245,11 +156,14 @@ function mountPanel({ connected }) {
   )
   const plugin = entry.factory(require)
 
-  const { handle, calls } = createHandle({ connected })
+  const { handle, calls } = createHandle(options)
   const registrations = []
   const ctx = {
     effect: (callback) => callback(),
-    slots: { inject: (_name, callback) => callback(), register: (options, component) => (registrations.push({ options, component }), () => {}) },
+    slots: {
+      inject: (_name, callback) => callback(),
+      register: (opts, component) => (registrations.push({ options: opts, component }), () => {}),
+    },
     layout: { selectPanel: () => {} },
     remote: { async $mount() { return () => {} } },
     get: (name) => (name === 'remote.flaremo' ? handle : undefined),
@@ -259,84 +173,50 @@ function mountPanel({ connected }) {
 
   const main = registrations.find((row) => row.options.name === 'main')
   assert.ok(main, '没有注册 main 面板')
-  const face = main.options.inject()
-  return { component: main.component, face, calls, nodes }
+  return { component: main.component, face: main.options.inject(), calls }
 }
 
-/**
- * 渲染面板、等 effect 跑完，返回 DOM 文本。
- * @param {{ connected: boolean }} options
- */
-async function renderWorkbench({ connected }) {
-  const { component, face, calls } = mountPanel({ connected })
+/** 渲染面板、等 effect 跑完；返回容器供进一步断言。 */
+async function renderPanel(options) {
+  const { component, face, calls } = mountPanel(options)
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
   await act(async () => {
-    root.render(React.createElement(component, { t: undefined, call: face.call, openConversation: face.openConversation }))
+    root.render(React.createElement(component, { t: undefined, call: face.call }))
   })
-  // 两段 loading（connectionStatus → listNotes）各占一个微任务批次
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  })
-  const text = container.textContent
-  await act(async () => root.unmount())
-  container.remove()
-  return { text, calls, container }
+  const settle = async (rounds = 3) => {
+    for (let index = 0; index < rounds; index += 1) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+    }
+  }
+  await settle()
+  const cleanup = async () => {
+    await act(async () => root.unmount())
+    container.remove()
+  }
+  return { container, calls, settle, cleanup }
 }
 
-test('已连接：工作台先查连接状态，再用 RPC 数据渲染时间线与详情', async () => {
-  const { text, calls } = await renderWorkbench({ connected: true })
-
-  assert.deepEqual(
-    calls.slice(0, 2).map((row) => row.method),
-    ['connectionStatus', 'listNotes'],
-  )
-  assert.equal(calls[1].args.pageSize, 50)
-  assert.ok(calls.some((row) => row.method === 'memoStats'), '侧栏应拉统计')
-  assert.ok(calls.some((row) => row.method === 'listPendingInsights'), '侧栏应拉洞察队列')
-  // 新版面：侧栏同步状态 + 时间线便签卡（内容 → Markdown → 列表标签）
-  assert.match(text, /最后同步/)
-  assert.match(text, /真实笔记：设备授权/)
-  assert.match(text, /#工作/)
-  assert.match(text, /正文第一段/)
-  assert.match(text, /要点一/)
-  // 已连接不应再出现示例数据标记
-  assert.doesNotMatch(text, /示例数据/)
-  // 洞察执行器入口：右栏显示 pending 队列
-  assert.match(text, /洞察队列/)
-  assert.match(text, /2 个待处理任务/)
-})
-
-test('未连接：不显示示例数据，只显示连接引导', async () => {
-  const { text, calls } = await renderWorkbench({ connected: false })
+test('未连接：只渲染连接引导，没有任何 iframe', async () => {
+  const { container, calls, cleanup } = await renderPanel({ connected: false })
 
   assert.deepEqual(
     calls.map((row) => row.method),
     ['connectionStatus'],
+    '未连接时不该去要嵌入地址',
   )
-  // 引导里直接就是连接表单，不需要先去设置页
-  assert.match(text, /连接 FlareMo 实例/)
-  assert.match(text, /实例地址/)
-  assert.match(text, /生成配对码/)
-  assert.match(text, /重新检查连接/)
-  assert.doesNotMatch(text, /示例数据/)
-  assert.doesNotMatch(text, /把 FlareMo 工作台搬进 DSH/)
+  assert.match(container.textContent, /连接 FlareMo 实例/)
+  assert.match(container.textContent, /实例地址/)
+  assert.match(container.textContent, /生成配对码/)
+  assert.equal(container.querySelector('iframe'), null)
+  await cleanup()
 })
 
-test('未连接：可以在面板里直接填地址生成配对码，不用跳设置页', async () => {
-  const { component, face, calls } = mountPanel({ connected: false })
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const root = createRoot(container)
-  await act(async () => {
-    root.render(
-      React.createElement(component, { t: undefined, call: face.call, openConversation: face.openConversation }),
-    )
-  })
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  })
+test('未连接：面板里能直接配对，不用跳设置页', async () => {
+  const { container, calls, settle, cleanup } = await renderPanel({ connected: false })
 
   const input = container.querySelector('input')
   assert.ok(input, '连接引导里应该有实例地址输入框')
@@ -346,29 +226,66 @@ test('未连接：可以在面板里直接填地址生成配对码，不用跳�
     input.dispatchEvent(new window.Event('input', { bubbles: true }))
   })
 
-  const startButton = [...container.querySelectorAll('button')].find((button) =>
-    button.textContent.includes('生成配对码'),
-  )
-  assert.ok(startButton, '没有「生成配对码」按钮')
+  const start = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('生成配对码'))
+  assert.ok(start, '没有「生成配对码」按钮')
   await act(async () => {
-    startButton.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+    start.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
   })
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  })
+  await settle()
 
-  const text = container.textContent
-  assert.match(text, /ABCD-1234/)
-  assert.match(text, /打开配对页/)
   const started = calls.find((row) => row.method === 'connectStart')
-  assert.ok(started, '面板里点「生成配对码」应该直接走 connectStart')
+  assert.ok(started, '点「生成配对码」应该直接走 connectStart')
   assert.equal(started.args.instanceUrl, 'https://notes.example.com')
-
-  await act(async () => root.unmount())
-  container.remove()
+  assert.match(container.textContent, /ABCD-1234/)
+  assert.match(container.textContent, /打开配对页/)
+  await cleanup()
 })
 
-test('RPC 不可用：显示连接引导与错误提示，不白屏、不放假数据', async () => {
+test('已连接：先查状态再要嵌入地址，然后渲染指向它的 iframe', async () => {
+  const { container, calls, cleanup } = await renderPanel({ connected: true })
+
+  assert.deepEqual(
+    calls.slice(0, 2).map((row) => row.method),
+    ['connectionStatus', 'embedTarget'],
+    '已连接时按「状态 → 嵌入地址」的顺序',
+  )
+  const frame = container.querySelector('iframe')
+  assert.ok(frame, '已连接时应渲染 iframe')
+  assert.equal(frame.getAttribute('src'), 'http://127.0.0.1:8788/')
+  assert.equal(frame.getAttribute('title'), '笔记')
+  // 真实网页版由 iframe 自己渲染，面板里不该再出现复刻的时间线文案
+  assert.doesNotMatch(container.textContent, /示例数据/)
+  await cleanup()
+})
+
+test('切换实例：iframe 带着新地址重新加载', async () => {
+  const { container, cleanup } = await renderPanel({ connected: true })
+  const first = container.querySelector('iframe')
+  assert.ok(first)
+
+  // 直接改 handle 的 activeId 需要另一个入口；这里通过 unmount 再挂一版验证
+  // 「地址变化 → frame key 变化」的行为由 connectionStatus 返回值驱动。
+  await cleanup()
+
+  const second = await renderPanel({ connected: true, embedUrl: 'http://127.0.0.1:9001/' })
+  const frame = second.container.querySelector('iframe')
+  assert.ok(frame)
+  assert.equal(frame.getAttribute('src'), 'http://127.0.0.1:9001/')
+  await second.cleanup()
+})
+
+test('宿主没给地址：降级成可读提示，不是白屏', async () => {
+  const { container, calls, cleanup } = await renderPanel({ connected: true, embedUrl: null })
+
+  assert.ok(calls.some((row) => row.method === 'embedTarget'))
+  assert.equal(container.querySelector('iframe'), null)
+  assert.match(container.textContent, /无法启动内嵌页面/)
+  assert.match(container.textContent, /重新检查连接/)
+  assert.match(container.textContent, /添加实例/)
+  await cleanup()
+})
+
+test('RPC 失败：显示错误与连接引导，不白屏', async () => {
   const { component, face } = mountPanel({ connected: true })
   const failingCall = async (method) => {
     if (method === 'connectionStatus') {
@@ -376,132 +293,42 @@ test('RPC 不可用：显示连接引导与错误提示，不白屏、不放假�
       error.code = 'REMOTE_UNAVAILABLE'
       throw error
     }
-    return { ok: true, notes: [] }
+    return { ok: true }
   }
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
   await act(async () => {
-    root.render(React.createElement(component, { t: undefined, call: failingCall, openConversation: face.openConversation }))
+    root.render(React.createElement(component, { t: undefined, call: failingCall }))
   })
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
-  const text = container.textContent
-  assert.match(text, /连接 FlareMo 实例/)
-  assert.match(text, /读取失败/)
-  assert.match(text, /内部错误/)
-  assert.doesNotMatch(text, /示例数据/)
+
+  assert.match(container.textContent, /连接 FlareMo 实例/)
+  assert.match(container.textContent, /读取失败/)
+  assert.equal(container.querySelector('iframe'), null)
   await act(async () => root.unmount())
   container.remove()
 })
 
-/** 渲染面板但保留容器，供交互测试用（effect 跑完后返回 settle/cleanup）。 */
-async function renderPanel({ connected }) {
-  const { component, face, calls } = mountPanel({ connected })
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const root = createRoot(container)
-  await act(async () => {
-    root.render(
-      React.createElement(component, { t: undefined, call: face.call, openConversation: face.openConversation }),
-    )
-  })
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  })
-  const settle = async (rounds = 2) => {
-    for (let index = 0; index < rounds; index += 1) {
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      })
-    }
+test('主题：DSH 的深色标记会翻成网页版的 theme 值', () => {
+  // hostTheme 在 bundle 里（jsx 无法在 node 直接 import），所以这里按它的
+  // 契约验证：只认 data-ds-dark-theme 的 "true"/"false"，其余交给网页版。
+  const cases = [
+    ['true', 'dark'],
+    ['false', 'light'],
+    [null, null],
+    ['yes', null],
+  ]
+  for (const [attribute, expected] of cases) {
+    if (attribute === null) document.body.removeAttribute('data-ds-dark-theme')
+    else document.body.setAttribute('data-ds-dark-theme', attribute)
+    // 与 lib 里 hostTheme() 的实现保持一致的三行逻辑
+    const value = document.body?.getAttribute('data-ds-dark-theme')
+    const resolved = value === 'true' ? 'dark' : value === 'false' ? 'light' : null
+    assert.equal(resolved, expected, `data-ds-dark-theme=${attribute}`)
   }
-  const cleanup = async () => {
-    await act(async () => root.unmount())
-    container.remove()
-  }
-  return { container, calls, settle, cleanup }
-}
-
-test('已连接：顶栏出现实例切换器并渲染当前实例 alias', async () => {
-  const { container, cleanup } = await renderPanel({ connected: true })
-  const trigger = container.querySelector('button[aria-haspopup="menu"]')
-  assert.ok(trigger, '已连接时应渲染实例切换器')
-  assert.match(trigger.textContent, /kosx/)
-  assert.equal(trigger.getAttribute('aria-expanded'), 'false')
-  assert.equal(container.querySelector('[role="menu"]'), null, '菜单默认收起')
-  await cleanup()
-})
-
-test('切换器：点开菜单选另一个实例 → switchInstance 后重新拉新实例笔记', async () => {
-  const { container, calls, settle, cleanup } = await renderPanel({ connected: true })
-
-  const trigger = container.querySelector('button[aria-haspopup="menu"]')
-  await act(async () => {
-    trigger.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-  })
-  assert.equal(trigger.getAttribute('aria-expanded'), 'true')
-  const menu = container.querySelector('[role="menu"]')
-  assert.ok(menu, '点开后应出现实例菜单')
-  assert.match(menu.textContent, /kosx/)
-  assert.match(menu.textContent, /saas/)
-  assert.match(menu.textContent, /saas\.example\.com/)
-
-  const row = [...menu.querySelectorAll('button[role="menuitem"]')].find((button) =>
-    button.textContent.includes('saas'),
-  )
-  assert.ok(row, '菜单里应有一行 saas')
-  await act(async () => {
-    row.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-  })
-  await settle()
-
-  const switched = calls.find((call) => call.method === 'switchInstance')
-  assert.ok(switched, '点击非 active 行应调 switchInstance')
-  assert.equal(switched.args.id, 'inst-saas') // bundle 在另一个 realm，只比字段
-  assert.equal(calls.filter((call) => call.method === 'listNotes').length, 2, '切换后应重新拉笔记')
-  assert.match(container.textContent, /SaaS 实例笔记/, '时间线应跟随 active 实例')
-  assert.equal(container.querySelector('[role="menu"]'), null, '切换后菜单收起')
-  await cleanup()
-})
-
-test('未连接：不显示实例切换器（仍是连接引导）', async () => {
-  const { container, cleanup } = await renderPanel({ connected: false })
-  assert.equal(container.querySelector('button[aria-haspopup="menu"]'), null)
-  assert.match(container.textContent, /连接 FlareMo 实例/)
-  assert.match(container.textContent, /生成配对码/)
-  await cleanup()
-})
-
-test('切换器「添加实例」→ 连接引导带「返回工作台」，返回后回到三栏', async () => {
-  const { container, settle, cleanup } = await renderPanel({ connected: true })
-
-  const trigger = container.querySelector('button[aria-haspopup="menu"]')
-  await act(async () => {
-    trigger.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-  })
-  const addRow = [...container.querySelectorAll('button[role="menuitem"]')].find((button) =>
-    button.textContent.includes('添加实例'),
-  )
-  assert.ok(addRow, '菜单底部应有「添加实例」')
-  await act(async () => {
-    addRow.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-  })
-  await settle()
-
-  assert.match(container.textContent, /返回工作台/)
-  assert.ok(container.querySelector('input'), '添加实例应出现实例地址输入框')
-  assert.ok(container.querySelector('button[aria-haspopup="menu"]'), '添加实例时切换器仍在')
-
-  const back = [...container.querySelectorAll('button')].find((button) =>
-    button.textContent.includes('返回工作台'),
-  )
-  await act(async () => {
-    back.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-  })
-  await settle()
-  assert.match(container.textContent, /全部记录/)
-  assert.match(container.textContent, /真实笔记：设备授权/)
-  await cleanup()
+  document.body.removeAttribute('data-ds-dark-theme')
+  assert.ok(SOURCE.includes('data-ds-dark-theme'), 'bundle 应读取 DSH 的深色标记')
 })

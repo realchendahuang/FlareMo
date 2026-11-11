@@ -48,6 +48,8 @@ const NOTE_STATES = ['normal', 'archived', 'trashed']
 const NOTE_VISIBILITIES = ['private', 'public']
 /** alias 长度上限。 */
 export const ALIAS_MAX = 40
+/** `YYYY-MM-DD`（服务端 stats 的 `until` 只收这个形状）。 */
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
 
 /** 去掉常见 markdown 行内标记，列表摘要用。 */
 export function stripMarkdown(text) {
@@ -116,15 +118,24 @@ export function memoTags(dto) {
   return [...seen]
 }
 
-/** MemoDto → client 用的窄视图（不含 payload、creator 等内部字段）。 */
-export function toNoteView(dto) {
+/**
+ * MemoDto → client 用的窄视图（不含 payload、creator 等内部字段）。
+ * @param {object} dto - FlareMo MemoDto.
+ * @param {{ contentLimit?: number }} [options] - 正文上限（详情页传更大值取全文）。
+ * @returns {object} narrow note view.
+ */
+export function toNoteView(dto, options = {}) {
   const created = asText(dto.create_time) || asText(dto.display_time)
   const updated = asText(dto.update_time) || created
+  const rawContent = asText(dto.content)
+  const limit = Number.isFinite(options.contentLimit) ? options.contentLimit : CONTENT_LIMIT
   return {
     id: asText(dto.id),
     title: memoTitle(dto),
     excerpt: memoExcerpt(dto),
-    content: truncate(asText(dto.content), CONTENT_LIMIT),
+    content: truncate(rawContent, limit),
+    /** 列表窗口里被截断时告诉 client，详情页据此去拉全文。 */
+    truncated: rawContent.length > limit,
     tags: memoTags(dto),
     createdAt: created,
     updatedAt: updated,
@@ -378,13 +389,26 @@ export class FlareMoConnection {
     this.pollPromise = null
     /** 「最后同步」写回节流，按实例分别计时。 */
     this.lastSyncWrites = new Map()
+    /** v1 → v2 落盘只做一次（并发读共享同一个 promise）。 */
+    this.migration = null
   }
 
   // ── 状态读写 ──────────────────────────────────────────────────────
 
-  /** 当前完整状态（含 token，Host 内部用，绝不进 RPC 返回值）。 */
+  /**
+   * 当前完整状态（含 token，Host 内部用，绝不进 RPC 返回值）。
+   *
+   * 读到 v1（单实例）记录时顺手落盘成 v2：否则每次读都要重新迁移，
+   * 而且凭据文件会一直停留在旧形状。写失败由 store 内部吞掉并退到内存。
+   */
   async readState() {
-    return migrateState(await this.store.read())
+    const raw = await this.store.read()
+    const state = migrateState(raw)
+    if (isRecord(raw) && raw.version === 1 && state !== undefined) {
+      this.migration = this.migration ?? this.writeState(state).catch(() => {})
+      await this.migration
+    }
+    return state
   }
 
   /**
@@ -798,9 +822,17 @@ export class FlareMoConnection {
       return await run(instanceUrl, accessToken)
     } catch (error) {
       if (!(error instanceof FlareMoError) || error.status !== 401) throw error
-      const fresh = await this.refreshAccessToken(
-        (await this.readState())?.instances.find((row) => row.id === instance.id) ?? current,
-      )
+      // Re-read the stored token first: the panel issues several requests at
+      // once, so a sibling may already have rotated it while this one was in
+      // flight. Using that token avoids a second refresh — refresh tokens are
+      // single-use, so a redundant refresh would invalidate the good one and
+      // turn one 401 into a cascade.
+      const latest = (await this.readState())?.instances.find((row) => row.id === instance.id)
+      const latestToken = asText(latest?.accessToken)
+      if (latestToken !== '' && latestToken !== accessToken) {
+        return run(instanceUrl, latestToken)
+      }
+      const fresh = await this.refreshAccessToken(latest ?? current)
       return run(instanceUrl, fresh)
     }
   }
@@ -892,7 +924,7 @@ export class FlareMoConnection {
     return this.fetchNotes({ ...args, q: query })
   }
 
-  /** 单条笔记 + 关系 / 反链。 */
+  /** 单条笔记 + 关系 / 反链。详情页要全文，所以正文上限放到服务端的 100k。 */
   async getNote(args = {}) {
     const id = asText(args.id).trim()
     if (id === '') throw new FlareMoError(CODES.BAD_ARGS, '缺少笔记 id')
@@ -903,7 +935,7 @@ export class FlareMoConnection {
     const relations = result.relations.map(toNoteRef).filter(Boolean)
     const backlinks = result.backlinks.map(toNoteRef).filter(Boolean)
     return {
-      note: toNoteView(result.memo),
+      note: toNoteView(result.memo, { contentLimit: NOTE_CONTENT_MAX }),
       relations,
       backlinks,
       canManage: result.canManage,
@@ -923,7 +955,7 @@ export class FlareMoConnection {
 
   /**
    * 侧边栏统计卡 + 日历热力（服务端 snake_case → wire camelCase）。
-   * @param {{ timeZone?: unknown, days?: unknown, instance?: unknown }} [args]
+   * @param {{ timeZone?: unknown, days?: unknown, until?: unknown, instance?: unknown }} [args]
    * @returns {Promise<{ counts: { normal: number, archived: number, trashed: number,
    *   total: number }, activeDays: number, tags: { name: string, count: number }[],
    *   activity: { date: string, count: number }[] }>}
@@ -931,9 +963,11 @@ export class FlareMoConnection {
   async memoStats(args = {}) {
     const timeZone = asText(args.timeZone).trim() || 'UTC'
     const days = clampInt(args.days, 1, 366, 84)
+    // 日历翻到历史月份时用它当初热力窗口的右端；格式不对就交给服务端按今天算。
+    const until = DATE_KEY.test(asText(args.until)) ? asText(args.until) : undefined
     const { instance } = await this.requireInstance(args.instance)
     const body = await this.withAuth(instance, (instanceUrl, accessToken) =>
-      this.client.getMemoStats(instanceUrl, accessToken, { timeZone, days }),
+      this.client.getMemoStats(instanceUrl, accessToken, { timeZone, days, until }),
     )
     await this.touchLastSync(instance.id)
     const counts = body.counts

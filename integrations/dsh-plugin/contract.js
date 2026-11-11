@@ -42,6 +42,7 @@ export const SERVICE_EXPORT_NAME = 'FlareMoRuntime'
  */
 export const METHODS = [
   'connectionStatus',
+  'embedTarget',
   'listInstances',
   'switchInstance',
   'renameInstance',

@@ -12,6 +12,7 @@
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 import { SERVICE_KEY } from '../contract.js'
+import { EmbedProxy } from './embed-proxy.js'
 import { FlareMoConnection } from './connection.js'
 import { failureFrom, ok } from './errors.js'
 import { FlareMoClient } from './flaremo-client.js'
@@ -19,6 +20,7 @@ import { HttpClient } from './http.js'
 import { InsightExecutor } from './insight-executor.js'
 import { createModelCaller } from './model.js'
 import { ConnectionStore } from './store.js'
+import { asText } from './util.js'
 
 export class FlareMoRuntime extends TypertRemoteService {
   /**
@@ -47,6 +49,51 @@ export class FlareMoRuntime extends TypertRemoteService {
       model: this.modelCaller,
       logger: pickLogger(ctx),
     })
+    /**
+     * 内嵌网页版的本地反代。`null` 表示宿主没有 `node:http`（例如纯浏览器
+     * 环境）或已被显式关闭；面板会退回「未连接」提示而不是白屏。
+     */
+    this.embed = null
+    if (options.embed !== false) {
+      try {
+        this.embed = new EmbedProxy({ connection: this.connection, logger: pickLogger(ctx), port: options.embedPort })
+      } catch {
+        this.embed = null
+      }
+    }
+  }
+
+  /**
+   * 让反代跟上当前 active 实例，并在需要时启动/停止它。
+   *
+   * 这里不做「在 switchInstance 里插 hook」：连接状态有六个写入路径
+   * （连接、轮询成功、切换、移除、断开、token 刷新），逐个插会漏。统一在
+   * 每次 RPC 进入时同步一次，成本是一次 store 读（已有节流）。
+   * @returns {Promise<void>}
+   */
+  async syncEmbed() {
+    if (this.embed === null) return
+    let activeId = null
+    try {
+      const state = await this.connection.readState()
+      const active = state?.instances.find((row) => row.id === state.activeId)
+      if (active !== undefined && asText(active.accessToken) !== '') activeId = active.id
+    } catch {
+      activeId = null
+    }
+    this.embed.rebind(activeId)
+    if (activeId === null) {
+      await this.embed.stop()
+      return
+    }
+    if (this.embed.url === null) {
+      try {
+        await this.embed.start()
+      } catch (error) {
+        this.embed = null
+        throw error
+      }
+    }
   }
 
   /**
@@ -68,7 +115,33 @@ export class FlareMoRuntime extends TypertRemoteService {
 
   /** 连接状态（不含任何 token）。 */
   async connectionStatus(args) {
-    return this.execute(async () => ({ connection: await this.connection.status() }))
+    return this.execute(async () => {
+      const connection = await this.connection.status()
+      // 只对齐绑定，不在这里起服务：面板没显示 iframe 时不该占端口。
+      if (this.embed !== null) {
+        this.embed.rebind(activeInstanceIdOf(connection))
+        if (this.embed.url !== null && connection.connected !== true) await this.embed.stop()
+      }
+      return { connection, embedUrl: this.embed?.url ?? null }
+    })
+  }
+
+  /**
+   * 内嵌网页版的入口地址。
+   *
+   * 返回 `{ url }`：面板把它塞进 iframe 即可。`null` 表示宿主不支持本地监听
+   * （或端口全被占用），此时面板显示一条可读的降级提示。
+   */
+  async embedTarget(args) {
+    return this.execute(async () => {
+      await this.syncEmbed()
+      return { url: this.embed?.url ?? null }
+    })
+  }
+
+  /** 停止内嵌反代（插件卸载 / 面板关闭时调用，幂等）。 */
+  async shutdownEmbed() {
+    await this.embed?.stop()
   }
 
   /** 具名实例列表（alias / 地址 / 账号 / 最后同步 / 是否 active）。 */
@@ -173,4 +246,14 @@ function pickLogger(ctx) {
   } catch {
     return undefined
   }
+}
+
+/**
+ * 连接视图里的 active 实例 id；没连接或没实例时返回 null。
+ * @param {{ connected?: boolean, activeId?: string | null } | null} connection - status view.
+ * @returns {string | null} the active instance id.
+ */
+function activeInstanceIdOf(connection) {
+  if (connection?.connected !== true) return null
+  return asText(connection.activeId) || null
 }

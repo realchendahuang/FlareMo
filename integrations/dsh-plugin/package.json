@@ -1,6 +1,6 @@
 {
   "name": "dsh-flaremo",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "FlareMo 笔记工作台 for DeepSeek Harness — 全局面板 + 左栏入口 + 设置页连接 + 洞察执行器（设备授权 + typert RPC + DSH 模型）。",
   "license": "MIT",
   "type": "module",

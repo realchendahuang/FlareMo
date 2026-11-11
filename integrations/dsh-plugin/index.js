@@ -1,19 +1,18 @@
 /**
- * dsh-flaremo — Host 半片入口（P3：连接配置 + typert RPC + 真数据）。
+ * dsh-flaremo — Host 半片入口（连接配置 + typert RPC + 真数据）。
  *
  * 这个文件只做装配：
  *   - `FlareMoRuntime`（Typert Remote 服务 `ctx.flaremo`）：连接状态机 + 数据接口；
  *   - `ctx.typert.register(TYPERT_MANIFEST)`：把 wire 描述符交给 Gateway，
  *     Client 半片用配套的 `ctx.remote.$mount()` 挂同一份 contract.js；
- *   - `/flaremo` 人类命令：报告连接状态（command 永远不会被送进模型）。
+ *   - `/flaremo` 人类命令：报告连接状态 / 处理洞察队列（command 永远不会被送进模型）。
  *
  * 数据面全部在 host：client 只拿窄视图（标题/摘要/标签/时间/正文），
  * access_token / refresh_token 只存在 DSH 凭据服务的记录里，client 永远看不到。
  *
- * 第一版不做的事（README「已知未验证 / 下一步」有完整清单）：
- *   - 写笔记 / 改标签（只读）；
- *   - 会话右栏 tab 与「选中注入 AI」；
- *   - 服务端吊销（断开只清本地凭据）。
+ * 数据面范围：列 / 搜 / 详情 / 标签 / 统计只读，外加新建便签（`createNote`）。
+ * 改笔记、归档、回收站操作仍然只读；会话右栏与「选中注入 AI」也未做
+ * （README「没验证 / 已知风险」与「下一步」有完整清单）。
  */
 
 import { TYPERT_MANIFEST } from './contract.js'
@@ -113,7 +112,7 @@ export function apply(ctx) {
 
   ctx.effect(() => ctx.typert.register(TYPERT_MANIFEST), 'dsh-flaremo: typert manifest')
 
-  // `/flaremo`：只读连接状态，不进模型历史、不消耗 token。
+  // `/flaremo`：汇报状态 / 跑洞察；命令输出不进模型历史、不消耗 token。
   ctx.inject(['commands'], (ctx) => {
     ctx.effect(
       () =>

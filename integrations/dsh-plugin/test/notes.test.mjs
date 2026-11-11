@@ -1,6 +1,9 @@
 /**
  * 笔记视图工具单测：时间线分组、搜索、正文块、字符数、相关笔记、时间格式。
  * 这些函数决定工作台把 RPC 数据画成什么样，比组件快照更值得测。
+ *
+ * 分组与日期格式都跟随**本地时区**，所以这里把进程时区钉在上海：
+ * 否则同一组夹具在 UTC+13 / UTC-11 的机器上会落到别的日子，断言随机器漂移。
  */
 
 import assert from 'node:assert/strict'
@@ -10,13 +13,18 @@ import {
   formatClock,
   formatDateTime,
   groupByDay,
+  localDayOf,
   matchesQuery,
   noteBlocks,
   noteCharCount,
+  noteDay,
   noteText,
   relatedByTag,
   secondsUntil,
 } from '../src/client/notes.js'
+
+// 必须在任何 Date 计算之前设置（node --test 每个文件一个独立进程）。
+process.env.TZ = 'Asia/Shanghai'
 
 const NOTES = [
   {
@@ -116,4 +124,13 @@ test('secondsUntil：过期夹到 0', () => {
   assert.ok(secondsUntil(future) > 0 && secondsUntil(future) <= 30)
   assert.equal(secondsUntil('2000-01-01T00:00:00Z'), 0)
   assert.equal(secondsUntil(undefined), 0)
+})
+
+test('noteDay / localDayOf：按本地时区分组，跨零点的笔记不会落到前一天', () => {
+  // UTC 2026-11-07T16:30Z 在 UTC+8 是 2026-11-08 00:30。
+  const note = { createdAt: '2026-11-07T16:30:00Z', updatedAt: '2026-11-07T16:30:00Z', day: '2026-11-07' }
+  assert.equal(localDayOf(note), '2026-11-08')
+  assert.equal(noteDay(note), '2026-11-08', '分组日必须跟本地时区，不能直接用 host 的 UTC day')
+  assert.equal(localDayOf({ createdAt: 'not-a-date' }), '')
+  assert.equal(noteDay({ day: '2026-11-08', createdAt: '' }), '2026-11-08', '时间不可解析时退回 day 字段')
 })

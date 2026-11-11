@@ -214,6 +214,7 @@ export class FlareMoClient {
       query: {
         time_zone: query.timeZone,
         days: query.days,
+        until: query.until,
       },
     })
     if (response.status === 401) throw this.unauthorized(response)

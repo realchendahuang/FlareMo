@@ -344,6 +344,26 @@ function hasBrowserSessionCookie(headers: Headers): boolean {
   return SESSION_COOKIE_NAMES.some((name) => cookie.includes(`${name}=`));
 }
 
+/**
+ * Context for endpoints that are safe for a `notes`-scoped machine credential:
+ * the reader settings that describe what the client may use (voice, email,
+ * OAuth availability), the capture status probe, and the insight queue that the
+ * DSH executor drives.
+ *
+ * The browser path is unchanged. A bearer credential takes the same route as
+ * every other data endpoint (`getRequestContext`: PAT or device token, exact
+ * Origin when one is supplied), so the scope check already applied there
+ * remains the only authority. Nothing here widens what a `notes` token can do:
+ * account, token management and connected-app revocation stay on
+ * {@link getBrowserRequestContext}, which still refuses every bearer.
+ */
+export async function getClientRequestContext(c: Context<HonoBindings>) {
+  if (!c.req.raw.headers.has("authorization")) {
+    return getBrowserRequestContext(c);
+  }
+  return getRequestContext(c);
+}
+
 export async function getBrowserRequestContext(c: Context<HonoBindings>) {
   if (c.req.raw.headers.has("authorization")) {
     throw new UnauthorizedError();

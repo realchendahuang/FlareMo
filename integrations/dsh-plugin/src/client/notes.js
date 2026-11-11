@@ -7,6 +7,14 @@
 
 import { parseContent } from './markdown.js'
 
+/** 可见性枚举 → 文案（未知值原样返回，别的实例可能加新档）。 */
+export function visibilityLabel(tr, value) {
+  if (typeof value !== 'string' || value === '') return ''
+  const key = `visibility.${value}`
+  const text = tr(key)
+  return text === key ? value : text
+}
+
 /** 正文块：把 `content` 用极简 Markdown 解析成渲染块。 */
 export function noteBlocks(note) {
   if (note === null || note === undefined) return []
@@ -18,12 +26,37 @@ export function noteTime(note) {
   return note?.updatedAt ?? note?.createdAt ?? ''
 }
 
-/** 时间线分组用的自然日（YYYY-MM-DD）。 */
+/**
+ * 时间线分组用的自然日（YYYY-MM-DD）。
+ *
+ * 先用本地时区算：host 给的 `day` 是 `create_time` 的 UTC 前 10 位，而月历活动点
+ * 按本地时区统计（服务端 `time_zone`），两边在跨零点那几个小时会错开一格。
+ * 时间无法解析时才退回 `day` / 截断字符串。
+ * @param {object} note - narrow note view.
+ * @returns {string} local day key.
+ */
 export function noteDay(note) {
+  const local = localDayOf(note)
+  if (local !== '') return local
   const explicit = note?.day
   if (typeof explicit === 'string' && explicit.length >= 10) return explicit.slice(0, 10)
   const time = noteTime(note)
   return time.length >= 10 ? time.slice(0, 10) : '未知日期'
+}
+
+/**
+ * 按**浏览器本地时区**算的自然日（YYYY-MM-DD）。
+ *
+ * 服务端的 `q` 日期过滤只到 UTC 日粒度，而月历的活动点是按本地时区统计的；
+ * 两者在跨零点那几个小时会错开一格。选中某天时先用宽一格的 UTC 区间取数，
+ * 再用这个函数按本地日筛一遍。
+ * @param {object} note - narrow note view.
+ * @returns {string} local day key, or '' when the time is unusable.
+ */
+export function localDayOf(note) {
+  const parsed = new Date(noteTime(note))
+  if (Number.isNaN(parsed.getTime())) return ''
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`
 }
 
 /** 搜索用纯文本：标题、摘要、标签、正文。 */

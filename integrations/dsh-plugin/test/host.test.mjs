@@ -384,6 +384,33 @@ test('listNotes：把 MemoDto 折成窄视图（标题/摘要/标签/日期）',
   assert.equal(calls[0].headers.authorization, 'Bearer access-1')
 })
 
+test('listNotes：正文超过 20k 时标记 truncated，详情页 getNote 不截断', async () => {
+  const long = 'x'.repeat(30_000)
+  const { runtime } = await seededRuntime({
+    script: [
+      () =>
+        jsonResponse(200, {
+          memos: [{ id: 'memo-long', content: long, create_time: '2026-11-08T10:00:00Z' }],
+        }),
+      () =>
+        jsonResponse(200, {
+          memo: { id: 'memo-long', content: long, create_time: '2026-11-08T10:00:00Z' },
+          relations: [],
+          backlinks: [],
+        }),
+    ],
+  })
+
+  const listed = await runtime.listNotes({ pageSize: 50 })
+  const note = listed.notes[0]
+  assert.equal(note.truncated, true, '列表窗口里应标记被截断')
+  assert.equal(note.content.length, 20_000)
+
+  const detail = await runtime.getNote({ id: 'memo-long' })
+  assert.equal(detail.note.truncated, false, '详情页取全文，不再截断')
+  assert.equal(detail.note.content.length, 30_000)
+})
+
 test('listNotes：payload.property.title 优先作为标题', async () => {
   const { runtime } = await seededRuntime({
     script: [
@@ -702,6 +729,7 @@ test('memoStats：GET /api/app/stats，响应转 camelCase，缺省 UTC / 84 天
   assert.equal(calls[0].url.pathname, '/api/app/stats')
   assert.equal(calls[0].url.searchParams.get('time_zone'), 'Asia/Shanghai')
   assert.equal(calls[0].url.searchParams.get('days'), '365')
+  assert.equal(calls[0].url.searchParams.has('until'), false, '没传 until 时不要凭空塞一个')
   assert.equal(calls[0].headers.authorization, 'Bearer access-1')
 
   const defaults = await runtime.memoStats({})
@@ -711,6 +739,21 @@ test('memoStats：GET /api/app/stats，响应转 camelCase，缺省 UTC / 84 天
 
   await runtime.memoStats({ days: 100_000 })
   assert.equal(calls[2].url.searchParams.get('days'), '366', 'days 应夹到 1–366')
+})
+
+test('memoStats：until 透传（日历翻月锚定），格式不对则忽略', async () => {
+  const { runtime, calls } = await seededRuntime({
+    script: [
+      () => jsonResponse(200, { counts: { normal: 0, archived: 0, trashed: 0, total: 0 }, active_days: 0, tags: [], activity: [] }),
+      () => jsonResponse(200, { counts: { normal: 0, archived: 0, trashed: 0, total: 0 }, active_days: 0, tags: [], activity: [] }),
+    ],
+  })
+
+  await runtime.memoStats({ days: 366, until: '2026-03-31' })
+  assert.equal(calls[0].url.searchParams.get('until'), '2026-03-31')
+
+  await runtime.memoStats({ days: 366, until: 'last tuesday' })
+  assert.equal(calls[1].url.searchParams.has('until'), false, '非法 until 不该发给服务端')
 })
 
 test('disconnect：清掉本地凭据', async () => {
@@ -1103,4 +1146,7 @@ test('v1 单实例状态：自动迁移成一条具名实例', async () => {
   const state = await runtime.connection.readState()
   assert.equal(state.version, 2)
   assert.equal(activeOf(state).accessToken, 'legacy')
+  // 迁移要落盘：否则每次读都要重新迁移，凭据文件永远停在 v1。
+  assert.equal(store.memory.version, 2, 'v1 记录读到时必须写回成 v2')
+  assert.equal(activeOf(store.memory).accessToken, 'legacy')
 })

@@ -228,22 +228,17 @@ test('左栏图标组件按 size 渲染', () => {
   assert.match(html, /width="16"/)
 })
 
-test('工作台首帧渲染出侧栏 + 编写区外壳（未连接时不出现示例数据）', () => {
+test('工作台首帧：未连接时只渲染连接引导，不放示例数据', () => {
   const { exports } = loadPlugin()
   const { ctx, registrations } = createContext()
   exports.apply(ctx)
   const main = registrationOf(registrations, 'main')
 
   const html = renderToStaticMarkup(React.createElement(main.component, { t: undefined }))
-  // 版面与网页版同构：侧栏（品牌/导航）+ 主列编写框
-  assert.match(html, /FlareMo/)
-  assert.match(html, /全部记录/)
+  // SSR 不跑 effect，所以停在「还没拿到连接状态」的首帧；外壳必须在。
   assert.match(html, /dsh-flaremo-root/)
-  assert.match(html, /写点什么/)
-  // 未连接时既不显示示例数据，也不显示「实时」
   assert.doesNotMatch(html, /示例数据/)
-  assert.match(html, /未连接/)
-  assert.doesNotMatch(html, />实时</)
+  assert.doesNotMatch(html, /<iframe/)
 })
 
 test('设置页首帧渲染出连接表单（未连接）', () => {
@@ -326,7 +321,7 @@ test('词典：多实例 key 与失败码在 zh / en 两侧齐全、数量相等
     assert.equal(typeof ZH[key], 'string', `zh 缺少 ${key}`)
     assert.equal(typeof EN[key], 'string', `en 缺少 ${key}`)
   }
-  for (const code of ['INSTANCE_NOT_FOUND', 'ALIAS_TAKEN', 'INVALID_ALIAS']) {
+  for (const code of ['INSTANCE_NOT_FOUND', 'ALIAS_TAKEN', 'INVALID_ALIAS', 'MODEL_UNAVAILABLE', 'MODEL_FAILED', 'MODEL_BAD_OUTPUT', 'INSIGHT_NO_NOTES', 'INSIGHT_TERMINAL']) {
     assert.equal(typeof ZH[`err.${code}`], 'string', `zh 缺少 err.${code}`)
     assert.equal(typeof EN[`err.${code}`], 'string', `en 缺少 err.${code}`)
   }
