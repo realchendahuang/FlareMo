@@ -4,7 +4,8 @@
  * A PAT is a machine credential for the Memos-compatible API, MCP and the
  * scripts that drive them. It used to inherit the owner's full powers with no
  * expiry, so a leaked token could also delete members and touch the admin
- * surface. New tokens default to the smaller notes scope and a finite lifetime;
+ * surface. Migration 0050 backfills those old rows to the smaller notes scope.
+ * New tokens default to the smaller notes scope and a finite lifetime;
  * notes-only machines may explicitly opt into a non-expiring token, while an
  * admin-scoped token always keeps a finite lifetime. The Worker checks the
  * scope on every PAT request.
@@ -53,10 +54,10 @@ export function memosPatPermissionsFor(
 /**
  * Read the scopes back out of a stored permission object.
  *
- * Returns null when the token predates scopes (no permissions stored). Those
- * legacy tokens keep their original full access so existing scripts do not
- * break mid-flight; they are reported as notes + admin in the UI, which is
- * exactly what they can do.
+ * Returns null when no permissions are stored. Null still means full access for
+ * the request path, but migration 0050 backfills old rows to notes on upgrade,
+ * so null should no longer occur for upgraded databases. The UI reports null
+ * as notes + admin for compatibility with an un-migrated row.
  */
 export function memosPatScopesFromPermissions(
   permissions: unknown,
@@ -84,9 +85,10 @@ export function normalizeMemosPatScopes(
 }
 
 /**
- * Whether a PAT with these scopes may call this path. A null scope list means a
- * legacy unrestricted token. The admin surface is the only scope boundary: a
- * notes token may touch every non-admin route, an admin token may touch all.
+ * Whether a PAT with these scopes may call this path. A null scope list still
+ * means full access for compatibility with an un-migrated row; migration 0050
+ * backfills legacy rows to notes. The admin surface is the only scope boundary:
+ * a notes token may touch every non-admin route, an admin token may touch all.
  */
 export function memosPatScopesAllowPath(
   scopes: readonly MemosPatScope[] | null,

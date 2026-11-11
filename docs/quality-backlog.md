@@ -128,7 +128,7 @@
 
 ### 待办（按优先级）
 
-- [x] **PAT 权限面**：已实现 `notes` / `admin` scope（`packages/contracts/src/pat.ts`，Worker 在每个 PAT 请求上校验，`/api/app/admin/*` 仅 admin）、默认 90 天有效期（1–365 天）、账户页创建对话框与令牌行展示 scope；旧令牌无 permissions 时保持完全访问以兼容既有脚本。v0.30.2 已按用户要求将默认改为 365 天，并恢复 notes-only 永久选项。
+- [x] **PAT 权限面**：已实现 `notes` / `admin` scope（`packages/contracts/src/pat.ts`，Worker 在每个 PAT 请求上校验，`/api/app/admin/*` 仅 admin）、默认 365 天有效期（1–365 天）、账户页创建对话框与令牌行展示 scope；migration `0050_pat_scope_backfill` 把旧令牌的空 permissions 回填为 notes，管理面需显式重建 admin scope 令牌；notes-only 仍可永久有效。
 - [x] **query key 收口**：86 处行内字面量全部迁到 `lib/query-keys.ts`（新增 20+ 组 key 与 `invalidateTaskSurfaces` 共享失效助手）；新增 `lib/query-keys.test.ts` 禁止再写行内字面量。
 - [x] **孤儿 i18n key**：71 个无引用 key 已从 8 个语言文件删除（1027 → 956 键）；新增 `i18n/usage.test.ts`，白名单只保留 10 个待接线的 `pwa.install*`/离线提示 key。
 - [x] **RTL 物理方向类**：32 个文件的 `text-left`/`ml-auto`/`right-*`/`border-l` 已改为逻辑类，toggle-group 分段控件的圆角与分隔线同步；`left-1/2 + -translate-x-1/2` 的居中保留物理方向（逻辑化会让 RTL 偏移半格）。

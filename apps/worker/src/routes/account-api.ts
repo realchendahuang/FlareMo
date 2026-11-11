@@ -321,7 +321,8 @@ function toPersonalAccessTokenDto(token: {
     updated_at: token.updatedAt.toISOString(),
     last_request: toIsoDate(token.lastRequest),
     request_count: token.requestCount,
-    // Legacy tokens stored no permissions and keep full access.
+    // Migration 0050 backfills legacy rows; null still renders as full access
+    // for an un-migrated database and is shown with both scopes.
     scopes:
       memosPatScopesFromPermissions(
         parseStoredPermissions(token.permissions),

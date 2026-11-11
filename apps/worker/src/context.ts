@@ -265,8 +265,8 @@ export async function getRequestContext(c: Context<HonoBindings>) {
     if (!user) throw new UnauthorizedError();
     assertActiveMember(user);
 
-    // A PAT only reaches the surfaces its scopes cover. Legacy tokens store no
-    // permissions and keep their old full access; see packages/contracts/pat.ts.
+    // A PAT only reaches the surfaces its scopes cover. Migration 0050 narrows
+    // legacy rows to notes; null remains unrestricted for an un-migrated row.
     const patScopes = memosPatScopesFromPermissions(
       verification.key.permissions,
     );

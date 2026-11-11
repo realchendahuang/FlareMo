@@ -4,7 +4,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ## v0.32.0
 
-**原生客户端的后端契约（M0）+ 客户端生成的 memo id。** 新增 2 个纯增量 migration（0048、0049），无 Cloudflare 资源变化、无新环境变量；旧 Web 客户端、Memos 兼容面与旧 PAT 行为不变。
+**原生客户端的后端契约（M0）+ 客户端生成的 memo id。** 新增 3 个 migration（0048、0049、0050），无 Cloudflare 资源变化、无新环境变量；旧 Web 客户端与 Memos 兼容面不变，历史 PAT 会在升级时收窄为 notes 权限。
 
 ### 新增
 
@@ -19,6 +19,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - `0048_dapper_captain_america`：`memos` / `attachments` / `articles` 加 `version`（默认 1），`memo_relations` 加 `updated_at`；新增 `sync_changes`（AUTOINCREMENT `seq` + `(user_id, seq)` 索引）与 `native_push_devices`（纯增量）。
 - `0049_native_sync_triggers`：四张表共 11 个触发器把增删改写进 `sync_changes`，并一次性回填存量行。`op` 由 `deleted_at` 推导，软删除与硬删除都记为 `delete`，墓碑能活过整行删除；`memo_relations` 的 1970 占位在触发器与 hydrate 里归一成 `created_at`。
 - 持久化清单把 `sync_changes` 与 `native_push_devices` 归入灾备恢复（42 张恢复表 / 3 张可重建表）。
+- `0050_pat_scope_backfill`：把 `auth_apikeys.permissions` 为空的历史 PAT 回填为 `{"memos":["read","write"]}`（notes 权限）。升级后需要管理面的脚本显式重建带 `admin` scope 的令牌；受影响的管理端点包括 `/api/app/admin/*`、`PUT /api/app/admin/team/reader` 等仅 admin 令牌可用的路径。
 
 ### 其他
 
@@ -27,7 +28,7 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 
 ### 升级说明
 
-- 直接升级即可：部署会先应用 0048 / 0049 两个增量 migration，旧 Worker 与旧客户端不受影响。
+- 直接升级即可：部署会先应用 0048 / 0049 / 0050 三个增量 migration，旧 Worker 与旧客户端不受影响；依赖管理面 PAT 的脚本请在升级后重建 admin scope 令牌。
 - 没有新的环境变量、secret 或 Cloudflare 绑定。
 - 0049 的回填会为存量库的每条 memo / attachment / article / relation 写一行 `sync_changes`，大库首次升级会多花一点时间；这是纯 INSERT，不影响旧 Worker 读写。
 

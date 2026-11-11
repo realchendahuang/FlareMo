@@ -351,6 +351,13 @@
       "when": 1794159273703,
       "tag": "0049_native_sync_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1794388015000,
+      "tag": "0050_pat_scope_backfill",
+      "breakpoints": true
     }
   ]
 }

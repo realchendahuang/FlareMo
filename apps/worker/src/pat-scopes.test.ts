@@ -1,4 +1,4 @@
-import { authApiKeys, createDb } from "@flaremo/db";
+import { applyFlaremoMigrations, authApiKeys, createDb } from "@flaremo/db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -177,7 +177,7 @@ describe("personal access token scopes", () => {
     expect(admin.status).toBe(400);
   });
 
-  it("keeps legacy tokens without permissions unrestricted", async () => {
+  it("keeps an un-migrated token without permissions unrestricted", async () => {
     runtime = await createTestRuntime({ name: "flaremo-pat-scope-legacy" });
     const cookie = await bootstrapAndSignIn(runtime.env);
     const created = await createToken(cookie, { name: "legacy-token" });
@@ -194,5 +194,34 @@ describe("personal access token scopes", () => {
       { method: "POST", body: "{}" },
     );
     expect(admin.status).toBe(400);
+  });
+
+  it("backfills empty legacy permissions to the notes scope", async () => {
+    runtime = await createTestRuntime({ name: "flaremo-pat-scope-backfill" });
+    const cookie = await bootstrapAndSignIn(runtime.env);
+    const created = await createToken(cookie, { name: "legacy-token" });
+
+    const db = createDb(runtime.db);
+    await db
+      .update(authApiKeys)
+      .set({ permissions: null })
+      .where(eq(authApiKeys.id, created.id));
+
+    await applyFlaremoMigrations(runtime.db, {
+      fromTag: "0050_pat_scope_backfill",
+    });
+
+    const [row] = await db
+      .select({ permissions: authApiKeys.permissions })
+      .from(authApiKeys)
+      .where(eq(authApiKeys.id, created.id));
+    expect(row?.permissions).toBe('{"memos":["read","write"]}');
+
+    const admin = await patRequest(
+      created.token,
+      "/api/app/admin/embeddings/rebuild",
+      { method: "POST", body: "{}" },
+    );
+    expect(admin.status).toBe(403);
   });
 });

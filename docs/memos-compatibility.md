@@ -22,7 +22,7 @@ FlareMo 是运行在 Cloudflare Workers 上的个人知识系统，不是 Memos 
 | --- | --- | --- | --- |
 | Better Auth 原生登录、单用户 bootstrap、cookie session | 已实现 | 已测试 | 应用层身份事实源是 Better Auth；不是 Cloudflare Access identity。 |
 | Memos 风格 sign-in/refresh/sign-out facade | 已实现 | 已测试 | 返回 FlareMo 生成的 HS256 access JWT，并轮换 `memos_refresh`；不是 Memos JWT 的字节级 parity。 |
-| `memos_pat_` Personal Access Token | 已实现 | 已测试 | PAT 可创建、列出、撤销；明文只在创建响应中出现一次。新令牌带 `notes`/`admin` scope；默认 365 天、可填 1–365 天，仅 notes 令牌可显式选择永久有效，admin 令牌最长 365 天；旧令牌无 permissions 时保持完全访问。 |
+| `memos_pat_` Personal Access Token | 已实现 | 已测试 | PAT 可创建、列出、撤销；明文只在创建响应中出现一次。新令牌带 `notes`/`admin` scope；默认 365 天、可填 1–365 天，仅 notes 令牌可显式选择永久有效，admin 令牌最长 365 天。migration `0050_pat_scope_backfill` 会把历史 `permissions` 为空的令牌回填为 notes；升级后的 `/api/app/admin/*` 等管理面需要显式重建 admin scope 令牌。 |
 | current camelCase REST | 已实现 | 已测试 | memo、attachment、social、share、PAT 和有限 filter/order 的子集。 |
 | Connect JSON unary | 已实现 | 已测试 | 主要服务以及多用户 UserService 的 webhook/notification 资源有 Worker contract 覆盖。 |
 | protobuf / gRPC-style / gRPC-Web unary | generated schema + unary adapter | 已测试子集 | 普通上游 RPC 使用 pinned generated schema/runtime；仍是 Worker 上的单帧 unary adapter，不是原生 HTTP/2 gRPC server，也未达到完整服务语义 parity。 |
