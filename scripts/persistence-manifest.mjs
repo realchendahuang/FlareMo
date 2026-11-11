@@ -137,6 +137,20 @@ export const POST_RESTORE_DERIVED_SQL = [
   ].join(" "),
 ];
 
+/**
+ * Tables whose rows are also written by triggers during a restore, so they
+ * cannot be replayed alongside the entity tables that feed those triggers.
+ *
+ * `sync_changes` (migration 0049) has an AFTER INSERT/UPDATE/DELETE trigger on
+ * memos, attachments, articles and memo_relations, and the derived-restore SQL
+ * below also UPDATES every memo. Replaying the log in the normal order made the
+ * drill fail with source=26 restored=67 — the entity replay had already
+ * appended 41 fabricated changes with fresh `seq` values. A restored instance
+ * would then hand every native client a page of changes pointing at data it
+ * already has. These tables are cleared and replayed last, verbatim.
+ */
+const TABLES_REPLAYED_AFTER_TRIGGERS = ["sync_changes"];
+
 export function buildOrderedDataRestore(dataDump) {
   const dumpLines = dataDump.split("\n");
   const lines = ["PRAGMA defer_foreign_keys=TRUE;"];
@@ -151,6 +165,7 @@ export function buildOrderedDataRestore(dataDump) {
   }
 
   for (const table of RESTORE_TABLES) {
+    if (TABLES_REPLAYED_AFTER_TRIGGERS.includes(table)) continue;
     lines.push(
       ...dumpLines.filter(
         (line) =>
@@ -161,6 +176,22 @@ export function buildOrderedDataRestore(dataDump) {
   }
 
   lines.push(...POST_RESTORE_DERIVED_SQL);
+
+  // Replay the trigger-fed log last: clear whatever the entity inserts and the
+  // derived SQL appended through the 0049 triggers, then restore the backup's
+  // own rows. Explicit `seq` values are kept, which also advances the
+  // AUTOINCREMENT counter to the backed-up high-water mark.
+  for (const table of TABLES_REPLAYED_AFTER_TRIGGERS) {
+    lines.push(`DELETE FROM \`${table}\`;`);
+    lines.push(
+      ...dumpLines.filter(
+        (line) =>
+          line.startsWith(`INSERT INTO "${table}" `) ||
+          line.startsWith(`INSERT INTO \`${table}\` `),
+      ),
+    );
+  }
+
   return `${lines.join("\n")}\n`;
 }
 
