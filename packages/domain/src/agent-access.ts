@@ -1,18 +1,18 @@
 import {
   ACCESS_TOKEN_TTL_DAYS,
-  DEVICE_CODE_TTL_SECONDS,
-  DEVICE_POLL_INTERVAL_SECONDS,
-  MAX_APP_CLIENTS,
-  REFRESH_TOKEN_TTL_DAYS,
-  USER_CODE_ALPHABET,
-  USER_CODE_LENGTH,
   type AppClientType,
   type ConnectErrorCode,
   type ConnectedAppDto,
+  DEVICE_CODE_TTL_SECONDS,
+  DEVICE_POLL_INTERVAL_SECONDS,
+  MAX_APP_CLIENTS,
   type MemosPatScope,
-  normalizeMemosPatScopes,
   memosPatScopesFromPermissions,
+  normalizeMemosPatScopes,
   normalizeUserCode,
+  REFRESH_TOKEN_TTL_DAYS,
+  USER_CODE_ALPHABET,
+  USER_CODE_LENGTH,
 } from "@flaremo/contracts";
 import type { FlareMoDb } from "@flaremo/db";
 import {
@@ -486,7 +486,8 @@ export async function listConnectedApps(
   for (const key of keys) {
     const client = clientByKey.get(key.id);
     if (client === undefined || !key.enabled) continue;
-    const expired = key.expiresAt !== null && key.expiresAt.toISOString() <= now;
+    const expired =
+      key.expiresAt !== null && key.expiresAt.toISOString() <= now;
     rows.push({
       id: key.id,
       name: client.name,

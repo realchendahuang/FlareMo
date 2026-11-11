@@ -2,6 +2,34 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
+## v0.32.0
+
+**原生客户端的后端契约（M0）+ 客户端生成的 memo id。** 新增 2 个纯增量 migration（0048、0049），无 Cloudflare 资源变化、无新环境变量；旧 Web 客户端、Memos 兼容面与旧 PAT 行为不变。
+
+### 新增
+
+- **实例能力发现 `GET /api/app/instance`**：匿名可缓存，返回 `version`、`api_versions` 与 `capabilities`（`name → 版本号` 对象）。只报实际已实现的能力：`optimistic_lock` 当前为 0（`version` 列已存在，但 `PATCH` 尚未强制 `expected_version`）、`native_push` 是空数组、`direct_upload` 与 `pat_grant` 为 0——客户端据此降级，不去调用会 404 的路由。
+- **增量同步 `GET /api/app/sync/changes`**：`since` / `limit`（上限 500）游标分页，返回 `{ changes, next_seq, has_more }`，只回引用不回正文；空轮询走索引区间加 `min(seq)` 主键探测，零表扫描；水位早于裁剪点返回 `410`，客户端据此整库重建。
+- **批量取正文 `POST /api/app/sync/hydrate`**：一次最多 200 个 id，覆盖 memos / attachments / articles / memo_relations，按 D1 的 100 参数上限分块（每块 90 个 id）。
+- **创建 memo 可带客户端 id**：`createMemoSchema` 新增可选 `id`（`memos/<uuid>` 或裸 uuid，其他格式 400），`/api/app/memos`、`/api/v1/memos` 与 MCP 共用。同 id 重放幂等返回已存在行；该 id 属于别的账号返回 409 且不返回正文。不传 `id` 的既有调用方（Web / MCP / IM / 导入）行为完全不变。
+- **`/api/app/capture/status` 接受 `notes` 作用域的 Bearer**，走与其他数据端点同一条 PAT 路径，供客户端首屏决定是否显示麦克风。付费的 `/transcribe`、WebSocket 握手、账户与令牌管理、已连接应用撤销仍只允许浏览器会话。
+
+### 数据库
+
+- `0048_dapper_captain_america`：`memos` / `attachments` / `articles` 加 `version`（默认 1），`memo_relations` 加 `updated_at`；新增 `sync_changes`（AUTOINCREMENT `seq` + `(user_id, seq)` 索引）与 `native_push_devices`（纯增量）。
+- `0049_native_sync_triggers`：四张表共 11 个触发器把增删改写进 `sync_changes`，并一次性回填存量行。`op` 由 `deleted_at` 推导，软删除与硬删除都记为 `delete`，墓碑能活过整行删除；`memo_relations` 的 1970 占位在触发器与 hydrate 里归一成 `created_at`。
+- 持久化清单把 `sync_changes` 与 `native_push_devices` 归入灾备恢复（42 张恢复表 / 3 张可重建表）。
+
+### 其他
+
+- DSH 插件升到 `0.5.0`：面板改为内嵌真实 Web 应用（host 侧反代 + 设备令牌，令牌不出宿主进程）；顺带修掉 `withAuth` 在兄弟请求刚轮换过令牌时二次刷新、把一对好令牌同时作废的问题。插件在 `integrations/` 内独立构建与测试，不进内核门禁。
+- 四端原生客户端源码进仓库：`apps/apple/`（macOS + iOS，Swift）、`apps/kotlin/`（Android + Windows，Compose Multiplatform），两栈都不进 pnpm workspace；方案与 M0 契约见 `docs/native-clients.md`。
+
+### 升级说明
+
+- 直接升级即可：部署会先应用 0048 / 0049 两个增量 migration，旧 Worker 与旧客户端不受影响。
+- 没有新的环境变量、secret 或 Cloudflare 绑定。
+- 0049 的回填会为存量库的每条 memo / attachment / article / relation 写一行 `sync_changes`，大库首次升级会多花一点时间；这是纯 INSERT，不影响旧 Worker 读写。
 
 ## v0.31.1
 

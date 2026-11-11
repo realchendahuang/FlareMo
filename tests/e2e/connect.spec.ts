@@ -26,7 +26,9 @@ test("approves a pairing code and revokes the connected app", async ({
   await page.goto(
     `${E2E_BASE_URL}/connect?code=${encodeURIComponent(device.user_code)}`,
   );
-  await expect(page.getByText(/批准配对|Approve pairing/).first()).toBeVisible();
+  await expect(
+    page.getByText(/批准配对|Approve pairing/).first(),
+  ).toBeVisible();
   await page
     .getByRole("button", { name: /批准配对|Approve pairing/ })
     .first()

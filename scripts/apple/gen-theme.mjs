@@ -661,7 +661,6 @@ extension UIColor {
 #endif`,
 );
 
-
 /* ------------------------------------------------------------------ *
  * 6. 输出 Kotlin（Compose Multiplatform）
  *
@@ -670,33 +669,41 @@ extension UIColor {
  * ------------------------------------------------------------------ */
 
 const ktColor = (c) => {
-    const hex = [c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase();
-    const alpha = Math.round(c.a * 255).toString(16).padStart(2, "0").toUpperCase();
-    return `Color(0x${alpha}${hex})`;
+  const hex = [c.r, c.g, c.b]
+    .map((v) => v.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
+  const alpha = Math.round(c.a * 255)
+    .toString(16)
+    .padStart(2, "0")
+    .toUpperCase();
+  return `Color(0x${alpha}${hex})`;
 };
 
 const ktColorsBlock = (themeKey) => {
-    const lines = [];
-    for (const group of COLOR_GROUPS) {
-        for (const prop of group.tokens) {
-            const token = colorToken(prop);
-            lines.push(`        ${camel(prop)} = ${ktColor(token[themeKey])},`);
-        }
+  const lines = [];
+  for (const group of COLOR_GROUPS) {
+    for (const prop of group.tokens) {
+      const token = colorToken(prop);
+      lines.push(`        ${camel(prop)} = ${ktColor(token[themeKey])},`);
     }
-    return lines.join("\n");
+  }
+  return lines.join("\n");
 };
 
 const ktRadius = (name) => {
   const factor = radiusMultipliers.get(name) ?? (name === "lg" ? 1 : undefined);
   if (factor === undefined) {
-    throw new Error(`圆角阶梯里没有 --radius-${name}，检查 index.css 的 @theme 块`);
+    throw new Error(
+      `圆角阶梯里没有 --radius-${name}，检查 index.css 的 @theme 块`,
+    );
   }
   return `${Number((radiusBase * factor).toFixed(2))}.dp`;
 };
 
 const KT_COLOR_FIELDS = COLOR_GROUPS.flatMap((g) => g.tokens)
-    .map((prop) => `    /** \`${prop}\` */\n    val ${camel(prop)}: Color,`)
-    .join("\n");
+  .map((prop) => `    /** \`${prop}\` */\n    val ${camel(prop)}: Color,`)
+  .join("\n");
 
 const kotlin = `// 本文件由 scripts/apple/gen-theme.mjs 从 apps/web/src/index.css 生成，请勿手改。
 // 重新生成：node scripts/apple/gen-theme.mjs（或 pnpm apple:theme）
@@ -890,5 +897,7 @@ if (existsSync(ktDirectory)) {
     `✓ 已生成 ${KT_OUT_PATH.replace(`${REPO}/`, "")} (${kotlin.length} 字节)`,
   );
 } else {
-  console.log(`· 跳过 Theme.kt：${ktDirectory.replace(`${REPO}/`, "")} 还不存在`);
+  console.log(
+    `· 跳过 Theme.kt：${ktDirectory.replace(`${REPO}/`, "")} 还不存在`,
+  );
 }

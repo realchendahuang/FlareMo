@@ -1,9 +1,9 @@
 import {
-  DEVICE_CODE_GRANT_TYPE,
-  REFRESH_TOKEN_GRANT_TYPE,
   type ConnectedAppsResponseDto,
+  DEVICE_CODE_GRANT_TYPE,
   type DeviceAuthorizationResponseDto,
   type DeviceTokenResponseDto,
+  REFRESH_TOKEN_GRANT_TYPE,
 } from "@flaremo/contracts";
 import type { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
