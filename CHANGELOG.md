@@ -2,6 +2,29 @@
 
 FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
 
+## v0.33.0
+
+**卡片就地编辑附件上传、X/Twitter 链接预览、Ember 3 全站交互打磨与运行时可靠性加固。** 无新增数据库 migration、无新环境变量或 Cloudflare 绑定变化；Memos 兼容面与 Better Auth / Origin 安全契约不变，直接升级即可。
+
+### 新增与体验升级
+
+- **卡片就地编辑完整附件上传（修复 #162）**：`MemoCardEditor` 接入工具栏回形针按钮、多选上传、粘贴/拖拽图片与任意文件预上传（取消编辑不污染原记录）、上传进度芯片与保存保护、既有附件与新附件缩略图预览及移除，保存时原子合并绑定并乐观更新缓存。同时将新建框、全屏画布与卡片编辑器的 `<input type="file">` 全部改为 `useId()` 实例级唯一选择器，消除多编辑器并存时的文件选择冲突；解除卡片编辑态 320px 内部滚动封顶并补充未保存改动两段式 `Esc` 保护。
+- **X / Twitter 免鉴权链接预览与时间线外链卡片**：`MemoService/GetLinkMetadata` 识别 `x.com` / `twitter.com` 推文链接（含 `www.`、`mobile.`、`/i/web/status/`、`/i/status/` 与短链重定向落点），通过 `publish.twitter.com/oembed`（走统一安全出站 `safeOutboundFetch`）提取作者与推文摘要，404 或超时静默降级不抛 500，同时加固通用 `<meta>` 属性乱序/单引号解析与相对图片 URL 归一化。时间线正文新增去重缓存的纸片外链预览卡，正文内联图片支持点击打开 `ImageLightbox`，灯箱补齐开关动画、双击 `1x/2x` 缩放、拖拽平移与键盘 `+`/`-`/`0` 控制。
+- **文章即时发布修复、历史行级对比与 Ember 3 全站打磨**：修复新建文章后 2 秒内点击「发布」因首个草稿尚未落盘返回 400 的竞态（打开发布弹窗前等待自动保存链完成，并补 `⌘S` 快捷键）；记录详情页历史版本新增 `computeLineDiff` 行级增删对比；修复 Chromium 121+ 下继承链 `scrollbar-color` 覆盖 `::-webkit-scrollbar` 导致回退原生粗滚动条的问题（改用 `@supports not selector(::-webkit-scrollbar)` 仅对 Firefox 降级，恢复 6px 暖墨细丝滚动条与暗色 `color-scheme: dark` 一致性，回应 #162）；补齐 Markdown 块级 `dir="auto"`、`#标签`/`@mention` `<bdi>` 双向隔离及全站 8 语言（含阿拉伯语 RTL 与 Apple 端生成词条）同步。
+
+### 运维与可靠性
+
+- **定时维护心跳（Scheduler Heartbeat）**：`runScheduledMaintenance` 将最近一次执行时间、耗时与各步骤脱敏摘要持久化到实例级 `settings` 表，`GET /api/app/health` 新增 `scheduler` 字段（未执行过为 `null`），供外部监控配置存活与新鲜度巡检。
+- **D1 参数上限与触发器计数修复**：收口 Domain 层剩余 5 处 D1 100 绑定参数分块路径（含 130 项跨块单测）与附件列表分页参数校验；修复 `import-data` 在 `0049_native_sync_triggers` 触发器下因 `meta.changes` 叠加 `sync_changes` 行数导致 `imported_relations` 计数翻倍的问题。
+- **插件管理与门禁加固**：插件商店非法压缩包或 manifest 归一返回 `400`（不再落入 `500`），补齐插件 `install` / `uninstall` 完整 HTTP 集成测试（SHA-256 校验、静态资源读取、角色与 PAT scope 守卫、卸载 R2 清理），并在根 Vitest 配置排除 `integrations/**` 的 `node:test` 套件。
+
+### 兼容面、认证与升级说明
+
+- **数据库 migration**：无新增 migration（最新仍为 `0050_pat_scope_backfill`）。
+- **Cloudflare 资源与配置**：无新增环境变量、secret、D1/R2/Queue/Workers AI 绑定或 Cloudflare Access 配置变化。
+- **Memos 兼容面与认证安全**：Memos REST / Connect / `/mcp` 兼容子集不变（`GetLinkMetadata` 在原有契约内增强解析覆盖）；Better Auth cookie session、bootstrap、signup 状态、`FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS` Origin 校验与 PAT `notes` / `admin` scope 契约不变。
+- **升级步骤**：拉取 `v0.33.0` 直接构建并执行 `pnpm deploy`（或自托管部署 workflow）即可，无需额外手工迁移步骤。
+
 ## v0.32.1
 
 **安全修复：历史 Personal Access Token 收窄为 notes 权限。** 新增 1 个纯数据 migration（0050），无 Cloudflare 资源变化、无新环境变量、无 API 形状变化。
