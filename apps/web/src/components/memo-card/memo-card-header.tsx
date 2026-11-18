@@ -13,6 +13,7 @@ type MemoCardHeaderProps = {
   commentAction?: ReactNode;
   memo: Memo;
   id: string;
+  isEditing?: boolean;
   isTrashed: boolean;
   canManage: boolean;
   canGovern: boolean;
@@ -43,6 +44,7 @@ export function MemoCardHeader({
   commentAction,
   memo,
   id,
+  isEditing = false,
   isTrashed,
   canManage,
   canGovern,
@@ -67,7 +69,7 @@ export function MemoCardHeader({
     <>
       <div className="flex w-full items-center justify-between gap-2">
         <Link
-          className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="group/time flex min-w-0 items-center gap-2 rounded-sm text-xs text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-ring/25"
           onFocus={prefetchDetail}
           onMouseEnter={prefetchDetail}
           params={{ memoId: memo.id }}
@@ -85,14 +87,17 @@ export function MemoCardHeader({
           {/* flomo's header rule: identity only, no placeholders. The
               timestamp is the sole anchor; hovering swaps relative for the
               absolute instant, so both facts live in one pixel row. */}
-          <span className="inline-grid [grid-template-areas:'stack'] items-center justify-items-start truncate">
-            <span className="[grid-area:stack] transition-opacity duration-150 group-hover:opacity-0 pointer-events-none">
+          <time
+            className="inline-grid [grid-template-areas:'stack'] items-center justify-items-start truncate"
+            dateTime={memo.display_time}
+          >
+            <span className="[grid-area:stack] pointer-events-none transition-opacity duration-150 group-hover:opacity-0 group-focus-visible/time:opacity-0">
               {formatMemoRelativeTime(memo.display_time, locale)}
             </span>
-            <span className="[grid-area:stack] opacity-0 transition-opacity duration-150 group-hover:opacity-100 whitespace-nowrap">
+            <span className="[grid-area:stack] whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible/time:opacity-100">
               {formatMemoTime(memo.display_time, locale)}
             </span>
-          </span>
+          </time>
         </Link>
         <div className="flex shrink-0 items-center gap-1">
           {commentAction}
@@ -118,6 +123,7 @@ export function MemoCardHeader({
           <MemoCardMenu
             memo={memo}
             id={id}
+            isEditing={isEditing}
             isTrashed={isTrashed}
             canManage={canManage}
             canGovern={canGovern}

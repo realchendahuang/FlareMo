@@ -1,6 +1,7 @@
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { SettingsSectionGroup } from "@/components/settings-section";
 import { type Theme, useTheme } from "@/components/theme-provider";
+import { Kbd } from "@/components/ui/kbd";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -45,11 +46,12 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
           const Icon = item.icon;
           return (
             <button
+              aria-pressed={active}
               key={item.id}
               type="button"
               onClick={() => setTheme(item.id)}
               className={cn(
-                "group relative flex cursor-pointer flex-col items-center rounded-xl border p-2.5 text-center transition-[border-color,background-color,box-shadow] sm:p-4",
+                "group relative flex cursor-pointer flex-col items-center rounded-xl border p-2.5 text-center outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-3 focus-visible:ring-ring/25 sm:p-4",
                 active
                   ? "border-primary bg-card ring-1 ring-primary/30 shadow-xs"
                   : "border-border/60 bg-card hover:border-border hover:bg-accent/40",
@@ -99,6 +101,9 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
               <div className="flex items-center gap-1.5 font-medium text-xs text-foreground">
                 <span>{item.label}</span>
               </div>
+              <span className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
+                {item.description}
+              </span>
             </button>
           );
         })}
@@ -113,9 +118,7 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
           <span className="text-muted-foreground">
             {t("theme.shortcutTip")}
           </span>
-          <kbd className="inline-flex h-5 items-center rounded border border-border/80 bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
-            D
-          </kbd>
+          <Kbd>D</Kbd>
         </div>
       </SettingsSectionGroup>
     </div>

@@ -9,6 +9,7 @@ import { SettingsSectionGroup } from "@/components/settings-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -178,20 +179,22 @@ export function PluginCardsManager({
                       />
                     )}
                     {spec.type === "enum" && (
-                      <select
-                        className="h-7 rounded-md border bg-transparent px-2 text-xs"
-                        disabled={busy}
-                        value={typeof value === "string" ? value : ""}
-                        onChange={(event) =>
-                          setOption(row.id, spec.key, event.target.value)
-                        }
-                      >
-                        {spec.choices.map((choice) => (
-                          <option key={choice.value} value={choice.value}>
-                            {localized(choice.label, locale, choice.value)}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="shrink-0">
+                        <Select
+                          className="h-7 w-auto min-w-28 py-0 text-xs"
+                          disabled={busy}
+                          value={typeof value === "string" ? value : ""}
+                          onChange={(event) =>
+                            setOption(row.id, spec.key, event.target.value)
+                          }
+                        >
+                          {spec.choices.map((choice) => (
+                            <option key={choice.value} value={choice.value}>
+                              {localized(choice.label, locale, choice.value)}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
                     )}
                   </div>
                 );

@@ -253,9 +253,9 @@ export const FlareMoExplorer = memo(function FlareMoExplorer({
           <button
             aria-pressed={untagged}
             className={cn(
-              "flex h-7 items-center gap-2.5 rounded-md ps-2.5 pe-1 text-[13px] text-start motion-safe:transition-colors motion-safe:duration-150",
+              "flex h-7 items-center gap-2.5 rounded-md ps-2.5 pe-1 text-[13px] text-start outline-none motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-3 focus-visible:ring-ring/25",
               untagged
-                ? "bg-card font-medium text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted"
+                ? "bg-card font-medium text-foreground shadow-xs ring-1 ring-border/70 dark:bg-muted [&>svg]:text-primary"
                 : "text-foreground/70 hover:bg-muted/70 hover:text-foreground",
             )}
             type="button"
@@ -433,7 +433,7 @@ function TagTree({
               aria-label={
                 isCollapsed ? t("explorer.expand") : t("explorer.collapse")
               }
-              className="relative z-10 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:text-foreground"
+              className="relative z-10 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
               type="button"
               onClick={() => toggle(name)}
             >

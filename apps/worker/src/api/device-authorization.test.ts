@@ -9,7 +9,7 @@ import type { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import app from "../index";
 import { createAppTestHarness } from "../test-support/app";
-import { createTestRuntime, TEST_PASSWORD } from "../test-support/runtime";
+import { createTestRuntime } from "../test-support/runtime";
 
 let mf: Miniflare;
 let env: Env;

@@ -116,16 +116,15 @@ export function SetupPage() {
             htmlFor="setup-bootstrap-secret"
           >
             {t("auth.bootstrapSecret")}
-            <Input
+            <PasswordInput
               autoComplete="off"
               disabled={isSubmitting}
               id="setup-bootstrap-secret"
               name="bootstrap-secret"
               required
-              type="password"
               value={bootstrapSecret}
               onChange={(event) => setBootstrapSecret(event.target.value)}
-            />{" "}
+            />
           </label>
           <label
             className="flex flex-col gap-1.5 text-sm font-medium"

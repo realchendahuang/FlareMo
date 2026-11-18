@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { MessageCircleIcon, Trash2Icon } from "lucide-react";
+import { CircleAlertIcon, MessageCircleIcon, Trash2Icon } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -9,12 +9,14 @@ import {
   listMentionableUsers,
   type Memo,
   trashMemo,
+  updateMemo,
 } from "@/api";
 import { SendButton } from "@/components/composer/send-button";
 import { LazyMemoContent } from "@/components/lazy-memo-content";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { formatMemoRelativeTime, formatMemoTime } from "@/lib/memo";
@@ -42,10 +44,12 @@ const drafts = new Map<string, string>();
 function CommentRow({
   comment,
   locale,
+  isDeleting,
   onDelete,
 }: {
   comment: Memo;
   locale: string;
+  isDeleting?: boolean;
   onDelete?: () => void;
 }) {
   const { t } = useI18n();
@@ -70,12 +74,13 @@ function CommentRow({
             <Button
               aria-label={t("comments.delete")}
               className="ms-auto opacity-0 group-hover/comment:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+              disabled={isDeleting}
               size="icon-xs"
               type="button"
               variant="ghost"
               onClick={onDelete}
             >
-              <Trash2Icon />
+              {isDeleting ? <Spinner className="size-3" /> : <Trash2Icon />}
             </Button>
           )}
         </div>
@@ -212,9 +217,15 @@ function CommentComposer({
               }
               if (event.key === "Escape") {
                 event.preventDefault();
+                event.stopPropagation();
                 setDismissed(tokenKey);
                 return;
               }
+            }
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              textareaRef.current?.blur();
+              return;
             }
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
@@ -235,7 +246,7 @@ function CommentComposer({
       {showSuggestions && (
         <div
           aria-label={t("comments.mentionList")}
-          className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-border/60 bg-popover p-1 shadow-sm motion-safe:animate-rise"
+          className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-border/60 bg-popover p-1 shadow-lg motion-safe:animate-rise"
           role="listbox"
         >
           {suggestions.map((person, index) => (
@@ -243,7 +254,7 @@ function CommentComposer({
               aria-selected={index === highlighted}
               className={cn(
                 "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground",
-                index === highlighted && "bg-muted text-foreground",
+                index === highlighted && "bg-accent text-accent-foreground",
               )}
               key={person.username}
               role="option"
@@ -304,11 +315,27 @@ export function MemoComments({
     // The card's comment count rides the timeline list.
     void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
   };
+  const restoreCommentMutation = useMutation({
+    mutationFn: (commentId: string) =>
+      updateMemo(commentId, { status: "normal" }),
+    onSuccess: () => {
+      toast.success(t("toast.restored"));
+      refresh();
+    },
+    onError: (error) =>
+      toast.error(errorMessage(error, t("toast.requestFailed"))),
+  });
   const deleteMutation = useMutation({
     mutationFn: (comment: Memo) =>
       trashMemo(stripResourceName(comment.name, "memos")),
-    onSuccess: () => {
-      toast.success(t("comments.deleted"));
+    onSuccess: (_data, comment) => {
+      const commentId = stripResourceName(comment.name, "memos");
+      toast.success(t("comments.deleted"), {
+        action: {
+          label: t("common.undo"),
+          onClick: () => restoreCommentMutation.mutate(commentId),
+        },
+      });
       refresh();
     },
     onError: (error) =>
@@ -364,6 +391,27 @@ export function MemoComments({
           </div>
         </div>
       )}
+      {commentsQuery.isError && !commentsQuery.data && (
+        <div
+          className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/35 px-3 py-2 text-xs text-muted-foreground"
+          role="alert"
+        >
+          <span className="flex min-w-0 items-center gap-1.5">
+            <CircleAlertIcon className="size-3.5 shrink-0 text-destructive" />
+            <span className="truncate">{t("toast.requestFailed")}</span>
+          </span>
+          <Button
+            disabled={commentsQuery.isFetching}
+            size="xs"
+            type="button"
+            variant="outline"
+            onClick={() => void commentsQuery.refetch()}
+          >
+            {commentsQuery.isFetching && <Spinner data-icon="inline-start" />}
+            {t("common.retry")}
+          </Button>
+        </div>
+      )}
       {hidden > 0 && (
         <Link
           className="w-fit py-1.5 text-xs text-muted-foreground hover:text-foreground"
@@ -379,6 +427,10 @@ export function MemoComments({
           {shown.map((comment) => (
             <CommentRow
               comment={comment}
+              isDeleting={
+                deleteMutation.isPending &&
+                deleteMutation.variables?.name === comment.name
+              }
               key={comment.name}
               locale={locale}
               onDelete={

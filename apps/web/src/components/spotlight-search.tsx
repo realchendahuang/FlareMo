@@ -22,6 +22,7 @@ import { HEADER_SEARCH_FIELD_CLASS } from "@/components/search-field-styles";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { EmptyMedia } from "@/components/ui/empty";
 import {
   InputGroup,
   InputGroupAddon,
@@ -256,18 +257,34 @@ export function SpotlightSearch({
     setTheme,
   ]);
 
+  const activeIndex =
+    actionItems.length > 0
+      ? Math.min(selectedIndex, actionItems.length - 1)
+      : -1;
+
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    document
+      .getElementById(`spotlight-option-${activeIndex}`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex, open]);
+
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setSelectedIndex((prev) => (prev + 1) % Math.max(1, actionItems.length));
+      if (actionItems.length > 0) {
+        setSelectedIndex((activeIndex + 1) % actionItems.length);
+      }
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setSelectedIndex((prev) =>
-        prev <= 0 ? Math.max(0, actionItems.length - 1) : prev - 1,
-      );
+      if (actionItems.length > 0) {
+        setSelectedIndex(
+          activeIndex <= 0 ? actionItems.length - 1 : activeIndex - 1,
+        );
+      }
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const current = actionItems[selectedIndex];
+      const current = activeIndex >= 0 ? actionItems[activeIndex] : undefined;
       if (current) {
         current.onExecute();
       } else if (draft.trim()) {
@@ -310,9 +327,7 @@ export function SpotlightSearch({
               aria-expanded={actionItems.length > 0}
               aria-controls="spotlight-results"
               aria-activedescendant={
-                selectedIndex >= 0 && selectedIndex < actionItems.length
-                  ? `spotlight-option-${selectedIndex}`
-                  : undefined
+                activeIndex >= 0 ? `spotlight-option-${activeIndex}` : undefined
               }
               value={draft}
               onChange={(e) => {
@@ -332,6 +347,7 @@ export function SpotlightSearch({
             <InputGroupAddon align="inline-end" className="gap-1 pr-1">
               {draft && (
                 <InputGroupButton
+                  aria-label={t("search.clear")}
                   size="icon-xs"
                   variant="ghost"
                   onClick={() => {
@@ -407,7 +423,7 @@ export function SpotlightSearch({
             <div className="flex flex-col gap-0.5">
               {actionItems.map((item, idx) => {
                 const Icon = item.icon;
-                const isSelected = selectedIndex === idx;
+                const isSelected = activeIndex === idx;
                 return (
                   <button
                     key={item.id}
@@ -418,7 +434,7 @@ export function SpotlightSearch({
                     onClick={item.onExecute}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={cn(
-                      "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-start transition-colors duration-100",
+                      "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-start outline-none transition-colors duration-100 focus-visible:ring-3 focus-visible:ring-ring/25",
                       isSelected
                         ? "bg-accent text-accent-foreground"
                         : "text-foreground",
@@ -449,7 +465,7 @@ export function SpotlightSearch({
                     {item.type === "action" && (
                       <ArrowRightIcon
                         className={cn(
-                          "size-3.5 shrink-0 text-muted-foreground/60 transition-opacity duration-100",
+                          "size-3.5 shrink-0 text-muted-foreground/60 transition-opacity duration-100 rtl:rotate-180",
                           isSelected ? "opacity-100" : "opacity-0",
                         )}
                       />
@@ -460,7 +476,9 @@ export function SpotlightSearch({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center text-xs text-muted-foreground">
-              <SearchIcon className="size-6 text-muted-foreground/40 mb-2" />
+              <EmptyMedia variant="icon">
+                <SearchIcon />
+              </EmptyMedia>
               <span>{t("search.emptyHint")}</span>
             </div>
           )}

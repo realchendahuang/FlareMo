@@ -204,7 +204,7 @@ export function TaskCard({
           <div className="flex items-start gap-2">
             <button
               aria-label={t(ADVANCE_KEY[task.status])}
-              className="mt-0.5 shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
+              className="mt-0.5 shrink-0 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/25"
               title={t(ADVANCE_KEY[task.status])}
               type="button"
               onClick={advance}
@@ -234,6 +234,7 @@ export function TaskCard({
               <DropdownMenuTrigger
                 render={
                   <Button
+                    aria-label={t("common.more")}
                     className={cn(MORE_BUTTON_CLASS, "-my-1 -me-1")}
                     size="icon-sm"
                     variant="ghost"

@@ -1,5 +1,6 @@
 import type { ApproveDeviceAuthorizationResponseDto } from "@flaremo/contracts";
 import { USER_CODE_LENGTH } from "@flaremo/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { CircleCheckIcon, LinkIcon } from "lucide-react";
 import { useState } from "react";
@@ -24,6 +25,7 @@ import {
   scopeDetail,
   scopeLabel,
 } from "@/lib/connect";
+import { queryKeys } from "@/lib/query-keys";
 
 /**
  * The browser half of the device-authorization flow (RFC 8628): the client
@@ -32,6 +34,7 @@ import {
  */
 export function ConnectPage({ initialCode }: { initialCode?: string }) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const [code, setCode] = useState(() =>
     normalizePairingCode(initialCode ?? ""),
   );
@@ -50,6 +53,12 @@ export function ConnectPage({ initialCode }: { initialCode?: string }) {
     try {
       const result = await approveDeviceAuthorization({ user_code: code });
       setApproved(result);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.connectedApps,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.personalAccessTokens,
+      });
     } catch (submitError) {
       setError(connectErrorMessage(submitError, t));
     } finally {
@@ -65,12 +74,12 @@ export function ConnectPage({ initialCode }: { initialCode?: string }) {
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           explorer={explorer}
-          icon={
-            <LinkIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
+          icon={<LinkIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
@@ -83,7 +92,7 @@ export function ConnectPage({ initialCode }: { initialCode?: string }) {
         {approved ? (
           <ApprovedCard approved={approved} />
         ) : (
-          <Card>
+          <Card className="paper motion-safe:animate-rise">
             <CardContent className="flex flex-col gap-3">
               <p className="text-sm leading-relaxed text-pretty text-muted-foreground">
                 {t("connect.description")}
@@ -104,17 +113,20 @@ export function ConnectPage({ initialCode }: { initialCode?: string }) {
                     autoCapitalize="characters"
                     autoComplete="one-time-code"
                     autoFocus
-                    className="h-11 text-center font-mono text-lg uppercase tracking-[0.3em]"
+                    className="h-11 text-center font-mono text-lg uppercase"
+                    dir="ltr"
                     disabled={pending}
                     enterKeyHint="done"
                     id="connect-code"
                     maxLength={9}
                     placeholder={t("connect.codePlaceholder")}
                     spellCheck={false}
+                    style={{ letterSpacing: "0.28em" }}
                     value={formatPairingCode(code)}
-                    onChange={(event) =>
-                      setCode(normalizePairingCode(event.target.value))
-                    }
+                    onChange={(event) => {
+                      if (error) setError(null);
+                      setCode(normalizePairingCode(event.target.value));
+                    }}
                   />
                 </label>
                 <p className="text-xs text-muted-foreground">
@@ -152,7 +164,7 @@ function ApprovedCard({
 }) {
   const { t } = useI18n();
   return (
-    <Card>
+    <Card className="paper motion-safe:animate-rise">
       <CardHeader>
         <div className="flex items-start gap-3">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/12 text-success-emphasis">

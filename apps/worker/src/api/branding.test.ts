@@ -1,6 +1,7 @@
 import { FLAREMO_API_VERSION } from "@flaremo/contracts";
 import type { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { runScheduledMaintenance } from "../index";
 import { createAppTestHarness, json } from "../test-support/app";
 import { createTestRuntime } from "../test-support/runtime";
 
@@ -27,12 +28,12 @@ describe("FlareMo branding API", () => {
     await mf.dispose();
   });
 
-  it("exposes release and repository metadata for the update UI", async () => {
-    const health = await json(
+  it("exposes release, repository, and scheduler heartbeat metadata on /api/app/health", async () => {
+    const beforeRun = await json<{ scheduler: unknown }>(
       await fetchApp("http://flaremo.test/api/app/health"),
     );
 
-    expect(health).toMatchObject({
+    expect(beforeRun).toMatchObject({
       ok: true,
       product: "FlareMo",
       version: FLAREMO_API_VERSION,
@@ -40,7 +41,30 @@ describe("FlareMo branding API", () => {
       update_workflow_url:
         "https://github.com/example/flaremo/actions/workflows/flaremo-update.yml",
       releases_url: "https://github.com/realchendahuang/FlareMo/releases",
+      scheduler: null,
     });
+
+    const scheduledTime = Date.parse("2026-11-18T03:17:00.000Z");
+    await runScheduledMaintenance(env, scheduledTime);
+
+    const afterRun = await json<{
+      scheduler: {
+        ok: boolean;
+        lastRunAt: string;
+        scheduledAt: string;
+        durationMs: number;
+        totalSteps: number;
+        failedSteps: number;
+      } | null;
+    }>(await fetchApp("http://flaremo.test/api/app/health"));
+
+    expect(afterRun.scheduler).toMatchObject({
+      ok: true,
+      scheduledAt: "2026-11-18T03:17:00.000Z",
+      failedSteps: 0,
+    });
+    expect(afterRun.scheduler?.durationMs).toBeGreaterThanOrEqual(0);
+    expect(afterRun.scheduler?.totalSteps).toBeGreaterThan(0);
   });
 
   it("serves default branding to anonymous visitors", async () => {

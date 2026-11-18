@@ -3,9 +3,10 @@ import {
   PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS,
 } from "@flaremo/contracts";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
+import { KeyRoundIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import type { PersonalAccessToken } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
 import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
 import { SettingsSectionGroup } from "@/components/settings-section";
 import { Alert } from "@/components/ui/alert";
@@ -28,6 +29,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -125,14 +132,21 @@ export function AccountTokensSection({
 
         {tokensQuery.isLoading && <TokenListSkeleton />}
         {tokensQuery.isError && (
-          <div className="p-4 text-sm text-destructive">
-            {t("auth.tokensLoadFailed")}
-          </div>
+          <QueryErrorState
+            className="min-h-40 py-6 text-muted-foreground"
+            isRetrying={tokensQuery.isFetching}
+            onRetry={() => void tokensQuery.refetch()}
+          />
         )}
         {tokensQuery.data?.personal_access_tokens.length === 0 && (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            {t("auth.noTokens")}
-          </div>
+          <Empty className="min-h-36 py-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <KeyRoundIcon />
+              </EmptyMedia>
+              <EmptyTitle>{t("auth.noTokens")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
         {tokensQuery.data?.personal_access_tokens.map((token) => (
           <PersonalAccessTokenRow
@@ -364,6 +378,7 @@ function PersonalAccessTokenRow({
               {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={(event) => {
                 event.preventDefault();
                 setConfirmingRevoke(false);

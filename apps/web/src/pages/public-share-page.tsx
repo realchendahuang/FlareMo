@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link2OffIcon } from "lucide-react";
 import { getPublicShare } from "@/api";
 import { FlareMoLogo } from "@/components/flaremo-logo";
 import { MemoReadingView } from "@/components/reading/memo-reading-view";
@@ -7,6 +8,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +40,9 @@ export function PublicSharePage({ token }: { token: string }) {
         {shareQuery.isError && (
           <Empty className="min-h-72 border">
             <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Link2OffIcon />
+              </EmptyMedia>
               <EmptyTitle>{t("share.unavailable")}</EmptyTitle>
               <EmptyDescription>
                 {t("share.unavailableDescription")}
@@ -50,7 +55,7 @@ export function PublicSharePage({ token }: { token: string }) {
           // base's overflow-hidden, does not turn the card into a scroll
           // container — the sticky reading transport needs the viewport as
           // its scrollport.
-          <Card className="overflow-clip">
+          <Card className="paper overflow-clip">
             <CardHeader>
               <CardTitle className="text-sm font-normal text-muted-foreground">
                 {formatMemoTime(shareQuery.data.memo.display_time, locale)}

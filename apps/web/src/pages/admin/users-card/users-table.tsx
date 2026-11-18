@@ -14,6 +14,7 @@ import {
   XIcon,
 } from "lucide-react";
 import type { AdminUser } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,9 @@ export function UsersTable({
   usersQuery: {
     data?: { users: AdminUser[] };
     isError: boolean;
+    isFetching: boolean;
     isLoading: boolean;
+    refetch: () => unknown;
   };
 }) {
   const { t } = useI18n();
@@ -138,9 +141,11 @@ export function UsersTable({
         )}
 
         {usersQuery.isError && (
-          <p className="p-4 text-xs text-destructive">
-            {t("admin.usersLoadFailed")}
-          </p>
+          <QueryErrorState
+            className="min-h-40 py-6 text-muted-foreground"
+            isRetrying={usersQuery.isFetching}
+            onRetry={() => void usersQuery.refetch()}
+          />
         )}
 
         {usersQuery.data &&

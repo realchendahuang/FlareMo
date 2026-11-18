@@ -1,5 +1,4 @@
 import {
-  ACCESS_TOKEN_TTL_DAYS,
   type AppClientType,
   type ConnectErrorCode,
   type ConnectedAppDto,

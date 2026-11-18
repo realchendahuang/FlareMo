@@ -4,6 +4,7 @@ import {
   ArrowRightIcon,
   FootprintsIcon,
   PlusIcon,
+  RotateCcwIcon,
   ShuffleIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,6 +21,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { ReviewTabs } from "@/components/workspace/review-tabs";
@@ -121,7 +123,9 @@ export function RandomWalkPage() {
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
-        target?.closest("input, textarea, [contenteditable=true]")
+        target?.closest(
+          "input, textarea, select, [contenteditable=true], [role=dialog], [role=menu]",
+        )
       ) {
         return;
       }
@@ -147,12 +151,12 @@ export function RandomWalkPage() {
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           explorer={explorer}
-          icon={
-            <FootprintsIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
+          icon={<FootprintsIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
@@ -172,7 +176,12 @@ export function RandomWalkPage() {
           </p>
         </div>
         {finished ? (
-          <WalkPostcard onRestart={restart} pending={pending} steps={steps} />
+          <WalkPostcard
+            onResume={() => setFinished(false)}
+            onRestart={restart}
+            pending={pending}
+            steps={steps}
+          />
         ) : (
           <>
             {pending && steps.length === 0 && (
@@ -222,22 +231,56 @@ export function RandomWalkPage() {
             )}
             {step && (
               <>
-                <MemoSnapshotCard
-                  badge={viaLabel(step, t)}
-                  key={step.memo.name}
-                  locale={locale}
-                  memo={step.memo}
-                />
+                <div
+                  className={cn(
+                    "relative",
+                    steps.length > 2
+                      ? "pb-2.5"
+                      : steps.length > 1
+                        ? "pb-1.5"
+                        : undefined,
+                  )}
+                >
+                  {steps.length > 2 && (
+                    <div
+                      aria-hidden="true"
+                      className="paper pointer-events-none absolute inset-x-4 top-2.5 bottom-0 rounded-xl border border-border/50 bg-card/70 shadow-2xs"
+                    />
+                  )}
+                  {steps.length > 1 && (
+                    <div
+                      aria-hidden="true"
+                      className="paper pointer-events-none absolute inset-x-2 top-1.5 bottom-1 rounded-xl border border-border/60 bg-card/90 shadow-2xs"
+                    />
+                  )}
+                  <div
+                    className="relative motion-safe:animate-rise"
+                    key={step.memo.name}
+                  >
+                    <MemoSnapshotCard
+                      badge={viaLabel(step, t)}
+                      locale={locale}
+                      memo={step.memo}
+                    />
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <Button
                     disabled={cursor === 0}
                     variant="ghost"
                     onClick={() => keyActionsRef.current.back()}
                   >
-                    <ArrowLeftIcon data-icon="inline-start" />
+                    <ArrowLeftIcon
+                      className="rtl:rotate-180"
+                      data-icon="inline-start"
+                    />
                     {t("review.walkBack")}
                   </Button>
-                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                  <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
+                    <span aria-hidden="true" className="inline-flex gap-1">
+                      <Kbd>←</Kbd>
+                      <Kbd>→</Kbd>
+                    </span>
                     {t("review.walkKeyHint")}
                   </span>
                   <Button
@@ -264,11 +307,14 @@ export function RandomWalkPage() {
                       <FootprintsIcon data-icon="inline-start" />
                     )}
                     {t("review.walkContinue")}
-                    <ArrowRightIcon data-icon="inline-end" />
+                    <ArrowRightIcon
+                      className="rtl:rotate-180"
+                      data-icon="inline-end"
+                    />
                   </Button>
                 </div>
                 {exhausted && (
-                  <div className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                  <div className="paper rounded-xl border border-dashed border-border/70 bg-card/50 px-4 py-3 text-sm text-muted-foreground motion-safe:animate-rise">
                     <p className="font-medium text-foreground">
                       {t("review.walkExhausted")}
                     </p>
@@ -291,7 +337,7 @@ export function RandomWalkPage() {
                     })}
                     className="flex flex-col gap-2"
                   >
-                    <p className="px-1 text-xs text-muted-foreground">
+                    <p className="px-1 text-xs text-muted-foreground tabular-nums">
                       {t("review.walkHistory", { count: steps.length })}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -301,7 +347,7 @@ export function RandomWalkPage() {
                           className={cn(
                             // A selector, like FilterPill: card face and
                             // hairline at rest, solid ink when current.
-                            "flex h-8 w-8 items-center justify-center rounded-lg border text-xs tabular-nums motion-safe:transition-colors motion-safe:duration-150",
+                            "flex h-8 w-8 items-center justify-center rounded-lg border text-xs tabular-nums outline-none motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-3 focus-visible:ring-ring/25",
                             index === cursor
                               ? "border-foreground bg-foreground text-background"
                               : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -327,10 +373,12 @@ export function RandomWalkPage() {
 }
 
 function WalkPostcard({
+  onResume,
   onRestart,
   pending,
   steps,
 }: {
+  onResume: () => void;
   onRestart: () => void;
   pending: boolean;
   steps: WalkStep[];
@@ -341,12 +389,15 @@ function WalkPostcard({
   const end = summary.latest ? spanPoint(summary.latest, t) : null;
 
   return (
-    <Card className="border-brand-300/40 ring-brand-400/20 dark:border-brand-400/25">
+    <Card className="paper motion-safe:animate-rise">
       <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+        <EmptyMedia className="mb-0" variant="icon">
+          <FootprintsIcon />
+        </EmptyMedia>
         <p className="text-xs font-medium text-muted-foreground">
           {t("review.postcardTitle")}
         </p>
-        <p className="font-heading text-2xl font-semibold">
+        <p className="font-heading text-2xl font-semibold tabular-nums">
           {t("review.postcardStats", {
             count: summary.count,
             characters: summary.characters,
@@ -357,15 +408,18 @@ function WalkPostcard({
             {start === end ? start : t("review.timeSpan", { start, end })}
           </p>
         )}
-        <Button
-          className="mt-2"
-          disabled={pending}
-          variant="outline"
-          onClick={onRestart}
-        >
-          <ShuffleIcon data-icon="inline-start" />
-          {t("review.walkAgain")}
-        </Button>
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {steps.length > 0 && (
+            <Button size="sm" variant="outline" onClick={onResume}>
+              <RotateCcwIcon data-icon="inline-start" />
+              {t("review.readAgain")}
+            </Button>
+          )}
+          <Button disabled={pending} size="sm" onClick={onRestart}>
+            <ShuffleIcon data-icon="inline-start" />
+            {t("review.walkAgain")}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

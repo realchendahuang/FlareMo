@@ -248,14 +248,19 @@ async function installPackage(
   bytes: Uint8Array,
   source: string,
 ): Promise<{ settings: PluginSettings; installed: InstalledPluginRecord }> {
-  const { manifest, files } = await readPluginPackage(bytes);
+  let unpacked: Awaited<ReturnType<typeof readPluginPackage>>;
+  try {
+    unpacked = await readPluginPackage(bytes);
+  } catch (error) {
+    throw new ValidationError(
+      error instanceof Error ? error.message : "Invalid plugin package.",
+    );
+  }
+  const { manifest, files } = unpacked;
   const prefix = pluginAssetPrefix(manifest.id, manifest.version);
   await Promise.all(
     Object.entries(files).map(([relative, data]) =>
-      env.ATTACHMENTS.put(
-        `${prefix}${relative}`,
-        data as unknown as ArrayBuffer,
-      ),
+      env.ATTACHMENTS.put(`${prefix}${relative}`, data),
     ),
   );
   const current = await getPluginSettings(db);
@@ -263,7 +268,7 @@ async function installPackage(
     id: manifest.id,
     version: manifest.version,
     source,
-    manifest: manifest as unknown as Record<string, unknown>,
+    manifest: { ...manifest },
   };
   const rest = current.installed.filter((record) => record.id !== manifest.id);
   const settings = await setPluginSettings(db, {

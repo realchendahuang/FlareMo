@@ -4,6 +4,7 @@ import {
   countOrganizationMembers,
   getBranding,
   getMembershipState,
+  getSchedulerHeartbeat,
   isInstanceOwner,
   updateFlaremoUserProfile,
   ValidationError,
@@ -213,7 +214,10 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
       const repository = normalizeGitHubRepository(
         c.env.FLAREMO_DEPLOY_REPOSITORY ?? "",
       );
-      const branding = await getBranding(db);
+      const [branding, scheduler] = await Promise.all([
+        getBranding(db),
+        getSchedulerHeartbeat(db),
+      ]);
       return c.json({
         ok: true,
         product: branding.product,
@@ -232,6 +236,8 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
         // Non-secret capability flags the UI needs (e.g. to explain that the
         // forgot-password flow is closed when no email provider is configured).
         email_provider: (c.env.FLAREMO_EMAIL_PROVIDER ?? "none").trim(),
+        // Non-secret cron execution summary (null before the first scheduled run).
+        scheduler,
       });
     } catch (error) {
       return jsonError(c, error);

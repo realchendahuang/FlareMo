@@ -28,6 +28,15 @@ import { MemoSnapshotCard } from "@/components/memo-snapshot-card";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
@@ -261,7 +270,7 @@ export function DailyReviewPage() {
         event.ctrlKey ||
         event.altKey ||
         target?.closest(
-          "input, textarea, [contenteditable=true], [role=dialog]",
+          "input, textarea, select, [contenteditable=true], [role=dialog], [role=menu]",
         )
       ) {
         return;
@@ -290,12 +299,12 @@ export function DailyReviewPage() {
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           explorer={explorer}
-          icon={
-            <CalendarDaysIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
+          icon={<CalendarDaysIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
@@ -353,36 +362,35 @@ export function DailyReviewPage() {
         )}
 
         {ready && items.length === 0 && (
-          <Card className="border-dashed bg-transparent shadow-none ring-0">
-            <CardContent className="flex flex-col items-start gap-3 py-2">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium">
-                  {t("review.dailyEmptyTitle")}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {t("review.dailyEmptyDescription")}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  render={<Link search={COMPOSE_SEARCH} to="/" />}
-                  size="sm"
-                  variant="outline"
-                >
-                  <PlusIcon data-icon="inline-start" />
-                  {t("review.writeTodayMemo")}
-                </Button>
-                <Button
-                  render={<Link to="/review/walk" />}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <FootprintsIcon data-icon="inline-start" />
-                  {t("review.goWalk")}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <Empty className="min-h-64 border border-border/60 bg-card/50 motion-safe:animate-rise">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <CalendarDaysIcon />
+              </EmptyMedia>
+              <EmptyTitle>{t("review.dailyEmptyTitle")}</EmptyTitle>
+              <EmptyDescription>
+                {t("review.dailyEmptyDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent className="flex-row flex-wrap justify-center">
+              <Button
+                render={<Link search={COMPOSE_SEARCH} to="/" />}
+                size="sm"
+                variant="outline"
+              >
+                <PlusIcon data-icon="inline-start" />
+                {t("review.writeTodayMemo")}
+              </Button>
+              <Button
+                render={<Link to="/review/walk" />}
+                size="sm"
+                variant="ghost"
+              >
+                <FootprintsIcon data-icon="inline-start" />
+                {t("review.goWalk")}
+              </Button>
+            </EmptyContent>
+          </Empty>
         )}
 
         {ready && items.length > 0 && (
@@ -402,25 +410,29 @@ export function DailyReviewPage() {
             ) : (
               item && (
                 <>
-                  <div
-                    className="motion-safe:animate-rise"
-                    key={item.memo.name}
+                  <ReviewCardStack
+                    layers={Math.min(2, Math.max(0, items.length - cursor - 1))}
                   >
-                    <MemoSnapshotCard
-                      badge={reviewReasonLabel(item.reason, t)}
-                      locale={locale}
-                      memo={item.memo}
+                    <div
+                      className="motion-safe:animate-rise"
+                      key={item.memo.name}
                     >
-                      {replyFor === item.memo.name && (
-                        <MemoComments
-                          autoFocus
-                          canComment
-                          memoId={getMemoResourceId(item.memo)}
-                          variant="inline"
-                        />
-                      )}
-                    </MemoSnapshotCard>
-                  </div>
+                      <MemoSnapshotCard
+                        badge={reviewReasonLabel(item.reason, t)}
+                        locale={locale}
+                        memo={item.memo}
+                      >
+                        {replyFor === item.memo.name && (
+                          <MemoComments
+                            autoFocus
+                            canComment
+                            memoId={getMemoResourceId(item.memo)}
+                            variant="inline"
+                          />
+                        )}
+                      </MemoSnapshotCard>
+                    </div>
+                  </ReviewCardStack>
                   <div className="flex items-center gap-1">
                     <CardAction
                       active={replyFor === item.memo.name}
@@ -448,7 +460,14 @@ export function DailyReviewPage() {
                       label={t("review.mute")}
                       onClick={() => mute.mutate(item.memo.name)}
                     />
-                    <div className="ms-auto flex items-center gap-1">
+                    <div className="ms-auto flex items-center gap-1.5">
+                      <span
+                        aria-hidden="true"
+                        className="me-1 hidden items-center gap-1 md:inline-flex"
+                      >
+                        <Kbd>←</Kbd>
+                        <Kbd>→</Kbd>
+                      </span>
                       <Button
                         aria-label={t("review.previous")}
                         disabled={cursor === 0}
@@ -457,7 +476,7 @@ export function DailyReviewPage() {
                         variant="ghost"
                         onClick={() => keyActionsRef.current.back()}
                       >
-                        <ArrowLeftIcon />
+                        <ArrowLeftIcon className="rtl:rotate-180" />
                       </Button>
                       <Button
                         title={t("review.walkKeyHint")}
@@ -467,7 +486,10 @@ export function DailyReviewPage() {
                         {atLast ? (
                           <CheckIcon data-icon="inline-end" />
                         ) : (
-                          <ArrowRightIcon data-icon="inline-end" />
+                          <ArrowRightIcon
+                            className="rtl:rotate-180"
+                            data-icon="inline-end"
+                          />
                         )}
                       </Button>
                     </div>
@@ -483,6 +505,38 @@ export function DailyReviewPage() {
         onOpenChange={setSettingsOpen}
       />
     </WorkspaceLayout>
+  );
+}
+
+/** Subtle warm-paper backing sheets peeking beneath the active card in a deck. */
+function ReviewCardStack({
+  layers,
+  children,
+}: {
+  layers: number;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative",
+        layers >= 2 ? "pb-2.5" : layers === 1 ? "pb-1.5" : undefined,
+      )}
+    >
+      {layers >= 2 && (
+        <div
+          aria-hidden="true"
+          className="paper pointer-events-none absolute inset-x-4 top-2.5 bottom-0 rounded-xl border border-border/50 bg-card/70 shadow-2xs"
+        />
+      )}
+      {layers >= 1 && (
+        <div
+          aria-hidden="true"
+          className="paper pointer-events-none absolute inset-x-2 top-1.5 bottom-1 rounded-xl border border-border/60 bg-card/90 shadow-2xs"
+        />
+      )}
+      <div className="relative">{children}</div>
+    </div>
   );
 }
 
@@ -609,20 +663,20 @@ function DoneCard({
   }, [statsQuery.data, today]);
 
   return (
-    <Card className="motion-safe:animate-rise">
+    <Card className="paper motion-safe:animate-rise">
       <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-        <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <CheckIcon className="size-4" />
-        </span>
+        <EmptyMedia className="mb-0" variant="icon">
+          <CheckIcon />
+        </EmptyMedia>
         <div className="flex flex-col gap-1">
           <p className="font-heading text-lg font-semibold">
             {t("review.doneTitle")}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground tabular-nums">
             {t("review.doneDescription", { count })}
           </p>
           {statsQuery.isSuccess && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground tabular-nums">
               {weekCount > 0
                 ? t("review.doneWeek", { count: weekCount })
                 : t("review.doneWeekEmpty")}

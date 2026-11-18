@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon } from "lucide-react";
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { toast } from "sonner";
 import type { Project, Task, TaskStatus } from "@/api";
 import { reorderTasks, updateTask } from "@/api";
@@ -58,16 +58,18 @@ export function Board({
   tasks: Task[];
   onMutated: () => void;
   /** A smart view's own empty copy; the quick-add line above is its CTA. */
-  emptyState?: { title: string; description: string };
+  emptyState?: { title: string; description: string; icon?: ReactNode };
 }) {
   const { t } = useI18n();
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-3 @min-[380px]:grid-cols-2 @min-[620px]:grid-cols-3">
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -75,7 +77,7 @@ export function Board({
   if (hasError) {
     return (
       <QueryErrorState
-        className="min-h-56"
+        className="min-h-56 border border-border/60 text-muted-foreground"
         isRetrying={isRetrying}
         onRetry={onRetry}
       />
@@ -84,8 +86,11 @@ export function Board({
 
   if (tasks.length === 0 && emptyState) {
     return (
-      <Empty className="min-h-56 border">
+      <Empty className="min-h-56 border border-border/60 bg-card/50 motion-safe:animate-rise">
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            {emptyState.icon ?? <ListChecksIcon />}
+          </EmptyMedia>
           <EmptyTitle>{emptyState.title}</EmptyTitle>
           <EmptyDescription>{emptyState.description}</EmptyDescription>
         </EmptyHeader>
@@ -98,7 +103,7 @@ export function Board({
   if (tasks.length === 0) {
     const inProject = Boolean(selectedProject);
     return (
-      <Empty className="min-h-56 border">
+      <Empty className="min-h-56 border border-border/60 bg-card/50 motion-safe:animate-rise">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <ListChecksIcon />
@@ -361,7 +366,9 @@ function TaskColumn({
         <span className="text-sm font-medium">
           {t(`projects.status.${status}`)}
         </span>
-        <span className="text-xs text-muted-foreground">{tasks.length}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {tasks.length}
+        </span>
       </div>
       <div
         className={cn(

@@ -454,7 +454,6 @@ const messages = {
     "초기 설정에 실패했습니다. 입력을 확인하고, 일부 완료된 경우 관리자에게 복구를 요청하세요.",
   "auth.accountTitle": "계정과 접근",
   "transfer.newExport": "새 내보내기",
-  "transfer.loadFailed": "데이터 전송 작업을 불러올 수 없습니다.",
   "transfer.empty": "데이터 전송 작업이 아직 없습니다.",
   "transfer.export": "내보내기",
   "transfer.import": "가져오기",
@@ -563,7 +562,6 @@ const messages = {
   "auth.createToken": "토큰 만들기",
   "auth.creatingToken": "만드는 중…",
   "auth.tokenCreateFailed": "토큰을 만들 수 없습니다.",
-  "auth.tokensLoadFailed": "개인 액세스 토큰을 불러올 수 없습니다.",
   "auth.noTokens": "개인 액세스 토큰이 아직 없습니다. 위에서 만들어 보세요.",
   "usage.vectorTitle": "벡터 사용량",
   "usage.vectorUnavailable": "지금은 벡터 사용량을 가져올 수 없습니다.",
@@ -705,7 +703,6 @@ const messages = {
   "admin.userCreateFailed": "멤버를 추가할 수 없습니다.",
   "admin.userDeleteFailed": "멤버를 제외할 수 없습니다.",
   "admin.userDeleted": "멤버를 제외했습니다.",
-  "admin.usersLoadFailed": "멤버 목록을 불러올 수 없습니다.",
   "admin.resetPassword": "비밀번호 재설정",
   "admin.resetFailed": "재설정 링크를 생성할 수 없습니다.",
   "admin.resetLinkTitle": "아래 링크를 안전한 경로로 전달해 주세요",
@@ -1192,6 +1189,13 @@ const messages = {
   "insight.createFailed":
     "인사이트 작업을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
   "insight.deleteFailed": "삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  "push.unsupported":
+    "현재 브라우저 환경에서는 웹 푸시 알림을 지원하지 않습니다(iOS에서는 먼저 홈 화면에 추가하세요).",
+  "detail.compareRevision": "현재와 비교",
+  "detail.hideComparison": "비교 닫기",
+  "detail.revisionIdentical": "현재 내용과 동일합니다",
+  "admin.plugins.uninstallConfirm":
+    "{name} 플러그인을 제거할까요? 패키지가 삭제되며 공유 카드를 더 이상 사용할 수 없습니다.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ko = messages;

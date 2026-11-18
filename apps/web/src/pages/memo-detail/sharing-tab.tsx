@@ -12,6 +12,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { TabsContent } from "@/components/ui/tabs";
 import { useClipboard } from "@/hooks/use-clipboard";
@@ -53,9 +59,14 @@ export function SharingTab({
         </Button>
       </div>
       {context.shares.length === 0 && (
-        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          {t("detail.noShares")}
-        </p>
+        <Empty className="min-h-40 border border-dashed border-border/70 py-8">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Link2Icon />
+            </EmptyMedia>
+            <EmptyDescription>{t("detail.noShares")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       {context.shares.map((share) => {
         const url = `${globalThis.location.origin}/share/${share.token}`;

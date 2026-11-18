@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { resetPassword } from "@/api";
 import { AuthPageFrame } from "@/components/auth-page-frame";
@@ -92,6 +92,14 @@ export function ResetPage({ token }: { token: string | undefined }) {
         <Button disabled={isSubmitting || !token} type="submit" variant="brand">
           {isSubmitting ? t("reset.submitting") : t("reset.submit")}
         </Button>
+        <p className="text-center text-sm">
+          <Link
+            className="text-muted-foreground underline-offset-4 hover:underline"
+            to="/login"
+          >
+            {t("auth.signIn")}
+          </Link>
+        </p>
       </form>
     </AuthPageFrame>
   );

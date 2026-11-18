@@ -1,7 +1,8 @@
-import { PaperclipIcon, XIcon } from "lucide-react";
+import { ImageIcon, PaperclipIcon, XIcon } from "lucide-react";
+import { isImageFile } from "@/components/composer/attachment-upload-helpers";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 
 // Stable React keys for `File` objects: pending attachments have no id yet and
 // two picked files can share a name, so identity is tracked here instead.
@@ -38,14 +39,25 @@ export function ComposerFileChips({
   const { t } = useI18n();
   if (files.length === 0) return null;
   return (
-    <div className={cn("flex flex-wrap gap-2 px-4 pb-2", className)}>
+    <div className={cn("flex flex-wrap gap-1.5 px-4 pb-2", className)}>
       {files.map((file) => (
         <div
-          className="flex max-w-full items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+          className="flex max-w-full items-center gap-1.5 rounded-lg border border-border/60 bg-muted/50 py-1 ps-2.5 pe-1 text-xs text-muted-foreground"
           key={getFileKey(file)}
         >
-          <PaperclipIcon className="size-3.5 shrink-0" />
-          <span className="truncate">{file.name}</span>
+          {isImageFile(file) ? (
+            <ImageIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          ) : (
+            <PaperclipIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          )}
+          <span className="max-w-48 truncate text-foreground/85">
+            {file.name}
+          </span>
+          {file.size > 0 && (
+            <span className="shrink-0 tabular-nums text-muted-foreground/80">
+              {formatBytes(file.size)}
+            </span>
+          )}
           <Button
             aria-label={t("composer.removeFile", { filename: file.name })}
             disabled={isPending}

@@ -66,7 +66,11 @@ export const PAPER_TOKENS = `
   --serif-cjk: "Songti SC", "STSong", "Noto Serif CJK SC", "Noto Serif SC", "Source Han Serif SC", SimSun;
   --sans-cjk: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei";
 }
-html { background: var(--desk) var(--grain); }
+html {
+  background: var(--desk) var(--grain);
+  text-autospace: normal;
+  text-spacing-trim: normal;
+}
 body {
   margin: 0;
   min-height: 100svh;
@@ -147,6 +151,7 @@ article h1 { font-size: 1.85rem; margin-top: 0; }
 }
 article h2 { font-size: 1.35rem; }
 article h3 { font-size: 1.12rem; }
+:is(:lang(zh), :lang(ja), :lang(ko), [dir="rtl"]) :is(.article-title, article h1, article h2, article h3, article h4, article h5, article h6) { letter-spacing: 0; }
 article p { margin: 0 0 1.05em; text-wrap: pretty; }
 article strong { font-weight: 650; }
 article a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--seal); text-decoration-thickness: 1px; text-underline-offset: .22em; }
@@ -162,7 +167,7 @@ article th, article td { border-bottom: 1px solid var(--rule); padding: .5em .6e
 article th { font-weight: 600; border-bottom-color: var(--ink-faint); }
 article h1, article h2, article h3 { scroll-margin-top: 1rem; }
 article hr { border: none; margin: 2.4em 0; text-align: center; }
-article hr::after { content: "· · ·"; letter-spacing: .6em; color: var(--ink-faint); }
+article hr::after { content: "· · ·"; letter-spacing: .6em; padding-inline-start: .6em; color: var(--ink-faint); }
 article ul, article ol { padding-inline-start: 1.5em; margin: 0 0 1.05em; }
 article li { margin: .25em 0; }
 article li::marker { color: var(--ink-faint); }
@@ -200,7 +205,7 @@ article blockquote > :last-child { margin-bottom: 0; }
 .gallery-item img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 2px; box-shadow: 0 1px 2px rgba(60, 40, 10, .12), 0 10px 24px -14px rgba(60, 40, 10, .35); }
 .gallery-item figcaption { margin-top: .6rem; text-align: center; color: var(--ink-faint); font-size: .8rem; }
 .gallery hr { border: none; margin: 2.4em 0 0; text-align: center; }
-.gallery hr::after { content: "· · ·"; letter-spacing: .6em; color: var(--ink-faint); }
+.gallery hr::after { content: "· · ·"; letter-spacing: .6em; padding-inline-start: .6em; color: var(--ink-faint); }
 audio { width: 100%; margin: .6em 0; }
 .muted { color: var(--ink-faint); }
 .sheet > footer {

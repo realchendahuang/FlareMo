@@ -9,7 +9,7 @@ import {
   Maximize2Icon,
   MicIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { loadComposerFocusCanvas } from "@/components/composer/composer-focus-canvas-lazy";
 import { ComposerScheduleMenu } from "@/components/composer/composer-schedule-menu";
 import {
@@ -48,6 +48,7 @@ export function ComposerToolbar({
   onExpand,
   schedule,
   onScheduleChange,
+  attachmentInputId,
 }: {
   /** Formats active at the selection, mirrored on every transaction. */
   activeFormats: ActiveFormats;
@@ -68,8 +69,11 @@ export function ComposerToolbar({
   /** The draft's reminder day / project; see `MemoSchedule`. */
   schedule?: MemoSchedule;
   onScheduleChange: (schedule: MemoSchedule | undefined) => void;
+  attachmentInputId?: string;
 }) {
   const { t } = useI18n();
+  const generatedInputId = `flaremo-attachment-${useId()}`;
+  const resolvedInputId = attachmentInputId ?? generatedInputId;
   // Fade the trailing edge only while tools are actually cut off, so a wide
   // composer never dims its last button.
   const railRef = useRef<HTMLDivElement | null>(null);
@@ -93,6 +97,7 @@ export function ComposerToolbar({
       <ToolButton
         disabled={isPending}
         label={t("composer.addTag")}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() =>
           withEditor((editor) => {
             editor
@@ -111,7 +116,7 @@ export function ComposerToolbar({
         render={
           <label
             aria-label={t("composer.addAttachment")}
-            htmlFor="flaremo-attachment-input"
+            htmlFor={resolvedInputId}
           />
         }
       >
@@ -119,7 +124,7 @@ export function ComposerToolbar({
         <Input
           className="hidden"
           disabled={isPending}
-          id="flaremo-attachment-input"
+          id={resolvedInputId}
           multiple
           type="file"
           onChange={(event) => {
@@ -143,35 +148,33 @@ export function ComposerToolbar({
         <BoldIcon />
       </ToolButton>
       <ToolButton
+        active={activeFormats.bulletList}
         disabled={isPending}
         label={t("composer.bulletList")}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() =>
-          withEditor((editor) => {
-            editor.chain().focus().toggleBulletList().run();
-          })
+          withEditor((editor) => toggleFormat(editor, "bulletList"))
         }
       >
         <ListIcon />
       </ToolButton>
       <ToolButton
+        active={activeFormats.orderedList}
         disabled={isPending}
         label={t("composer.orderedList")}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() =>
-          withEditor((editor) => {
-            editor.chain().focus().toggleOrderedList().run();
-          })
+          withEditor((editor) => toggleFormat(editor, "orderedList"))
         }
       >
         <ListOrderedIcon />
       </ToolButton>
       <ToolButton
+        active={activeFormats.taskList}
         disabled={isPending}
         label={t("composer.taskList")}
-        onClick={() =>
-          withEditor((editor) => {
-            editor.chain().focus().toggleTaskList().run();
-          })
-        }
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => withEditor((editor) => toggleFormat(editor, "taskList"))}
       >
         <ListTodoIcon />
       </ToolButton>

@@ -466,8 +466,6 @@ const messages = {
     "L'initialisation n'a pas abouti. Vérifiez les données ; si elle est partiellement terminée, demandez à un administrateur de la récupérer.",
   "auth.accountTitle": "Compte et accès",
   "transfer.newExport": "Nouvel export",
-  "transfer.loadFailed":
-    "Impossible de charger les tâches de transfert de données.",
   "transfer.empty": "Aucune tâche de transfert de données pour l'instant.",
   "transfer.export": "Export",
   "transfer.import": "Import",
@@ -581,8 +579,6 @@ const messages = {
   "auth.createToken": "Créer le jeton",
   "auth.creatingToken": "Création…",
   "auth.tokenCreateFailed": "Impossible de créer le jeton.",
-  "auth.tokensLoadFailed":
-    "Impossible de charger les jetons d'accès personnels.",
   "auth.noTokens":
     "Pas encore de jeton d'accès personnel — créez-en un ci-dessus.",
   "usage.vectorTitle": "Consommation de vecteurs",
@@ -725,7 +721,6 @@ const messages = {
   "admin.userCreateFailed": "Impossible d'ajouter le membre.",
   "admin.userDeleteFailed": "Impossible de retirer le membre.",
   "admin.userDeleted": "Membre retiré.",
-  "admin.usersLoadFailed": "Impossible de charger la liste des membres.",
   "admin.resetPassword": "Réinitialiser le mot de passe",
   "admin.resetFailed": "Impossible de générer un lien de réinitialisation.",
   "admin.resetLinkTitle":
@@ -1229,6 +1224,13 @@ const messages = {
   "insight.createFailed":
     "Impossible de créer la tâche d'analyse. Réessayez plus tard.",
   "insight.deleteFailed": "Impossible de supprimer l'analyse. Réessayez.",
+  "push.unsupported":
+    "Les notifications push Web ne sont pas prises en charge dans ce navigateur (sur iOS, ajoutez d’abord FlareMo à l’écran d’accueil).",
+  "detail.compareRevision": "Comparer",
+  "detail.hideComparison": "Masquer",
+  "detail.revisionIdentical": "Identique au contenu actuel",
+  "admin.plugins.uninstallConfirm":
+    "Désinstaller « {name} » ? Son paquet sera supprimé et ses cartes de partage ne seront plus disponibles.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const fr = messages;

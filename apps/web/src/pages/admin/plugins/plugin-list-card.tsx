@@ -1,6 +1,16 @@
 import { Trash2Icon } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { SettingsSectionGroup } from "@/components/settings-section";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -29,6 +39,9 @@ export function PluginListCard({
   children: ReactNode;
 }) {
   const { t } = useI18n();
+  const [confirmingUninstall, setConfirmingUninstall] =
+    useState<PluginRow | null>(null);
+
   return (
     <>
       <SettingsSectionGroup
@@ -37,7 +50,7 @@ export function PluginListCard({
       >
         {plugins.map((row) => (
           <div
-            className="flex items-center justify-between gap-3 px-3.5 py-2.5"
+            className="flex items-center justify-between gap-3 px-3.5 py-2.5 transition-colors hover:bg-accent/20"
             key={row.id}
           >
             <div className="min-w-0">
@@ -62,16 +75,18 @@ export function PluginListCard({
               {row.source === "installed" && (
                 <Button
                   aria-label={t("admin.plugins.uninstall")}
+                  className="text-muted-foreground hover:text-destructive"
                   disabled={busy}
                   size="icon-sm"
                   type="button"
                   variant="ghost"
-                  onClick={() => uninstallMutation.mutate(row.id)}
+                  onClick={() => setConfirmingUninstall(row)}
                 >
                   <Trash2Icon />
                 </Button>
               )}
               <Switch
+                aria-label={row.name}
                 checked={pluginEnabled(row)}
                 disabled={busy}
                 onCheckedChange={(checked) => togglePlugin(row, checked)}
@@ -80,6 +95,40 @@ export function PluginListCard({
           </div>
         ))}
       </SettingsSectionGroup>
+
+      <AlertDialog
+        open={confirmingUninstall !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingUninstall(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin.plugins.uninstall")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("admin.plugins.uninstallConfirm", {
+                name: confirmingUninstall?.name ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="ghost">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(event) => {
+                event.preventDefault();
+                const target = confirmingUninstall;
+                setConfirmingUninstall(null);
+                if (target) uninstallMutation.mutate(target.id);
+              }}
+            >
+              {t("admin.plugins.uninstall")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {children}
     </>

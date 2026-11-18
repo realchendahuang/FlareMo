@@ -9,6 +9,7 @@ import {
   type TagHierarchyNode,
   updateReviewSettings,
 } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -115,6 +116,10 @@ export function ReviewSettingsDialog({
 
   const mutedCount = settingsQuery.data?.muted_count ?? 0;
   const loading = settingsQuery.isLoading || tagsQuery.isLoading;
+  // Never render editable tag chips over a failed settings read: toggling a
+  // tag would send `[]` + that tag and overwrite the user's real exclusions.
+  const hasError = settingsQuery.isError || tagsQuery.isError;
+  const retrying = settingsQuery.isFetching || tagsQuery.isFetching;
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -126,70 +131,83 @@ export function ReviewSettingsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <section className="flex flex-col gap-2.5">
-          <h3 className="text-xs font-medium text-muted-foreground">
-            {t("review.excludedTagsTitle")}
-          </h3>
-          {loading ? (
-            <Skeleton className="h-16 w-full" />
-          ) : tags.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("review.excludedTagsEmpty")}
-            </p>
-          ) : (
-            <div className="-m-1 flex max-h-52 flex-wrap gap-1.5 overflow-y-auto p-1">
-              {tags.map((tag) => {
-                const active = excluded.includes(tag);
-                const covered =
-                  !active &&
-                  excluded.some((item) => tag.startsWith(`${item}/`));
-                return (
-                  <button
-                    aria-pressed={active || covered}
-                    className={cn(
-                      "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/25",
-                      active
-                        ? "border-foreground bg-foreground text-background"
-                        : covered
-                          ? "cursor-default border-border bg-muted text-muted-foreground line-through decoration-muted-foreground/50"
-                          : "border-border bg-card text-muted-foreground hover:border-input hover:text-foreground",
-                    )}
-                    disabled={covered || mutation.isPending}
-                    key={tag}
-                    type="button"
-                    onClick={() => toggle(tag)}
-                  >
-                    {active && <CheckIcon className="size-3" />}#{tag}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            {t("review.excludedTagsHint")}
-          </p>
-        </section>
+        {hasError ? (
+          <QueryErrorState
+            className="min-h-40 py-6 text-muted-foreground"
+            isRetrying={retrying}
+            onRetry={() => {
+              if (settingsQuery.isError) void settingsQuery.refetch();
+              if (tagsQuery.isError) void tagsQuery.refetch();
+            }}
+          />
+        ) : (
+          <>
+            <section className="flex flex-col gap-2.5">
+              <h3 className="text-xs font-medium text-muted-foreground">
+                {t("review.excludedTagsTitle")}
+              </h3>
+              {loading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : tags.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("review.excludedTagsEmpty")}
+                </p>
+              ) : (
+                <div className="-m-1 flex max-h-52 flex-wrap gap-1.5 overflow-y-auto p-1">
+                  {tags.map((tag) => {
+                    const active = excluded.includes(tag);
+                    const covered =
+                      !active &&
+                      excluded.some((item) => tag.startsWith(`${item}/`));
+                    return (
+                      <button
+                        aria-pressed={active || covered}
+                        className={cn(
+                          "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/25",
+                          active
+                            ? "border-foreground bg-foreground text-background"
+                            : covered
+                              ? "cursor-default border-border bg-muted text-muted-foreground line-through decoration-muted-foreground/50"
+                              : "border-border bg-card text-muted-foreground hover:border-input hover:text-foreground",
+                        )}
+                        disabled={covered || mutation.isPending}
+                        key={tag}
+                        type="button"
+                        onClick={() => toggle(tag)}
+                      >
+                        {active && <CheckIcon className="size-3" />}#{tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {t("review.excludedTagsHint")}
+              </p>
+            </section>
 
-        <section className="flex items-center justify-between gap-3 border-t border-border/60 pt-4">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <p className="text-sm">{t("review.mutedTitle")}</p>
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {loading
-                ? "\u00a0"
-                : mutedCount > 0
-                  ? t("review.mutedCount", { count: mutedCount })
-                  : t("review.mutedNone")}
-            </p>
-          </div>
-          <Button
-            disabled={loading || mutedCount === 0 || mutation.isPending}
-            size="sm"
-            variant="outline"
-            onClick={() => mutation.mutate({ restoreMuted: true })}
-          >
-            {t("review.mutedRestore")}
-          </Button>
-        </section>
+            <section className="flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <p className="text-sm">{t("review.mutedTitle")}</p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {loading
+                    ? "\u00a0"
+                    : mutedCount > 0
+                      ? t("review.mutedCount", { count: mutedCount })
+                      : t("review.mutedNone")}
+                </p>
+              </div>
+              <Button
+                disabled={loading || mutedCount === 0 || mutation.isPending}
+                size="sm"
+                variant="outline"
+                onClick={() => mutation.mutate({ restoreMuted: true })}
+              >
+                {t("review.mutedRestore")}
+              </Button>
+            </section>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

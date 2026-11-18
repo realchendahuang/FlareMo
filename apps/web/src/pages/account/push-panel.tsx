@@ -17,11 +17,6 @@ import { queryKeys } from "@/lib/query-keys";
 
 export function PushPanel() {
   const { t } = useI18n();
-  const configQuery = useQuery({
-    queryKey: queryKeys.pushConfig,
-    queryFn: getPushConfig,
-    retry: false,
-  });
   const [supported] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -29,6 +24,12 @@ export function PushPanel() {
       "PushManager" in window &&
       "Notification" in window,
   );
+  const configQuery = useQuery({
+    queryKey: queryKeys.pushConfig,
+    queryFn: getPushConfig,
+    enabled: supported,
+    retry: false,
+  });
 
   const invalidate = () => {
     void configQuery.refetch();
@@ -89,7 +90,22 @@ export function PushPanel() {
     onSettled: invalidate,
   });
 
-  if (!supported) return null;
+  if (!supported) {
+    return (
+      <div className="flex flex-col gap-5">
+        <SettingsSectionGroup>
+          <SettingsRow
+            icon={BellRingIcon}
+            label={t("push.title")}
+            description={t("push.unsupported")}
+            action={
+              <Switch aria-label={t("push.title")} checked={false} disabled />
+            }
+          />
+        </SettingsSectionGroup>
+      </div>
+    );
+  }
   if (configQuery.isPending) {
     return (
       <div className="flex flex-col gap-3 p-4">

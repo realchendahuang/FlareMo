@@ -238,9 +238,11 @@ describe("space-scoped stats and tags", () => {
       return tree.map((node) => ({ name: node.name, count: node.count }));
     };
     expect(await tagOf("personal")).toEqual([{ name: "space-tags", count: 1 }]);
-    expect(tagOf("team")).resolves.toEqual([{ name: "space-tags", count: 2 }]);
+    await expect(tagOf("team")).resolves.toEqual([
+      { name: "space-tags", count: 2 },
+    ]);
     // Legacy call (no space) keeps the own-corpus semantics.
-    expect(tagOf(undefined)).resolves.toEqual([
+    await expect(tagOf(undefined)).resolves.toEqual([
       { name: "space-tags", count: 2 },
     ]);
   });

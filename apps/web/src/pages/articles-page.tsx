@@ -160,6 +160,7 @@ export function ArticlesPage() {
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           actions={
@@ -178,9 +179,8 @@ export function ArticlesPage() {
             </Button>
           }
           explorer={explorer}
-          icon={
-            <FileTextIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
+          icon={<FileTextIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
@@ -244,9 +244,14 @@ export function ArticlesPage() {
           </div>
         )}
         {articles.length > 0 && visible.length === 0 && (
-          <p className="px-1 py-6 text-center text-sm text-muted-foreground">
-            {t("article.filterEmpty")}
-          </p>
+          <Empty className="min-h-48 border border-border/60 bg-card/40 motion-safe:animate-rise">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FileTextIcon />
+              </EmptyMedia>
+              <EmptyDescription>{t("article.filterEmpty")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
         {visible.length > 0 && (
           <ul className="paper divide-y divide-border/60 overflow-hidden rounded-xl border border-border/80 bg-card">

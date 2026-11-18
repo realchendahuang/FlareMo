@@ -3,7 +3,9 @@ import {
   type ReactNode,
   type RefObject,
   type UIEvent,
+  useCallback,
   useContext,
+  useState,
 } from "react";
 import {
   DEFAULT_CONTENT_MAX_WIDTH,
@@ -30,6 +32,8 @@ export type WorkspaceHeaderRenderProps = {
   mobileSheetOpen: boolean;
   setMobileSheetOpen: (open: boolean) => void;
   explorer: WorkspaceSidebarContent;
+  /** True once the page's `<main>` scroller has moved past the top edge. */
+  isMainScrolled: boolean;
 };
 
 /**
@@ -63,6 +67,16 @@ export function WorkspaceLayout({
     sidebarCollapsed,
     toggleSidebarCollapsed,
   } = useWorkspaceShell();
+  const [isMainScrolled, setIsMainScrolled] = useState(false);
+
+  const handleScroll = useCallback(
+    (event: UIEvent<HTMLElement>) => {
+      const scrolled = event.currentTarget.scrollTop > 4;
+      setIsMainScrolled((prev) => (prev === scrolled ? prev : scrolled));
+      onScroll?.(event);
+    },
+    [onScroll],
+  );
 
   return (
     <PageWidthContext.Provider value={contentMaxWidth}>
@@ -72,6 +86,7 @@ export function WorkspaceLayout({
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       })}
       <main
         ref={mainRef}
@@ -81,7 +96,7 @@ export function WorkspaceLayout({
           "mx-auto min-h-0 w-full flex-1 overflow-y-auto px-5 pt-1 pb-8 md:ms-0 lg:px-2.5",
           mainClassName,
         )}
-        onScroll={onScroll}
+        onScroll={handleScroll}
         style={{ maxWidth: contentMaxWidth }}
       >
         {children}

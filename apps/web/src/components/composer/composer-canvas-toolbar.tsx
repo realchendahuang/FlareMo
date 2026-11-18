@@ -17,6 +17,7 @@ import {
   StrikethroughIcon,
   TableIcon,
 } from "lucide-react";
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
@@ -62,6 +63,7 @@ export function ComposerCanvasToolbar({
   onStartVoice: () => void;
 }) {
   const { t } = useI18n();
+  const attachmentInputId = `flaremo-canvas-attachment-${useId()}`;
   return (
     <div className="flex min-w-0 items-center gap-0.5 sm:gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5 [mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)] sm:[mask-image:none]">
       {/* Headings */}
@@ -299,7 +301,7 @@ export function ComposerCanvasToolbar({
           <label
             aria-label={t("composer.addAttachment")}
             title={t("composer.addAttachment")}
-            htmlFor="flaremo-canvas-attachment-input"
+            htmlFor={attachmentInputId}
           />
         }
         disabled={isPending}
@@ -309,7 +311,7 @@ export function ComposerCanvasToolbar({
         <ImageIcon />
         <Input
           className="hidden"
-          id="flaremo-canvas-attachment-input"
+          id={attachmentInputId}
           multiple
           type="file"
           disabled={isPending}

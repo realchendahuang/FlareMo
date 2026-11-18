@@ -43,6 +43,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           actions={
@@ -69,9 +70,8 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
             </Button>
           }
           explorer={explorer}
-          icon={
-            <FileTextIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
+          icon={<FileTextIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
@@ -260,17 +260,25 @@ function MemoDetail({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="content">
-          <TabsList className="max-w-full overflow-x-auto">
+          <TabsList className="no-scrollbar max-w-full overflow-x-auto">
             <TabsTrigger value="content">{t("detail.content")}</TabsTrigger>
             <TabsTrigger value="relations">
               {t("detail.relations")}
               {linkCount > 0 ? ` (${linkCount})` : ""}
             </TabsTrigger>
             {(canManage || canGovern) && (
-              <TabsTrigger value="history">{t("detail.history")}</TabsTrigger>
+              <TabsTrigger value="history">
+                {t("detail.history")}
+                {context.revisions.length > 0
+                  ? ` (${context.revisions.length})`
+                  : ""}
+              </TabsTrigger>
             )}
             {canManage && (
-              <TabsTrigger value="sharing">{t("detail.sharing")}</TabsTrigger>
+              <TabsTrigger value="sharing">
+                {t("detail.sharing")}
+                {context.shares.length > 0 ? ` (${context.shares.length})` : ""}
+              </TabsTrigger>
             )}
           </TabsList>
           <MemoTaskProvider memoIds={[context.memo.name]}>

@@ -1,6 +1,7 @@
 import type { FlareMoDb } from "@flaremo/db";
 import { taskActivity, tasks } from "@flaremo/db";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement, d1RowsPerStatement } from "./d1-limits";
 
 /**
  * A memo's to-do line and the task scheduled from it are one item seen from
@@ -85,26 +86,32 @@ export async function syncTasksFromMemoLines(
       .filter((item) => item.checked === group)
       .map((item) => item.text);
     if (titles.length === 0) continue;
-    const moved = await db
-      .update(tasks)
-      .set({
-        status: group ? "done" : "todo",
-        completedAt: group ? input.now : null,
-        updatedAt: input.now,
-      })
-      .where(
-        and(
-          eq(tasks.userId, input.userId),
-          eq(tasks.sourceMemoId, input.memoId),
-          isNull(tasks.deletedAt),
-          inArray(tasks.title, titles),
-          group ? ne(tasks.status, "done") : eq(tasks.status, "done"),
-        ),
-      )
-      .returning({ id: tasks.id });
-    // D1 caps bound parameters at 100 per statement; 8 columns per row.
-    for (let start = 0; start < moved.length; start += 10) {
-      await insertActivity(db, input, moved.slice(start, start + 10), group);
+    const moved: { id: string }[] = [];
+    // SET binds status + completedAt + updatedAt (3) and WHERE binds userId +
+    // sourceMemoId + status (3), so reserve 8 parameters for fixed bindings.
+    for (const titleChunk of chunkForD1(titles, d1IdsPerStatement(8))) {
+      const rows = await db
+        .update(tasks)
+        .set({
+          status: group ? "done" : "todo",
+          completedAt: group ? input.now : null,
+          updatedAt: input.now,
+        })
+        .where(
+          and(
+            eq(tasks.userId, input.userId),
+            eq(tasks.sourceMemoId, input.memoId),
+            isNull(tasks.deletedAt),
+            inArray(tasks.title, titleChunk),
+            group ? ne(tasks.status, "done") : eq(tasks.status, "done"),
+          ),
+        )
+        .returning({ id: tasks.id });
+      moved.push(...rows);
+    }
+    // 7 bound columns per inserted task_activity row.
+    for (const movedChunk of chunkForD1(moved, d1RowsPerStatement(7))) {
+      await insertActivity(db, input, movedChunk, group);
     }
   }
 }

@@ -155,7 +155,7 @@ function firstImageAttachment(
 function buildHeadTags(input: ShareMetaInput): string {
   const { origin, token, product, data } = input;
   const plainText = contentToPlainText(data.memo.content);
-  const canonical = `${origin}/share/${token}`;
+  const canonical = `${origin}/share/${encodeURIComponent(token)}`;
   const headline =
     truncate(plainText, HEADLINE_MAX_CHARS) || `${product} 记录分享`;
   const description = truncate(plainText, DESCRIPTION_MAX_CHARS) || product;
@@ -166,6 +166,7 @@ function buildHeadTags(input: ShareMetaInput): string {
   const imageDimensions = image
     ? attachmentImageDimensions(image.payload)
     : undefined;
+  const imageAlt = image?.filename?.trim() || headline;
 
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -204,6 +205,12 @@ function buildHeadTags(input: ShareMetaInput): string {
       ogLocaleFor(detectShareLang(data.memo.content)),
     ),
     metaTag("property", "article:published_time", data.memo.createdAt),
+    ...(data.memo.updatedAt
+      ? [metaTag("property", "article:modified_time", data.memo.updatedAt)]
+      : []),
+    ...(data.user?.name
+      ? [metaTag("property", "article:author", data.user.name)]
+      : []),
     metaTag(
       "name",
       "twitter:card",
@@ -224,7 +231,8 @@ function buildHeadTags(input: ShareMetaInput): string {
         metaTag("property", "og:image:height", String(imageDimensions.height)),
       );
     }
-    tags.push(metaTag("property", "og:image:alt", image?.filename ?? ""));
+    tags.push(metaTag("property", "og:image:alt", imageAlt));
+    tags.push(metaTag("name", "twitter:image:alt", imageAlt));
   }
   return tags.join("\n    ");
 }
@@ -310,7 +318,7 @@ export function renderShareDocument(input: ShareMetaInput): string {
           <a href="${escapeHtml(origin)}/"><span class="seal" aria-hidden="true"></span>${escapeHtml(product)}</a>
           <time class="postmark" datetime="${escapeHtml(data.memo.createdAt)}">${escapeHtml(paperPostmark(data.memo.createdAt))}</time>
         </header>
-        <article data-flaremo-share-article>${bodyHtml}</article>
+        <article data-flaremo-share-article${lang === "ar" ? ' dir="rtl"' : ""}>${bodyHtml}</article>
         ${galleryHtml ? `<section class="gallery">${galleryHtml}</section>` : ""}
         <!-- The page declares the note's language; this chrome is Chinese-only
              copy, so it carries its own lang to keep Chinese glyph forms. -->
@@ -332,6 +340,8 @@ function renderShareUnavailableDocument(product: string): string {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.light}" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.dark}" media="(prefers-color-scheme: dark)" />
     <title>${escapeHtml(product)}</title>
     <meta name="robots" content="noindex, nofollow" />
     <style>${PAPER_UNAVAILABLE_STYLES}</style>

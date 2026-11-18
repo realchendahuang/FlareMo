@@ -15,6 +15,7 @@ import {
   uploadAdminBrandingMark,
 } from "@/api";
 import { type BrandingAccent, setAccentAttribute } from "@/branding";
+import { QueryErrorState } from "@/components/query-error-state";
 import { SettingsSectionGroup } from "@/components/settings-section";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { normalizeHexColor } from "@/lib/brand-ramp";
@@ -322,6 +324,25 @@ export function BrandingCard() {
       </div>
     </div>
   );
+
+  if (brandingQuery.isPending) {
+    return (
+      <div className="flex flex-col gap-5">
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (brandingQuery.isError) {
+    return (
+      <QueryErrorState
+        className="min-h-44 text-muted-foreground"
+        isRetrying={brandingQuery.isFetching}
+        onRetry={() => void brandingQuery.refetch()}
+      />
+    );
+  }
 
   // Laid out like every other settings pane: titled groups, no inner card
   // title repeating the pane header. Swatches apply instantly; the identity

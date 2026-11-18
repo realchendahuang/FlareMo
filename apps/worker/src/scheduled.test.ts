@@ -16,6 +16,7 @@ import {
   createResourceId,
   createTask,
   ensureSingleUser,
+  getSchedulerHeartbeat,
   moveMemoToTrash,
   type PushPayload,
   pushNotificationToUser,
@@ -568,5 +569,44 @@ describe("scheduled maintenance", () => {
     const rows = await db.select().from(memosNotifications);
     const overdueRow = rows.find((row) => row.type === "task_overdue");
     expect(overdueRow?.snippet).toBe("overdue chore");
+  });
+
+  it("persists a non-sensitive scheduler heartbeat on completion and counts failed steps", async () => {
+    expect(await getSchedulerHeartbeat(db)).toBeNull();
+
+    await runScheduledMaintenance(env, NOW);
+    const cleanHeartbeat = await getSchedulerHeartbeat(db);
+    expect(cleanHeartbeat).not.toBeNull();
+    expect(cleanHeartbeat).toMatchObject({
+      ok: true,
+      scheduledAt: new Date(NOW).toISOString(),
+      failedSteps: 0,
+    });
+    expect(cleanHeartbeat?.durationMs).toBeGreaterThanOrEqual(0);
+    expect(cleanHeartbeat?.totalSteps).toBeGreaterThanOrEqual(10);
+
+    await insertAttachment(db, user.id, {
+      createdAt: new Date(NOW - 10 * 86_400_000).toISOString(),
+    });
+    r2.failDelete = true;
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      await runScheduledMaintenance(env, NOW + 60_000);
+    } finally {
+      r2.failDelete = false;
+      errorSpy.mockRestore();
+    }
+
+    const degradedHeartbeat = await getSchedulerHeartbeat(db);
+    expect(degradedHeartbeat).toMatchObject({
+      ok: false,
+      scheduledAt: new Date(NOW + 60_000).toISOString(),
+      failedSteps: 1,
+    });
+    // Ensure only aggregate counters are stored — never raw error strings or secrets.
+    expect(JSON.stringify(degradedHeartbeat)).not.toContain("R2 delete failed");
+    expect(JSON.stringify(degradedHeartbeat)).not.toContain("test-private-key");
   });
 });

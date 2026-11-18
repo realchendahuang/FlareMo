@@ -29,7 +29,16 @@ import { type TranslationKey, useI18n } from "@/i18n";
 type Mode = "format" | "link";
 
 const INLINE_TOOLS: {
-  id: Exclude<FormatId, "link" | "heading" | "quote" | "codeBlock">;
+  id: Exclude<
+    FormatId,
+    | "link"
+    | "heading"
+    | "quote"
+    | "codeBlock"
+    | "bulletList"
+    | "orderedList"
+    | "taskList"
+  >;
   label: TranslationKey;
   icon: typeof BoldIcon;
 }[] = [

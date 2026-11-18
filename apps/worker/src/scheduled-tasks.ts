@@ -37,6 +37,7 @@ import {
   purgeArticleRow,
   pushNotificationToUser,
   recalibrateAllHourlyCounts,
+  recordSchedulerHeartbeat,
   requeueStaleMemberRemovalJobs,
   retryOrFailDataTask,
   retryOrFailMemberRemovalJob,
@@ -223,6 +224,7 @@ export async function runScheduledMaintenance(
     exportTaskIds?: string[];
   } = {},
 ): Promise<void> {
+  const runStartedAt = Date.now();
   const db = createDb(env.DB);
   const steps: MaintenanceStepResult[] = [];
   const counts = {
@@ -615,10 +617,29 @@ export async function runScheduledMaintenance(
     counts.deviceRefreshTokens = cleaned.refreshTokens;
   });
 
+  const durationMs = Math.max(0, Date.now() - runStartedAt);
+  await recordSchedulerHeartbeat(db, {
+    ok: failedSteps.length === 0,
+    lastRunAt: new Date().toISOString(),
+    scheduledAt: new Date(scheduledTime).toISOString(),
+    durationMs,
+    totalSteps: steps.length,
+    failedSteps: failedSteps.length,
+  }).catch((error) => {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        message: "scheduled maintenance heartbeat write failed",
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  });
+
   console.log(
     JSON.stringify({
       message: "scheduled maintenance complete",
       scheduledTime,
+      durationMs,
       ok: failedSteps.length === 0,
       failedSteps: failedSteps.map((step) => step.step),
       counts,

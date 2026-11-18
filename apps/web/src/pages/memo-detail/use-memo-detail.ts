@@ -28,7 +28,7 @@ export function useMemoDetail(memoId: string) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [relatedMemo, setRelatedMemo] = useState("");
-  const queryKey = ["memo-context", memoId] as const;
+  const queryKey = queryKeys.memoContext.forMemo(memoId);
   const contextQuery = useQuery({
     queryKey,
     queryFn: () => getMemoContext(memoId),

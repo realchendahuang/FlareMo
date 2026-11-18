@@ -20,6 +20,7 @@ import {
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
@@ -162,6 +163,8 @@ export function TaskFormDialog({
     },
   });
 
+  const canSave = Boolean(title.trim()) && !saveMutation.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -170,7 +173,13 @@ export function TaskFormDialog({
             {task ? t("projects.editTask") : t("projects.newTask")}
           </DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSave) saveMutation.mutate();
+          }}
+        >
           <Field label={t("projects.field.project")}>
             <Select
               value={projectId}
@@ -239,17 +248,25 @@ export function TaskFormDialog({
               rows={3}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  (event.metaKey || event.ctrlKey) &&
+                  canSave
+                ) {
+                  event.preventDefault();
+                  saveMutation.mutate();
+                }
+              }}
             />
           </Field>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!title.trim() || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
-          >
-            {t("common.save")}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button disabled={!canSave} type="submit">
+              {saveMutation.isPending && <Spinner data-icon="inline-start" />}
+              {t("common.save")}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

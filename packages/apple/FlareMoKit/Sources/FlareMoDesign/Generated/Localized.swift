@@ -19,8 +19,8 @@
 // target），生成常量没有资源查找、key 拼错是编译错误。文案只在 UI 层（MainActor）使用，
 // 所以本文件显式 @MainActor，不依赖 target 的默认隔离设置。
 //
-// 本次生成：1026 条文案 / 47 个组 / 66 个带插值的 func。
-// 参与校验的语言：zh-Hans(1026)、en-US(1026)、ja(1026，仅校验)、fr(1026，仅校验)、es(1026，仅校验)、ko(1026，仅校验)、ru(1026，仅校验)、ar(1026，仅校验)。
+// 本次生成：1028 条文案 / 47 个组 / 67 个带插值的 func。
+// 参与校验的语言：zh-Hans(1028)、en-US(1028)、ja(1028，仅校验)、fr(1028，仅校验)、es(1028，仅校验)、ko(1028，仅校验)、ru(1028，仅校验)、ar(1028，仅校验)。
 
 import Foundation
 
@@ -385,6 +385,11 @@ public enum L10n {
         /// `admin.plugins.uninstall`
         public static var pluginsUninstall: String { fmPick("卸载", "Uninstall") }
 
+        /// `admin.plugins.uninstallConfirm`
+        public static func pluginsUninstallConfirm(name: String) -> String {
+            fmPick("卸载「\(name)」？已安装的插件包会被移除，相关分享卡片将不再可用。", "Uninstall “\(name)”? Its package will be removed and its share cards will no longer be available.")
+        }
+
         /// `admin.plugins.uninstallFailed`
         public static var pluginsUninstallFailed: String { fmPick("插件卸载失败。", "Failed to uninstall the plugin.") }
 
@@ -475,9 +480,6 @@ public enum L10n {
 
         /// `admin.userDeleted`
         public static var userDeleted: String { fmPick("已移出成员。", "Member removed.") }
-
-        /// `admin.usersLoadFailed`
-        public static var usersLoadFailed: String { fmPick("无法加载成员列表。", "Could not load the member list.") }
 
         /// `admin.usersTitle`
         public static var usersTitle: String { fmPick("团队成员", "Team members") }
@@ -661,7 +663,7 @@ public enum L10n {
         public static var unavailable: String { fmPick("文件加载失败，可能已被删除。", "The file failed to load; it may have been deleted.") }
     }
 
-    /// `auth.*`：135 条文案。
+    /// `auth.*`：134 条文案。
     @MainActor
     public enum Auth {
         /// `auth.accountTitle`
@@ -993,28 +995,28 @@ public enum L10n {
         public static var tokenExpiry: String { fmPick("有效期（天）", "Expires in days") }
 
         /// `auth.tokenExpiryHint`
-        public static var tokenExpiryHint: String { fmPick("留空默认 365 天，也可填 1–365 天；只有仅笔记权限的令牌可选择永久有效。", "Leave blank for the 365-day default, or enter 1–365 days. You can opt into a non-expiring token only with notes scope.") }
+        public static var tokenExpiryHint: String { fmPick("留空默认 365 天，也可填 1–365 天；只有仅记录权限的令牌可选择永久有效。", "Leave blank for the 365-day default, or enter 1–365 days. You can opt into a non-expiring token only with notes scope.") }
 
         /// `auth.tokenName`
         public static var tokenName: String { fmPick("令牌名称", "Token name") }
 
         /// `auth.tokenPermanent`
-        public static var tokenPermanent: String { fmPick("永久有效（仅笔记权限，不自动过期）", "Permanent (notes-only, no automatic expiry)") }
+        public static var tokenPermanent: String { fmPick("永久有效（仅记录权限，不自动过期）", "Permanent (notes-only, no automatic expiry)") }
 
         /// `auth.tokenRevokeFailed`
         public static var tokenRevokeFailed: String { fmPick("无法撤销令牌。", "Could not revoke the token.") }
 
         /// `auth.tokenScopeAdmin`
-        public static var tokenScopeAdmin: String { fmPick("笔记 + 管理", "Notes + admin") }
+        public static var tokenScopeAdmin: String { fmPick("记录 + 管理", "Notes + admin") }
 
         /// `auth.tokenScopeAdminHint`
         public static var tokenScopeAdminHint: String { fmPick("同时管理成员、插件与维护端点，仅在实例运维时使用。", "Also manage members, plugins and maintenance. Only use it for instance provisioning.") }
 
         /// `auth.tokenScopeNotes`
-        public static var tokenScopeNotes: String { fmPick("笔记访问", "Notes access") }
+        public static var tokenScopeNotes: String { fmPick("记录访问", "Notes access") }
 
         /// `auth.tokenScopeNotesHint`
-        public static var tokenScopeNotesHint: String { fmPick("读写笔记、待办、文章、附件与 MCP 工具。", "Read and write notes, tasks, articles, attachments and MCP tools.") }
+        public static var tokenScopeNotesHint: String { fmPick("读写记录、待办、文章、附件与 MCP 工具。", "Read and write notes, tasks, articles, attachments and MCP tools.") }
 
         /// `auth.tokenScopes`
         public static var tokenScopes: String { fmPick("权限范围", "Scopes") }
@@ -1026,10 +1028,7 @@ public enum L10n {
         public static var tokenShownOnceDescription: String { fmPick("出于安全原因，关闭此提示后无法再次查看完整令牌。", "For security, the complete token cannot be viewed again after you hide this notice.") }
 
         /// `auth.tokenValidation`
-        public static var tokenValidation: String { fmPick("请填写名称；有效期可留空（默认 365 天）、填 1–365 天，或仅在笔记权限下选择永久有效。", "Enter a name, then leave expiry blank for 365 days, enter a whole number from 1 to 365, or choose permanent for a notes-only token.") }
-
-        /// `auth.tokensLoadFailed`
-        public static var tokensLoadFailed: String { fmPick("无法加载个人访问令牌。", "Could not load personal access tokens.") }
+        public static var tokenValidation: String { fmPick("请填写名称；有效期可留空（默认 365 天）、填 1–365 天，或仅在记录权限下选择永久有效。", "Enter a name, then leave expiry blank for 365 days, enter a whole number from 1 to 365, or choose permanent for a notes-only token.") }
 
         /// `auth.tokensTitle`
         public static var tokensTitle: String { fmPick("个人访问令牌", "Personal access tokens") }
@@ -1275,7 +1274,7 @@ public enum L10n {
         public static var formatMenu: String { fmPick("文字格式", "Text formatting") }
 
         /// `composer.fullscreen.close`
-        public static var fullscreenClose: String { fmPick("收起全屏 (Esc)", "Exit full screen (Esc)") }
+        public static var fullscreenClose: String { fmPick("收起全屏（Esc）", "Exit full screen (Esc)") }
 
         /// `composer.fullscreen.readingTime`
         public static func fullscreenReadingTime(minutes: String) -> String {
@@ -1349,7 +1348,7 @@ public enum L10n {
         public static var scheduleClear: String { fmPick("取消安排", "Remove schedule") }
 
         /// `composer.schedule.hint`
-        public static var scheduleHint: String { fmPick("发送后，每条未勾选的待办成为一项任务；没有待办行时，整条便签成为一项任务。到期当天提醒你。", "On send, each open to-do becomes a task; a note without to-dos becomes one task. You get a reminder on the day.") }
+        public static var scheduleHint: String { fmPick("发送后，每条未勾选的待办成为一项任务；没有待办行时，整条记录成为一项任务。到期当天提醒你。", "On send, each open to-do becomes a task; a note without to-dos becomes one task. You get a reminder on the day.") }
 
         /// `composer.schedule.nextMonday`
         public static var scheduleNextMonday: String { fmPick("下周一", "Next Monday") }
@@ -1534,11 +1533,14 @@ public enum L10n {
         public static var title: String { fmPick("批准配对", "Approve a pairing") }
     }
 
-    /// `detail.*`：27 条文案。
+    /// `detail.*`：30 条文案。
     @MainActor
     public enum Detail {
         /// `detail.backlinks`
         public static var backlinks: String { fmPick("被谁引用", "Referenced by") }
+
+        /// `detail.compareRevision`
+        public static var compareRevision: String { fmPick("对比当前", "Compare") }
 
         /// `detail.content`
         public static var content: String { fmPick("内容", "Content") }
@@ -1548,6 +1550,9 @@ public enum L10n {
 
         /// `detail.graphCenter`
         public static var graphCenter: String { fmPick("本篇", "This note") }
+
+        /// `detail.hideComparison`
+        public static var hideComparison: String { fmPick("收起对比", "Hide diff") }
 
         /// `detail.history`
         public static var history: String { fmPick("历史", "History") }
@@ -1603,6 +1608,9 @@ public enum L10n {
 
         /// `detail.restoreRevision`
         public static var restoreRevision: String { fmPick("恢复此版本", "Restore") }
+
+        /// `detail.revisionIdentical`
+        public static var revisionIdentical: String { fmPick("与当前版本内容一致", "Identical to current content") }
 
         /// `detail.revokeShare`
         public static var revokeShare: String { fmPick("撤销分享", "Revoke share") }
@@ -1669,16 +1677,16 @@ public enum L10n {
         }
 
         /// `explorer.periodAfternoon`
-        public static var periodAfternoon: String { fmPick("下午 (12-18)", "Afternoon (12-18)") }
+        public static var periodAfternoon: String { fmPick("下午（12–18）", "Afternoon (12-18)") }
 
         /// `explorer.periodEvening`
-        public static var periodEvening: String { fmPick("晚间 (18-24)", "Evening (18-24)") }
+        public static var periodEvening: String { fmPick("晚间（18–24）", "Evening (18-24)") }
 
         /// `explorer.periodMorning`
-        public static var periodMorning: String { fmPick("早晨 (06-12)", "Morning (06-12)") }
+        public static var periodMorning: String { fmPick("早晨（06–12）", "Morning (06-12)") }
 
         /// `explorer.periodNight`
-        public static var periodNight: String { fmPick("夜间 (00-06)", "Night (00-06)") }
+        public static var periodNight: String { fmPick("夜间（00–06）", "Night (00-06)") }
 
         /// `explorer.previousPeriod`
         public static var previousPeriod: String { fmPick("上一期", "Previous period") }
@@ -1741,7 +1749,7 @@ public enum L10n {
 
         /// `explorer.yearMonthSummary`
         public static func yearMonthSummary(year: String, month: String, count: String, days: String) -> String {
-            fmPick("\(year)年\(month) · \(count) 条笔记 (\(days) 活跃天)", "\(year) \(month) · \(count) notes (\(days) active days)")
+            fmPick("\(year)年\(month) · \(count) 条记录（\(days) 活跃天）", "\(year) \(month) · \(count) notes (\(days) active days)")
         }
 
         /// `explorer.yearTitle`
@@ -2214,7 +2222,7 @@ public enum L10n {
         public static var viewUpcoming: String { fmPick("接下来 7 天", "Next 7 days") }
 
         /// `projects.view.upcomingEmptyDescription`
-        public static var viewUpcomingEmptyDescription: String { fmPick("给便签安排日期后，它们会出现在这里。", "Scheduled notes show up here.") }
+        public static var viewUpcomingEmptyDescription: String { fmPick("给记录安排日期后，它们会出现在这里。", "Scheduled notes show up here.") }
 
         /// `projects.view.upcomingEmptyTitle`
         public static var viewUpcomingEmptyTitle: String { fmPick("接下来一周很清闲", "A quiet week ahead") }
@@ -2229,7 +2237,7 @@ public enum L10n {
         public static var viewsLabel: String { fmPick("按到期时间查看", "View by due date") }
     }
 
-    /// `push.*`：9 条文案。
+    /// `push.*`：10 条文案。
     @MainActor
     public enum Push {
         /// `push.description`
@@ -2258,6 +2266,9 @@ public enum L10n {
 
         /// `push.unsubscribed`
         public static var unsubscribed: String { fmPick("已关闭推送提醒", "Push reminders disabled") }
+
+        /// `push.unsupported`
+        public static var unsupported: String { fmPick("当前浏览器环境不支持网页推送提醒（iOS 请先将站点添加到主屏幕）。", "Web push notifications are not supported in this browser (on iOS, add FlareMo to your Home Screen first).") }
     }
 
     /// `pwa.*`：14 条文案。
@@ -3098,7 +3109,7 @@ public enum L10n {
         }
     }
 
-    /// `transfer.*`：13 条文案。
+    /// `transfer.*`：12 条文案。
     @MainActor
     public enum Transfer {
         /// `transfer.download`
@@ -3112,9 +3123,6 @@ public enum L10n {
 
         /// `transfer.import`
         public static var `import`: String { fmPick("导入", "Import") }
-
-        /// `transfer.loadFailed`
-        public static var loadFailed: String { fmPick("无法加载数据传输任务。", "Could not load data transfer tasks.") }
 
         /// `transfer.newExport`
         public static var newExport: String { fmPick("新建导出", "New export") }

@@ -240,13 +240,13 @@ export function ProjectsPage() {
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           actions={<ViewTabs counts={counts} view={view} onChange={openView} />}
           explorer={explorer}
-          icon={
-            <ListChecksIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
+          icon={<ListChecksIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
@@ -296,6 +296,7 @@ export function ProjectsPage() {
                 : {
                     title: t(meta.emptyTitle),
                     description: t(meta.emptyDescription),
+                    icon: <meta.icon />,
                   }
             }
             hasError={activeQuery.isError && !activeQuery.data}

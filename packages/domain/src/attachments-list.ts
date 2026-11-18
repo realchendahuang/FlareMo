@@ -64,6 +64,7 @@ export async function listAttachments(
   user: UserRow,
   input: ListAttachmentsInput = {},
 ) {
+  const pageSize = normalizeAttachmentPageSize(input.pageSize);
   const filters = [
     isNull(attachments.deletedAt),
     eq(attachments.state, "ready"),
@@ -81,7 +82,7 @@ export async function listAttachments(
     .from(attachments)
     .where(and(...filters))
     .orderBy(desc(attachments.createdAt))
-    .limit(input.pageSize ?? 50);
+    .limit(pageSize);
 }
 
 /**

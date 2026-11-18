@@ -455,7 +455,6 @@ const messages = {
     "初期化に失敗しました。入力を確認してください。一部完了している場合は管理者に復旧を依頼してください。",
   "auth.accountTitle": "アカウントとアクセス",
   "transfer.newExport": "新規エクスポート",
-  "transfer.loadFailed": "データ転送タスクを読み込めませんでした。",
   "transfer.empty": "データ転送タスクはまだありません。",
   "transfer.export": "エクスポート",
   "transfer.import": "インポート",
@@ -567,7 +566,6 @@ const messages = {
   "auth.createToken": "トークンを作成",
   "auth.creatingToken": "作成中…",
   "auth.tokenCreateFailed": "トークンを作成できませんでした。",
-  "auth.tokensLoadFailed": "個人アクセストークンを読み込めませんでした。",
   "auth.noTokens": "個人アクセストークンはまだありません。上で作成できます。",
   "usage.vectorTitle": "ベクトル使用量",
   "usage.vectorUnavailable": "ベクトル使用量を現在取得できません。",
@@ -707,7 +705,6 @@ const messages = {
   "admin.userCreateFailed": "メンバーを追加できませんでした。",
   "admin.userDeleteFailed": "メンバーを外せませんでした。",
   "admin.userDeleted": "メンバーを外しました。",
-  "admin.usersLoadFailed": "メンバー一覧を読み込めませんでした。",
   "admin.resetPassword": "パスワードをリセット",
   "admin.resetFailed": "リセットリンクを生成できませんでした。",
   "admin.resetLinkTitle": "下のリンクを安全な経路で相手に送ってください",
@@ -1201,6 +1198,13 @@ const messages = {
   "insight.createFailed":
     "インサイトのタスクを作成できませんでした。後でもう一度お試しください。",
   "insight.deleteFailed": "削除できませんでした。後でもう一度お試しください。",
+  "push.unsupported":
+    "現在のブラウザ環境では Web プッシュ通知を利用できません（iOS では先にホーム画面へ追加してください）。",
+  "detail.compareRevision": "現在と比較",
+  "detail.hideComparison": "比較を閉じる",
+  "detail.revisionIdentical": "現在の内容と同じです",
+  "admin.plugins.uninstallConfirm":
+    "「{name}」をアンインストールしますか？パッケージが削除され、共有カードは利用できなくなります。",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ja = messages;

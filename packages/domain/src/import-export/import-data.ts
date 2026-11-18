@@ -535,7 +535,15 @@ export async function importData(
   }
   const relationChanges = await flushImportStatements(db, relationStatements);
   if (relationChanges) {
-    importedRelations = relationChanges.reduce((sum, n) => sum + n, 0);
+    // Each statement inserts at most one `memo_relations` row, while the
+    // `0049_native_sync_triggers` AFTER INSERT trigger also writes a row to
+    // `sync_changes` (making D1's `meta.changes` > 1 on insert, and 0 when
+    // `onConflictDoNothing` skips an existing pair). Count statements that
+    // actually mutated `memo_relations`, not total SQLite row changes.
+    importedRelations = relationChanges.reduce(
+      (sum, n) => sum + (n > 0 ? 1 : 0),
+      0,
+    );
   }
 
   const existingShareIds = new Set<string>();

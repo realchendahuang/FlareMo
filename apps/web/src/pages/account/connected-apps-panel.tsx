@@ -3,6 +3,8 @@ import type {
   ConnectedAppsResponseDto,
 } from "@flaremo/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { LinkIcon, MonitorSmartphoneIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { listConnectedApps, revokeConnectedApp } from "@/api";
@@ -20,6 +22,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { type TranslationKey, type TranslationParams, useI18n } from "@/i18n";
@@ -79,7 +88,20 @@ export function ConnectedAppsPanel() {
     <>
       <SettingsSectionGroup
         footer={t("connect.appsFooter")}
-        title={t("connect.appsTitle")}
+        title={
+          <div className="flex items-center justify-between">
+            <span>{t("connect.appsTitle")}</span>
+            <Button
+              className="h-7 text-xs"
+              render={<Link to="/connect" />}
+              size="sm"
+              variant="outline"
+            >
+              <LinkIcon className="size-3.5" data-icon="inline-start" />
+              {t("connect.title")}
+            </Button>
+          </div>
+        }
       >
         {appsQuery.isLoading && <AppsSkeleton />}
         {appsQuery.isError && (
@@ -90,12 +112,17 @@ export function ConnectedAppsPanel() {
           />
         )}
         {appsQuery.isSuccess && appsQuery.data.apps.length === 0 && (
-          <div className="flex flex-col items-center gap-1 px-5 py-7 text-center">
-            <p className="text-sm font-medium">{t("connect.appsEmptyTitle")}</p>
-            <p className="max-w-sm text-xs leading-relaxed text-pretty text-muted-foreground">
-              {t("connect.appsEmptyDescription")}
-            </p>
-          </div>
+          <Empty className="min-h-44 py-7">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <MonitorSmartphoneIcon />
+              </EmptyMedia>
+              <EmptyTitle>{t("connect.appsEmptyTitle")}</EmptyTitle>
+              <EmptyDescription>
+                {t("connect.appsEmptyDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
         {appsQuery.data?.apps.map((app) => (
           <ConnectedAppRow
@@ -129,6 +156,7 @@ export function ConnectedAppsPanel() {
               {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={(event) => {
                 event.preventDefault();
                 const app = confirming;

@@ -11,6 +11,7 @@ import { listProjects, listTasks, restoreProject, restoreTask } from "@/api";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { queryKeys } from "@/lib/query-keys";
@@ -48,7 +49,7 @@ export function TrashSection({ onMutated }: { onMutated: () => void }) {
     <div className="mt-2 flex flex-col gap-1 border-t border-border/60 pt-2">
       <button
         aria-expanded={open}
-        className="flex h-8 items-center gap-2 rounded-lg px-3 text-xs text-muted-foreground hover:text-foreground"
+        className="flex h-8 items-center gap-2 rounded-lg px-3 text-xs text-muted-foreground outline-none hover:bg-muted/50 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/25"
         type="button"
         onClick={() => setOpen((value) => !value)}
       >
@@ -71,7 +72,8 @@ export function TrashSection({ onMutated }: { onMutated: () => void }) {
         <div className="flex flex-col gap-0.5">
           {(projectsQuery.isError || tasksQuery.isError) && (
             <QueryErrorState
-              className="min-h-24 py-2 text-xs"
+              className="min-h-24 py-2 text-xs text-muted-foreground"
+              isRetrying={projectsQuery.isFetching || tasksQuery.isFetching}
               onRetry={() => {
                 if (projectsQuery.isError) void projectsQuery.refetch();
                 if (tasksQuery.isError) void tasksQuery.refetch();
@@ -81,9 +83,13 @@ export function TrashSection({ onMutated }: { onMutated: () => void }) {
           {!projectsQuery.isError &&
             !tasksQuery.isError &&
             (projectsQuery.isPending || tasksQuery.isPending) && (
-              <p className="px-3 py-1 text-xs text-muted-foreground">
-                {t("common.loading")}
-              </p>
+              <div
+                aria-hidden="true"
+                className="flex flex-col gap-1.5 px-3 py-1"
+              >
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-6 w-1/2" />
+              </div>
             )}
           {!projectsQuery.isError &&
             !tasksQuery.isError &&

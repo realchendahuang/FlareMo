@@ -458,7 +458,6 @@ const messages = {
     "Инициализация не завершилась. Проверьте введённые данные; если она выполнена частично, попросите администратора восстановить её.",
   "auth.accountTitle": "Аккаунт и доступ",
   "transfer.newExport": "Новый экспорт",
-  "transfer.loadFailed": "Не удалось загрузить задачи передачи данных.",
   "transfer.empty": "Задач передачи данных пока нет.",
   "transfer.export": "Экспорт",
   "transfer.import": "Импорт",
@@ -569,7 +568,6 @@ const messages = {
   "auth.createToken": "Создать токен",
   "auth.creatingToken": "Создание…",
   "auth.tokenCreateFailed": "Не удалось создать токен.",
-  "auth.tokensLoadFailed": "Не удалось загрузить персональные токены доступа.",
   "auth.noTokens": "Персональных токенов пока нет — создайте один выше.",
   "usage.vectorTitle": "Расход векторов",
   "usage.vectorUnavailable": "Расход векторов сейчас недоступен.",
@@ -706,7 +704,6 @@ const messages = {
   "admin.userCreateFailed": "Не удалось добавить участника.",
   "admin.userDeleteFailed": "Не удалось убрать участника.",
   "admin.userDeleted": "Участник удалён.",
-  "admin.usersLoadFailed": "Не удалось загрузить список участников.",
   "admin.resetPassword": "Сбросить пароль",
   "admin.resetFailed": "Не удалось сгенерировать ссылку сброса.",
   "admin.resetLinkTitle":
@@ -1206,6 +1203,13 @@ const messages = {
   "insight.createFailed":
     "Не удалось создать задачу инсайта. Повторите попытку позже.",
   "insight.deleteFailed": "Не удалось удалить инсайт. Повторите попытку позже.",
+  "push.unsupported":
+    "Веб-пуш уведомления не поддерживаются в этом браузере (на iOS сначала добавьте FlareMo на главный экран).",
+  "detail.compareRevision": "Сравнить",
+  "detail.hideComparison": "Скрыть",
+  "detail.revisionIdentical": "Совпадает с текущим содержимым",
+  "admin.plugins.uninstallConfirm":
+    "Удалить «{name}»? Пакет плагина будет удалён, а его карточки для публикации станут недоступны.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ru = messages;

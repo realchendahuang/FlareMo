@@ -14,7 +14,10 @@ export type FormatId =
   | "code"
   | "link"
   | "quote"
-  | "codeBlock";
+  | "codeBlock"
+  | "bulletList"
+  | "orderedList"
+  | "taskList";
 
 export type ActiveFormats = Record<FormatId, boolean>;
 
@@ -27,6 +30,9 @@ export const NO_ACTIVE_FORMATS: ActiveFormats = {
   link: false,
   quote: false,
   codeBlock: false,
+  bulletList: false,
+  orderedList: false,
+  taskList: false,
 };
 
 /** Memos use one heading size; H2 reads as a title without shouting. */
@@ -42,6 +48,9 @@ export function readActiveFormats(editor: Editor): ActiveFormats {
     link: editor.isActive("link"),
     quote: editor.isActive("blockquote"),
     codeBlock: editor.isActive("codeBlock"),
+    bulletList: editor.isActive("bulletList"),
+    orderedList: editor.isActive("orderedList"),
+    taskList: editor.isActive("taskList"),
   };
 }
 
@@ -77,10 +86,19 @@ export function toggleFormat(
     case "codeBlock":
       chain.toggleCodeBlock().run();
       return;
+    case "bulletList":
+      chain.toggleBulletList().run();
+      return;
+    case "orderedList":
+      chain.toggleOrderedList().run();
+      return;
+    case "taskList":
+      chain.toggleTaskList().run();
+      return;
   }
 }
 
-const IS_APPLE =
+export const IS_APPLE =
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 

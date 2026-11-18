@@ -235,6 +235,7 @@ export function buildArticleHeadTags(input: ArticleMetaInput): string {
   const imageDimensions = image
     ? attachmentImageDimensions(image.payload)
     : undefined;
+  const imageAlt = image?.filename?.trim() || headline;
 
   const jsonLd: WithContext<BlogPosting> = {
     "@context": "https://schema.org",
@@ -271,6 +272,7 @@ export function buildArticleHeadTags(input: ArticleMetaInput): string {
       article.publishedAt ?? article.createdAt,
     ),
     metaTag("property", "article:modified_time", article.updatedAt),
+    ...(user?.name ? [metaTag("property", "article:author", user.name)] : []),
     metaTag(
       "name",
       "twitter:card",
@@ -291,7 +293,8 @@ export function buildArticleHeadTags(input: ArticleMetaInput): string {
         metaTag("property", "og:image:height", String(imageDimensions.height)),
       );
     }
-    tags.push(metaTag("property", "og:image:alt", image?.filename ?? ""));
+    tags.push(metaTag("property", "og:image:alt", imageAlt));
+    tags.push(metaTag("name", "twitter:image:alt", imageAlt));
   }
   return tags.join("\n    ");
 }
@@ -387,6 +390,8 @@ function renderArticleUnavailableDocument(product: string): string {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.light}" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.dark}" media="(prefers-color-scheme: dark)" />
     <title>${escapeHtml(product)}</title>
     <meta name="robots" content="noindex, nofollow" />
     <style>${PAPER_UNAVAILABLE_STYLES}</style>
@@ -483,12 +488,11 @@ export function registerArticlePage(app: Hono<HonoBindings>): void {
   app.get("/feed.xml", async (c) => {
     const db = getFlareMoDb(c.env);
     const origin = publicOrigin(c.env, c.req.raw);
-    let product = "FlareMo";
-    try {
-      product = (await getBranding(db)).product;
-    } catch {
-      // Default branding is fine for a feed.
-    }
+    const branding = await getBranding(db).catch(() => null);
+    const product = branding?.product ?? "FlareMo";
+    const favicon = branding?.favicon
+      ? `${origin}/api/app/branding/favicon?v=${encodeURIComponent(branding.favicon.updated_at)}`
+      : `${origin}/brand/flaremo-mark-light-300.png`;
     const rows = await listPublishedArticlesForFeed(db, FEED_SIZE);
     const feed = new Feed({
       title: product,
@@ -498,7 +502,7 @@ export function registerArticlePage(app: Hono<HonoBindings>): void {
       // A single feed cannot vary language per item, so follow the newest
       // article's declared language rather than always claiming Chinese.
       language: htmlLang(rows[0]?.article.lang ?? null),
-      favicon: `${origin}/brand/flaremo-mark-light-300.png`,
+      favicon,
       copyright: `© ${new Date().getFullYear()} ${product}`,
       updated: rows[0]?.article.updatedAt
         ? new Date(rows[0].article.updatedAt)

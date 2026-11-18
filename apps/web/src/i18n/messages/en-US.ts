@@ -455,7 +455,6 @@ const messages = {
     "Setup could not finish. Check the input; if it partially completed, ask an administrator to recover it.",
   "auth.accountTitle": "Account and access",
   "transfer.newExport": "New export",
-  "transfer.loadFailed": "Could not load data transfer tasks.",
   "transfer.empty": "No data transfer tasks yet.",
   "transfer.export": "Export",
   "transfer.import": "Import",
@@ -565,7 +564,6 @@ const messages = {
   "auth.createToken": "Create token",
   "auth.creatingToken": "Creating…",
   "auth.tokenCreateFailed": "Could not create the token.",
-  "auth.tokensLoadFailed": "Could not load personal access tokens.",
   "auth.noTokens": "No personal access tokens yet — create one above.",
   "usage.vectorTitle": "Vector usage",
   "usage.vectorUnavailable": "Vector usage is unavailable right now.",
@@ -699,7 +697,6 @@ const messages = {
   "admin.userCreateFailed": "Could not add the member.",
   "admin.userDeleteFailed": "Could not remove the member.",
   "admin.userDeleted": "Member removed.",
-  "admin.usersLoadFailed": "Could not load the member list.",
   "admin.resetPassword": "Reset password",
   "admin.resetFailed": "Could not generate a reset link.",
   "admin.resetLinkTitle":
@@ -1185,6 +1182,13 @@ const messages = {
   "insight.emptyResult": "The AI client returned an empty result.",
   "insight.createFailed": "Couldn't create the insight task. Try again later.",
   "insight.deleteFailed": "Couldn't delete the insight. Try again.",
+  "push.unsupported":
+    "Web push notifications are not supported in this browser (on iOS, add FlareMo to your Home Screen first).",
+  "detail.compareRevision": "Compare",
+  "detail.hideComparison": "Hide diff",
+  "detail.revisionIdentical": "Identical to current content",
+  "admin.plugins.uninstallConfirm":
+    "Uninstall “{name}”? Its package will be removed and its share cards will no longer be available.",
 } as const;
 
 export const enUS = messages satisfies Record<TranslationKey, string>;

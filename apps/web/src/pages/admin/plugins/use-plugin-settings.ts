@@ -123,7 +123,7 @@ export function usePluginSettings() {
         },
       }),
     onSuccess: (saved) => {
-      queryClient.setQueryData(["admin-plugins"], saved);
+      queryClient.setQueryData(queryKeys.adminPlugins, saved);
       invalidate();
       toast.success(t("admin.plugins.saved"));
     },
@@ -312,6 +312,7 @@ export function usePluginSettings() {
   return {
     locale,
     settings,
+    settingsQuery,
     plugins,
     busy,
     pluginEnabled,

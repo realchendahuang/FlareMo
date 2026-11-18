@@ -1,11 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  ArchiveIcon,
-  CircleAlertIcon,
-  InboxIcon,
-  SearchIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { ArchiveIcon, InboxIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import {
   lazy,
   memo,
@@ -20,6 +14,7 @@ import {
 } from "react";
 import type { Attachment, Memo, MemoVisibility, Share } from "@/api";
 import { MemoVisibilityDialog } from "@/components/memo-visibility-dialog";
+import { QueryErrorState } from "@/components/query-error-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -205,14 +200,24 @@ function VirtualizedCards({
     const element = listRef.current;
     const parent = element?.closest<HTMLElement>("main") ?? null;
     setScroller(parent);
-    if (element && parent) {
+    if (!element || !parent) return;
+
+    const measureMargin = () => {
       // Distance from the scroll container's content origin to this list. The
-      // timeline renders a search box, chips and the "on this day" banner above
-      // it, so a flat zero would offset every card by that height.
+      // timeline renders the composer, chips and the "on this day" banner above
+      // it; re-measuring when siblings resize (e.g. composer expanding) keeps
+      // virtualized hit-testing accurate.
       const elementRect = element.getBoundingClientRect();
       const parentRect = parent.getBoundingClientRect();
-      setScrollMargin(elementRect.top - parentRect.top + parent.scrollTop);
-    }
+      const next = elementRect.top - parentRect.top + parent.scrollTop;
+      setScrollMargin((prev) => (Math.abs(prev - next) >= 1 ? next : prev));
+    };
+    measureMargin();
+
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measureMargin);
+    if (element.parentElement) observer.observe(element.parentElement);
+    return () => observer.disconnect();
   }, [memos.length]);
 
   const virtualizer = useVirtualizer({
@@ -310,21 +315,15 @@ function VirtualizedCards({
 
 function MemoCardSkeleton() {
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-border/50 bg-card/50 px-3.5 py-4 shadow-xs">
+    <div className="paper flex flex-col gap-2.5 rounded-xl border border-border/50 bg-card px-4 py-3.5 shadow-xs sm:px-5 sm:py-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Skeleton className="size-3.5 rounded-full" />
-          <Skeleton className="h-3 w-20 rounded" />
-        </div>
-        <Skeleton className="h-4 w-12 rounded" />
+        <Skeleton className="h-3.5 w-20 rounded" />
+        <Skeleton className="size-6 rounded-md" />
       </div>
-      <div className="flex flex-col gap-1.5 py-1">
-        <Skeleton className="h-3.5 w-full rounded" />
-        <Skeleton className="h-3.5 w-3/4 rounded" />
-      </div>
-      <div className="flex items-center gap-1.5 pt-0.5">
-        <Skeleton className="h-5 w-14 rounded-full" />
-        <Skeleton className="h-5 w-16 rounded-full" />
+      <div className="flex flex-col gap-2 py-0.5">
+        <Skeleton className="h-4 w-full rounded" />
+        <Skeleton className="h-4 w-4/5 rounded" />
+        <Skeleton className="h-4 w-2/5 rounded" />
       </div>
     </div>
   );
@@ -387,6 +386,7 @@ export const MemoList = memo(function MemoList({
   const [deleteTargetMemo, setDeleteTargetMemo] = useState<Memo | null>(null);
   const [shareImageMemo, setShareImageMemo] = useState<Memo | null>(null);
   const [visibilityMemo, setVisibilityMemo] = useState<Memo | null>(null);
+  const memoIds = useMemo(() => memos.map((memo) => memo.name), [memos]);
 
   useEffect(() => {
     if (!hasNextPage || isFetchingNextPage || hasError) return;
@@ -423,29 +423,11 @@ export const MemoList = memo(function MemoList({
 
   if (hasError && memos.length === 0) {
     return (
-      <Empty className="min-h-64 text-muted-foreground motion-safe:animate-rise">
-        <EmptyHeader>
-          <EmptyMedia
-            className="bg-destructive/10 text-destructive"
-            variant="icon"
-          >
-            <CircleAlertIcon />
-          </EmptyMedia>
-          <EmptyTitle>{t("list.errorTitle")}</EmptyTitle>
-          <EmptyDescription>{t("list.errorDescription")}</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button
-            disabled={isRetrying}
-            size="sm"
-            variant="outline"
-            onClick={onRetry}
-          >
-            {isRetrying && <Spinner data-icon="inline-start" />}
-            {t("common.retry")}
-          </Button>
-        </EmptyContent>
-      </Empty>
+      <QueryErrorState
+        className="min-h-64 text-muted-foreground motion-safe:animate-rise"
+        isRetrying={isRetrying}
+        onRetry={onRetry}
+      />
     );
   }
 
@@ -498,7 +480,7 @@ export const MemoList = memo(function MemoList({
   ) : null;
 
   return (
-    <MemoTaskProvider memoIds={memos.map((memo) => memo.name)}>
+    <MemoTaskProvider memoIds={memoIds}>
       {!isPaginationError && retryNotice}
       {isUpdating && (
         <div role="status" className="sr-only">

@@ -113,10 +113,12 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     );
   };
   const [publishOpen, setPublishOpen] = useState(false);
+  const [isPreparingPublish, setIsPreparingPublish] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [savedArticle, setSavedArticle] = useState<Article | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
 
   const editorRef = useRef<Editor | null>(null);
   const titleRef = useRef("");
@@ -126,6 +128,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
   // Autosaves are chained instead of fired in parallel: two PATCHes in flight
   // can return out of order and let the older body overwrite the newer one.
   const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const inFlightPayloadRef = useRef<{ title: string; content: string } | null>(
+    null,
+  );
   const savedArticleRef = useRef<Article | null>(null);
   savedArticleRef.current = savedArticle;
   const latestRef = useRef({ title: "", content: "" });
@@ -135,6 +140,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     seededRef.current = true;
     titleRef.current = article.title;
     contentRef.current = article.content;
+    savedArticleRef.current = article;
     setTitle(article.title);
     setContent(article.content);
     setSavedArticle(article);
@@ -146,6 +152,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     mutationFn: (patch: { title?: string; content?: string }) =>
       updateArticle(articleId, patch),
     onSuccess: ({ article: updated }) => {
+      savedArticleRef.current = updated;
       setSavedArticle(updated);
       // A queued save may still be behind this response; only claim "saved"
       // when the persisted body matches what the editor currently holds.
@@ -156,7 +163,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
           ? "saved"
           : "saving",
       );
-      queryClient.setQueryData(["article", articleId], { article: updated });
+      queryClient.setQueryData(queryKeys.articles.detail(articleId), {
+        article: updated,
+      });
     },
     onError: () => {
       toast.error(t("article.autosaveFailed"));
@@ -176,8 +185,12 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
+    const next = {
+      title: titleRef.current,
+      content: contentRef.current,
+    };
+    latestRef.current = next;
     const current = savedArticleRef.current;
-    const next = latestRef.current;
     if (
       !current ||
       (next.title === current.title &&
@@ -187,17 +200,56 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
       // resulting onUpdate schedules a save whose round-trip is a no-op;
       // leaving the indicator on "dirty" would show 未保存 forever for an
       // article that is fully saved.
-      if (current) {
+      if (current && !inFlightPayloadRef.current) {
         setSaveState((state) => (state === "dirty" ? "saved" : state));
       }
       return;
     }
+    const inFlight = inFlightPayloadRef.current;
+    if (
+      inFlight &&
+      inFlight.title === next.title &&
+      sameArticleBody(inFlight.content, next.content)
+    ) {
+      return;
+    }
     setSaveState("saving");
+    inFlightPayloadRef.current = next;
     saveChainRef.current = saveChainRef.current
       .catch(() => undefined)
       .then(() => saveRef.current({ title: next.title, content: next.content }))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (inFlightPayloadRef.current === next) {
+          inFlightPayloadRef.current = null;
+        }
+      });
   }, []);
+
+  /**
+   * Flushes any unsaved title/body edits and waits for the PATCH chain to
+   * settle before opening the publish modal, preventing a race where publishing
+   * within the 2s autosave window hits an empty server draft with 400.
+   */
+  const handleOpenPublish = useCallback(async () => {
+    if (isPreparingPublish || isUploadingImages) return;
+    setIsPreparingPublish(true);
+    try {
+      flushSave();
+      await saveChainRef.current;
+      const persisted = savedArticleRef.current;
+      if (
+        !persisted ||
+        persisted.title !== titleRef.current ||
+        !sameArticleBody(persisted.content, contentRef.current)
+      ) {
+        return;
+      }
+      setPublishOpen(true);
+    } finally {
+      setIsPreparingPublish(false);
+    }
+  }, [flushSave, isPreparingPublish, isUploadingImages]);
 
   const scheduleSave = useCallback(() => {
     setSaveState("dirty");
@@ -227,11 +279,33 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     });
   }, [articleId]);
 
-  // Flush pending edits when leaving the editor or closing the tab.
+  // Flush pending edits when leaving the editor or closing the tab; also
+  // handle ⌘S / Ctrl+S so muscle-memory saves flush immediately instead of
+  // opening the browser's "Save Webpage" dialog, and track scroll for the
+  // sticky header hairline.
   useEffect(() => {
+    const onScroll = () => {
+      const scrolled = window.scrollY > 4;
+      setHeaderScrolled((prev) => (prev === scrolled ? prev : scrolled));
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "s"
+      ) {
+        event.preventDefault();
+        flushSave();
+      }
+    };
     window.addEventListener("beforeunload", keepaliveFlush);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("beforeunload", keepaliveFlush);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("keydown", onKeyDown);
       flushSave();
     };
   }, [flushSave, keepaliveFlush]);
@@ -283,7 +357,10 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             type="button"
             variant="ghost"
           >
-            <ArrowLeftIcon className="size-4" data-icon="inline-start" />
+            <ArrowLeftIcon
+              className="size-4 rtl:rotate-180"
+              data-icon="inline-start"
+            />
             {t("common.back")}
           </Button>
         </header>
@@ -305,7 +382,12 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
           stays pinned so save state and publish remain in reach on long
           articles. It spans the full width and carries the body's paper
           grain, so the pinned band reads as the same sheet, not a strip. */}
-      <header className="sticky top-0 z-20 bg-background/90 bg-(image:--paper-grain) backdrop-blur-sm">
+      <header
+        className={cn(
+          "sticky top-0 z-20 border-b bg-background/90 bg-(image:--paper-grain) backdrop-blur-sm motion-safe:transition-[border-color,box-shadow] motion-safe:duration-200",
+          headerScrolled ? "border-border/70 shadow-xs" : "border-transparent",
+        )}
+      >
         <div className="mx-auto flex h-14 w-full max-w-3xl items-center gap-1 px-4">
           <Button
             aria-label={t("common.back")}
@@ -314,10 +396,10 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             type="button"
             variant="ghost"
           >
-            <ArrowLeftIcon />
+            <ArrowLeftIcon className="rtl:rotate-180" />
           </Button>
           <span
-            className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+            className="min-w-0 flex-1 truncate text-xs text-muted-foreground tabular-nums"
             data-article-save-state={saveState}
           >
             {saveState === "saving"
@@ -334,7 +416,11 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             <Button
               aria-label={t("article.viewPublic")}
               onClick={() =>
-                window.open(`/article/${shownArticle.slug}`, "_blank")
+                window.open(
+                  `/article/${shownArticle.slug}`,
+                  "_blank",
+                  "noopener,noreferrer",
+                )
               }
               size="sm"
               type="button"
@@ -365,13 +451,19 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             </span>
           </Button>
           <Button
-            disabled={isUploadingImages}
-            onClick={() => setPublishOpen(true)}
+            disabled={
+              isUploadingImages ||
+              isPreparingPublish ||
+              (!isPublished && !title.trim() && !content.trim())
+            }
+            onClick={() => void handleOpenPublish()}
             size="sm"
             type="button"
             variant={isPublished ? "outline" : "default"}
           >
-            {isUploadingImages && <Spinner data-icon="inline-start" />}
+            {(isUploadingImages || isPreparingPublish) && (
+              <Spinner data-icon="inline-start" />
+            )}
             {isPublished
               ? t("article.publishedBadge")
               : t("article.publishAction")}
@@ -463,8 +555,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
           article={shownArticle}
           onOpenChange={setPublishOpen}
           onPublished={(updated) => {
+            savedArticleRef.current = updated;
             setSavedArticle(updated);
-            queryClient.setQueryData(["article", articleId], {
+            queryClient.setQueryData(queryKeys.articles.detail(articleId), {
               article: updated,
             });
             void queryClient.invalidateQueries({
@@ -472,8 +565,9 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
             });
           }}
           onUnpublished={(updated) => {
+            savedArticleRef.current = updated;
             setSavedArticle(updated);
-            queryClient.setQueryData(["article", articleId], {
+            queryClient.setQueryData(queryKeys.articles.detail(articleId), {
               article: updated,
             });
             void queryClient.invalidateQueries({

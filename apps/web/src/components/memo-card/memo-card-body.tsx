@@ -35,10 +35,8 @@ export function isCollapsibleMemoContent(content: string) {
  */
 export function memoBodyClipClass(collapsed: boolean) {
   return cn(
-    "overflow-hidden motion-safe:transition-[max-height] motion-safe:duration-250 motion-safe:ease-signal",
-    collapsed
-      ? "max-h-52 [mask-image:linear-gradient(to_bottom,#000_calc(100%-4rem),transparent)]"
-      : "max-h-[1600px]",
+    collapsed &&
+      "max-h-52 overflow-hidden [mask-image:linear-gradient(to_bottom,#000_calc(100%-4rem),transparent)]",
   );
 }
 
@@ -188,9 +186,11 @@ export function MemoCardBody({
           // Pulled back by the ghost button's own inset so the label lines
           // up with the text column above it.
           <Button
+            aria-expanded={!collapsed}
             className="mt-1.5 -ms-2.5"
             onClick={onToggleExpanded}
             size="sm"
+            type="button"
             variant="ghost"
           >
             {collapsed ? t("reading.expand") : t("reading.collapse")}
@@ -224,14 +224,15 @@ export function MemoCardBody({
                 >
                   <Badge
                     className="group-hover/tag:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_7%)] group-hover/tag:text-foreground"
+                    dir="auto"
                     variant="tag"
                   >
-                    #{tag}
+                    <bdi dir="auto">#{tag}</bdi>
                   </Badge>
                 </button>
               ) : (
-                <Badge key={tag} variant="tag">
-                  #{tag}
+                <Badge dir="auto" key={tag} variant="tag">
+                  <bdi dir="auto">#{tag}</bdi>
                 </Badge>
               ),
             )}

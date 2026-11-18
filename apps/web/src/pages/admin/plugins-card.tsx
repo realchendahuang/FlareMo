@@ -1,5 +1,5 @@
-import { Spinner } from "@/components/ui/spinner";
-import { useI18n } from "@/i18n";
+import { QueryErrorState } from "@/components/query-error-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PluginCardsManager } from "./plugins/plugin-cards-manager";
 import { PluginListCard } from "./plugins/plugin-list-card";
 import { PluginStoreCard } from "./plugins/plugin-store-card";
@@ -17,16 +17,25 @@ import { usePluginSettings } from "./plugins/use-plugin-settings";
  * is the only path that makes it visible to users.
  */
 export function PluginsCard() {
-  const { t } = useI18n();
   const state = usePluginSettings();
-  const { settings } = state;
+  const { settings, settingsQuery } = state;
 
-  if (!settings) {
+  if (settingsQuery.isPending) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-        <Spinner className="size-4" />
-        {t("admin.plugins.loading")}
+      <div className="flex flex-col gap-5">
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-xl" />
       </div>
+    );
+  }
+
+  if (settingsQuery.isError || !settings) {
+    return (
+      <QueryErrorState
+        className="min-h-44 text-muted-foreground"
+        isRetrying={settingsQuery.isFetching}
+        onRetry={() => void settingsQuery.refetch()}
+      />
     );
   }
 

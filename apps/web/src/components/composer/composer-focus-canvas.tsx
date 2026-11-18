@@ -1,8 +1,14 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { Editor } from "@tiptap/react";
 import { Suspense, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { MemoVisibility } from "@/api";
 import { buildArticleExtensions } from "@/components/article-editor";
+import {
+  extractNonImageFiles,
+  filterAcceptedComposerFiles,
+  hasFileTransfer,
+} from "@/components/composer/attachment-upload-helpers";
 import { ComposerCanvasActions } from "@/components/composer/composer-canvas-actions";
 import { ComposerCanvasHeader } from "@/components/composer/composer-canvas-header";
 import {
@@ -23,6 +29,7 @@ import { useInlineImageUploads } from "@/hooks/use-inline-image-uploads";
 import { useI18n } from "@/i18n";
 import type { MemoCaptureInput } from "@/lib/local-memo-capture";
 import { extractTags } from "@/lib/memo";
+import { countMemoImages } from "@/lib/memo-submission";
 import type { TagSuggestion } from "@/lib/tag-autocomplete";
 
 export type ComposerFocusCanvasProps = {
@@ -121,6 +128,36 @@ export function ComposerFocusCanvas({
       commitDraft,
     });
 
+  const appendDraftFiles = (incoming: File[]) => {
+    if (incoming.length === 0 || isPending) return;
+    const current = draftRef.current;
+    const { accepted, errorKeys } = filterAcceptedComposerFiles({
+      incoming,
+      existingFileCount:
+        current.files.length +
+        (current.preuploadedAttachmentNames?.length ?? 0),
+      existingImageCount: countMemoImages(current),
+    });
+    for (const key of errorKeys) toast.error(t(key));
+    if (accepted.length === 0) return;
+    commitDraft({ files: [...current.files, ...accepted] });
+  };
+
+  const handleInlineImageFiles = (files: File[], position: number) => {
+    if (files.length === 0 || isPending) return;
+    const current = draftRef.current;
+    const { accepted, errorKeys } = filterAcceptedComposerFiles({
+      incoming: files,
+      existingFileCount:
+        current.files.length +
+        (current.preuploadedAttachmentNames?.length ?? 0),
+      existingImageCount: countMemoImages(current),
+    });
+    for (const key of errorKeys) toast.error(t(key));
+    if (accepted.length === 0) return;
+    enqueueInlineUploads(accepted, position);
+  };
+
   const updateContent = (content: string) => {
     const kept = draftRef.current.preuploadedAttachmentNames?.filter((name) => {
       const markdown = preuploadMarkdownRef.current.get(name);
@@ -207,6 +244,28 @@ export function ComposerFocusCanvas({
         >
           <form
             className="flex h-full flex-col"
+            onPaste={(event) => {
+              const nonImages = extractNonImageFiles(
+                event.clipboardData?.files ?? [],
+              );
+              if (nonImages.length === 0) return;
+              event.preventDefault();
+              appendDraftFiles(nonImages);
+            }}
+            onDragOver={(event) => {
+              if (!hasFileTransfer(event.dataTransfer)) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+            }}
+            onDrop={(event) => {
+              const allFiles = Array.from(event.dataTransfer?.files ?? []);
+              if (allFiles.length === 0) return;
+              const filesToAttach = event.defaultPrevented
+                ? extractNonImageFiles(allFiles)
+                : allFiles;
+              event.preventDefault();
+              appendDraftFiles(filesToAttach);
+            }}
             onSubmit={(event) => {
               event.preventDefault();
               void submit();
@@ -252,7 +311,7 @@ export function ComposerFocusCanvas({
                     extensions={extensions}
                     inputId="flaremo-fullscreen-composer-input"
                     onContentChange={updateContent}
-                    onImageFiles={enqueueInlineUploads}
+                    onImageFiles={handleInlineImageFiles}
                     onTagTokenChange={tags ? setActiveTagToken : undefined}
                     onWikiLinkTokenChange={setActiveWikiToken}
                     onSuggestionKeyDown={handleSuggestionKeyDown}
@@ -316,11 +375,7 @@ export function ComposerFocusCanvas({
                   isPending={isPending}
                   voiceActive={voiceActive}
                   withEditor={withEditor}
-                  onAddFiles={(files) =>
-                    commitDraft({
-                      files: [...draftRef.current.files, ...files],
-                    })
-                  }
+                  onAddFiles={appendDraftFiles}
                   onStartVoice={() => void captureController.start()}
                 />
                 <ComposerCanvasActions

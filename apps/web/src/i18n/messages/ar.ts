@@ -447,7 +447,6 @@ const messages = {
     "لم يكتمل الإعداد. تحقق من المدخلات؛ وإن اكتمل جزئيًا فاطلب من المسؤول استعادته.",
   "auth.accountTitle": "الحساب والوصول",
   "transfer.newExport": "تصدير جديد",
-  "transfer.loadFailed": "تعذر تحميل مهام نقل البيانات.",
   "transfer.empty": "لا مهام نقل بيانات بعد.",
   "transfer.export": "تصدير",
   "transfer.import": "استيراد",
@@ -556,7 +555,6 @@ const messages = {
   "auth.createToken": "إنشاء رمز",
   "auth.creatingToken": "جارٍ الإنشاء…",
   "auth.tokenCreateFailed": "تعذر إنشاء الرمز.",
-  "auth.tokensLoadFailed": "تعذر تحميل رموز الوصول الشخصية.",
   "auth.noTokens": "لا رموز وصول شخصية بعد — أنشئ واحدًا بالأعلى.",
   "usage.vectorTitle": "استخدام المتجهات",
   "usage.vectorUnavailable": "استخدام المتجهات غير متاح حاليًا.",
@@ -685,7 +683,6 @@ const messages = {
   "admin.userCreateFailed": "تعذرت إضافة العضو.",
   "admin.userDeleteFailed": "تعذر إخراج العضو.",
   "admin.userDeleted": "تم إخراج العضو.",
-  "admin.usersLoadFailed": "تعذر تحميل قائمة الأعضاء.",
   "admin.resetPassword": "إعادة تعيين كلمة المرور",
   "admin.resetFailed": "تعذر توليد رابط إعادة التعيين.",
   "admin.resetLinkTitle": "أرسل الرابط التالي للعضو عبر قناة آمنة",
@@ -1164,6 +1161,13 @@ const messages = {
   "insight.emptyResult": "أعاد عميل الذكاء الاصطناعي نتيجة فارغة.",
   "insight.createFailed": "تعذر إنشاء مهمة الرؤية. أعد المحاولة لاحقًا.",
   "insight.deleteFailed": "تعذر حذف الرؤية. أعد المحاولة لاحقًا.",
+  "push.unsupported":
+    "إشعارات الويب الفورية غير مدعومة في هذا المتصفح (على iOS، أضف FlareMo إلى الشاشة الرئيسية أولاً).",
+  "detail.compareRevision": "مقارنة بالحالي",
+  "detail.hideComparison": "إخفاء المقارنة",
+  "detail.revisionIdentical": "مطابق للمحتوى الحالي",
+  "admin.plugins.uninstallConfirm":
+    "إلغاء تثبيت «{name}»؟ ستُحذف حزمة الإضافة ولن تعود بطاقات المشاركة الخاصة بها متاحة.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const ar = messages;

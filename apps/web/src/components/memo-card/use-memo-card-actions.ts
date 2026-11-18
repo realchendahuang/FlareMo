@@ -2,10 +2,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 import { toast } from "sonner";
 import type { Memo, MemoVisibility, Share } from "@/api";
-import { createTask, getMemoContext, getRelatedMemos, listShares } from "@/api";
+import {
+  bindMemoAttachments,
+  createTask,
+  getMemoContext,
+  getRelatedMemos,
+  listShares,
+} from "@/api";
+import type { CardEditorSaveSubmission } from "@/components/memo-card/memo-card-editor";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 import { getMemoResourceId } from "@/lib/memo";
+import { optimisticallyPatchMemo } from "@/lib/memo-cache";
 import { toggleMemoTaskLine } from "@/lib/memo-tasks";
 import { invalidateTaskSurfaces } from "@/lib/query-invalidation";
 import { queryKeys } from "@/lib/query-keys";
@@ -18,8 +26,6 @@ export type MemoTaskInteraction = {
 
 type UseMemoCardActionsOptions = {
   canManage: boolean;
-  /** The in-progress edit body, owned by the card so cancel/save can read it. */
-  draftContent: string;
   isTrashed: boolean;
   memo: Memo;
   onRevokeShare?: (share: Share) => void;
@@ -37,11 +43,11 @@ type UseMemoCardActionsOptions = {
 /**
  * Behaviour layer of the timeline card: what it warms on hover, how it
  * rewrites a task line, how visibility moves up and down, and how an edit
- * saves. UI state stays in the card, so everything here is driven by props.
+ * saves (merging retained and newly uploaded attachments). UI state stays in
+ * the card, so everything here is driven by props.
  */
 export function useMemoCardActions({
   canManage,
-  draftContent,
   isTrashed,
   memo,
   onRevokeShare,
@@ -143,13 +149,36 @@ export function useMemoCardActions({
     }
   };
 
-  const saveEditing = async () => {
+  const saveEditing = async (submission: CardEditorSaveSubmission) => {
+    if (submission.content.length > 100_000) {
+      toast.error(t("toast.memoTooLong"));
+      return;
+    }
     setIsSaving(true);
     try {
+      let boundAttachments = submission.nextAttachments;
+      if (submission.attachmentsChanged) {
+        try {
+          const result = await bindMemoAttachments(
+            id,
+            submission.attachmentNames,
+          );
+          boundAttachments = result.attachments;
+        } catch (error) {
+          toast.error(errorMessage(error, t("toast.requestFailed")));
+          return;
+        }
+      }
       await onUpdate(id, {
-        content: draftContent,
+        content: submission.content,
         visibility: memo.visibility,
       });
+      if (submission.attachmentsChanged) {
+        await optimisticallyPatchMemo(queryClient, id, {
+          content: submission.content,
+          attachments: boundAttachments,
+        });
+      }
       setIsEditing(false);
     } catch {
       // The mutation displays the error and the editor stays open.

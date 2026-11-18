@@ -31,6 +31,7 @@ export * from "./relations";
 export * from "./review";
 export * from "./review-deck";
 export * from "./revisions";
+export * from "./scheduler-heartbeat";
 export * from "./semantic-search";
 export * from "./settings";
 export * from "./shares";

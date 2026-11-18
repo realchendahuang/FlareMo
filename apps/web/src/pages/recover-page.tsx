@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { recoverOwner } from "@/api";
 import { AuthPageFrame } from "@/components/auth-page-frame";
@@ -8,7 +8,7 @@ import {
 } from "@/components/new-password-fields";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
 
@@ -81,12 +81,11 @@ export function RecoverPage() {
           htmlFor="recover-secret"
         >
           {t("recover.secret")}
-          <Input
+          <PasswordInput
             autoComplete="off"
             disabled={isSubmitting}
             id="recover-secret"
             required
-            type="password"
             value={recoverySecret}
             onChange={(event) => setRecoverySecret(event.target.value)}
           />
@@ -103,6 +102,14 @@ export function RecoverPage() {
         <Button disabled={isSubmitting} type="submit" variant="brand">
           {isSubmitting ? t("recover.submitting") : t("recover.submit")}
         </Button>
+        <p className="text-center text-sm">
+          <Link
+            className="text-muted-foreground underline-offset-4 hover:underline"
+            to="/login"
+          >
+            {t("auth.signIn")}
+          </Link>
+        </p>
       </form>
     </AuthPageFrame>
   );

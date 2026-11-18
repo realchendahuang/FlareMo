@@ -2,6 +2,11 @@ import type { Editor } from "@tiptap/react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { MemoVisibility } from "@/api";
+import {
+  extractNonImageFiles,
+  filterAcceptedComposerFiles,
+  hasFileTransfer,
+} from "@/components/composer/attachment-upload-helpers";
 import { ComposerFileChips } from "@/components/composer/composer-file-chips";
 import { ComposerFocusCanvas } from "@/components/composer/composer-focus-canvas-lazy";
 import { ComposerScheduleChip } from "@/components/composer/composer-schedule-menu";
@@ -27,7 +32,7 @@ import { useI18n } from "@/i18n";
 import type { MemoCaptureInput } from "@/lib/local-memo-capture";
 import { extractTags } from "@/lib/memo";
 import { scheduledTaskTitles } from "@/lib/memo-schedule";
-import { countMemoImages, MAX_MEMO_IMAGES } from "@/lib/memo-submission";
+import { countMemoImages } from "@/lib/memo-submission";
 import type { TagSuggestion } from "@/lib/tag-autocomplete";
 
 type MemoComposerProps = {
@@ -73,6 +78,8 @@ export function MemoComposer({
   const { t } = useI18n();
   const editorRef = useRef<Editor | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const dragDepthRef = useRef(0);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   // Toolbar highlight for the selection; only re-renders when a flag flips.
   const [activeFormats, setActiveFormats] =
@@ -115,6 +122,36 @@ export function MemoComposer({
 
   const { isUploadingImages, enqueueInlineUploads, preuploadMarkdownRef } =
     useInlineImageUploads({ editorRef, draftRef, commitDraft });
+
+  const appendDraftFiles = (incoming: File[]) => {
+    if (incoming.length === 0 || isPendingRef.current) return;
+    const current = draftRef.current;
+    const { accepted, errorKeys } = filterAcceptedComposerFiles({
+      incoming,
+      existingFileCount:
+        current.files.length +
+        (current.preuploadedAttachmentNames?.length ?? 0),
+      existingImageCount: countMemoImages(current),
+    });
+    for (const key of errorKeys) toast.error(t(key));
+    if (accepted.length === 0) return;
+    commitDraft({ files: [...current.files, ...accepted] });
+  };
+
+  const handleInlineImageFiles = (files: File[], position: number) => {
+    if (files.length === 0 || isPendingRef.current) return;
+    const current = draftRef.current;
+    const { accepted, errorKeys } = filterAcceptedComposerFiles({
+      incoming: files,
+      existingFileCount:
+        current.files.length +
+        (current.preuploadedAttachmentNames?.length ?? 0),
+      existingImageCount: countMemoImages(current),
+    });
+    for (const key of errorKeys) toast.error(t(key));
+    if (accepted.length === 0) return;
+    enqueueInlineUploads(accepted, position);
+  };
 
   const updateContent = (content: string) => {
     // Drop preuploaded entries whose inline reference was deleted, so sending
@@ -192,8 +229,9 @@ export function MemoComposer({
 
   return (
     <form
-      className="paper group relative flex w-full flex-col rounded-xl border border-border/80 bg-card shadow-xs motion-safe:animate-rise motion-safe:transition-[border-color,box-shadow] motion-safe:duration-200 focus-within:border-[color-mix(in_oklch,var(--input),var(--foreground)_10%)] focus-within:shadow-md"
+      className="paper group relative flex w-full flex-col rounded-xl border border-border/80 bg-card shadow-xs motion-safe:animate-rise motion-safe:transition-[border-color,box-shadow,background-color] motion-safe:duration-200 focus-within:border-[color-mix(in_oklch,var(--input),var(--foreground)_10%)] focus-within:shadow-md data-[dragging=true]:border-primary/55 data-[dragging=true]:bg-primary/[0.025] data-[dragging=true]:shadow-md"
       data-compact={isCompact ? "true" : undefined}
+      data-dragging={isDraggingFiles ? "true" : undefined}
       onBlur={(event) => {
         if (event.currentTarget.contains(event.relatedTarget)) return;
         // Focus moving somewhere real means the author left on purpose.
@@ -202,6 +240,43 @@ export function MemoComposer({
         setIsComposerFocused(false);
       }}
       onFocus={() => setIsComposerFocused(true)}
+      onPaste={(event) => {
+        const nonImages = extractNonImageFiles(
+          event.clipboardData?.files ?? [],
+        );
+        if (nonImages.length === 0) return;
+        event.preventDefault();
+        appendDraftFiles(nonImages);
+      }}
+      onDragEnter={(event) => {
+        if (!hasFileTransfer(event.dataTransfer)) return;
+        dragDepthRef.current += 1;
+        setIsDraggingFiles(true);
+      }}
+      onDragOver={(event) => {
+        if (!hasFileTransfer(event.dataTransfer)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }}
+      onDragLeave={(event) => {
+        if (!hasFileTransfer(event.dataTransfer)) return;
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+      }}
+      onDrop={(event) => {
+        dragDepthRef.current = 0;
+        setIsDraggingFiles(false);
+        const allFiles = Array.from(event.dataTransfer?.files ?? []);
+        if (allFiles.length === 0) return;
+        // RichComposerEditor claims dropped images inside the editable body;
+        // non-image files (or anything dropped onto the toolbar/tray) land as
+        // draft attachments instead of navigating the browser away.
+        const filesToAttach = event.defaultPrevented
+          ? extractNonImageFiles(allFiles)
+          : allFiles;
+        event.preventDefault();
+        appendDraftFiles(filesToAttach);
+      }}
       ref={formRef}
       onSubmit={(event) => {
         event.preventDefault();
@@ -215,7 +290,7 @@ export function MemoComposer({
           disabled={isPending}
           editorRef={editorRef}
           onContentChange={updateContent}
-          onImageFiles={enqueueInlineUploads}
+          onImageFiles={handleInlineImageFiles}
           onTagTokenChange={tags ? setActiveTagToken : undefined}
           onWikiLinkTokenChange={setActiveWikiToken}
           onMentionTokenChange={
@@ -286,21 +361,7 @@ export function MemoComposer({
           voiceActive={voiceActive}
           captureAvailable={captureAvailable}
           withEditor={withEditor}
-          onAddFiles={(files) => {
-            // A note holds nine images at most; extra picks are dropped
-            // with a pointer to articles rather than failing at send time.
-            let room = MAX_MEMO_IMAGES - countMemoImages(draftRef.current);
-            const accepted = files.filter((file) => {
-              if (!file.type.startsWith("image/")) return true;
-              room -= 1;
-              return room >= 0;
-            });
-            if (accepted.length < files.length) {
-              toast.error(t("toast.tooManyMemoImages"));
-            }
-            if (accepted.length === 0) return;
-            commitDraft({ files: [...draftRef.current.files, ...accepted] });
-          }}
+          onAddFiles={appendDraftFiles}
           schedule={draft.schedule}
           onScheduleChange={(schedule) => commitDraft({ schedule })}
           onStartVoice={() => void captureController.start()}

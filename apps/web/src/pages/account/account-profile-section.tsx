@@ -373,7 +373,7 @@ export function AccountProfileSection({
                 <Input
                   autoCapitalize="none"
                   autoComplete="username"
-                  className="pl-7"
+                  className="ps-7"
                   disabled={updateUsernameIsPending}
                   id="account-username"
                   maxLength={30}

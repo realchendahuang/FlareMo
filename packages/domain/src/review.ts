@@ -269,16 +269,20 @@ export async function getWalkNextMemo(
     ),
   ].filter((id) => !excluded.has(id));
   if (relatedIds.length > 0) {
-    const related = await db
-      .select()
-      .from(memos)
-      .where(
-        and(
-          eq(memos.userId, user.id),
-          eq(memos.status, "normal"),
-          inArray(memos.id, relatedIds),
-        ),
-      );
+    const related: MemoRow[] = [];
+    for (const chunk of chunkForD1(relatedIds, d1IdsPerStatement(4))) {
+      const rows = await db
+        .select()
+        .from(memos)
+        .where(
+          and(
+            eq(memos.userId, user.id),
+            eq(memos.status, "normal"),
+            inArray(memos.id, chunk),
+          ),
+        );
+      related.push(...rows);
+    }
     if (related.length > 0) {
       return { memo: pickRandom(related), via: { type: "relation" } };
     }

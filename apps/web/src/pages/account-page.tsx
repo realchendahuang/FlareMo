@@ -150,7 +150,7 @@ export function AccountSettingsDialog({
                   </div>
                 </div>
               </div>
-              <ChevronRightIcon className="size-5 text-muted-foreground/40 shrink-0" />
+              <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground/40 rtl:rotate-180" />
             </button>
 
             {/* Mobile Nav Groups */}
@@ -302,7 +302,7 @@ export function AccountSettingsDialog({
           </button>
 
           {/* Sidebar Nav Items */}
-          <nav className="flex-1 overflow-y-auto flex flex-col gap-3 py-1">
+          <nav className="no-scrollbar flex flex-1 flex-col gap-3 overflow-y-auto py-1">
             {navGroups.map((group) => (
               <div
                 key={group.titleKey ?? "default"}

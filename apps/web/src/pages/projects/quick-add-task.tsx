@@ -1,9 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
-import { CornerDownLeftIcon, Maximize2Icon, PlusIcon } from "lucide-react";
+import { Maximize2Icon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { createTask, type Project } from "@/api";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { useI18n } from "@/i18n";
 import { addDays, todayKey } from "@/lib/calendar-date";
 import { errorMessage } from "@/lib/error";
@@ -60,7 +61,7 @@ export function QuickAddTask({
 
   return (
     <form
-      className="mb-3 flex h-10 items-center gap-2 rounded-lg border border-border/80 bg-card px-3 shadow-xs focus-within:border-[color-mix(in_oklch,var(--input),var(--foreground)_10%)]"
+      className="paper mb-3 flex h-10 items-center gap-2 rounded-lg border border-input bg-card px-3 shadow-xs transition-[border-color,box-shadow] hover:border-[color-mix(in_oklch,var(--input),var(--foreground)_10%)] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20"
       onSubmit={(event) => {
         event.preventDefault();
         const value = title.trim();
@@ -83,10 +84,9 @@ export function QuickAddTask({
       <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
         {hint}
       </span>
-      <CornerDownLeftIcon
-        aria-hidden="true"
-        className="size-3.5 shrink-0 text-muted-foreground/60"
-      />
+      <Kbd aria-hidden="true" className="hidden sm:inline-flex">
+        ↵
+      </Kbd>
       {/* The page's only "new task" entry besides this line: the full form,
           for notes, priority or another project. */}
       <Button

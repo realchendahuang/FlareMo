@@ -214,6 +214,8 @@ export async function finalizeAttachmentCleanupForIds(
   db: FlareMoDb,
   ids: string[],
 ) {
-  if (ids.length === 0) return;
-  await db.delete(attachments).where(inArray(attachments.id, ids));
+  const unique = [...new Set(ids)].filter((id) => id.length > 0);
+  for (const chunk of chunkForD1(unique, d1IdsPerStatement())) {
+    await db.delete(attachments).where(inArray(attachments.id, chunk));
+  }
 }

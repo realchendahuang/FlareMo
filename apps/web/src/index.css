@@ -190,6 +190,7 @@
 }
 
 :root {
+    color-scheme: light;
     /* Brand brand: hue-aligned with the KOSX signal orange (#ff6a00).
        Lightness/chroma ramp unchanged from the logo-gradient sampling. */
     --brand-50: oklch(0.96 0.025 52);
@@ -285,6 +286,7 @@
 }
 
 .dark {
+    color-scheme: dark;
     /* KOSX paper/surface anchors: paper #0a0a0a ≈ oklch(0.155),
        surface #1c1c1e ≈ oklch(0.21). */
     --background: oklch(0.158 0.006 70);
@@ -442,8 +444,17 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image: var(--paper-grain);
-    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent) transparent;
     text-rendering: optimizeLegibility;
+    }
+  /* Scoped to engines without ::-webkit-scrollbar (Firefox): in Chromium 121+,
+     setting `scrollbar-color` or `scrollbar-width` (even inherited from body)
+     disables ::-webkit-scrollbar and forces a thick native bar. Keeping this in
+     @layer base also lets `.no-scrollbar` in @layer utilities override it. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
+      }
     }
   html {
     @apply font-sans;
@@ -532,19 +543,32 @@
   font-synthesis: none;
   }
 
+/* Quiet warm-paper scrollbars (Issue #162): a 3px warm-ink filament inside a
+   6px hit area, with transparent track and corner so dark mode never flashes
+   a white gutter on vertical or horizontal overflow. */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
+  border: 1.5px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
-  background-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+  background-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  background-color: color-mix(in oklab, var(--muted-foreground) 42%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in oklab, var(--muted-foreground) 58%, transparent);
 }
 
 /* Liquid Glass baseline material (docs/liquid-glass-design.md): one recipe for

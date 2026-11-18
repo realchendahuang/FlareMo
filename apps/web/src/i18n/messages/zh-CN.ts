@@ -327,14 +327,14 @@ const messages = {
   "explorer.hourlyScopeFallback":
     "所选空间暂不提供小时明细；当前{period}共 {count} 条记录。",
   "explorer.noRecords": "无记录",
-  "explorer.periodNight": "夜间 (00-06)",
-  "explorer.periodMorning": "早晨 (06-12)",
-  "explorer.periodAfternoon": "下午 (12-18)",
-  "explorer.periodEvening": "晚间 (18-24)",
+  "explorer.periodNight": "夜间（00–06）",
+  "explorer.periodMorning": "早晨（06–12）",
+  "explorer.periodAfternoon": "下午（12–18）",
+  "explorer.periodEvening": "晚间（18–24）",
   "explorer.dayBreakdown":
     "{count} 条记录（早 {q1} · 午 {q2} · 晚 {q3} · 夜 {q0}）",
   "explorer.yearMonthSummary":
-    "{year}年{month} · {count} 条笔记 ({days} 活跃天)",
+    "{year}年{month} · {count} 条记录（{days} 活跃天）",
   "explorer.viewDayInTimeline": "在时间线查看该日",
   "explorer.classicClock": "经典天文时计",
   "calendar.overdueToday": "今天还有 {count} 件事没完成",
@@ -420,7 +420,6 @@ const messages = {
     "初始化失败。请检查输入；若已部分完成，请联系管理员恢复。",
   "auth.accountTitle": "账户与访问",
   "transfer.newExport": "新建导出",
-  "transfer.loadFailed": "无法加载数据传输任务。",
   "transfer.empty": "还没有数据传输任务。",
   "transfer.export": "导出",
   "transfer.import": "导入",
@@ -510,22 +509,21 @@ const messages = {
   "auth.copyFailed": "无法复制令牌，请手动安全保存。",
   "auth.tokenName": "令牌名称",
   "auth.tokenScopes": "权限范围",
-  "auth.tokenScopeNotes": "笔记访问",
-  "auth.tokenScopeAdmin": "笔记 + 管理",
-  "auth.tokenScopeNotesHint": "读写笔记、待办、文章、附件与 MCP 工具。",
+  "auth.tokenScopeNotes": "记录访问",
+  "auth.tokenScopeAdmin": "记录 + 管理",
+  "auth.tokenScopeNotesHint": "读写记录、待办、文章、附件与 MCP 工具。",
   "auth.tokenScopeAdminHint":
     "同时管理成员、插件与维护端点，仅在实例运维时使用。",
   "auth.tokenExpiry": "有效期（天）",
   "auth.tokenExpiryHint":
-    "留空默认 365 天，也可填 1–365 天；只有仅笔记权限的令牌可选择永久有效。",
-  "auth.tokenPermanent": "永久有效（仅笔记权限，不自动过期）",
+    "留空默认 365 天，也可填 1–365 天；只有仅记录权限的令牌可选择永久有效。",
+  "auth.tokenPermanent": "永久有效（仅记录权限，不自动过期）",
   "auth.never": "永不过期",
   "auth.tokenValidation":
-    "请填写名称；有效期可留空（默认 365 天）、填 1–365 天，或仅在笔记权限下选择永久有效。",
+    "请填写名称；有效期可留空（默认 365 天）、填 1–365 天，或仅在记录权限下选择永久有效。",
   "auth.createToken": "创建令牌",
   "auth.creatingToken": "正在创建…",
   "auth.tokenCreateFailed": "无法创建令牌。",
-  "auth.tokensLoadFailed": "无法加载个人访问令牌。",
   "auth.noTokens": "还没有个人访问令牌，在上方创建一个。",
   "usage.vectorTitle": "向量用量",
   "usage.vectorUnavailable": "暂时无法获取向量用量。",
@@ -649,7 +647,6 @@ const messages = {
   "admin.userCreateFailed": "无法添加成员。",
   "admin.userDeleteFailed": "无法移出成员。",
   "admin.userDeleted": "已移出成员。",
-  "admin.usersLoadFailed": "无法加载成员列表。",
   "admin.resetPassword": "重设密码",
   "admin.resetFailed": "无法生成重置链接。",
   "admin.resetLinkTitle": "请把下面的链接安全地发给该用户",
@@ -922,7 +919,7 @@ const messages = {
   "composer.linkRemove": "移除链接",
   "composer.linkOpen": "打开链接",
   "composer.formatMenu": "文字格式",
-  "composer.fullscreen.close": "收起全屏 (Esc)",
+  "composer.fullscreen.close": "收起全屏（Esc）",
   "composer.fullscreen.wordCount": "{count} 字",
   "composer.fullscreen.readingTime": "{minutes} 分钟阅读",
   "composer.fullscreen.savedLocally": "已保存在本地",
@@ -972,7 +969,7 @@ const messages = {
   "projects.view.upcomingHint": "未来一周到期的待办",
   "projects.view.upcomingEmptyTitle": "接下来一周很清闲",
   "projects.view.upcomingEmptyDescription":
-    "给便签安排日期后，它们会出现在这里。",
+    "给记录安排日期后，它们会出现在这里。",
   "projects.view.allHint": "所有待办，按状态分列",
   "projects.quickAdd.label": "添加待办",
   "projects.quickAdd.placeholder": "添加待办，回车保存",
@@ -995,7 +992,7 @@ const messages = {
   "composer.schedule.noProject": "不放进项目",
   "composer.schedule.clear": "取消安排",
   "composer.schedule.hint":
-    "发送后，每条未勾选的待办成为一项任务；没有待办行时，整条便签成为一项任务。到期当天提醒你。",
+    "发送后，每条未勾选的待办成为一项任务；没有待办行时，整条记录成为一项任务。到期当天提醒你。",
   "composer.schedule.taskCount": "{count} 项待办",
   "composer.schedule.noTasks": "没有未完成的待办",
   "composer.longform": "全屏书写",
@@ -1110,6 +1107,13 @@ const messages = {
   "insight.emptyResult": "AI 客户端返回了空结果。",
   "insight.createFailed": "洞察任务创建失败，请稍后重试。",
   "insight.deleteFailed": "删除失败，请稍后重试。",
+  "push.unsupported":
+    "当前浏览器环境不支持网页推送提醒（iOS 请先将站点添加到主屏幕）。",
+  "detail.compareRevision": "对比当前",
+  "detail.hideComparison": "收起对比",
+  "detail.revisionIdentical": "与当前版本内容一致",
+  "admin.plugins.uninstallConfirm":
+    "卸载「{name}」？已安装的插件包会被移除，相关分享卡片将不再可用。",
 } as const;
 
 export const zhCN = messages;

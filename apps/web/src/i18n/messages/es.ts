@@ -463,8 +463,6 @@ const messages = {
     "La configuración no pudo completarse. Revisa los datos; si quedó a medias, pide a un administrador que la recupere.",
   "auth.accountTitle": "Cuenta y acceso",
   "transfer.newExport": "Nueva exportación",
-  "transfer.loadFailed":
-    "No se pudieron cargar las tareas de transferencia de datos.",
   "transfer.empty": "Aún no hay tareas de transferencia de datos.",
   "transfer.export": "Exportar",
   "transfer.import": "Importar",
@@ -574,8 +572,6 @@ const messages = {
   "auth.createToken": "Crear token",
   "auth.creatingToken": "Creando…",
   "auth.tokenCreateFailed": "No se pudo crear el token.",
-  "auth.tokensLoadFailed":
-    "No se pudieron cargar los tokens de acceso personal.",
   "auth.noTokens": "Aún no tienes tokens de acceso personal — crea uno arriba.",
   "usage.vectorTitle": "Uso de vectores",
   "usage.vectorUnavailable": "El uso de vectores no está disponible por ahora.",
@@ -715,7 +711,6 @@ const messages = {
   "admin.userCreateFailed": "No se pudo agregar el miembro.",
   "admin.userDeleteFailed": "No se pudo quitar al miembro.",
   "admin.userDeleted": "Miembro quitado.",
-  "admin.usersLoadFailed": "No se pudo cargar la lista de miembros.",
   "admin.resetPassword": "Restablecer la contraseña",
   "admin.resetFailed": "No se pudo generar un enlace de restablecimiento.",
   "admin.resetLinkTitle": "Envía este enlace al usuario por un canal seguro",
@@ -1215,6 +1210,13 @@ const messages = {
     "No se pudo crear la tarea de análisis. Inténtalo más tarde.",
   "insight.deleteFailed":
     "No se pudo eliminar el análisis. Inténtalo de nuevo.",
+  "push.unsupported":
+    "Las notificaciones push web no son compatibles con este navegador (en iOS, añade primero FlareMo a la pantalla de inicio).",
+  "detail.compareRevision": "Comparar",
+  "detail.hideComparison": "Ocultar",
+  "detail.revisionIdentical": "Idéntico al contenido actual",
+  "admin.plugins.uninstallConfirm":
+    "¿Desinstalar «{name}»? Se eliminará su paquete y sus tarjetas para compartir dejarán de estar disponibles.",
 } as const satisfies Record<TranslationKey, string>;
 
 export const es = messages;

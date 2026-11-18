@@ -42,7 +42,7 @@ export function SendButton({
       ) : (
         <SendIcon
           className={cn(
-            "-translate-x-px translate-y-px motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-signal group-hover/send:translate-x-px group-hover/send:-translate-y-px",
+            "-translate-x-px translate-y-px motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-signal group-hover/send:translate-x-px group-hover/send:-translate-y-px rtl:translate-x-px rtl:-scale-x-100 rtl:group-hover/send:-translate-x-px",
             canSubmit && "motion-safe:animate-scale-in",
           )}
           key={canSubmit ? "lit" : "idle"}

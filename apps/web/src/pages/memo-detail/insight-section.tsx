@@ -280,6 +280,7 @@ export function InsightSection({ memoId }: { memoId: string }) {
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleteMutation.isPending}
+              variant="destructive"
               onClick={(event) => {
                 event.preventDefault();
                 handleDelete();

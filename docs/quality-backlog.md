@@ -173,9 +173,9 @@
 
 ### 本轮明确未做 / 后续跟踪
 
-- [ ] **Scheduler heartbeat/外部告警**：cron 已输出结构化汇总，但尚未持久化最近成功时间、未新增 health freshness，也未配置 Cloudflare/外部 dead-man switch。仓库内无法验证 Dashboard 是否已有告警。
+- [x] **Scheduler heartbeat/外部告警**：已通过实例级 `settings` 表持久化最近一次定时维护脱敏摘要，并在 `GET /api/app/health` 暴露 `scheduler` 字段（v0.33.0）；外部 dead-man switch 告警由运维侧按 `/api/app/health` 配置。
 - [ ] **从备份工件恢复演练**：`backup:drill:remote` 仍验证 live source → 临时目标；真正 `--from-backup` 读取 D1 dump/R2 镜像的自动化恢复演练未实现，文档已明确这个边界。
 - [ ] **TipTap 首屏链**：全屏画布 idle 预取已删；inline composer 仍会立即挂载富编辑器。改成 textarea 渐进增强涉及焦点交接、草稿同步和 suggestion 重建，本轮评估风险高于收益，保留后续单独做。
 - [ ] **非 all space 的早期日/周历史**：当前回退只覆盖 scoped stats 的 366 天窗口；超出窗口会显示 0。彻底修复需要后端 hourly API 支持 space 维度。
-- [ ] **插件 install/uninstall 端到端测试**：仍待补；本轮只补了 registry/artifact 出站安全边界。
+- [x] **插件 install/uninstall 端到端测试**：已在 `apps/worker/src/admin-endpoints.test.ts` 补齐合法 zip + SHA-256 安装、静态资源访问、篡改哈希/非法 manifest 400 拦截、角色与 PAT scope 守卫及卸载 R2 清理集成测试（v0.33.0）。
 - [ ] **依赖季度升级**：FlareMo 直接依赖仍有既有落后项（含 TypeScript/Vitest/Wrangler 等大版本）；按既有季度节奏处理，不与本轮安全修复混做。

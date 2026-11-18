@@ -96,10 +96,7 @@ export const MemoCard = memo(function MemoCard({
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingInline, setIsUploadingInline] = useState(false);
   const [draftContent, setDraftContent] = useState(memo.content);
-  // Card-owned, like the states above: an upload that outlives the editor
-  // session (Esc while a paste is still settling) keeps its target.
   const editEditorRef = useRef<Editor | null>(null);
   const isTrashed = memo.state === "trashed";
   const [commentsOpen, setCommentsOpen] = useState(() =>
@@ -122,9 +119,6 @@ export const MemoCard = memo(function MemoCard({
   // editor is open that would throw away the draft, so every write to
   // `isEditing` — including the one inside useMemoCardActions' save path —
   // goes through this wrapper, which reports the state to the list.
-  // The report happens beside the state write, not inside an updater:
-  // updaters run during render, and setting the list's state from there is
-  // React's "cannot update a component while rendering another" error.
   const editingRef = useRef(false);
   const setEditing = useCallback<Dispatch<SetStateAction<boolean>>>(
     (value) => {
@@ -141,7 +135,6 @@ export const MemoCard = memo(function MemoCard({
   const { changeVisibility, id, prefetchDetail, saveEditing, taskInteraction } =
     useMemoCardActions({
       canManage,
-      draftContent,
       isTrashed,
       memo,
       onRevokeShare,
@@ -155,12 +148,15 @@ export const MemoCard = memo(function MemoCard({
   const canOpenThread = canOpenMemoThread(memo, commentsEnabled);
 
   const startEditing = () => {
+    if (editingRef.current) {
+      editEditorRef.current?.commands.focus("end");
+      return;
+    }
     setDraftContent(memo.content);
     setEditing(true);
   };
 
   const stopEditing = () => setEditing(false);
-  const beginEditing = startEditing;
 
   return (
     <article
@@ -171,8 +167,11 @@ export const MemoCard = memo(function MemoCard({
         // gradient is allowed), instead of a thick colored border.
         memo.pinned &&
           "before:pointer-events-none before:absolute before:inset-y-4 before:start-0 before:w-[3px] before:rounded-e-full before:bg-brand-gradient",
-        isFocused && "border-ring/60 ring-3 ring-ring/20",
-        isEditing && "border-ring/50 shadow-sm ring-3 ring-ring/15",
+        isFocused && !isEditing && "border-ring/60 ring-3 ring-ring/20",
+        // Ember 3: a writing surface deepens its edge and lifts its shadow
+        // rather than drawing a heavy form-input focus ring.
+        isEditing &&
+          "border-[color-mix(in_oklch,var(--input),var(--foreground)_12%)] shadow-md",
       )}
       style={{ animationDelay: `${Math.min(index, 7) * 35}ms` }}
     >
@@ -188,6 +187,7 @@ export const MemoCard = memo(function MemoCard({
         }
         memo={memo}
         id={id}
+        isEditing={isEditing}
         isTrashed={isTrashed}
         canManage={canManage}
         canGovern={canGovern}
@@ -196,7 +196,7 @@ export const MemoCard = memo(function MemoCard({
         onHardDelete={onHardDelete}
         onPin={onPin}
         onRestore={onRestore}
-        onStartEditing={beginEditing}
+        onStartEditing={startEditing}
         onTrash={onTrash}
         share={share}
         onShare={onShare}
@@ -208,12 +208,11 @@ export const MemoCard = memo(function MemoCard({
       />
       {isEditing ? (
         <MemoCardEditor
+          attachments={attachments}
           content={draftContent}
-          isSaving={isSaving}
-          isUploadingInline={isUploadingInline}
-          setIsUploadingInline={setIsUploadingInline}
           editorRef={editEditorRef}
-          memoName={memo.name}
+          initialContent={memo.content}
+          isSaving={isSaving}
           onCancel={stopEditing}
           onContentChange={setDraftContent}
           onSave={saveEditing}

@@ -8,12 +8,19 @@ import { DownloadIcon, RefreshCcwIcon, UploadIcon } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { createImportTask, downloadExportJson, retryImportTask } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
 import {
   SettingsRow,
   SettingsSectionGroup,
 } from "@/components/settings-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { type TranslationKey, useI18n } from "@/i18n";
@@ -104,13 +111,20 @@ export function TransferPanel({
             <Skeleton className="h-16 w-full" />
           </div>
         ) : dataTasksQuery.isError ? (
-          <div className="p-4 text-sm text-destructive">
-            {t("transfer.loadFailed")}
-          </div>
+          <QueryErrorState
+            className="min-h-40 py-6 text-muted-foreground"
+            isRetrying={dataTasksQuery.isFetching}
+            onRetry={() => void dataTasksQuery.refetch()}
+          />
         ) : dataTasksQuery.data?.tasks.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            {t("transfer.empty")}
-          </div>
+          <Empty className="min-h-36 py-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <DownloadIcon />
+              </EmptyMedia>
+              <EmptyTitle>{t("transfer.empty")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="flex flex-col divide-y divide-border/40">
             {dataTasksQuery.data?.tasks.map((task) => (
@@ -155,7 +169,7 @@ export function TransferPanel({
                           }}
                         />
                       </div>
-                      <span className="text-[10px] tabular-nums text-muted-foreground">
+                      <span className="text-xs tabular-nums text-muted-foreground">
                         {task.progress_done}/{task.progress_total}
                       </span>
                     </div>
@@ -169,14 +183,23 @@ export function TransferPanel({
                       variant="outline"
                       className="h-8 text-xs"
                       onClick={() =>
-                        void downloadExportJson(task.id).then((blob) => {
-                          const url = URL.createObjectURL(blob);
-                          const anchor = document.createElement("a");
-                          anchor.href = url;
-                          anchor.download = `flaremo-export-${task.id}.json`;
-                          anchor.click();
-                          setTimeout(() => URL.revokeObjectURL(url), 1000);
-                        })
+                        void downloadExportJson(task.id)
+                          .then((blob) => {
+                            const url = URL.createObjectURL(blob);
+                            const anchor = document.createElement("a");
+                            anchor.href = url;
+                            anchor.download = `flaremo-export-${task.id}.json`;
+                            anchor.click();
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                          })
+                          .catch((error) => {
+                            toast.error(
+                              errorMessage(
+                                error,
+                                translate("toast.requestFailed"),
+                              ),
+                            );
+                          })
                       }
                     >
                       <DownloadIcon

@@ -296,12 +296,16 @@ export async function getFlaremoUserNames(
   db: FlareMoDb,
   userIds: string[],
 ): Promise<Map<string, string>> {
-  if (userIds.length === 0) return new Map();
-  const rows = await db
-    .select({ id: users.id, name: users.name })
-    .from(users)
-    .where(inArray(users.id, [...new Set(userIds)]));
-  return new Map(rows.map((row) => [row.id, row.name]));
+  const unique = [...new Set(userIds)].filter((id) => id.length > 0);
+  const byId = new Map<string, string>();
+  for (const chunk of chunkForD1(unique, d1IdsPerStatement())) {
+    const rows = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(inArray(users.id, chunk));
+    for (const row of rows) byId.set(row.id, row.name);
+  }
+  return byId;
 }
 
 /**

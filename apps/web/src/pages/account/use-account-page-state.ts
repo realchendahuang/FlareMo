@@ -263,9 +263,9 @@ export function useAccountPageState({
 
   // A deep link's section applies once it is actually visible to this viewer
   // (voice/admin entries appear only after `meQuery` resolves).
-  const initialSectionVisible = allItems.some(
-    (item) => item.id === initialSection,
-  );
+  const initialSectionVisible =
+    initialSection === "account" ||
+    allItems.some((item) => item.id === initialSection);
   useEffect(() => {
     if (!open || !initialSection || !initialSectionVisible) return;
     setSection(initialSection as SettingsSection);
