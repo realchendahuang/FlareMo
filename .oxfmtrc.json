@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": true,
+  "singleQuote": false,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "printWidth": 80,
+  "overrides": [
+    {
+      "files": ["**/*.jsonc"],
+      "options": {
+        "trailingComma": "none"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "**/dist/**",
+    ".wrangler/**",
+    "**/.wrangler/**",
+    "Temp/**",
+    "backups/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "migrations/**",
+    "docs/**",
+    "**/*.md",
+    "llms.txt",
+    "pnpm-lock.yaml",
+    "integrations/**",
+    "packages/apple/**",
+    "packages/kotlin/**",
+    "skills/**",
+    "plugins/official/**",
+    "apps/worker/src/worker-configuration.d.ts",
+    "apps/worker/src/memos-generated/**",
+    "apps/web/src/components/ui/**",
+    "apps/site/src/components/ui/**"
+  ]
+}

@@ -117,7 +117,9 @@ export async function updateUserWebhook(
             : normalizeSigningSecret(input.signingSecret, false);
         break;
       default:
-        throw new ValidationError(`Unsupported webhook update field: ${field}`);
+        throw new ValidationError(
+          `Unsupported webhook update field: ${String(field)}`,
+        );
     }
   }
 
@@ -234,7 +236,7 @@ function normalizeSigningSecret(value: string | undefined, generate: boolean) {
   if (!secret && generate) return generateSigningSecret();
   if (
     secret.length > 512 ||
-    [...secret].some((char) => {
+    Array.from(secret).some((char) => {
       const codePoint = char.codePointAt(0) ?? 0;
       return codePoint < 0x20 || codePoint === 0x7f || codePoint > 0x7e;
     })

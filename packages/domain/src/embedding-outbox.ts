@@ -174,10 +174,7 @@ function embeddingFailureMessage(error: unknown): string {
 
 // The vector-id helpers and the full index rebuild live in sibling modules;
 // re-exported here so the original public surface of this module is unchanged.
-export {
-  chunkIdsForMemo,
-  EMBEDDING_MAX_CHUNKS,
-} from "./embedding-processors";
+export { chunkIdsForMemo, EMBEDDING_MAX_CHUNKS } from "./embedding-processors";
 export {
   type RebuildEmbeddingDeps,
   rebuildEmbeddingIndexes,

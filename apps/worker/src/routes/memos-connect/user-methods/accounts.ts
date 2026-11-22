@@ -106,7 +106,9 @@ export async function connectUserAccountMethod(
       ).find((item) => item.id === tokenId);
       if (!token)
         throw new CompatValidationError("Personal access token not found");
-      await (await getFlareMoAuth(c.env)).api.updateApiKey({
+      await (
+        await getFlareMoAuth(c.env)
+      ).api.updateApiKey({
         body: {
           configId: "memos",
           keyId: token.id,

@@ -317,6 +317,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const untagged = timeline?.untagged ?? false;
   const deleteTag = deleteTagMutation.mutate;
   const renameTag = renameTagMutation.mutate;
+  const refetchStats = statsQuery.refetch;
+  const refetchTags = tagHierarchyQuery.refetch;
 
   const explorer: WorkspaceSidebarContent = useMemo(
     () => ({
@@ -335,8 +337,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       onImportFile: handleImportFile,
       onOpenSettings: () => setAccountSettingsOpen(true),
       onRenameTag: (from, to) => renameTag({ from, to }),
-      onRetryStats: () => void statsQuery.refetch(),
-      onRetryTags: () => void tagHierarchyQuery.refetch(),
+      onRetryStats: () => void refetchStats(),
+      onRetryTags: () => void refetchTags(),
       // On the timeline a tag click filters in place; from any other page it
       // jumps to the timeline with the filter applied.
       onTagChange: (tag) => {
@@ -386,11 +388,11 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       space,
       stats,
       statsQuery.isError,
-      statsQuery.refetch,
+      refetchStats,
       tagHierarchyQuery.data?.tags,
       tagHierarchyQuery.isError,
       tagHierarchyQuery.isPending,
-      tagHierarchyQuery.refetch,
+      refetchTags,
       timeZone,
       toggleSidebarCollapsed,
       untagged,

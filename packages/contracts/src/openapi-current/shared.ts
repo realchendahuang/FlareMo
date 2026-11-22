@@ -205,7 +205,7 @@ export const secured = (input: Record<string, unknown>) => ({
 export const connectOperation = (
   operationId: string,
   summary: string,
-  security: unknown[] | undefined = undefined,
+  security?: unknown[],
 ) =>
   secured({
     operationId,

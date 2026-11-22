@@ -1,14 +1,16 @@
 {
   "name": "@flaremo/web",
-  "license": "AGPL-3.0-only",
-  "private": true,
   "version": "0.33.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false && vite build",
-    "check": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
+    "build": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast && vite build",
+    "check": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast",
+    "typecheck": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast",
+    "typecheck:strict": "tsrs --noEmit -p tsconfig.app.json --pretty false && tsrs --noEmit -p tsconfig.node.json --pretty false",
+    "typecheck:tsc": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests",
     "preview": "vite preview"
   },

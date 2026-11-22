@@ -74,7 +74,13 @@ export function renderInsightValue(value: unknown, depth = 0): ReactNode {
       </div>
     );
   }
-  return <span>{String(value)}</span>;
+  return (
+    <span>
+      {typeof value === "bigint" || typeof value === "symbol"
+        ? value.toString()
+        : "[function]"}
+    </span>
+  );
 }
 
 function JsonFallback({ value }: { value: unknown }) {

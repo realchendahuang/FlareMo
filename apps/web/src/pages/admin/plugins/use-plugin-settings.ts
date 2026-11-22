@@ -268,7 +268,7 @@ export function usePluginSettings() {
     value: ShareCardOptionValue,
   ) => {
     if (!settings) return;
-    const cardOptions = { ...(settings.cards.options[cardId] ?? {}) };
+    const cardOptions = { ...settings.cards.options[cardId] };
     cardOptions[key] = value;
     saveMutation.mutate({
       ...settings,

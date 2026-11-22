@@ -195,7 +195,6 @@ function VirtualizedCards({
     });
     return indexes;
   }, [editingMemoNames, memos]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: listRef is a ref (its identity never changes) and `memos.length` is the deliberate re-measure trigger, not a value the effect reads.
   useLayoutEffect(() => {
     const element = listRef.current;
     const parent = element?.closest<HTMLElement>("main") ?? null;
@@ -218,6 +217,7 @@ function VirtualizedCards({
     const observer = new ResizeObserver(measureMargin);
     if (element.parentElement) observer.observe(element.parentElement);
     return () => observer.disconnect();
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- listRef is a ref (its identity never changes) and `memos.length` is the deliberate re-measure trigger, not a value the effect reads.
   }, [memos.length]);
 
   const virtualizer = useVirtualizer({

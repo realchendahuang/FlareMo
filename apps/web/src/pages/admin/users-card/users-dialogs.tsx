@@ -188,7 +188,7 @@ function CreatedLinkDialog({
       copyLabelKey="admin.copyResetLink"
       description={t("admin.activationDescription")}
       onCopy={() => {
-        if (createdLink) void handleCopyResetLink(createdLink);
+        if (createdLink) handleCopyResetLink(createdLink);
       }}
       onOpenChange={(open) => {
         if (!open) setCreatedLink(null);
@@ -220,7 +220,7 @@ function ResetLinkDialog({
       copyLabelKey="admin.copyResetLink"
       description={t("admin.resetLinkDescription")}
       onCopy={() => {
-        if (resetLink) void handleCopyResetLink(resetLink);
+        if (resetLink) handleCopyResetLink(resetLink);
       }}
       onOpenChange={(open) => {
         if (!open) setResetLink(null);

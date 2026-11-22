@@ -437,7 +437,7 @@ export async function importData(
       : null;
     const objectKey = options.attachmentR2Keys?.get(attachment.name);
     const payload = {
-      ...(attachment.payload ?? {}),
+      ...attachment.payload,
       ...(objectKey ? {} : { imported_without_binary: true }),
     };
     const sourceId = parseResourceName(attachment.name, "attachments");

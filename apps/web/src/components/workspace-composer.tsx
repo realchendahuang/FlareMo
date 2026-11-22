@@ -142,7 +142,6 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
   // Following the space into a different corpus retargets an untouched draft.
   // A draft with content keeps the visibility its author already chose.
   const lastVisibilitySource = useRef(preferredVisibility);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retarget on preference change, not on every draft keystroke; the capture object is stable across renders
   useEffect(() => {
     if (lastVisibilitySource.current === preferredVisibility) return;
     lastVisibilitySource.current = preferredVisibility;
@@ -151,6 +150,7 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
       ...current,
       visibility: preferredVisibility,
     }));
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- retarget on preference change, not on every draft keystroke; the capture object is stable across renders
   }, [preferredVisibility]);
 
   const flushQueuedCaptures = useCallback(async () => {

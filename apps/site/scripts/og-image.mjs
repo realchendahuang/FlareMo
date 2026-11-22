@@ -15,7 +15,6 @@ import { chromium } from "@playwright/test";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const siteRoot = path.resolve(here, "..");
-const repoRoot = path.resolve(siteRoot, "../..");
 
 const mark = path.join(siteRoot, "public/brand/flaremo-mark-light-300.png");
 const shot = path.join(siteRoot, "public/screenshots/app-en.webp");
@@ -28,7 +27,10 @@ function dataUrl(target, mime) {
 let geistFace = "";
 try {
   const pkg = fileURLToPath(import.meta.resolve("@fontsource-variable/geist"));
-  const font = path.join(path.dirname(pkg), "files/geist-latin-wght-normal.woff2");
+  const font = path.join(
+    path.dirname(pkg),
+    "files/geist-latin-wght-normal.woff2",
+  );
   if (existsSync(font)) {
     geistFace = `@font-face { font-family: "Geist"; src: url("${dataUrl(font, "font/woff2")}") format("woff2"); font-weight: 100 900; }`;
   }
@@ -96,7 +98,10 @@ await mkdir(outDir, { recursive: true });
 
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  const page = await browser.newPage({
+    viewport: { width: 1200, height: 630 },
+    deviceScaleFactor: 1,
+  });
   await page.setContent(html, { waitUntil: "load" });
   await page.waitForTimeout(300);
   const buffer = await page.screenshot({ type: "png" });

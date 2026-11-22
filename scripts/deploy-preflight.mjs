@@ -21,8 +21,8 @@ const isCi = process.env.CI === "true" || process.env.CI === "1";
 if (!existsSync("wrangler.jsonc")) {
   const canGenerate = Boolean(
     process.env.WRANGLER_JSONC?.trim() ||
-      process.env.FLAREMO_PUBLIC_URL?.trim() ||
-      process.env.FLAREMO_D1_DATABASE_ID?.trim(),
+    process.env.FLAREMO_PUBLIC_URL?.trim() ||
+    process.env.FLAREMO_D1_DATABASE_ID?.trim(),
   );
   if (!canGenerate) {
     console.error(

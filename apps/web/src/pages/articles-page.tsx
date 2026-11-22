@@ -107,7 +107,7 @@ export function ArticlesPage() {
     mutationFn: () => createArticle({ lang: locale, title: "" }),
     onSuccess: ({ article }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
-      navigate({
+      void navigate({
         to: "/articles/$articleId/edit",
         params: { articleId: editorId(article.id) },
       });

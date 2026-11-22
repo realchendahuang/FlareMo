@@ -74,7 +74,7 @@
  */
 
 @theme inline {
-    /* Latin runs on the bundled Geist Variable (small, ~tens of KB) so the
+  /* Latin runs on the bundled Geist Variable (small, ~tens of KB) so the
        brand face is identical everywhere. CJK deliberately stays on platform
        system fonts (zero CJK bytes shipped); that list is language-scoped in
        --font-cjk below so Japanese and Korean keep their own glyph forms.
@@ -83,369 +83,374 @@
        faces must get first pick, while Arabic still lands on the bundled font
        wherever the platform ships none. MiSans / HarmonyOS Sans are name
        references only — their licenses forbid bundling them into this repo. */
-    --font-heading:
-        "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
-        var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
-    --font-sans:
-        "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
-        var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
-    /* Han is appended before the generic keyword so CJK inside a monospace
+  --font-heading:
+    "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
+  --font-sans:
+    "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
+  /* Han is appended before the generic keyword so CJK inside a monospace
        context (a Chinese comment in a fenced code block, the `mono` share
        card's body) resolves per script instead of falling through to whatever
        the browser happens to pick. Latin still wins on the first entry. */
-    --font-mono:
-        ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-        var(--font-cjk), monospace;
-    /* Fourth tier, exposed to share-card plugins as `family: "serif"`. Latin
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, var(--font-cjk),
+    monospace;
+  /* Fourth tier, exposed to share-card plugins as `family: "serif"`. Latin
        keeps Georgia — present on every desktop, so an exported card rasterizes
        the same everywhere — and the Han side is script-scoped below for the
        same reason as --font-cjk. */
-    --font-serif:
-        Georgia, "Times New Roman", var(--font-cjk-serif), serif;
+  --font-serif: Georgia, "Times New Roman", var(--font-cjk-serif), serif;
 
-    /* Brand ramp (default = flame; presets override --brand-* under
+  /* Brand ramp (default = flame; presets override --brand-* under
        [data-accent] set by BrandingProvider). .dark remaps the tokens below. */
-    --color-brand-50: var(--brand-50);
-    --color-brand-100: var(--brand-100);
-    --color-brand-200: var(--brand-200);
-    --color-brand-300: var(--brand-300);
-    --color-brand-400: var(--brand-400);
-    --color-brand-500: var(--brand-500);
-    --color-brand-600: var(--brand-600);
-    --color-brand-700: var(--brand-700);
-    --color-brand-coral: var(--brand-coral);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-coral: var(--brand-coral);
 
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-success-foreground: var(--success-foreground);
-    --color-success: var(--success);
-    --color-warning-foreground: var(--warning-foreground);
-    --color-warning: var(--warning);
-    --color-info-foreground: var(--info-foreground);
-    --color-info: var(--info);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
 
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 
-    /* Elevation: warm-tinted shadows in light mode; dark mode relies on
+  /* Elevation: warm-tinted shadows in light mode; dark mode relies on
        surface lightness steps instead of shadows. */
-    --shadow-xs: var(--shadow-xs);
-    --shadow-sm: var(--shadow-sm);
-    --shadow-md: var(--shadow-md);
-    --shadow-lg: var(--shadow-lg);
-    /* The outer steps alias into the warm scale. Left unmapped, Tailwind's
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  /* The outer steps alias into the warm scale. Left unmapped, Tailwind's
        cold black defaults would apply and keep casting in dark mode, where
        every other elevation token is zeroed. */
-    --shadow-2xs: var(--shadow-xs);
-    --shadow-xl: var(--shadow-lg);
-    --shadow-2xl: var(--shadow-lg);
+  --shadow-2xs: var(--shadow-xs);
+  --shadow-xl: var(--shadow-lg);
+  --shadow-2xl: var(--shadow-lg);
 
-    /* Readable text on a 10–15% tint of the matching status color. The
+  /* Readable text on a 10–15% tint of the matching status color. The
        *-foreground tokens are for text on a solid fill and go dark in dark
        mode, so they cannot be reused on tinted banners and badges. */
-    --color-success-emphasis: var(--success-emphasis);
-    --color-warning-emphasis: var(--warning-emphasis);
-    --color-info-emphasis: var(--info-emphasis);
+  --color-success-emphasis: var(--success-emphasis);
+  --color-warning-emphasis: var(--warning-emphasis);
+  --color-info-emphasis: var(--info-emphasis);
 
-    /* Motion: one duration scale + two easing curves for the whole product.
+  /* Motion: one duration scale + two easing curves for the whole product.
        Interaction feedback ≤ 140ms, entrances ≤ 320ms. The animate tokens
        hardcode durations and easings because @theme inline does not emit
        intermediate vars. */
-    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-signal: cubic-bezier(0.22, 1, 0.36, 1); /* KOSX signature curve */
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --animate-rise: flaremo-rise 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-fade: flaremo-fade 140ms ease-out both;
-    --animate-scale-in: flaremo-scale-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    --animate-shimmer: flaremo-shimmer 1.6s linear infinite;
-    /* Real-state indicators (recording ring, live partial line): whitelisted
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-signal: cubic-bezier(0.22, 1, 0.36, 1); /* KOSX signature curve */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-rise: flaremo-rise 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade: flaremo-fade 140ms ease-out both;
+  --animate-scale-in: flaremo-scale-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1)
+    both;
+  --animate-shimmer: flaremo-shimmer 1.6s linear infinite;
+  /* Real-state indicators (recording ring, live partial line): whitelisted
        informational motion, not decoration. */
-    --animate-signal-ring: flaremo-signal-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-    --animate-partial-pulse: flaremo-partial-pulse 1.6s ease-in-out infinite;
-    --animate-horizon-flip: flaremo-horizon-flip 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-horizon-zoom: flaremo-horizon-zoom 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-calendar-page-turn: flaremo-calendar-page-turn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-satellite-orbit: flaremo-satellite-orbit 60s linear infinite;
+  --animate-signal-ring: flaremo-signal-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1)
+    infinite;
+  --animate-partial-pulse: flaremo-partial-pulse 1.6s ease-in-out infinite;
+  --animate-horizon-flip: flaremo-horizon-flip 260ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-horizon-zoom: flaremo-horizon-zoom 220ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-calendar-page-turn: flaremo-calendar-page-turn 280ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-satellite-orbit: flaremo-satellite-orbit 60s linear infinite;
 }
 
 :root {
-    color-scheme: light;
-    /* Brand brand: hue-aligned with the KOSX signal orange (#ff6a00).
+  color-scheme: light;
+  /* Brand brand: hue-aligned with the KOSX signal orange (#ff6a00).
        Lightness/chroma ramp unchanged from the logo-gradient sampling. */
-    --brand-50: oklch(0.96 0.025 52);
-    --brand-100: oklch(0.93 0.05 49);
-    --brand-200: oklch(0.87 0.09 46);
-    --brand-300: oklch(0.79 0.135 42);
-    --brand-400: oklch(0.72 0.17 40);
-    --brand-500: oklch(0.63 0.19 35);
-    --brand-600: oklch(0.55 0.20 30);
-    --brand-700: oklch(0.47 0.18 26);
-    --brand-coral: oklch(0.64 0.21 20);
-    /* CTA gradient text stays white in every theme except bright presets
+  --brand-50: oklch(0.96 0.025 52);
+  --brand-100: oklch(0.93 0.05 49);
+  --brand-200: oklch(0.87 0.09 46);
+  --brand-300: oklch(0.79 0.135 42);
+  --brand-400: oklch(0.72 0.17 40);
+  --brand-500: oklch(0.63 0.19 35);
+  --brand-600: oklch(0.55 0.2 30);
+  --brand-700: oklch(0.47 0.18 26);
+  --brand-coral: oklch(0.64 0.21 20);
+  /* CTA gradient text stays white in every theme except bright presets
        (amber) whose gradient steps are too light for white text. */
-    --brand-gradient-foreground: oklch(1 0 0);
-    --gradient-brand: linear-gradient(
-        135deg,
-        var(--brand-400),
-        var(--brand-coral)
-    );
+  --brand-gradient-foreground: oklch(1 0 0);
+  --gradient-brand: linear-gradient(
+    135deg,
+    var(--brand-400),
+    var(--brand-coral)
+  );
 
-    /* Near-neutral surfaces (KOSX paper/ink family) with a hint of warmth
+  /* Near-neutral surfaces (KOSX paper/ink family) with a hint of warmth
        so the signal-orange accent never sits on cold gray. */
-    --background: oklch(0.976 0.0075 82);
-    --foreground: oklch(0.235 0.012 65);
-    --card: oklch(0.996 0.003 85);
-    --card-foreground: oklch(0.24 0.006 75);
-    --popover: oklch(0.997 0.003 85);
-    --popover-foreground: oklch(0.24 0.006 75);
-    --primary: var(--brand-500);
-    --primary-foreground: oklch(0.99 0.003 75);
-    --secondary: oklch(0.952 0.007 80);
-    --secondary-foreground: oklch(0.28 0.006 75);
-    --muted: oklch(0.948 0.007 80);
-    --muted-foreground: oklch(0.5 0.009 75);
-    /* Ember 3: accent is the neutral "pointer is here" fill (menu focus,
+  --background: oklch(0.976 0.0075 82);
+  --foreground: oklch(0.235 0.012 65);
+  --card: oklch(0.996 0.003 85);
+  --card-foreground: oklch(0.24 0.006 75);
+  --popover: oklch(0.997 0.003 85);
+  --popover-foreground: oklch(0.24 0.006 75);
+  --primary: var(--brand-500);
+  --primary-foreground: oklch(0.99 0.003 75);
+  --secondary: oklch(0.952 0.007 80);
+  --secondary-foreground: oklch(0.28 0.006 75);
+  --muted: oklch(0.948 0.007 80);
+  --muted-foreground: oklch(0.5 0.009 75);
+  /* Ember 3: accent is the neutral "pointer is here" fill (menu focus,
        palette selection, row hover, empty-state tiles). Brand tint washing
        every hovered row read loud; selection is ink, emphasis is flame. */
-    --accent: oklch(0.948 0.008 78);
-    --accent-foreground: var(--foreground);
-    --destructive: oklch(0.577 0.245 27.325);
-    --success: oklch(0.62 0.13 155);
-    --success-foreground: oklch(0.98 0.01 150);
-    --warning: oklch(0.70 0.13 75);
-    --warning-foreground: oklch(0.30 0.04 70);
-    --info: oklch(0.58 0.10 240);
-    --info-foreground: oklch(0.98 0.005 240);
-    --success-emphasis: oklch(0.45 0.11 155);
-    --warning-emphasis: oklch(0.47 0.10 65);
-    --info-emphasis: oklch(0.45 0.10 245);
-    --border: oklch(0.918 0.008 80);
-    --input: oklch(0.885 0.009 78);
-    --ring: var(--brand-400);
-    /* Ember 2: a tighter, more exact corner. Controls 10px, cards 14px,
+  --accent: oklch(0.948 0.008 78);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.62 0.13 155);
+  --success-foreground: oklch(0.98 0.01 150);
+  --warning: oklch(0.7 0.13 75);
+  --warning-foreground: oklch(0.3 0.04 70);
+  --info: oklch(0.58 0.1 240);
+  --info-foreground: oklch(0.98 0.005 240);
+  --success-emphasis: oklch(0.45 0.11 155);
+  --warning-emphasis: oklch(0.47 0.1 65);
+  --info-emphasis: oklch(0.45 0.1 245);
+  --border: oklch(0.918 0.008 80);
+  --input: oklch(0.885 0.009 78);
+  --ring: var(--brand-400);
+  /* Ember 2: a tighter, more exact corner. Controls 10px, cards 14px,
        dialogs 18px. The 0.875rem base read as soft and bubbly at h-8. */
-    --radius: 0.625rem;
-    /* Motion durations (Ember 3). Three steps only: feedback (hover, press,
+  --radius: 0.625rem;
+  /* Motion durations (Ember 3). Three steps only: feedback (hover, press,
        toggles), overlay (menus, popovers, tooltips) and surface (dialogs,
        sheets, page entrances). Easing is --ease-signal everywhere except
        micro pops (--ease-spring). */
-    --duration-fast: 120ms;
-    --duration-overlay: 160ms;
-    --duration-surface: 220ms;
-    /* Two-layer warm shadows: a tight contact shadow for edge definition plus
+  --duration-fast: 120ms;
+  --duration-overlay: 160ms;
+  --duration-surface: 220ms;
+  /* Two-layer warm shadows: a tight contact shadow for edge definition plus
        a soft ambient one for lift. Kept low so surfaces read as paper. */
-    --shadow-xs: 0 1px 2px oklch(0.30 0.02 60 / 0.045);
-    --shadow-sm:
-        0 1px 2px oklch(0.30 0.02 60 / 0.05),
-        0 2px 6px -2px oklch(0.30 0.02 60 / 0.06);
-    --shadow-md:
-        0 1px 2px oklch(0.30 0.02 60 / 0.05),
-        0 6px 16px -6px oklch(0.30 0.02 60 / 0.10);
-    --shadow-lg:
-        0 1px 3px oklch(0.30 0.02 60 / 0.06),
-        0 16px 40px -12px oklch(0.30 0.02 60 / 0.18);
+  --shadow-xs: 0 1px 2px oklch(0.3 0.02 60 / 0.045);
+  --shadow-sm:
+    0 1px 2px oklch(0.3 0.02 60 / 0.05),
+    0 2px 6px -2px oklch(0.3 0.02 60 / 0.06);
+  --shadow-md:
+    0 1px 2px oklch(0.3 0.02 60 / 0.05),
+    0 6px 16px -6px oklch(0.3 0.02 60 / 0.1);
+  --shadow-lg:
+    0 1px 3px oklch(0.3 0.02 60 / 0.06),
+    0 16px 40px -12px oklch(0.3 0.02 60 / 0.18);
 
-    /* Paper grain: a fractal-noise tile laid over the page and every paper
+  /* Paper grain: a fractal-noise tile laid over the page and every paper
        surface. ~6% warm ink in light mode, a faint light fleck in dark.
        Static, ~400 bytes, no request. */
-    --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .25 0 0 0 0 .16 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    /* The lit top edge of a sheet catching light. */
-    --paper-edge: inset 0 1px 0 oklch(1 0 0 / 0.7);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .25 0 0 0 0 .16 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* The lit top edge of a sheet catching light. */
+  --paper-edge: inset 0 1px 0 oklch(1 0 0 / 0.7);
 
-    /* Liquid Glass material (docs/liquid-glass-design.md). Neutral by design:
+  /* Liquid Glass material (docs/liquid-glass-design.md). Neutral by design:
        [data-accent] presets never tint the glass, so the accent matrix stays
        8 presets x 2 themes regardless of the material. Tint alpha is tuned
        for text contrast first (readability pass 2026-09-19). */
-    --glass-blur: 18px;
-    --glass-saturate: 1.5;
-    --glass-tint: oklch(1 0 0 / 0.78);
-    --glass-rim: oklch(1 0 0 / 0.9);
-    --glass-edge: oklch(1 0 0 / 0.28);
-    --glass-shadow: oklch(0.2 0.02 60 / 0.16);
+  --glass-blur: 18px;
+  --glass-saturate: 1.5;
+  --glass-tint: oklch(1 0 0 / 0.78);
+  --glass-rim: oklch(1 0 0 / 0.9);
+  --glass-edge: oklch(1 0 0 / 0.28);
+  --glass-shadow: oklch(0.2 0.02 60 / 0.16);
 }
 
 .dark {
-    color-scheme: dark;
-    /* KOSX paper/surface anchors: paper #0a0a0a ≈ oklch(0.155),
+  color-scheme: dark;
+  /* KOSX paper/surface anchors: paper #0a0a0a ≈ oklch(0.155),
        surface #1c1c1e ≈ oklch(0.21). */
-    --background: oklch(0.158 0.006 70);
-    --foreground: oklch(0.95 0.008 80);
-    --card: oklch(0.207 0.007 70);
-    --card-foreground: oklch(0.955 0.003 75);
-    --popover: oklch(0.232 0.007 70);
-    --popover-foreground: oklch(0.955 0.003 75);
-    --primary: var(--brand-400);
-    --primary-foreground: oklch(0.20 0.03 30);
-    --secondary: oklch(0.265 0.004 75);
-    --secondary-foreground: oklch(0.955 0.003 75);
-    --muted: oklch(0.26 0.004 75);
-    --muted-foreground: oklch(0.68 0.008 75);
-    --accent: oklch(0.285 0.006 72);
-    --accent-foreground: var(--foreground);
-    --destructive: oklch(0.704 0.191 22.216);
-    --success: oklch(0.70 0.13 155);
-    --success-foreground: oklch(0.16 0.03 155);
-    --warning: oklch(0.76 0.12 75);
-    --warning-foreground: oklch(0.20 0.04 70);
-    --info: oklch(0.70 0.10 240);
-    --info-foreground: oklch(0.16 0.03 240);
-    --success-emphasis: oklch(0.82 0.11 155);
-    --warning-emphasis: oklch(0.85 0.10 80);
-    --info-emphasis: oklch(0.82 0.09 240);
-    --border: oklch(1 0 0 / 9%);
-    --input: oklch(1 0 0 / 13%);
-    --ring: var(--brand-400);
-    /* 暗色不用阴影表达层级（表面明度阶梯 + 发丝线）；token 置近零以免散落各处
+  --background: oklch(0.158 0.006 70);
+  --foreground: oklch(0.95 0.008 80);
+  --card: oklch(0.207 0.007 70);
+  --card-foreground: oklch(0.955 0.003 75);
+  --popover: oklch(0.232 0.007 70);
+  --popover-foreground: oklch(0.955 0.003 75);
+  --primary: var(--brand-400);
+  --primary-foreground: oklch(0.2 0.03 30);
+  --secondary: oklch(0.265 0.004 75);
+  --secondary-foreground: oklch(0.955 0.003 75);
+  --muted: oklch(0.26 0.004 75);
+  --muted-foreground: oklch(0.68 0.008 75);
+  --accent: oklch(0.285 0.006 72);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.7 0.13 155);
+  --success-foreground: oklch(0.16 0.03 155);
+  --warning: oklch(0.76 0.12 75);
+  --warning-foreground: oklch(0.2 0.04 70);
+  --info: oklch(0.7 0.1 240);
+  --info-foreground: oklch(0.16 0.03 240);
+  --success-emphasis: oklch(0.82 0.11 155);
+  --warning-emphasis: oklch(0.85 0.1 80);
+  --info-emphasis: oklch(0.82 0.09 240);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: var(--brand-400);
+  /* 暗色不用阴影表达层级（表面明度阶梯 + 发丝线）；token 置近零以免散落各处
        的 shadow-* 类在暗色下投影（docs/design-system.md 形状与层级） */
-    --shadow-xs: 0 0 0 transparent;
-    --shadow-sm: 0 0 0 transparent;
-    --shadow-md: 0 0 0 transparent;
-    --shadow-lg: 0 0 0 transparent;
-    /* Dark hierarchy comes from tint depth, not shadows — same rule as the
+  --shadow-xs: 0 0 0 transparent;
+  --shadow-sm: 0 0 0 transparent;
+  --shadow-md: 0 0 0 transparent;
+  --shadow-lg: 0 0 0 transparent;
+  /* Dark hierarchy comes from tint depth, not shadows — same rule as the
        shadow tokens above. */
-    --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    --paper-edge: inset 0 1px 0 oklch(1 0 0 / 0.05);
-    --glass-tint: oklch(0.22 0.012 60 / 0.70);
-    --glass-rim: oklch(1 0 0 / 0.24);
-    --glass-edge: oklch(1 0 0 / 0.08);
-    --glass-shadow: transparent;
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --paper-edge: inset 0 1px 0 oklch(1 0 0 / 0.05);
+  --glass-tint: oklch(0.22 0.012 60 / 0.7);
+  --glass-rim: oklch(1 0 0 / 0.24);
+  --glass-edge: oklch(1 0 0 / 0.08);
+  --glass-shadow: transparent;
 }
 
 /* Accent presets, derived from Radix Colors v3 (single shared ramp per preset;
    .dark remaps --primary/--ring via var(--brand-400) globally). */
-:root[data-accent='ocean'] {
-    --brand-50: oklch(0.96 0.02 239);
-    --brand-100: oklch(0.938 0.035 235);
-    --brand-200: oklch(0.905 0.051 240);
-    --brand-300: oklch(0.863 0.068 243);
-    --brand-400: oklch(0.734 0.121 243);
-    --brand-500: oklch(0.649 0.193 252);
-    --brand-600: oklch(0.622 0.183 252);
-    --brand-700: oklch(0.556 0.162 252);
-    --brand-coral: oklch(0.622 0.183 252);
+:root[data-accent="ocean"] {
+  --brand-50: oklch(0.96 0.02 239);
+  --brand-100: oklch(0.938 0.035 235);
+  --brand-200: oklch(0.905 0.051 240);
+  --brand-300: oklch(0.863 0.068 243);
+  --brand-400: oklch(0.734 0.121 243);
+  --brand-500: oklch(0.649 0.193 252);
+  --brand-600: oklch(0.622 0.183 252);
+  --brand-700: oklch(0.556 0.162 252);
+  --brand-coral: oklch(0.622 0.183 252);
 }
 
-:root[data-accent='indigo'] {
-    --brand-50: oklch(0.961 0.017 268);
-    --brand-100: oklch(0.935 0.031 270);
-    --brand-200: oklch(0.902 0.047 270);
-    --brand-300: oklch(0.862 0.068 271);
-    --brand-400: oklch(0.731 0.112 270);
-    --brand-500: oklch(0.544 0.191 267);
-    --brand-600: oklch(0.511 0.195 267);
-    --brand-700: oklch(0.509 0.172 267);
-    --brand-coral: oklch(0.511 0.195 267);
+:root[data-accent="indigo"] {
+  --brand-50: oklch(0.961 0.017 268);
+  --brand-100: oklch(0.935 0.031 270);
+  --brand-200: oklch(0.902 0.047 270);
+  --brand-300: oklch(0.862 0.068 271);
+  --brand-400: oklch(0.731 0.112 270);
+  --brand-500: oklch(0.544 0.191 267);
+  --brand-600: oklch(0.511 0.195 267);
+  --brand-700: oklch(0.509 0.172 267);
+  --brand-coral: oklch(0.511 0.195 267);
 }
 
-:root[data-accent='iris'] {
-    --brand-50: oklch(0.961 0.017 283);
-    --brand-100: oklch(0.934 0.032 284);
-    --brand-200: oklch(0.904 0.048 283);
-    --brand-300: oklch(0.863 0.069 283);
-    --brand-400: oklch(0.729 0.118 281);
-    --brand-500: oklch(0.54 0.184 278);
-    --brand-600: oklch(0.509 0.187 277);
-    --brand-700: oklch(0.511 0.174 280);
-    --brand-coral: oklch(0.509 0.187 277);
+:root[data-accent="iris"] {
+  --brand-50: oklch(0.961 0.017 283);
+  --brand-100: oklch(0.934 0.032 284);
+  --brand-200: oklch(0.904 0.048 283);
+  --brand-300: oklch(0.863 0.069 283);
+  --brand-400: oklch(0.729 0.118 281);
+  --brand-500: oklch(0.54 0.184 278);
+  --brand-600: oklch(0.509 0.187 277);
+  --brand-700: oklch(0.511 0.174 280);
+  --brand-coral: oklch(0.509 0.187 277);
 }
 
-:root[data-accent='jade'] {
-    --brand-50: oklch(0.961 0.022 160);
-    --brand-100: oklch(0.935 0.034 163);
-    --brand-200: oklch(0.902 0.047 165);
-    --brand-300: oklch(0.86 0.06 166);
-    --brand-400: oklch(0.721 0.103 173);
-    --brand-500: oklch(0.642 0.115 171);
-    --brand-600: oklch(0.613 0.11 171);
-    --brand-700: oklch(0.547 0.098 170);
-    --brand-coral: oklch(0.613 0.11 171);
+:root[data-accent="jade"] {
+  --brand-50: oklch(0.961 0.022 160);
+  --brand-100: oklch(0.935 0.034 163);
+  --brand-200: oklch(0.902 0.047 165);
+  --brand-300: oklch(0.86 0.06 166);
+  --brand-400: oklch(0.721 0.103 173);
+  --brand-500: oklch(0.642 0.115 171);
+  --brand-600: oklch(0.613 0.11 171);
+  --brand-700: oklch(0.547 0.098 170);
+  --brand-coral: oklch(0.613 0.11 171);
 }
 
-:root[data-accent='teal'] {
-    --brand-50: oklch(0.96 0.026 182);
-    --brand-100: oklch(0.934 0.042 180);
-    --brand-200: oklch(0.9 0.053 181);
-    --brand-300: oklch(0.856 0.064 181);
-    --brand-400: oklch(0.721 0.097 183);
-    --brand-500: oklch(0.649 0.114 182);
-    --brand-600: oklch(0.619 0.109 181);
-    --brand-700: oklch(0.552 0.101 179);
-    --brand-coral: oklch(0.619 0.109 181);
+:root[data-accent="teal"] {
+  --brand-50: oklch(0.96 0.026 182);
+  --brand-100: oklch(0.934 0.042 180);
+  --brand-200: oklch(0.9 0.053 181);
+  --brand-300: oklch(0.856 0.064 181);
+  --brand-400: oklch(0.721 0.097 183);
+  --brand-500: oklch(0.649 0.114 182);
+  --brand-600: oklch(0.619 0.109 181);
+  --brand-700: oklch(0.552 0.101 179);
+  --brand-coral: oklch(0.619 0.109 181);
 }
 
-:root[data-accent='crimson'] {
-    --brand-50: oklch(0.954 0.026 356);
-    --brand-100: oklch(0.926 0.04 356);
-    --brand-200: oklch(0.893 0.053 356);
-    --brand-300: oklch(0.854 0.065 355);
-    --brand-400: oklch(0.749 0.1 354);
-    --brand-500: oklch(0.634 0.213 1);
-    --brand-600: oklch(0.607 0.211 2);
-    --brand-700: oklch(0.552 0.207 4);
-    --brand-coral: oklch(0.607 0.211 2);
+:root[data-accent="crimson"] {
+  --brand-50: oklch(0.954 0.026 356);
+  --brand-100: oklch(0.926 0.04 356);
+  --brand-200: oklch(0.893 0.053 356);
+  --brand-300: oklch(0.854 0.065 355);
+  --brand-400: oklch(0.749 0.1 354);
+  --brand-500: oklch(0.634 0.213 1);
+  --brand-600: oklch(0.607 0.211 2);
+  --brand-700: oklch(0.552 0.207 4);
+  --brand-coral: oklch(0.607 0.211 2);
 }
 
-:root[data-accent='amber'] {
-    --brand-50: oklch(0.97 0.068 100);
-    --brand-100: oklch(0.945 0.103 98);
-    --brand-200: oklch(0.918 0.133 98);
-    --brand-300: oklch(0.88 0.123 93);
-    --brand-400: oklch(0.758 0.14 77);
-    --brand-500: oklch(0.854 0.157 84);
-    --brand-600: oklch(0.571 0.129 64); /* bright step 10 fails white-thumb contrast */
-    --brand-700: oklch(0.571 0.129 64);
-    --brand-coral: oklch(0.831 0.168 81);
-    --primary-foreground: oklch(0.352 0.049 54);
-    --brand-gradient-foreground: oklch(0.352 0.049 54);
+:root[data-accent="amber"] {
+  --brand-50: oklch(0.97 0.068 100);
+  --brand-100: oklch(0.945 0.103 98);
+  --brand-200: oklch(0.918 0.133 98);
+  --brand-300: oklch(0.88 0.123 93);
+  --brand-400: oklch(0.758 0.14 77);
+  --brand-500: oklch(0.854 0.157 84);
+  --brand-600: oklch(
+    0.571 0.129 64
+  ); /* bright step 10 fails white-thumb contrast */
+  --brand-700: oklch(0.571 0.129 64);
+  --brand-coral: oklch(0.831 0.168 81);
+  --primary-foreground: oklch(0.352 0.049 54);
+  --brand-gradient-foreground: oklch(0.352 0.049 54);
 }
 
 /* .dark's dark primary-foreground must survive the higher-specificity preset
    block above: amber's dark primary (brand-400, a light tan) needs dark text. */
-.dark[data-accent='amber'] {
-    --primary-foreground: oklch(0.20 0.03 30);
+.dark[data-accent="amber"] {
+  --primary-foreground: oklch(0.2 0.03 30);
 }
 
 /* Custom accent: the ramp itself is injected as inline style variables by
    BrandingProvider (derived from the seed hex in JS); these slots only route
    the two theme-dependent foregrounds, which inline styles can't vary. */
-:root[data-accent='custom'] {
-    --primary-foreground: var(--brand-custom-fg-light, oklch(0.99 0.003 75));
+:root[data-accent="custom"] {
+  --primary-foreground: var(--brand-custom-fg-light, oklch(0.99 0.003 75));
 }
-.dark[data-accent='custom'] {
-    --primary-foreground: var(--brand-custom-fg-dark, oklch(0.20 0.03 30));
+.dark[data-accent="custom"] {
+  --primary-foreground: var(--brand-custom-fg-dark, oklch(0.2 0.03 30));
 }
-
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground antialiased;
     background-image: var(--paper-grain);
     text-rendering: optimizeLegibility;
-    }
+  }
   /* Scoped to engines without ::-webkit-scrollbar (Firefox): in Chromium 121+,
      setting `scrollbar-color` or `scrollbar-width` (even inherited from body)
      disables ::-webkit-scrollbar and forces a thick native bar. Keeping this in
@@ -453,9 +458,14 @@
   @supports not selector(::-webkit-scrollbar) {
     * {
       scrollbar-width: thin;
-      scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
-      }
+      scrollbar-color: color-mix(
+          in oklab,
+          var(--muted-foreground) 28%,
+          transparent
+        )
+        transparent;
     }
+  }
   html {
     @apply font-sans;
     /* Mixed CJK/Latin setting: a hair of space between Han and Latin or
@@ -467,47 +477,50 @@
     text-autospace: normal;
     text-spacing-trim: normal;
     font-kerning: normal;
-    }
+  }
   /* CJK fallback list, keyed off the document language that I18nProvider
      writes to <html lang>. Font matching walks the family list per character,
      so a single shared list would hand Japanese kana/kanji to PingFang SC and
      render them with Chinese glyph forms; scoping by :lang() keeps each
      script on its own system face (and Korean off a last-resort fallback). */
   :root {
-    --font-cjk: "PingFang SC", "Hiragino Sans GB", MiSans,
-      "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans CJK SC",
-      "Noto Sans SC";
-    }
+    --font-cjk:
+      "PingFang SC", "Hiragino Sans GB", MiSans, "HarmonyOS Sans SC",
+      "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC";
+  }
   :root:lang(ja) {
-    --font-cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI",
-      "Yu Gothic", Meiryo, "Noto Sans JP", "Noto Sans CJK JP", "PingFang SC",
+    --font-cjk:
+      "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic",
+      Meiryo, "Noto Sans JP", "Noto Sans CJK JP", "PingFang SC",
       "Microsoft YaHei";
-    }
+  }
   :root:lang(ko) {
-    --font-cjk: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR",
+    --font-cjk:
+      "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR",
       "Noto Sans CJK KR", "PingFang SC", "Microsoft YaHei";
-    }
+  }
   /* Same scoping for the serif tier the share-card plugins select. Exported
      card images are rasterized in this document, so a Japanese user must get
      Mincho forms here — the pre-existing Chinese-only list is exactly what
      painted their cards with Chinese glyphs. */
   :root {
-    --font-cjk-serif: "Songti SC", "STSong", "Noto Serif CJK SC",
-      "Noto Serif SC", SimSun;
-    }
+    --font-cjk-serif:
+      "Songti SC", "STSong", "Noto Serif CJK SC", "Noto Serif SC", SimSun;
+  }
   :root:lang(ja) {
-    --font-cjk-serif: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP",
-      "Noto Serif CJK JP", "Songti SC";
-    }
+    --font-cjk-serif:
+      "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", "Noto Serif CJK JP",
+      "Songti SC";
+  }
   :root:lang(ko) {
-    --font-cjk-serif: "AppleMyungjo", Batang, "Noto Serif KR",
-      "Noto Serif CJK KR", "Songti SC";
-    }
+    --font-cjk-serif:
+      "AppleMyungjo", Batang, "Noto Serif KR", "Noto Serif CJK KR", "Songti SC";
+  }
   /* 字距重置在 @layer base 之外（见下方说明）——写在层内会被 utilities 盖掉 */
   ::selection {
     background: color-mix(in oklab, var(--brand-400) 28%, transparent);
-    }
-   /* 全局 reduced-motion 兜底：prefers-reduced-motion 下关停全部动画与过渡，
+  }
+  /* 全局 reduced-motion 兜底：prefers-reduced-motion 下关停全部动画与过渡，
       组件级 motion-safe: 前缀只对新增大型编排动画强制 */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -516,8 +529,8 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-      }
     }
+  }
 }
 
 /* 字距重置必须在 @layer base 之外。负字距来自 .tracking-* 工具类，而工具类
@@ -527,13 +540,13 @@
    两套分开写：各自只在本语言下该生效，拉丁语系保留负字距仍是正确的。 */
 [dir="rtl"] :is(h1, h2, h3, h4, [class*="tracking-"]) {
   letter-spacing: 0;
-  }
+}
 /* 汉字是满字身方块，字面几乎占满 em 框，两侧留白本就极小（实测 18px 下仅
    约 3.3px），tracking-tight 的 -0.025em 会吃掉其中约 15%，笔画多的字开始
    粘连。:lang(zh) 按 RFC 4647 前缀匹配，能命中 zh-CN。 */
 :is(:lang(zh), :lang(ja), :lang(ko)) :is(h1, h2, h3, h4, [class*="tracking-"]) {
   letter-spacing: 0;
-  }
+}
 
 /* 汉字没有真正的斜体字形，浏览器只能做几何倾斜（伪斜体）——笔画被剪切、
    观感廉价，而本项目的主力语言正是中文。两条真实路径会触发它：编辑器的
@@ -541,7 +554,7 @@
    逐处去掉斜体会让英文也失去强调，所以在语言层禁掉合成，拉丁语系不受影响。 */
 :is(:lang(zh), :lang(ja), :lang(ko)) {
   font-synthesis: none;
-  }
+}
 
 /* Quiet warm-paper scrollbars (Issue #162): a 3px warm-ink filament inside a
    6px hit area, with transparent track and corner so dark mode never flashes
@@ -560,15 +573,27 @@
   border: 1.5px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
-  background-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
+  background-color: color-mix(
+    in oklab,
+    var(--muted-foreground) 22%,
+    transparent
+  );
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: color-mix(in oklab, var(--muted-foreground) 42%, transparent);
+  background-color: color-mix(
+    in oklab,
+    var(--muted-foreground) 42%,
+    transparent
+  );
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background-color: color-mix(in oklab, var(--muted-foreground) 58%, transparent);
+  background-color: color-mix(
+    in oklab,
+    var(--muted-foreground) 58%,
+    transparent
+  );
 }
 
 /* Liquid Glass baseline material (docs/liquid-glass-design.md): one recipe for
@@ -599,9 +624,13 @@
     transparent 62%,
     var(--glass-edge)
   );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   mask-composite: exclude;
   pointer-events: none;
 }
@@ -609,7 +638,7 @@
 /* sonner injects its styles at runtime, AFTER this sheet, at 0-2-0
    specificity ([data-sonner-toast][data-styled=true]); the glass override
    must out-rank that or the material never lands on toasts. */
-[data-sonner-toast][data-styled=true].glass {
+[data-sonner-toast][data-styled="true"].glass {
   background: var(--glass-tint);
   -webkit-backdrop-filter: blur(var(--glass-blur))
     saturate(var(--glass-saturate));
@@ -620,7 +649,7 @@
    <html data-glass="off"> — both fall back to the solid card surface. */
 @media (prefers-reduced-transparency: reduce) {
   .glass,
-  [data-sonner-toast][data-styled=true].glass {
+  [data-sonner-toast][data-styled="true"].glass {
     background: var(--card);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -632,7 +661,7 @@
 }
 
 :root[data-glass="off"] .glass,
-:root[data-glass="off"] [data-sonner-toast][data-styled=true].glass {
+:root[data-glass="off"] [data-sonner-toast][data-styled="true"].glass {
   background: var(--card);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -1150,13 +1179,27 @@ svg.lucide[stroke-width="2"] {
     @apply mt-[5px] shrink-0 select-none;
   }
 
-  .composer-editor-content ul[data-type="taskList"] li > label input[type="checkbox"],
-  .article-editor-content ul[data-type="taskList"] li > label input[type="checkbox"] {
+  .composer-editor-content
+    ul[data-type="taskList"]
+    li
+    > label
+    input[type="checkbox"],
+  .article-editor-content
+    ul[data-type="taskList"]
+    li
+    > label
+    input[type="checkbox"] {
     @apply size-4 accent-brand-500;
   }
 
-  .composer-editor-content ul[data-type="taskList"] li[data-checked="true"] > div,
-  .article-editor-content ul[data-type="taskList"] li[data-checked="true"] > div {
+  .composer-editor-content
+    ul[data-type="taskList"]
+    li[data-checked="true"]
+    > div,
+  .article-editor-content
+    ul[data-type="taskList"]
+    li[data-checked="true"]
+    > div {
     @apply text-muted-foreground line-through;
   }
 

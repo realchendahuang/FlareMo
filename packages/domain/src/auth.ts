@@ -43,13 +43,13 @@ export async function getAuthBootstrapStatus(
 
   const hasExactCompletedLink = Boolean(
     bootstrap?.state === "complete" &&
-      bootstrap.authUserId &&
-      bootstrap.flaremoUserId === OWNER_FLAREMO_USER_ID &&
-      links.some(
-        (link) =>
-          link.authUserId === bootstrap.authUserId &&
-          link.flaremoUserId === bootstrap.flaremoUserId,
-      ),
+    bootstrap.authUserId &&
+    bootstrap.flaremoUserId === OWNER_FLAREMO_USER_ID &&
+    links.some(
+      (link) =>
+        link.authUserId === bootstrap.authUserId &&
+        link.flaremoUserId === bootstrap.flaremoUserId,
+    ),
   );
 
   if (hasExactCompletedLink) {

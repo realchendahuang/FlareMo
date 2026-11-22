@@ -263,7 +263,7 @@ export async function retryOrFailDataTask(
 export async function expireStaleDataTasks(
   db: FlareMoDb,
   now = new Date(),
-  taskId: string | undefined = undefined,
+  taskId?: string,
   onImportRollback?: (taskId: string, r2Keys: string[]) => Promise<void>,
 ) {
   const nowIso = now.toISOString();
@@ -363,7 +363,7 @@ export async function expireStaleDataTasks(
 export async function deleteExpiredDataTasks(
   db: FlareMoDb,
   now = new Date(),
-  taskId: string | undefined = undefined,
+  taskId?: string,
 ) {
   const expired = await db
     .select({ id: dataTasks.id })

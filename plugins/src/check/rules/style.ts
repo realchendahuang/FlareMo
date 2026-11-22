@@ -86,9 +86,13 @@ export function checkStyle(
       const family = font.family;
       if (family !== undefined) {
         if (typeof family !== "string" || !BUILT_IN_FONT_FAMILIES.has(family)) {
+          const familyLabel =
+            typeof family === "string"
+              ? family
+              : (JSON.stringify(family) ?? typeof family);
           checker.warn(
             "font/unsupported",
-            `${where}.font.family: "${String(family)}" is not a built-in family (${[...BUILT_IN_FONT_FAMILIES].join("/")}); packaged fonts are not supported yet, the card will fall back`,
+            `${where}.font.family: "${familyLabel}" is not a built-in family (${[...BUILT_IN_FONT_FAMILIES].join("/")}); packaged fonts are not supported yet, the card will fall back`,
           );
         }
       }

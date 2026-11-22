@@ -315,7 +315,7 @@ export function ArticleEditorPage({ articleId }: { articleId: string }) {
     onSuccess: () => {
       toast.success(t("article.deleted"));
       void queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
-      navigate({ to: "/articles" });
+      void navigate({ to: "/articles" });
     },
     onError: () => toast.error(t("article.deleteFailed")),
   });

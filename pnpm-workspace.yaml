@@ -22,8 +22,8 @@ allowBuilds:
   sharp: true
   workerd: true
 minimumReleaseAgeExclude:
-  - '@cloudflare/workers-types@4.20260627.1'
-  - '@cloudflare/workers-types@5.20260708.1'
+  - "@cloudflare/workers-types@4.20260627.1"
+  - "@cloudflare/workers-types@5.20260708.1"
   - miniflare@4.20260722.0
   - wrangler@4.114.0
   - seroval@1.7.5

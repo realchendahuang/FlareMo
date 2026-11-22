@@ -5,10 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#17191d" />
     <meta name="color-scheme" content="light dark" />
-    <link rel="icon" type="image/png" href="/brand/flaremo-mark-light-300.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      href="/brand/flaremo-mark-light-300.png"
+    />
     <link rel="apple-touch-icon" href="/brand/flaremo-app-icon-180.png" />
     <title>FlareMo</title>
-    <script>(function(){try{var m="system";try{m=localStorage.getItem("flaremo:theme")||"system"}catch(e){}var d=m==="dark"||(m!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.classList.toggle("dark",d);r.dataset.themeMode=m;var t=document.querySelector('meta[name="theme-color"]');if(t)t.setAttribute("content",d?"#0a0a0a":"#f5f6f7");}catch(e){}})();</script>
+    <script>
+      (function () {
+        try {
+          var m = "system";
+          try {
+            m = localStorage.getItem("flaremo:theme") || "system";
+          } catch (e) {}
+          var d =
+            m === "dark" ||
+            (m !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var r = document.documentElement;
+          r.classList.toggle("dark", d);
+          r.dataset.themeMode = m;
+          var t = document.querySelector('meta[name="theme-color"]');
+          if (t) t.setAttribute("content", d ? "#0a0a0a" : "#f5f6f7");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

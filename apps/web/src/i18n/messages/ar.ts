@@ -280,8 +280,7 @@ const messages = {
     "الملاحظات المنقولة إلى المهملات تظهر هنا لاستعادتها أو حذفها نهائيًا.",
   "list.refreshError":
     "تعذر تحميل أحدث المحتوى. الملاحظات المحمّلة سابقًا ما زالت متاحة.",
-  "list.loadMoreError":
-    "تعذر تحميل ملاحظات إضافية. المحتوى المحمّل سابقًا محفوظ.",
+  "list.loadMoreError": "تعذر تحميل ملاحظات إضافية. المحتوى المحمّل سابقًا محفوظ.",
   "list.updating": "جارٍ تحديث الملاحظات…",
   "notFound.title": "الصفحة غير موجودة",
   "notFound.description":
@@ -1147,8 +1146,7 @@ const messages = {
   "insight.pending": "في انتظار عميل الذكاء الاصطناعي…",
   "insight.pendingHint": "يعود عادة خلال دقيقة.",
   "insight.timeoutTitle": "لا نتيجة بعد",
-  "insight.timeoutDescription":
-    "ربما لم يأخذ عميل الذكاء الاصطناعي المهمة بعد.",
+  "insight.timeoutDescription": "ربما لم يأخذ عميل الذكاء الاصطناعي المهمة بعد.",
   "insight.checkAgain": "تحقق مجددًا",
   "insight.failedTitle": "تعذر إنشاء الرؤية",
   "insight.failedFallback": "لم يذكر عميل الذكاء الاصطناعي سبب الفشل.",

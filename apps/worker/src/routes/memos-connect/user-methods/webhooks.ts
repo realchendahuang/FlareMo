@@ -74,6 +74,14 @@ export async function connectUserWebhookMethod(
         );
       }
       const webhook = record(body.webhook);
+      const url = webhook.url;
+      if (url !== undefined && typeof url !== "string") {
+        throw new CompatValidationError("webhook.url must be a string");
+      }
+      const displayName = webhook.displayName;
+      if (displayName !== undefined && typeof displayName !== "string") {
+        throw new CompatValidationError("webhook.displayName must be a string");
+      }
       const signingSecret = webhook.signingSecret;
       if (signingSecret !== undefined && typeof signingSecret !== "string") {
         throw new CompatValidationError(
@@ -84,10 +92,8 @@ export async function connectUserWebhookMethod(
         c,
         await updateUserWebhook(context.db, context.user, {
           name: requiredString(webhook.name, "webhook.name"),
-          ...(webhook.url !== undefined ? { url: String(webhook.url) } : {}),
-          ...(webhook.displayName !== undefined
-            ? { displayName: String(webhook.displayName) }
-            : {}),
+          ...(url !== undefined ? { url } : {}),
+          ...(displayName !== undefined ? { displayName } : {}),
           ...(signingSecret !== undefined ? { signingSecret } : {}),
           updateMask: fieldMaskPaths(body.updateMask),
         }),

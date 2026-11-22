@@ -58,7 +58,8 @@ self.addEventListener("activate", (event) => {
           Promise.all(
             names
               .filter(
-                (name) => name.startsWith("flaremo-pwa-") && !CACHE_NAMES.has(name),
+                (name) =>
+                  name.startsWith("flaremo-pwa-") && !CACHE_NAMES.has(name),
               )
               .map((name) => caches.delete(name)),
           ),
@@ -224,7 +225,9 @@ function isCacheableStaticResponse(response) {
  * be cached forever as a JS or font file.
  */
 function isAssetContentType(response) {
-  const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+  const contentType = (
+    response.headers.get("content-type") ?? ""
+  ).toLowerCase();
   return (
     contentType.includes("javascript") ||
     contentType.includes("css") ||
@@ -249,7 +252,8 @@ function isCacheableAppShellResponse(response) {
 
   const responseUrl = new URL(response.url || scopeUrl.href);
   return (
-    responseUrl.origin === scopeUrl.origin && isPrivateAppNavigation(responseUrl)
+    responseUrl.origin === scopeUrl.origin &&
+    isPrivateAppNavigation(responseUrl)
   );
 }
 
@@ -288,7 +292,6 @@ function hasNoStoreDirective(response) {
     response.headers.get("cache-control") ?? "",
   );
 }
-
 
 // --- Web Push -------------------------------------------------------------
 

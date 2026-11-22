@@ -33,7 +33,6 @@ export function MemoSnapshotCard({
   const { t } = useI18n();
   const id = getMemoResourceId(memo);
   const [expanded, setExpanded] = useState(false);
-  const attachments = memo.attachments ?? [];
   // Same reading rules as the timeline card: a long body collapses, and
   // images the text already shows inline stay out of the gallery.
   const isCollapsible = useMemo(
@@ -42,12 +41,12 @@ export function MemoSnapshotCard({
   );
   const collapsed = isCollapsible && !expanded;
   const galleryAttachments = useMemo(
-    () => filterUnreferencedAttachments(attachments, memo.content),
-    [attachments, memo.content],
+    () => filterUnreferencedAttachments(memo.attachments ?? [], memo.content),
+    [memo.attachments, memo.content],
   );
   const resolveImageDimensions = useMemo(
-    () => createImageDimensionResolver(attachments),
-    [attachments],
+    () => createImageDimensionResolver(memo.attachments ?? []),
+    [memo.attachments],
   );
   return (
     <Card className="motion-safe:transition-[border-color,box-shadow] motion-safe:duration-150 hover:border-border hover:shadow-xs">

@@ -17,10 +17,7 @@ brandingApi.get("/", async (c) => {
   try {
     const db = getFlareMoDb(c.env);
     const branding = await getBrandingCached(db);
-    const markUrl = (
-      variant: BrandingMarkVariant,
-      mark: BrandingMark | null,
-    ) =>
+    const markUrl = (variant: BrandingMarkVariant, mark: BrandingMark | null) =>
       mark
         ? `/api/app/branding/marks/${variant}?v=${encodeURIComponent(mark.updated_at)}`
         : null;

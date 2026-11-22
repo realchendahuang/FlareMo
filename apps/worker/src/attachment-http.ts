@@ -162,7 +162,7 @@ function contentDisposition(
   filename: string,
   disposition: "attachment" | "inline",
 ) {
-  const safeFilename = [...filename.replaceAll(/["\\]/g, "_")]
+  const safeFilename = Array.from(filename.replaceAll(/["\\]/g, "_"))
     .map((character) => {
       const code = character.charCodeAt(0);
       return code < 32 || code === 127 ? "_" : character;

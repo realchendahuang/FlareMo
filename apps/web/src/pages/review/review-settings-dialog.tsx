@@ -24,6 +24,8 @@ import { errorMessage } from "@/lib/error";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
+const EMPTY_TAGS: string[] = [];
+
 /** Node names are already full paths (`写作/方法`). */
 function flattenTags(nodes: TagHierarchyNode[]): string[] {
   return nodes.flatMap((node) => [node.name, ...flattenTags(node.children)]);
@@ -56,7 +58,7 @@ export function ReviewSettingsDialog({
     staleTime: 30_000,
     retry: false,
   });
-  const excluded = settingsQuery.data?.excluded_tags ?? [];
+  const excluded = settingsQuery.data?.excluded_tags ?? EMPTY_TAGS;
   const tags = useMemo(() => {
     const all = flattenTags(tagsQuery.data?.tags ?? []);
     // An excluded tag that no longer exists still shows, so it can be removed.

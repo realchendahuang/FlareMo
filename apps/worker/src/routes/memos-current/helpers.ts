@@ -207,7 +207,7 @@ function unwrapNestedBody<T extends Record<string, unknown>>(
   key: keyof T,
 ): T {
   const nested = isRecord(body[key]) ? body[key] : undefined;
-  return { ...body, ...(nested ?? {}) } as T;
+  return (nested ? { ...body, ...nested } : { ...body }) as T;
 }
 
 export function unwrapMemoBody(body: z.infer<typeof currentMemoBodySchema>) {

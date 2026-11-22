@@ -1,14 +1,16 @@
 {
   "name": "@flaremo/telegram-bot-example",
-  "license": "AGPL-3.0-only",
   "version": "0.33.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "build": "tsc -b",
-    "check": "tsc -b --pretty false",
-    "typecheck": "tsc -b --pretty false",
+    "build": "tsrs -b",
+    "check": "tsrs -b --pretty false --fast",
+    "typecheck": "tsrs -b --pretty false --fast",
+    "typecheck:strict": "tsrs -b --pretty false",
+    "typecheck:tsc": "tsc -b --pretty false",
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests"
   },
   "devDependencies": {

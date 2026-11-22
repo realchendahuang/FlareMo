@@ -39,7 +39,7 @@ export function registerMaintenanceRoutes(app: Hono<HonoBindings>) {
       if (id === context.user.id) {
         throw new ForbiddenError("You cannot remove yourself from the team.");
       }
-      if (!/^users\//.test(id)) {
+      if (!id.startsWith("users/")) {
         throw new NotFoundError("Member not found");
       }
       // Peer protection: only the team owner removes administrators.

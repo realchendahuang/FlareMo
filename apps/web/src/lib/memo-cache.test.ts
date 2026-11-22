@@ -109,9 +109,8 @@ describe("prependOptimisticMemo", () => {
 
     const id = prependOptimisticMemo(queryClient, captureInput());
 
-    const data = queryClient.getQueryData<InfiniteData<ListMemosResponse>>(
-      timelineKey(),
-    );
+    const data =
+      queryClient.getQueryData<InfiniteData<ListMemosResponse>>(timelineKey());
     expect(data?.pages[0].memos.map((entry) => entry.id)).toEqual([id, "a"]);
     // Only page 0 grows; later pages keep their page tokens meaningful.
     expect(data?.pages[1].memos.map((entry) => entry.id)).toEqual(["b"]);
@@ -515,9 +514,8 @@ describe("optimisticallyPatchMemo", () => {
 
     await optimisticallyPatchMemo(queryClient, "a", { pinned: true });
 
-    const data = queryClient.getQueryData<InfiniteData<ListMemosResponse>>(
-      timelineKey(),
-    );
+    const data =
+      queryClient.getQueryData<InfiniteData<ListMemosResponse>>(timelineKey());
     expect(data?.pages[0].memos[0].pinned).toBe(true);
     expect(data?.pages[1].memos[0].pinned).toBe(true);
     expect(data?.pages[1].memos[1].pinned).toBe(false);

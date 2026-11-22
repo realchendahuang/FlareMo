@@ -89,7 +89,7 @@ test("the PWA caches the Capture app shell and serves it offline", async () => {
       },
     });
     assert.ok(response);
-    return response;
+    return Promise.resolve(response);
   };
 
   assert.equal(await navigate(), shell);
@@ -204,7 +204,7 @@ test("the asset cache drops the oldest entries on activate and skips non-asset t
     },
   });
   assert.ok(activated);
-  await activated;
+  await Promise.resolve(activated);
   assert.equal(entries.size, 600);
   // The oldest entry is gone and the newest survived.
   assert.equal(
@@ -223,7 +223,7 @@ test("the asset cache drops the oldest entries on activate and skips non-asset t
     handlers.get("fetch")?.({
       request: request("mislabeled"),
       respondWith(promise) {
-        Promise.resolve(promise).then(resolve);
+        void Promise.resolve(promise).then(resolve);
       },
     });
   });

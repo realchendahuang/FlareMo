@@ -342,12 +342,13 @@ export function MemoComments({
       toast.error(errorMessage(error, t("comments.deleteFailed"))),
   });
 
-  const comments = commentsQuery.data?.comments ?? [];
+  const commentsData = commentsQuery.data?.comments;
   const inline = variant === "inline";
-  const shown = useMemo(
-    () => (inline ? comments.slice(-INLINE_LIMIT) : comments),
-    [comments, inline],
-  );
+  const shown = useMemo(() => {
+    const list = commentsData ?? [];
+    return inline ? list.slice(-INLINE_LIMIT) : list;
+  }, [commentsData, inline]);
+  const comments = commentsData ?? [];
   const hidden = comments.length - shown.length;
 
   // Arriving through "#comments" (a card's comment count, a notification)
