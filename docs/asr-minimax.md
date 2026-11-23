@@ -1,6 +1,6 @@
 # MiniMax speech-to-text (asr-1.0) — provider guide
 
-Decision (2026-09-17): MiniMax is the voice-transcription provider for the kosx deployment and the first-class batch provider for the ASR layer. The streaming adapters (Volcano Engine / DashScope / Tencent) remain the live-transcription path for `/capture`; MiniMax covers every flow where the audio exists as a file before recognition starts. Its key is already staged in the kosx secret store as `FLAREMO_ASR_MINIMAX_API_KEY`, and `FLAREMO_VOICE_CONFIG_KEY` is set, so credentials saved through the settings UI are sealed as AES-GCM ciphertext.
+Decision (2026-09-17): MiniMax is the voice-transcription provider for the kosx deployment and the first-class batch provider for the ASR layer. The streaming adapters (Volcano Engine / DashScope / Tencent) remain the live-transcription path for the composer's microphone; MiniMax covers every flow where the audio exists as a file before recognition starts. Its key is already staged in the kosx secret store as `FLAREMO_ASR_MINIMAX_API_KEY`, and `FLAREMO_VOICE_CONFIG_KEY` is set, so credentials saved through the settings UI are sealed as AES-GCM ciphertext.
 
 ## Provider facts (verified 2026-09-17)
 
@@ -41,7 +41,7 @@ A second provider contract sits beside `StreamingAsrProvider`, with MiniMax as i
 2. ~~Encryption envelope~~ — done: `FLAREMO_VOICE_CONFIG_KEY` is set.
 3. Land the `BatchAsrProvider` contract, MiniMax adapter, WAV wrapping, capture record-then-transcribe mode, and panel option.
 4. `RATE_LIMITER` binding stays enabled (fail-open when absent is the known trap).
-5. Live smoke: one short real recording through `/capture`, verify the transcript memo renders in the reading view, then check the Token Plan usage bar.
+5. Live smoke: one short real recording through the composer's microphone, verify the transcript memo renders in the reading view, then check the Token Plan usage bar.
 
 ## Pitfalls summary
 

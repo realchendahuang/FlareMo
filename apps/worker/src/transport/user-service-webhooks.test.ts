@@ -98,6 +98,20 @@ describe("UserService webhooks and the durable outbox", () => {
       { parent: "users/owner", description: "transport lifecycle test" },
     );
     expect(pat.token).toEqual(expect.any(String));
+    const patExpiresAt = Date.parse(
+      String(
+        (pat.personalAccessToken as { expiresAt?: string } | undefined)
+          ?.expiresAt ?? "invalid",
+      ),
+    );
+    expect(patExpiresAt).toBeGreaterThan(
+      Date.now() + 364 * 24 * 60 * 60 * 1000,
+    );
+    expect(patExpiresAt).toBeLessThan(Date.now() + 366 * 24 * 60 * 60 * 1000);
+    const adminAttempt = await request("/api/app/admin/settings", {
+      headers: { authorization: `Bearer ${String(pat.token)}` },
+    });
+    expect(adminAttempt.status).toBe(403);
     const patMutation = await request(
       "/memos.api.v1.UserService/CreateUserWebhook",
       {
@@ -300,5 +314,45 @@ describe("UserService webhooks and the durable outbox", () => {
       { status: "delivered", attempts: 2, deliveredAt: expect.any(String) },
     ]);
     expect(webhook.signingSecret).toBeUndefined();
+  });
+
+  it("rejects webhook delivery redirects that leave the public internet", async () => {
+    await connectService("UserService", "CreateUserWebhook", {
+      parent: "users/owner",
+      webhook: {
+        url: "https://example.com/redirect-hook",
+        displayName: "Redirect hook",
+      },
+    });
+    await connect("CreateMemo", {
+      memo: { content: "redirect delivery memo" },
+    });
+    const requested: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        requested.push(String(input));
+        return new Response(null, {
+          status: 302,
+          headers: { location: "http://169.254.169.254/latest/meta-data" },
+        });
+      }),
+    );
+    try {
+      await dispatchMemosWebhookOutbox(createDb(env.DB));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(requested).toEqual(["https://example.com/redirect-hook"]);
+    expect(
+      await createDb(env.DB).select().from(memosWebhookDeliveries).all(),
+    ).toMatchObject([
+      {
+        status: "pending",
+        attempts: 1,
+        lastError: "outbound_blocked_host",
+      },
+    ]);
   });
 });

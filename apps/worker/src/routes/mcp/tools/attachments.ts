@@ -1,3 +1,4 @@
+import { thumbnailKeyFor } from "@flaremo/contracts/constants";
 import {
   finalizeAttachmentDelete,
   getAttachmentById,
@@ -53,7 +54,11 @@ export async function streamableDeleteAttachment(
     context.user,
     name,
   );
-  await env.ATTACHMENTS.delete(attachment.r2Key);
+  await env.ATTACHMENTS.delete(
+    attachment.payload?.thumbnail === true
+      ? [attachment.r2Key, thumbnailKeyFor(attachment.r2Key)]
+      : attachment.r2Key,
+  );
   await finalizeAttachmentDelete(context.db, context.user, attachment.id);
   return { ok: true };
 }

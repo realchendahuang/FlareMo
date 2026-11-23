@@ -4,13 +4,21 @@ import type {
   NewMemberRemovalJobRow,
 } from "@flaremo/db";
 import { memberRemovalJobs } from "@flaremo/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 export type MemberRemovalJobStatus =
   | "queued"
   | "removing"
   | "failed"
   | "completed";
+
+/**
+ * The D1 status enum predates dead-letter handling, so exhausted retries stay
+ * in `failed` and are marked `phase: "dead"`. Retryable failures go back to
+ * `queued` for the Queue redelivery or the cron recovery sweep.
+ */
+export const MEMBER_REMOVAL_MAX_ATTEMPTS = 3;
+export type MemberRemovalFailureOutcome = "queued" | "dead";
 
 export async function createMemberRemovalJob(
   db: FlareMoDb,
@@ -72,12 +80,19 @@ export async function requeueStaleMemberRemovalJobs(
     .where(eq(memberRemovalJobs.status, "removing"))
     .all();
   const stale = rows.filter((row) => now - Date.parse(row.updatedAt) > leaseMs);
+  const nowIso = new Date(now).toISOString();
   for (const row of stale) {
+    const exhausted = (row.attempts ?? 0) >= MEMBER_REMOVAL_MAX_ATTEMPTS;
     await updateMemberRemovalJob(db, row.id, {
-      status: "queued",
-      phase: "recovered",
-      errorCode: "worker_interrupted",
-      errorMessage: "Recovered after execution lease expired",
+      status: exhausted ? "failed" : "queued",
+      phase: exhausted ? "dead" : "recovered",
+      errorCode: exhausted
+        ? "worker_interrupted_exhausted"
+        : "worker_interrupted",
+      errorMessage: exhausted
+        ? "Execution lease expired after all retry attempts"
+        : "Recovered after execution lease expired",
+      completedAt: exhausted ? nowIso : null,
     });
   }
   return stale.length;
@@ -119,25 +134,52 @@ export async function updateMemberRemovalJob(
 
 export async function claimMemberRemovalJob(db: FlareMoDb, id: string) {
   const now = new Date().toISOString();
+  // Increment at claim time so a crash between claim and failure recording
+  // still counts toward the retry budget.
   const result = await db
     .update(memberRemovalJobs)
-    .set({ status: "removing", phase: "scheduled_cleanup", updatedAt: now })
+    .set({
+      status: "removing",
+      phase: "scheduled_cleanup",
+      attempts: sql`${memberRemovalJobs.attempts} + 1`,
+      updatedAt: now,
+    })
     .where(
       and(eq(memberRemovalJobs.id, id), eq(memberRemovalJobs.status, "queued")),
     );
   return result.meta?.changes === 1;
 }
 
+/**
+ * Record a failed execution without turning every transient failure into an
+ * unrecoverable terminal row. Attempts are counted by claimMemberRemovalJob.
+ */
+export async function retryOrFailMemberRemovalJob(
+  db: FlareMoDb,
+  id: string,
+  code: string,
+  message: string,
+): Promise<MemberRemovalFailureOutcome> {
+  const job = await getMemberRemovalJob(db, id);
+  if (!job) return "dead";
+  const exhausted = (job.attempts ?? 0) >= MEMBER_REMOVAL_MAX_ATTEMPTS;
+  const nowIso = new Date().toISOString();
+  await updateMemberRemovalJob(db, id, {
+    status: exhausted ? "failed" : "queued",
+    phase: exhausted ? "dead" : "retrying",
+    errorCode: code,
+    errorMessage: message.slice(0, 500),
+    completedAt: exhausted ? nowIso : null,
+  });
+  return exhausted ? "dead" : "queued";
+}
+
+/** Backwards-compatible failure hook used by admin and reconciliation paths. */
 export async function failMemberRemovalJob(
   db: FlareMoDb,
   id: string,
   code: string,
   message: string,
 ) {
-  return updateMemberRemovalJob(db, id, {
-    status: "failed",
-    errorCode: code,
-    errorMessage: message.slice(0, 500),
-    completedAt: undefined,
-  });
+  return retryOrFailMemberRemovalJob(db, id, code, message);
 }

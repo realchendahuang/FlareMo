@@ -71,11 +71,29 @@ describe("Current wire MCP surface", () => {
         headers: { ...bearer, "content-type": "application/json" },
         body: JSON.stringify({
           description: "current test token",
-          expiresInDays: 0,
+          // Omitted lifetime uses the finite 365-day server default.
         }),
       },
     );
-    const pat = (await patCreate.json()) as { token: string };
+    const patPayload = (await patCreate.json()) as {
+      token: string;
+      personalAccessToken: { expiresAt?: string };
+    };
+    const pat = { token: patPayload.token };
+    // An omitted compatibility lifetime uses the finite 365-day default; an
+    // explicit permanent token requires the separate notes-only opt-in below.
+    const expiresAt = Date.parse(
+      patPayload.personalAccessToken.expiresAt ?? "invalid",
+    );
+    expect(expiresAt).toBeGreaterThan(Date.now() + 364 * 24 * 60 * 60 * 1000);
+    expect(expiresAt).toBeLessThan(Date.now() + 366 * 24 * 60 * 60 * 1000);
+    // A compatibility-created token defaults to notes and may not enter the
+    // owner-only admin surface.
+    const adminAttempt = await fetchCurrent(
+      "http://flaremo.test/api/app/admin/settings",
+      { headers: { authorization: `Bearer ${pat.token}` } },
+    );
+    expect(adminAttempt.status).toBe(403);
 
     const mcpHeaders = {
       authorization: `Bearer ${pat.token}`,

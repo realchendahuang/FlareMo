@@ -20,6 +20,7 @@ import {
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
@@ -31,12 +32,17 @@ import { patchTasksCache } from "./task-cache";
 export function TaskFormDialog({
   task,
   defaultProjectId,
+  defaultTitle,
+  defaultDueAt,
   open,
   onSaved,
   onOpenChange,
 }: {
   task?: Task;
   defaultProjectId?: string;
+  /** New task only: what was already typed into the quick-add line. */
+  defaultTitle?: string;
+  defaultDueAt?: string;
   open: boolean;
   onSaved: () => void;
   onOpenChange: (open: boolean) => void;
@@ -44,7 +50,7 @@ export function TaskFormDialog({
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: queryKeys.projects.all,
     queryFn: () => listProjects(),
   });
   const [projectId, setProjectId] = useState<string>(
@@ -64,13 +70,13 @@ export function TaskFormDialog({
   useEffect(() => {
     if (open) {
       setProjectId(task?.project_id ?? defaultProjectId ?? "");
-      setTitle(task?.title ?? "");
+      setTitle(task?.title ?? defaultTitle ?? "");
       setNotes(task?.notes ?? "");
       setPriority(task?.priority ?? "none");
-      setDueAt(task?.due_at ?? "");
+      setDueAt(task?.due_at ?? defaultDueAt ?? "");
       setStatus(task?.status ?? "todo");
     }
-  }, [open, task, defaultProjectId]);
+  }, [open, task, defaultProjectId, defaultTitle, defaultDueAt]);
 
   // Active projects to pick from; when editing, a task still pointing at an
   // archived project keeps that option so the value never disappears.
@@ -157,6 +163,8 @@ export function TaskFormDialog({
     },
   });
 
+  const canSave = Boolean(title.trim()) && !saveMutation.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -165,7 +173,13 @@ export function TaskFormDialog({
             {task ? t("projects.editTask") : t("projects.newTask")}
           </DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSave) saveMutation.mutate();
+          }}
+        >
           <Field label={t("projects.field.project")}>
             <Select
               value={projectId}
@@ -234,17 +248,25 @@ export function TaskFormDialog({
               rows={3}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  (event.metaKey || event.ctrlKey) &&
+                  canSave
+                ) {
+                  event.preventDefault();
+                  saveMutation.mutate();
+                }
+              }}
             />
           </Field>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!title.trim() || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
-          >
-            {t("common.save")}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button disabled={!canSave} type="submit">
+              {saveMutation.isPending && <Spinner data-icon="inline-start" />}
+              {t("common.save")}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

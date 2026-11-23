@@ -45,7 +45,11 @@ export function CardGallerySection({ locale }: { locale: SupportedLocale }) {
               <img
                 alt={card.name}
                 className="aspect-[17/21] w-full object-cover"
+                decoding="async"
                 height={420}
+                // Keep this lazy: React 19 hoists a preload for imgs that carry
+                // fetchPriority, which made below-the-fold card PNGs compete
+                // with the hero for bandwidth (LCP regression).
                 loading="lazy"
                 src={CARD_IMAGES[index] ?? CARD_IMAGES[0]}
                 width={340}

@@ -95,6 +95,7 @@ export function AdminPanel() {
   const handleDeleteUser = async (user: AdminUser) => {
     try {
       await deleteUserMutation.mutateAsync(user.id);
+      toast.success(t("admin.userDeleted"));
     } catch (error) {
       toast.error(errorMessage(error, t("admin.userDeleteFailed")));
     }
@@ -118,6 +119,7 @@ export function AdminPanel() {
         id: user.id,
         role: user.role === "admin" ? "member" : "admin",
       });
+      toast.success(t("admin.roleUpdated"));
     } catch (error) {
       toast.error(errorMessage(error, t("admin.roleUpdateFailed")));
     }
@@ -131,6 +133,7 @@ export function AdminPanel() {
           readerExpiryBase(user) + days * 86_400_000,
         ).toISOString(),
       });
+      toast.success(t("admin.readerSet"));
     } catch (error) {
       toast.error(errorMessage(error, t("admin.readerSetFailed")));
     }
@@ -139,6 +142,7 @@ export function AdminPanel() {
   const handleRevokeReader = async (user: AdminUser) => {
     try {
       await revokeReaderMutation.mutateAsync(user.id);
+      toast.success(t("admin.readerRevoked"));
     } catch (error) {
       toast.error(errorMessage(error, t("admin.readerRevokeFailed")));
     }

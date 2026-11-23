@@ -6,28 +6,28 @@ import type {
   CalendarView,
   CreateArticleInput,
   CreateMemoInput,
-  CreateMemoryInput,
   CreateProjectInput,
   CreateTaskInput,
   MemoContextResponse,
   MemoDto,
-  MemoryDto,
-  MemoryRevisionDto,
   MemoState,
   MemoStatsResponse,
+  MemosPatScope,
   MemoVisibility,
   ProjectDto,
   PublicShareDto,
   RelatedMemosResponse,
+  ReviewSettingsResponse,
   ReviewWalkVia,
   ShareDto,
   TagHierarchyResponse,
   TaskDto,
   TaskPriority,
   TaskStatus,
+  TodayReviewItem,
+  TodayReviewReason,
   UpdateArticleInput,
   UpdateMemoInput,
-  UpdateMemoryInput,
   UpdateProjectInput,
   UpdateTaskInput,
   VectorUsageReport,
@@ -41,13 +41,14 @@ export type MemoContext = MemoContextResponse;
 export type RelatedMemo = RelatedMemosResponse["memos"][number];
 export type TagHierarchyNode = TagHierarchyResponse["tags"][number];
 export type AppNotification = AppNotificationDto;
-export type Memory = MemoryDto;
-export type MemoryRevision = MemoryRevisionDto;
 export type {
   MemoState,
   MemoStatsResponse,
   MemoVisibility,
+  ReviewSettingsResponse,
   ReviewWalkVia,
+  TodayReviewItem,
+  TodayReviewReason,
   VectorUsageReport,
 };
 
@@ -74,8 +75,6 @@ export type CloudflareUsageReport = {
 
 export type CreateMemoRequest = CreateMemoInput;
 export type UpdateMemoRequest = UpdateMemoInput;
-export type CreateMemoryRequest = CreateMemoryInput;
-export type UpdateMemoryRequest = UpdateMemoryInput;
 
 export type Project = ProjectDto;
 export type Task = TaskDto;
@@ -131,6 +130,7 @@ export type PersonalAccessToken = {
   start: string | null;
   prefix: string | null;
   enabled: boolean;
+  scopes: MemosPatScope[];
   expires_at: string | null;
   created_at: string;
   updated_at: string;
@@ -162,7 +162,12 @@ export type CurrentFlareMoUser = {
   username: string;
   avatar_url?: string | null;
   /** Present when the viewer holds an unexpired team membership; drives the space UI. */
-  team: { id: string; name: string } | null;
+  team: {
+    id: string;
+    name: string;
+    /** Seats in the organization, owner included (older servers omit it). */
+    member_count?: number;
+  } | null;
   /** True when a reader seat exists but has lapsed: the team space is hidden and a renewal notice shows instead. */
   team_expired?: boolean;
   /** Absolute expiry of the viewer's own reader seat (ISO string); null = seat without expiry. Present for readers only. */
@@ -177,6 +182,7 @@ export type AdminUser = {
   email: string;
   name: string;
   username: string;
+  avatar_url?: string | null;
   role: "owner" | "admin" | "member" | "reader" | null;
   /** Absolute expiry of the reader seat (ISO string), null when not a reader or the seat has no expiry. */
   reader_expires_at: string | null;

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useI18n } from "@/i18n";
 
 /**
  * Sandbox host for `kind: "sandbox"` plugin cards. The plugin's self-contained
@@ -195,6 +196,7 @@ export const ShareCardSandboxHost = forwardRef<ShareCardSandboxHandle, Props>(
     { html, width, height, payload, onReadyChange, onError },
     ref: Ref<ShareCardSandboxHandle>,
   ) {
+    const { t } = useI18n();
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const readyRef = useRef(false);
     const exportResolver = useRef<
@@ -348,7 +350,7 @@ export const ShareCardSandboxHost = forwardRef<ShareCardSandboxHandle, Props>(
           width,
           height: contentHeight ? Math.max(height, contentHeight) : height,
         }}
-        title="Share card plugin"
+        title={t("share.sandboxFrameTitle")}
       />
     );
   },

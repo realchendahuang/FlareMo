@@ -10,7 +10,7 @@ import type { HonoBindings } from "./context";
  * when these routes were never hit. They are low-traffic relative to the API
  * hot path, so this module registers small proxy handlers that import the
  * real route tree on first hit and cache it for the isolate's lifetime.
- * Hot-path trees (auth, memos CRUD, memory API) stay static — laziness there
+ * Hot-path trees (auth, memos CRUD) stay static — laziness there
  * would only move the cost around.
  *
  * The proxies forward with the full original path (the sub-app re-registers
@@ -99,7 +99,12 @@ export function mountLazySsrPages(app: Hono<HonoBindings>): void {
     registerArticlePage(inner);
     return inner;
   };
-  const pages = loadPages();
+  // Loaded on the first page request, not when the app is assembled. Eager
+  // invocation still parsed marked/sitemap/feed into every isolate that only
+  // ever served the API, which is exactly the startup cost the lazy split was
+  // meant to avoid.
+  let pages: Promise<AnyHono> | undefined;
+  const getPages = () => (pages ??= loadPages());
   for (const path of [
     "/sitemap.xml",
     "/sitemap-articles.xml",
@@ -110,7 +115,7 @@ export function mountLazySsrPages(app: Hono<HonoBindings>): void {
     // Forward the untouched raw request: the inner app registers the same
     // absolute paths, so no re-basing applies here.
     app.all(path, (c) => {
-      return pages.then((p) => {
+      return getPages().then((p) => {
         let ctx: unknown;
         try {
           ctx = c.executionCtx;

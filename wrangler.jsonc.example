@@ -21,17 +21,18 @@
   "assets": {
     "directory": "./apps/web/dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    // With the SPA not-found handling, navigation requests never invoke the
-    // Worker unless listed here — these paths are worker-rendered (SSR share
-    // pages, the unenumerable-sitemap 404, the branded favicon redirect).
+    "not_found_handling": "none",
+    // "none": a navigation that matches no asset file reaches the Worker,
+    // which serves the SPA shell with 200 for known routes and 404 for
+    // unknown ones (apps/worker/src/spa-routes.ts). The paths below are
+    // worker-rendered outright (SSR share pages, the unenumerable-sitemap
+    // 404, the branded favicon redirect).
     "run_worker_first": [
       "/api/*",
       "/article/*",
       "/feed.xml",
       "/file/*",
       "/mcp",
-      "/memory/*",
       "/openapi.json",
       "/memos.api.v1.*",
       "/share/*",
@@ -82,10 +83,6 @@
     {
       "binding": "VECTORIZE_MEMOS",
       "index_name": "flaremo-memos"
-    },
-    {
-      "binding": "VECTORIZE_MEMORIES",
-      "index_name": "flaremo-memories"
     }
   ],
   "ai": {

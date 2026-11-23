@@ -1,10 +1,11 @@
-import { articles, users } from "@flaremo/db";
+import { extractReferencedAttachmentIds } from "@flaremo/contracts";
 import {
   getBranding,
   getPublicArticleBySlug,
+  listPublishedArticlesForFeed,
+  listPublishedArticlesForSitemap,
   type PublicArticle,
 } from "@flaremo/domain";
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { Feed } from "feed";
 import type { Context, Hono } from "hono";
 import { gfmHeadingId } from "marked-gfm-heading-id";
@@ -18,6 +19,14 @@ import {
   escapeHtml,
   truncate,
 } from "./markdown-render";
+import {
+  PAPER_PAGE_STYLES,
+  PAPER_THEME_COLOR,
+  PAPER_UNAVAILABLE_STYLES,
+  paperDateZh,
+  paperPostmark,
+} from "./paper-page-styles";
+import { PUBLIC_PAGE_SECURITY_HEADERS } from "./public-page-security";
 import {
   highlightArticleCode,
   initArticleHighlighter,
@@ -70,8 +79,6 @@ function formatBytes(size: number): string {
 // with GFM heading ids and Shiki code highlighting.
 // ---------------------------------------------------------------------------
 
-const ATTACHMENT_REF = /\/file\/attachments\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
-
 /**
  * Body attachment references point at the authenticated `/file/` surface;
  * the public page rewrites them to the article's anonymous blob contract
@@ -106,7 +113,7 @@ export function rewriteArticleFileUrls(
         const query = match.includes("?")
           ? `?${match.split("?").slice(1).join("?")}`
           : "";
-        return `](${base}/api/public/articles/${encodeURIComponent(slug)}/attachments/${id}/blob${query}`;
+        return `](${base}/api/public/articles/${encodeURIComponent(slug)}/attachments/${encodeURIComponent(id)}/blob${query}`;
       });
     })
     .join("\n");
@@ -141,7 +148,10 @@ function createArticleMarked(
 // ---------------------------------------------------------------------------
 
 function articleBlobUrl(slug: string, attachmentId: string): string {
-  return `/api/public/articles/${encodeURIComponent(slug)}/attachments/${attachmentId}/blob`;
+  // Attachment ids come from user data (imports included). Encode both
+  // segments so a quote or slash can never break out of the HTML attribute
+  // this URL is written into.
+  return `/api/public/articles/${encodeURIComponent(slug)}/attachments/${encodeURIComponent(attachmentId)}/blob`;
 }
 
 function renderUnreferencedAttachments(data: ArticlePageData): string {
@@ -162,23 +172,17 @@ function renderUnreferencedAttachments(data: ArticlePageData): string {
       const sizeAttributes = dimensions
         ? ` width="${dimensions.width}" height="${dimensions.height}"`
         : ' loading="lazy" decoding="async"';
-      return `<figure class="gallery-item"><img src="${url}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
+      return `<figure class="gallery-item"><img src="${escapeHtml(url)}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
     }
     if (attachment.contentType?.startsWith("audio/")) {
-      return `<audio controls preload="none" src="${url}"></audio>`;
+      return `<audio controls preload="none" src="${escapeHtml(url)}"></audio>`;
     }
-    return `<p><a href="${url}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
+    return `<p><a href="${escapeHtml(url)}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
   });
   return `<hr />${items.join("\n")}`;
 }
 
-export function extractReferencedAttachmentIds(content: string): Set<string> {
-  const ids = new Set<string>();
-  for (const match of content.matchAll(ATTACHMENT_REF)) {
-    ids.add(match[1] ?? "");
-  }
-  return ids;
-}
+export { extractReferencedAttachmentIds } from "@flaremo/contracts";
 
 function metaTag(attr: string, attrValue: string, content: string): string {
   return `<meta ${attr}="${escapeHtml(attrValue)}" content="${escapeHtml(content)}" />`;
@@ -231,6 +235,7 @@ export function buildArticleHeadTags(input: ArticleMetaInput): string {
   const imageDimensions = image
     ? attachmentImageDimensions(image.payload)
     : undefined;
+  const imageAlt = image?.filename?.trim() || headline;
 
   const jsonLd: WithContext<BlogPosting> = {
     "@context": "https://schema.org",
@@ -267,6 +272,7 @@ export function buildArticleHeadTags(input: ArticleMetaInput): string {
       article.publishedAt ?? article.createdAt,
     ),
     metaTag("property", "article:modified_time", article.updatedAt),
+    ...(user?.name ? [metaTag("property", "article:author", user.name)] : []),
     metaTag(
       "name",
       "twitter:card",
@@ -287,61 +293,11 @@ export function buildArticleHeadTags(input: ArticleMetaInput): string {
         metaTag("property", "og:image:height", String(imageDimensions.height)),
       );
     }
-    tags.push(metaTag("property", "og:image:alt", image?.filename ?? ""));
+    tags.push(metaTag("property", "og:image:alt", imageAlt));
+    tags.push(metaTag("name", "twitter:image:alt", imageAlt));
   }
   return tags.join("\n    ");
 }
-
-const ARTICLE_PAGE_STYLES = `
-:root { color-scheme: light dark; --bg: #faf9f7; --fg: #1c1917; --muted: #78716c; --border: #e7e5e4; --accent: #c2410c; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0d0c0b; --fg: #e7e5e4; --muted: #a8a29e; --border: #292524; --accent: #fb923c; }
-}
-* { box-sizing: border-box; }
-/* Han fallbacks are keyed off the <html lang> this document already emits:
-   font matching walks the family list per character, so one shared list would
-   hand Japanese kana/kanji to a Chinese face and paint them with Chinese
-   glyph forms. The first block stays the default for every other locale. */
-:root { --font-cjk: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei"; }
-:root:lang(ja) { --font-cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP", "Noto Sans CJK JP", "PingFang SC", "Microsoft YaHei"; }
-:root:lang(ko) { --font-cjk: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans CJK KR", "PingFang SC", "Microsoft YaHei"; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", var(--font-cjk), system-ui, sans-serif; }
-main { max-width: 42rem; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
-header, footer { max-width: 42rem; margin: 0 auto; padding: 1rem 1.25rem; }
-header { border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-footer { border-top: 1px solid var(--border); color: var(--muted); font-size: .875rem; }
-header a { color: var(--fg); font-weight: 600; text-decoration: none; }
-header time { color: var(--muted); font-size: .875rem; }
-footer a { color: var(--muted); }
-article { overflow-wrap: break-word; }
-article h1, article h2, article h3, article h4, article h5, article h6 { line-height: 1.3; margin: 1.6em 0 .6em; }
-article h1 { font-size: 1.6rem; } article h2 { font-size: 1.35rem; } article h3 { font-size: 1.2rem; }
-article h1, article h2, article h3 { scroll-margin-top: 1rem; }
-article p { margin: 1em 0; }
-article a { color: var(--accent); }
-article img { max-width: 100%; height: auto; border-radius: .5rem; }
-article blockquote { margin: 1em 0; padding: 0 1em; border-left: 3px solid var(--border); color: var(--muted); }
-article pre { background: rgba(127,127,127,.12); padding: .9em 1em; border-radius: .5rem; overflow-x: auto; font-size: .875rem; line-height: 1.6; }
-article code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .875em; background: rgba(127,127,127,.12); padding: .15em .35em; border-radius: .25rem; }
-article pre code { background: transparent; padding: 0; }
-/* Shiki dual themes: colors arrive as CSS variables (defaultColor: false). */
-article pre.shiki { background-color: var(--shiki-light-bg); }
-article pre.shiki span { color: var(--shiki-light); }
-@media (prefers-color-scheme: dark) {
-  article pre.shiki { background-color: var(--shiki-dark-bg); }
-  article pre.shiki span { color: var(--shiki-dark); }
-}
-article table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .925rem; }
-article th, article td { border: 1px solid var(--border); padding: .4em .7em; text-align: start; }
-article hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
-article ul, article ol { padding-inline-start: 1.5em; }
-article li input[type=checkbox] { margin-inline-end: .4em; }
-.gallery-item { margin: 1em 0; }
-.gallery-item img { max-width: 100%; height: auto; border-radius: .5rem; }
-.gallery-item figcaption { color: var(--muted); font-size: .8rem; margin-top: .3rem; }
-audio { width: 100%; }
-.muted { color: var(--muted); }
-`;
 
 function htmlLang(lang: string | null): string {
   return (lang?.trim() || "zh-CN").replace(/_/g, "-");
@@ -374,7 +330,18 @@ export function renderArticleDocument(input: ArticleMetaInput): string {
     { async: false },
   );
   const galleryHtml = renderUnreferencedAttachments(data);
-  const publishedDate = utcDate(article.publishedAt ?? article.createdAt);
+  // The editor keeps the title in its own field; render it as the page
+  // heading unless the body already opens with that same `# Title`.
+  const title = article.title.trim();
+  const leadingHeading = /^\s*#\s+(.+?)\s*#*\s*$/m.exec(
+    content.trimStart().split("\n", 1)[0] ?? "",
+  )?.[1];
+  const titleHtml =
+    title && leadingHeading?.trim() !== title
+      ? `<h1 class="article-title">${escapeHtml(title)}</h1>`
+      : "";
+  const publishedAt = article.publishedAt ?? article.createdAt;
+  const publishedDate = utcDate(publishedAt);
   const modifiedDate = utcDate(article.updatedAt);
   const feedUrl = `${origin}/feed.xml`;
 
@@ -384,8 +351,8 @@ export function renderArticleDocument(input: ArticleMetaInput): string {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0d0c0b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.light}" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.dark}" media="(prefers-color-scheme: dark)" />
     ${buildArticleHeadTags(input)}
     <link rel="alternate" type="application/rss+xml" title="${escapeHtml(product)}" href="${escapeHtml(feedUrl)}" />
     <link
@@ -393,18 +360,25 @@ export function renderArticleDocument(input: ArticleMetaInput): string {
       href="${escapeHtml(input.faviconUrl ?? "/brand/flaremo-mark-light-300.png")}"
       type="${escapeHtml(input.faviconType ?? "image/png")}"
     />
-    <style>${ARTICLE_PAGE_STYLES}</style>
+    <style>${PAPER_PAGE_STYLES}</style>
   </head>
   <body>
-    <header>
-      <a href="${escapeHtml(origin)}/">${escapeHtml(product)}</a>
-      <time datetime="${escapeHtml(article.publishedAt ?? article.createdAt)}">${escapeHtml(publishedDate)}</time>
-    </header>
-    <main>
-      <article data-flaremo-article>${bodyHtml}</article>
-      ${galleryHtml}
-    </main>
-    <footer>发布于 ${escapeHtml(publishedDate)} · 更新于 ${escapeHtml(modifiedDate)} · 作者 ${escapeHtml(user.name)} · <a href="${escapeHtml(origin)}">用 ${escapeHtml(product)} 打开</a></footer>
+    <div class="desk">
+      <main class="sheet">
+        <header class="masthead ui" lang="zh-CN">
+          <a href="${escapeHtml(origin)}/"><span class="seal" aria-hidden="true"></span>${escapeHtml(product)}</a>
+          <time class="postmark" datetime="${escapeHtml(publishedAt)}">${escapeHtml(paperPostmark(publishedAt))}</time>
+        </header>
+        ${titleHtml}
+        <article data-flaremo-article>${bodyHtml}</article>
+        ${galleryHtml ? `<section class="gallery">${galleryHtml}</section>` : ""}
+        <footer lang="zh-CN">
+          <span class="author">${escapeHtml(user.name)}</span>
+          <time datetime="${escapeHtml(article.updatedAt)}">写于 ${escapeHtml(paperDateZh(publishedAt))}${modifiedDate !== publishedDate ? ` · 修订于 ${escapeHtml(paperDateZh(article.updatedAt))}` : ""}</time>
+        </footer>
+      </main>
+      <p class="colophon ui" lang="zh-CN"><a href="${escapeHtml(origin)}">在 ${escapeHtml(product)} 里，安静地记下想法</a></p>
+    </div>
   </body>
 </html>`;
 }
@@ -415,12 +389,19 @@ function renderArticleUnavailableDocument(product: string): string {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.light}" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.dark}" media="(prefers-color-scheme: dark)" />
     <title>${escapeHtml(product)}</title>
     <meta name="robots" content="noindex, nofollow" />
-    <style>body{margin:0;min-height:100svh;display:grid;place-items:center;background:#faf9f7;color:#1c1917;font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}@media (prefers-color-scheme:dark){body{background:#0d0c0b;color:#e7e5e4}}p{color:#78716c}</style>
+    <style>${PAPER_UNAVAILABLE_STYLES}</style>
   </head>
   <body>
-    <div><strong>${escapeHtml(product)}</strong><p>该文章不存在或尚未发布。</p></div>
+    <div class="note">
+      <span class="seal" aria-hidden="true"></span>
+      <p>这篇文章还没有落笔，或已经收起。</p>
+      <p class="ui">${escapeHtml(product)}</p>
+    </div>
   </body>
 </html>`;
 }
@@ -429,6 +410,7 @@ const ARTICLE_RESPONSE_INIT = {
   headers: {
     "content-type": "text/html; charset=utf-8",
     "cache-control": ARTICLE_HTML_CACHE_CONTROL,
+    ...PUBLIC_PAGE_SECURITY_HEADERS,
   },
 } as const;
 
@@ -476,18 +458,7 @@ export function registerArticlePage(app: Hono<HonoBindings>): void {
   app.get("/sitemap-articles.xml", async (c) => {
     const db = getFlareMoDb(c.env);
     const origin = publicOrigin(c.env, c.req.raw);
-    const rows = await db
-      .select({ slug: articles.slug, updatedAt: articles.updatedAt })
-      .from(articles)
-      .where(
-        and(
-          eq(articles.status, "published"),
-          isNull(articles.deletedAt),
-          isNotNull(articles.publishedAt),
-        ),
-      )
-      .orderBy(desc(articles.publishedAt))
-      .limit(2000);
+    const rows = await listPublishedArticlesForSitemap(db);
     // The package throws EmptySitemap on a zero-entry stream; an instance
     // with no published articles must still answer a valid empty urlset.
     let xml =
@@ -517,25 +488,12 @@ export function registerArticlePage(app: Hono<HonoBindings>): void {
   app.get("/feed.xml", async (c) => {
     const db = getFlareMoDb(c.env);
     const origin = publicOrigin(c.env, c.req.raw);
-    let product = "FlareMo";
-    try {
-      product = (await getBranding(db)).product;
-    } catch {
-      // Default branding is fine for a feed.
-    }
-    const rows = await db
-      .select({ article: articles, authorName: users.name })
-      .from(articles)
-      .innerJoin(users, eq(articles.userId, users.id))
-      .where(
-        and(
-          eq(articles.status, "published"),
-          isNull(articles.deletedAt),
-          isNotNull(articles.publishedAt),
-        ),
-      )
-      .orderBy(desc(articles.publishedAt))
-      .limit(FEED_SIZE);
+    const branding = await getBranding(db).catch(() => null);
+    const product = branding?.product ?? "FlareMo";
+    const favicon = branding?.favicon
+      ? `${origin}/api/app/branding/favicon?v=${encodeURIComponent(branding.favicon.updated_at)}`
+      : `${origin}/brand/flaremo-mark-light-300.png`;
+    const rows = await listPublishedArticlesForFeed(db, FEED_SIZE);
     const feed = new Feed({
       title: product,
       description: `${product} 发布的文章`,
@@ -544,7 +502,7 @@ export function registerArticlePage(app: Hono<HonoBindings>): void {
       // A single feed cannot vary language per item, so follow the newest
       // article's declared language rather than always claiming Chinese.
       language: htmlLang(rows[0]?.article.lang ?? null),
-      favicon: `${origin}/brand/flaremo-mark-light-300.png`,
+      favicon,
       copyright: `© ${new Date().getFullYear()} ${product}`,
       updated: rows[0]?.article.updatedAt
         ? new Date(rows[0].article.updatedAt)

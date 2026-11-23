@@ -31,6 +31,9 @@ publicApi.get("/shares/:token", async (c) => {
           ...attachmentToDto(attachment),
           download_url: blobUrl,
           preview_url: `${blobUrl}?preview=1`,
+          ...(attachment.payload?.thumbnail === true
+            ? { thumbnail_url: `${blobUrl}?preview=1&thumbnail=true` }
+            : {}),
         };
       }),
     });
@@ -56,7 +59,9 @@ publicApi.get("/shares/:token/attachments/:id/blob", async (c) => {
       attachment,
       bucket: c.env.ATTACHMENTS,
       cacheControl: "public, max-age=3600",
-      inlineRequested: c.req.query("preview") === "1",
+      inlineRequested:
+        c.req.query("preview") === "1" || c.req.query("thumbnail") === "true",
+      thumbnailRequested: c.req.query("thumbnail") === "true",
       request: c.req.raw,
     });
     if (!response) {
@@ -82,7 +87,9 @@ publicApi.get("/articles/:slug/attachments/:id/blob", async (c) => {
       attachment,
       bucket: c.env.ATTACHMENTS,
       cacheControl: "public, max-age=3600",
-      inlineRequested: c.req.query("preview") === "1",
+      inlineRequested:
+        c.req.query("preview") === "1" || c.req.query("thumbnail") === "true",
+      thumbnailRequested: c.req.query("thumbnail") === "true",
       request: c.req.raw,
     });
     if (!response) {

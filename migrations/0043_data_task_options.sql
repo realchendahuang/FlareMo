@@ -1,0 +1,1 @@
+ALTER TABLE `data_tasks` ADD `options` text;

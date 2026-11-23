@@ -1,6 +1,6 @@
 import {
+  AtSignIcon,
   CameraIcon,
-  Loader2Icon,
   RefreshCcwIcon,
   RotateCcwIcon,
   UploadIcon,
@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { InfoTip } from "@/components/info-tip";
+import { SettingsRow } from "@/components/settings-section";
+import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { formatDate } from "@/lib/date-format";
 import { prepareAvatarFile } from "@/lib/upload-compression";
@@ -26,7 +29,6 @@ import {
   CUTE_AVATAR_PRESETS,
   useCloseOnSuccess,
 } from "./account-panel-presets";
-import { SettingsRow } from "./apple-settings-ui";
 
 /**
  * The account group's avatar, display name and username rows plus their three
@@ -143,7 +145,7 @@ export function AccountProfileSection({
         }}
       />
       <SettingsRow
-        icon={UserRoundIcon}
+        icon={AtSignIcon}
         label={
           <div className="flex items-center gap-1.5">
             <span>{t("auth.usernameHandle")}</span>
@@ -199,7 +201,7 @@ export function AccountProfileSection({
                 onClick={() => avatarFileInputRef.current?.click()}
               >
                 {avatarIsPending ? (
-                  <Loader2Icon className="size-4 animate-spin" />
+                  <Spinner className="size-4" />
                 ) : (
                   <UploadIcon className="size-4" />
                 )}
@@ -328,11 +330,7 @@ export function AccountProfileSection({
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            {nameError && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                {nameError}
-              </p>
-            )}
+            {nameError && <Alert variant="destructive">{nameError}</Alert>}
             <DialogFooter className="mt-2">
               <Button
                 disabled={updateNameIsPending}
@@ -369,13 +367,13 @@ export function AccountProfileSection({
             >
               {t("auth.usernameHandle")}
               <div className="relative flex items-center">
-                <span className="absolute left-3 text-muted-foreground text-sm font-medium select-none pointer-events-none">
+                <span className="absolute start-3 text-muted-foreground text-sm font-medium select-none pointer-events-none">
                   @
                 </span>
                 <Input
                   autoCapitalize="none"
                   autoComplete="username"
-                  className="pl-7"
+                  className="ps-7"
                   disabled={updateUsernameIsPending}
                   id="account-username"
                   maxLength={30}
@@ -390,9 +388,7 @@ export function AccountProfileSection({
               </div>
             </label>
             {accountError && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                {accountError}
-              </p>
+              <Alert variant="destructive">{accountError}</Alert>
             )}
             <DialogFooter className="mt-2">
               <Button

@@ -101,3 +101,81 @@
 - 附件 R2 GC 四项加固、向量分区改造、备份演练脚本、部署流水线均已闭环。
 - 附件 R2 key 无路径穿越面；公开分享校验归属；PAT 撤销即时；bot webhook 鉴权；i18n zh/en 键零差异；无 console.log 残留。
 - composer 离线队列幂等；SW 离线壳/range 排除/SKIP_WAITING 握手正确。
+
+---
+
+## 2026-11-04 全量审计（第三轮）与修复台账
+
+本轮由 Lead + 三个只读审计员完成，覆盖 apps/web、apps/worker + packages、docs/scripts/deps。基线：`format:check`、`tsc`、Vitest（160 文件）、`scripts:test` 全绿；`pnpm audit --prod` 无已知漏洞。已修复项随本次提交落地，其余按下表继续跟踪。
+
+### 已修复（本轮）
+
+- [x] 自托管部署/更新 workflow 断链：模板恢复到 `docs/templates/workflows/`，README 8 语言 + AGENTS/ROADMAP/deploy/update/maintenance/release 文档同步（详见 CHANGELOG Unreleased）。
+- [x] 一键部署表单与 `wrangler.json` 冲突（issue #160 的技术根因）：移除空 var，文档补公开 origin / embedding 维度 / Repository 指向说明。
+- [x] 门禁口径有四种说法：统一为 7 步，`scripts/preflight.mjs` 是唯一口径。
+- [x] 英文 agent/deploy 文档要求部署前跑全量 verify：改为 opt-in。
+- [x] preflight 漏跑 2 个脚本测试、高风险脚本零测试：新增 `scripts:test` 自动发现 + 备份保留测试。
+- [x] `backups/` 无保留策略（55 目录 / 65MB，含 session 与 key 哈希）：drill 默认保留最近 10 次。
+- [x] cron 串行无隔离/无汇总：逐 pass try/catch + `scheduled maintenance complete` 汇总；文章清理加批次与逐行保护。
+- [x] 回收站清理 N+1：批量 owner 查询。
+- [x] PWA 推送 icon/badge 指向目录；更新提示缺「稍后」。
+- [x] trusted origins 允许 http；cookie 请求先查 session 再校验 Origin；admin 删除成员 PAT 失败路径吞错；plugins-store 重复 ownerContext。
+- [x] 快捷键劫持焦点控件的方向键/字母；语言包迟到不重渲染；spotlight 缺 combobox 语义。
+- [x] 死代码：`haptics`、`getDailyReview`；共享设置组件迁到 `components/settings-section.tsx`。
+- [x] 过期文档：maintenance 的 memory reindex、`run_worker_first`、`/capture` 残留、CHANGELOG 死小节。
+- [x] 依赖卫生：10 个死 override 清理、`minimumReleaseAge`、`engines`/`.nvmrc`。
+- [x] 跨仓漂移：flaremo-cloud README 免费档记忆配额与 ops-runbook 的 `memory_fts`。
+
+### 待办（按优先级）
+
+- [x] **PAT 权限面**：已实现 `notes` / `admin` scope（`packages/contracts/src/pat.ts`，Worker 在每个 PAT 请求上校验，`/api/app/admin/*` 仅 admin）、默认 365 天有效期（1–365 天）、账户页创建对话框与令牌行展示 scope；migration `0050_pat_scope_backfill` 把旧令牌的空 permissions 回填为 notes，管理面需显式重建 admin scope 令牌；notes-only 仍可永久有效。
+- [x] **query key 收口**：86 处行内字面量全部迁到 `lib/query-keys.ts`（新增 20+ 组 key 与 `invalidateTaskSurfaces` 共享失效助手）；新增 `lib/query-keys.test.ts` 禁止再写行内字面量。
+- [x] **孤儿 i18n key**：71 个无引用 key 已从 8 个语言文件删除（1027 → 956 键）；新增 `i18n/usage.test.ts`，白名单只保留 10 个待接线的 `pwa.install*`/离线提示 key。
+- [x] **RTL 物理方向类**：32 个文件的 `text-left`/`ml-auto`/`right-*`/`border-l` 已改为逻辑类，toggle-group 分段控件的圆角与分隔线同步；`left-1/2 + -translate-x-1/2` 的居中保留物理方向（逻辑化会让 RTL 偏移半格）。
+- [x] **对比度（第一批）**：explorer 计数、可见性提示、月份表头、回收站分组等低强调正文改为全色 muted，tabs 非激活文字 /60 → /70；图标与装饰性 marker 保留，整体设计稿级重排仍待目检。
+- [x] **超大页面拆分（评估为暂不做）**：article-editor 691 / integrations-card 669 / daily-review 645 / memo-list 665 行。与既有的 `memos-connect-api.ts` 体量决定一致——纯搬代码没有行为收益，却会制造每次触碰这些页面的冲突面；改为「下次因功能改动必须编辑同一文件时顺手拆分」，不单独立项。
+- [x] **OpenAPI 响应级契约（第一批）**：新增 `memos-current-contract.test.ts`，用 contracts 的 zod schema 校验 `/api/v1/memos` create/list/get/attachments 的返回体；其余端点逐步扩展；`/api/app` 的 articles / projects / tasks 已补同类校验（`app-api-contract.test.ts`）。
+- [x] **admin 端点测试（第一、二批）**：插件商店鉴权/目录失败降级、`embeddings/rebuild` owner 守卫与未配置提示（`admin-endpoints.test.ts`）、PAT 删除成员的 R2 失败回归（`admin-member-removal.test.ts`）已覆盖；插件 install/uninstall 仍待补。
+- [x] **每写请求触发 outbox sweep（评估为保持现状）**：sweep 在 `waitUntil` 里、已经离开响应路径，固定成本是 2 次 D1 查询；改成时间窗节流会让低流量实例的 webhook/embedding 延迟从「秒级」变成「等下一次写或次日 cron」，取舍不划算。保留 cron 作为兜底。
+- [x] **每日全表重建小时计数（评估为保持现状）**：它是衍生计数的事实源，增量路径只是它的优化；自部署规模下一次全表 group-by 远低于 10ms CPU 上限。多租户 SaaS 行数明显增长后再改成「近 7 天活跃用户 + 低频全量」两段式。
+- [x] **首屏预加载碎片（评估为保持现状）**：43 个 modulepreload / 约 366KB gzip 在 HTTP/2-3 下是多路复用而非串行瀑布，没有实测 LCP 退化；`vite.config.ts` 已按 React/TipTap/浮动层等大块分组。等有真实性能数据再动，避免为数字而拆包。
+- [x] **浏览器直连 api.github.com**：更新检查已改走 Worker 代理 `/api/app/releases/latest`（边缘缓存 10 分钟、repository 形状校验、上游失败 502）。
+- [ ] **依赖升级（持续性维护，非缺陷）**：`pnpm outdated` 20+ 个直接依赖落后；没有 CI 的情况下批量升级需要人工回归，按季度在功能空档做，并先跑定向 vitest + `pnpm build`。本轮只做了死 override 清理与 `minimumReleaseAge` 策略。
+- [x] **产品任务池未拆 issue（评估为保持现状）**：维护者是单人快速迭代节奏，`ROADMAP.md` 的「公开任务池」就是工作队列；GitHub issue 只在有外部反馈（如 #160）时开，避免双份看板。
+- [x] **历史设计文档归档（第一批）**：新增 `docs/README.md` 索引，一次性设计稿/审查报告统一标记为「历史」并在索引里单列；暂不移动文件，避免破坏既有链接。
+
+## 2026-11-04 官网重构（flaremo.app）
+
+- [x] 首屏英文标题裁切、404 零字节空页、移动端对比表裁列、标题重复品牌、OG 图用 SVG（社交平台不渲染）、`/docs/deploy` 同时高亮 Docs 与 Deploy、移动端两行吸顶占掉四分之一视口：已修，见 `84e0472` / `ef8507d` / `35465e6`。
+- [x] 首页叙事改为真实界面截图（EN/ZH × 亮/暗/移动）+ 可核对配额；新增 `pnpm og:image` 生成 1200×630 PNG、构建期预渲染 `404.html`（`/__404`，noindex）并本地化 404、对比表窄屏改卡片、功能区改 2+3+2 bento。
+- [x] 文案收口：全 8 语言去掉「零风险 / 永久 / forever / always-on」类绝对化承诺，中文统一用「记录」（设计规范术语表），FAQ 不再用「68 年」外推。
+- [ ] **插件卡片预览图只有中文卡面**：`apps/site/public/showcase/card-*.png` 是应用分享卡的截图，英文/其他语言首页的插件区里卡片内部仍是中文。需要应用侧先能产出多语言卡面再替换，本轮显式接受。
+
+---
+
+## 2026-11-07 第四轮全量审计与修复台账
+
+本轮由 Lead + 三个审计/实现小组覆盖 apps/web、apps/worker、packages/domain、D1 migration、deploy scripts 与 flaremo-cloud。基线：`pnpm check`、全量 Vitest（172 文件 / 1125 tests）、`pnpm build`、`scripts:test` 42/42、`persistence:check`、cloud `pnpm verify` 均通过；公开仓 `pnpm audit --prod` 0 漏洞，cloud 升级 Hono 后 production audit 0 漏洞。
+
+### 已修复
+
+- [x] **PAT 兼容入口绕过最小权限**：current REST 与 Connect 的 PAT 创建统一走 `createMemosPersonalAccessToken`，默认 notes + 365 天；显式 `0` 仅可创建 notes-only 永久令牌，admin 永久请求返回 400；补 current/Connect 到期与 admin 拦截测试。
+- [x] **D1 100 参数边界**：task reorder 200、article claim 100、webhook prune 100、inline export attachment key lookup 均按预留参数分块；补 98/99/100/200 边界测试。
+- [x] **导出内存峰值**：metadata-only 导出跳过 R2 key 查询；32 MiB 估算逐记录早停，避免第二份整包 JSON string；binary key 查询分块。
+- [x] **Queue/export 重试状态机**：export 最多 3 次、stale running 恢复 queued、stale queued 清 lease 后继续排队、import 保持回滚后 failed；member removal 同步 3 次与 dead 状态。
+- [x] **Web Push 静默失败**：汇总 attempted/delivered/failed 与失败分类，保留 404/410 清理语义，不记录 endpoint/payload。
+- [x] **出站 SSRF**：Webhook、插件 registry/artifact、link metadata、Web Push 统一逐跳重定向校验、私网/保留地址阻断、超时与响应上限；插件/Push 强制 HTTPS。
+- [x] **索引与清理**：新增 0045 attachment quota covering index（含 thumbnail_size）；data task cleanup 改用 expires_at 索引。
+- [x] **flaremo-cloud 门禁**：删除内核已移除的 maxMemoryItemsPerUser 合约字段；Hono 4.13.16 修复生产 audit；typecheck 接入 SaaS upgrade/verify；scripts/lib 8 个 node:test；cloud verify 加 audit/scripts。
+- [x] **部署顺序**：FlareMo deploy 与 deploy-kosx 均为 build → bundle dry-run → migration → deploy，避免 D1 先变更而 Worker 打包失败。
+- [x] **前端**：删除全屏画布 idle 预取；非 all space 日/周回退 scoped 统计且 query key 带 space；PasswordInput 键盘可达/i18n/aria-pressed；Sheet/后台搜索/官网对比表 RTL；workspace 和 Spotlight 错误态可重试。
+- [x] **备份文档**：R2 改为 `rclone copy --backup-dir`，明确 live-copy drill 不等于从落盘备份工件恢复。
+
+### 本轮明确未做 / 后续跟踪
+
+- [x] **Scheduler heartbeat/外部告警**：已通过实例级 `settings` 表持久化最近一次定时维护脱敏摘要，并在 `GET /api/app/health` 暴露 `scheduler` 字段（v0.33.0）；外部 dead-man switch 告警由运维侧按 `/api/app/health` 配置。
+- [ ] **从备份工件恢复演练**：`backup:drill:remote` 仍验证 live source → 临时目标；真正 `--from-backup` 读取 D1 dump/R2 镜像的自动化恢复演练未实现，文档已明确这个边界。
+- [ ] **TipTap 首屏链**：全屏画布 idle 预取已删；inline composer 仍会立即挂载富编辑器。改成 textarea 渐进增强涉及焦点交接、草稿同步和 suggestion 重建，本轮评估风险高于收益，保留后续单独做。
+- [ ] **非 all space 的早期日/周历史**：当前回退只覆盖 scoped stats 的 366 天窗口；超出窗口会显示 0。彻底修复需要后端 hourly API 支持 space 维度。
+- [x] **插件 install/uninstall 端到端测试**：已在 `apps/worker/src/admin-endpoints.test.ts` 补齐合法 zip + SHA-256 安装、静态资源访问、篡改哈希/非法 manifest 400 拦截、角色与 PAT scope 守卫及卸载 R2 清理集成测试（v0.33.0）。
+- [ ] **依赖季度升级**：FlareMo 直接依赖仍有既有落后项（含 TypeScript/Vitest/Wrangler 等大版本）；按既有季度节奏处理，不与本轮安全修复混做。

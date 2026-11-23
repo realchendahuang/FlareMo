@@ -36,6 +36,21 @@ describe("FlareMo app memos API", () => {
     await mf.dispose();
   });
 
+  it("returns a human-readable message for schema validation failures", async () => {
+    const response = await fetchApp(
+      "http://flaremo.test/api/app/tasks?page_size=999",
+    );
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as {
+      error?: { message?: unknown };
+      success?: unknown;
+    };
+    expect(typeof body.error?.message).toBe("string");
+    expect(String(body.error?.message)).not.toContain("[");
+    // The package default leaked `{ success: false, error: ZodError }`.
+    expect(body).not.toHaveProperty("success");
+  });
+
   it("paginates memos with page tokens", async () => {
     await createMemo("page first");
     await new Promise((resolve) => setTimeout(resolve, 2));

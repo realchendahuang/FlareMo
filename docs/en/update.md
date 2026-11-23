@@ -32,7 +32,7 @@ The workflow can only create an update branch and pull request in the deployment
 
 ## Install an update
 
-The `Prepare FlareMo update` workflow checks the latest stable Release once per day and opens an update pull request when needed.
+The `Prepare FlareMo update` workflow in your deployment repository checks the latest stable Release once per day and opens an update pull request when needed. The workflow is a template at [`docs/templates/workflows/flaremo-update.yml`](./templates/workflows/flaremo-update.yml); copy it into `.github/workflows/` to enable it.
 
 To check immediately, open “System update” in the lower-left corner of FlareMo, select “Go to update,” and then:
 
@@ -40,9 +40,9 @@ To check immediately, open “System update” in the lower-left corner of Flare
 2. Select `Run workflow`; leave the version empty to use the latest stable release.
 3. Wait for the update pull request.
 4. Review the release notes and changes, then merge the pull request.
-5. Cloudflare Workers Builds builds the web app, applies pending D1 migrations, and deploys the new Worker version. If you publish with [GitHub Action deploy](./github-action-deploy.md) instead of Workers Builds, run `Deploy to Cloudflare` after merging the PR.
+5. Cloudflare Workers Builds builds the web app, applies pending D1 migrations, and deploys the new Worker version; the local `pnpm deploy` path also runs a Worker bundle dry-run first. If you publish with [GitHub Action deploy](./github-action-deploy.md) instead of Workers Builds, run `Deploy to Cloudflare` after merging the PR.
 
-The update pull request can produce a preview version without running a production D1 migration. After merge, the production build applies migrations before publishing the new Worker while the old version remains available. If the build or migration fails, the new Worker is not deployed; inspect the Cloudflare check on GitHub or Build history in the Cloudflare dashboard.
+The update pull request can produce a preview version without running a production D1 migration. After merge, the production build applies migrations before publishing the new Worker (the local CLI path runs a bundle dry-run first) while the old version remains available. If the build or migration fails, the new Worker is not deployed; inspect the Cloudflare check on GitHub or Build history in the Cloudflare dashboard.
 
 ## Custom code and conflicts
 
@@ -61,7 +61,7 @@ After resolving conflicts, push `main` and Cloudflare Workers Builds will comple
 
 ## Existing instances
 
-Instances running v0.2.1 or earlier need one final manual update to v0.3.0. From v0.3.0 on, the FlareMo repository ships the update workflow (`.github/workflows/flaremo-update.yml`) and the in-app version entry; pushing it to your own deployment repository gives you the same update flow.
+Instances running v0.2.1 or earlier need one final manual update to v0.3.0. From v0.3.0 on the update workflow and the in-app version entry are available; as of v0.28.0 the upstream repository no longer ships the workflow — the template lives at [`docs/templates/workflows/flaremo-update.yml`](./templates/workflows/flaremo-update.yml), so copy it into your deployment repository's `.github/workflows/` to get the same update flow.
 
 GitHub may disable scheduled workflows after 60 days without public-repository activity. The in-app version check continues to work; re-enable the workflow on the repository's Actions page and run it manually.
 

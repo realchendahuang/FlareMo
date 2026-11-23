@@ -464,6 +464,49 @@ describe("FlareMo capture and voice API", () => {
         })
       ).status,
     ).toBe(401);
+    // A real `notes` PAT reads the capability probe: an embedded client (the
+    // DSH panel) runs the web app inside a frame with no session cookie, and it
+    // needs to know whether a mic button belongs on screen. Writes below stay
+    // browser-only.
+    const patResponse = await app.fetch(
+      new Request(
+        "http://flaremo.test/api/app/account/personal-access-tokens",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            cookie: sessionCookie,
+            origin: "http://flaremo.test",
+          },
+          body: JSON.stringify({ name: "embed", expires_in_days: 30 }),
+        },
+      ),
+      env,
+    );
+    expect(patResponse.status).toBe(201);
+    const { token: notesPat } = (await patResponse.json()) as { token: string };
+    const patStatus = await raw("/status", {
+      authorization: `Bearer ${notesPat}`,
+    });
+    expect(patStatus.status).toBe(200);
+    expect(await patStatus.json()).toEqual({
+      available: true,
+      provider: "tencent",
+      streaming: true,
+      kind: "streaming",
+    });
+    // The paid transcription call must still refuse a PAT.
+    expect(
+      (
+        await app.fetch(
+          new Request("http://flaremo.test/api/app/capture/transcribe", {
+            method: "POST",
+            headers: { authorization: `Bearer ${notesPat}` },
+          }),
+          env,
+        )
+      ).status,
+    ).toBe(401);
     expect(
       (await raw("/ws", { origin: headers.origin, upgrade: "websocket" }))
         .status,

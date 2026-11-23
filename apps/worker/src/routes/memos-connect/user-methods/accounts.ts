@@ -1,7 +1,10 @@
 import { listMemosPersonalAccessTokens } from "@flaremo/domain";
-import { getFlareMoAuth, loadAuthFactory } from "../../../context";
+import { getFlareMoAuth } from "../../../context";
 import { CompatValidationError } from "../../../memos-compat/errors";
-import { personalAccessTokenToDto } from "../../../memos-compat/pat";
+import {
+  createMemosPersonalAccessToken,
+  personalAccessTokenToDto,
+} from "../../../memos-compat/pat";
 import { optionalString, requiredString } from "../shared";
 import { connectErrorForTransport, connectValue } from "../transport";
 import {
@@ -49,29 +52,31 @@ export async function connectUserAccountMethod(
         );
       }
       assertConnectUserPath(body.parent, context.user.id);
+      // Omitted means the server's finite default. Explicit 0 is the upstream
+      // wire spelling for "never expires" and is allowed only for notes scope.
       const expiresInDays =
-        body.expiresInDays === undefined ? 0 : Number(body.expiresInDays);
+        body.expiresInDays === undefined
+          ? undefined
+          : Number(body.expiresInDays);
       if (
-        !Number.isInteger(expiresInDays) ||
-        expiresInDays < 0 ||
-        expiresInDays > 365
+        expiresInDays !== undefined &&
+        (!Number.isInteger(expiresInDays) ||
+          expiresInDays < 0 ||
+          expiresInDays > 365)
       ) {
         throw new CompatValidationError(
           "expiresInDays must be an integer between 0 and 365",
         );
       }
-      const { createFlareMoAuth } = await loadAuthFactory();
-      const created = await createFlareMoAuth(
-        c.env,
-        context.db,
-      ).api.createApiKey({
-        body: {
-          configId: "memos",
+      const created = await createMemosPersonalAccessToken(
+        await getFlareMoAuth(c.env),
+        {
           userId: context.authUserId,
-          name: optionalString(body.description) ?? "Memos API token",
-          expiresIn: expiresInDays === 0 ? null : expiresInDays * 24 * 60 * 60,
+          name: optionalString(body.description),
+          // Explicit 0 is the upstream wire contract for a non-expiring token.
+          expiresInDays,
         },
-      });
+      );
       return connectValue(
         c,
         {
@@ -101,7 +106,9 @@ export async function connectUserAccountMethod(
       ).find((item) => item.id === tokenId);
       if (!token)
         throw new CompatValidationError("Personal access token not found");
-      await (await getFlareMoAuth(c.env)).api.updateApiKey({
+      await (
+        await getFlareMoAuth(c.env)
+      ).api.updateApiKey({
         body: {
           configId: "memos",
           keyId: token.id,

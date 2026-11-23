@@ -243,8 +243,120 @@
     {
       "idx": 34,
       "version": "6",
-      "when": 1792311731267,
-      "tag": "0034_neat_amphibian",
+      "when": 1790565600000,
+      "tag": "0034_memory_and_attachment_read_paths",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1793151885970,
+      "tag": "0035_memory_sweep_and_lineage_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1793151948762,
+      "tag": "0036_attachment_storage_size_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1793152457205,
+      "tag": "0037_memo_review_cover_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1793336573345,
+      "tag": "0038_comment_team_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1793434072636,
+      "tag": "0039_memo_review_marks",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1793434172636,
+      "tag": "0040_memory_core_rules_locked",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1793508981703,
+      "tag": "0041_attachment_thumbnail_size",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1793513646935,
+      "tag": "0042_import_task_rows",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1793514034532,
+      "tag": "0043_data_task_options",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1793599295078,
+      "tag": "0044_drop_agent_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1794041254004,
+      "tag": "0045_attachment_quota_cover_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1794139684103,
+      "tag": "0046_agent_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1794140131051,
+      "tag": "0047_memo_insights",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1794159269281,
+      "tag": "0048_dapper_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1794159273703,
+      "tag": "0049_native_sync_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1794388015000,
+      "tag": "0050_pat_scope_backfill",
       "breakpoints": true
     }
   ]

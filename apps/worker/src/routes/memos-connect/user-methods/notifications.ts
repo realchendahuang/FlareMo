@@ -35,7 +35,7 @@ export async function connectUserNotificationMethod(
         filter: optionalString(body.filter),
         // FlareMo-only kinds such as daily_review have no upstream Memos type
         // mapping; hide them from third-party clients entirely.
-        excludeTypes: ["daily_review"],
+        excludeTypes: ["daily_review", "task_overdue", "task_due"],
       });
       return connectValue(
         c,

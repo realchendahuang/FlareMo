@@ -4,6 +4,7 @@ import {
   memosSseEvents,
 } from "@flaremo/db";
 import { and, asc, gt, inArray, lt, sql } from "drizzle-orm";
+import { d1IdsPerStatement } from "./d1-limits";
 import { isActiveTeamMember, type TeamViewer } from "./team-permissions";
 
 export const MEMOS_SSE_EVENT_TYPES = [
@@ -102,14 +103,21 @@ export const MEMOS_SSE_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 
 export async function pruneMemosSseEvents(db: FlareMoDb, before: Date) {
   const cutoff = before.toISOString();
-  // Bounded chunk so the cron sweep never performs one giant delete.
-  const stale = await db
-    .select({ id: memosSseEvents.id })
-    .from(memosSseEvents)
-    .where(lt(memosSseEvents.createdAt, cutoff))
-    .limit(1000);
-  if (stale.length === 0) return 0;
-  const ids = stale.map((row) => row.id);
-  await db.delete(memosSseEvents).where(inArray(memosSseEvents.id, ids));
-  return ids.length;
+  // Bounded pages, deleted page by page. The previous version selected 1000
+  // ids and deleted them in a single statement, which D1 rejects past 100
+  // bindings — so on any instance with more than a hundred expired events the
+  // daily sweep threw and the table only ever grew.
+  let pruned = 0;
+  while (true) {
+    const stale = await db
+      .select({ id: memosSseEvents.id })
+      .from(memosSseEvents)
+      .where(lt(memosSseEvents.createdAt, cutoff))
+      .limit(d1IdsPerStatement());
+    if (stale.length === 0) return pruned;
+    const ids = stale.map((row) => row.id);
+    await db.delete(memosSseEvents).where(inArray(memosSseEvents.id, ids));
+    pruned += ids.length;
+    if (ids.length < d1IdsPerStatement()) return pruned;
+  }
 }

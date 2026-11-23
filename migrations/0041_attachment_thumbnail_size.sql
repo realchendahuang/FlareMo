@@ -1,0 +1,1 @@
+ALTER TABLE `attachments` ADD `thumbnail_size` integer DEFAULT 0 NOT NULL;

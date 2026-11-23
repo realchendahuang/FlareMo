@@ -26,6 +26,12 @@ export function PwaUpdatePrompt() {
         label: t("pwa.updateNow"),
         onClick: () => applyUpdate(),
       },
+      // Let the user keep working and update later; the toast stays dismissed
+      // until the next page load, which is when the new worker takes over.
+      cancel: {
+        label: t("pwa.updateLater"),
+        onClick: () => toast.dismiss(UPDATE_TOAST_ID),
+      },
     });
   }, [updateAvailable, applyUpdate, t]);
 

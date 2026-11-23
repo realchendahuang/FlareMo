@@ -16,7 +16,6 @@ import {
   semanticSearchMemos,
 } from "@flaremo/domain";
 import { memoToDto } from "@flaremo/memos";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../../context";
 import {
@@ -25,6 +24,7 @@ import {
   memoSearchNamespaces,
 } from "../../embedding";
 import { jsonError } from "../../http";
+import { zValidator } from "../../validated";
 
 export function registerTimelineRoutes(app: Hono<HonoBindings>) {
   app.get(
@@ -60,7 +60,7 @@ export function registerTimelineRoutes(app: Hono<HonoBindings>) {
       try {
         const { db, user, limits, userLimits } = await getRequestContext(c);
         const provider = createEmbeddingProvider(c.env);
-        const index = createVectorIndex(c.env, "memo");
+        const index = createVectorIndex(c.env);
         if (!provider || !index) {
           return c.json({ memos: [], degraded: true });
         }

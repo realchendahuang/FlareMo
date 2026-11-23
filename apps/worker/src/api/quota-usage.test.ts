@@ -126,7 +126,6 @@ describe("FlareMo quota and usage API", () => {
               aiEmbeddingTokensPerMonth: null,
               semanticSearchQueriesPerMonth: null,
               maxMemosPerUser: 1,
-              maxMemoryItemsPerUser: null,
             }
           : null,
     });

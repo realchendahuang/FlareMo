@@ -5,6 +5,10 @@
  * null and the caller uploads the original file, and an encode that does not
  * actually shrink the payload is discarded.
  */
+import {
+  THUMBNAIL_CONTENT_TYPE,
+  THUMBNAIL_LONG_EDGE,
+} from "@flaremo/contracts/constants";
 import { supportsWebpEncode } from "./capabilities";
 
 const MIN_COMPRESSIBLE_IMAGE_BYTES = 100 * 1024;
@@ -12,6 +16,8 @@ const MAX_LONG_EDGE = 2560;
 // iOS Safari silently fails (blank canvas) above this area; stay below it.
 const MAX_CANVAS_AREA = 16_000_000;
 const WEBP_QUALITY = 0.82;
+/** Thumbnails are card-sized previews; 0.7 is indistinguishable at that size. */
+const THUMBNAIL_QUALITY = 0.7;
 // A 2560px encode is normally well under a second even on a slow phone; this
 // only exists so a missing toBlob callback cannot stall the upload forever.
 const WEBP_ENCODE_TIMEOUT_MS = 10_000;
@@ -258,4 +264,49 @@ export async function prepareAvatarFile(file: File): Promise<File> {
     minBytes: 0,
   });
   return compressed ?? file;
+}
+
+/**
+ * Timeline thumbnail for an image upload.
+ *
+ * The timeline used to render the full-resolution upload in every card: a
+ * phone photo at 2560px is several hundred KB, and a page of twenty of them
+ * pulled tens of megabytes for images shown a few hundred pixels wide. This
+ * produces a `THUMBNAIL_LONG_EDGE`-pixel WebP that the Worker stores next to
+ * the original, so the card fetches a few KB while the lightbox still opens
+ * the untouched original.
+ *
+ * Returns null whenever a thumbnail is pointless or impossible — the caller
+ * then omits the part and cards fall back to the original. Same contract as
+ * the compression pipeline: decoration, never a contract.
+ */
+export async function createThumbnail(file: File): Promise<File | null> {
+  const type = file.type.toLowerCase();
+  if (!type.startsWith("image/")) return null;
+  if (SKIP_IMAGE_TYPES.has(type)) return null;
+  if (file.size > MAX_COMPRESSION_INPUT_BYTES) return null;
+  if (!supportsWebpEncode()) return null;
+
+  const source = await decodeOriented(file).catch(() => null);
+  if (!source) return null;
+  try {
+    const { width, height } = sourceDimensions(source);
+    if (!width || !height) return null;
+    // Already small enough to serve as its own preview.
+    if (Math.max(width, height) <= THUMBNAIL_LONG_EDGE) return null;
+    const scale = THUMBNAIL_LONG_EDGE / Math.max(width, height);
+    const targetWidth = Math.max(1, Math.round(width * scale));
+    const targetHeight = Math.max(1, Math.round(height * scale));
+    const canvas = drawScaled(source, width, height, targetWidth, targetHeight);
+    if (!canvas) return null;
+    const blob = await canvasToWebpBlob(canvas, THUMBNAIL_QUALITY);
+    if (!blob || blob.size === 0) return null;
+    return new File([blob], withExtension(file.name, "webp"), {
+      type: THUMBNAIL_CONTENT_TYPE,
+    });
+  } catch {
+    return null;
+  } finally {
+    releaseSource(source);
+  }
 }

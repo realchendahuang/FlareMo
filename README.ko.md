@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>서버 제로 · 유지보수 비용 제로 · 24시간 글로벌 엣지 상시 가동 · 완전한 데이터 소유권</b><br>
-  개인에게는 조용하고 집중할 수 있는 생각 기록 공간이자 제2의 뇌, 팀에게는 세밀한 권한 관리를 갖춘 공유 지식 베이스.
+  개인에게는 AI 네이티브 세컨드 브레인, 팀에게는 함께 쓰는 지식 베이스.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -31,6 +30,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="FlareMo 데스크톱 라이트 모드" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="FlareMo 데스크톱 다크 모드" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="FlareMo 모바일 화면" /> |
 
+| ✅ 할 일·프로젝트·돌아보기 | 📄 글과 발행 |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="할 일·프로젝트·돌아보기" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="글과 발행" /> |
+
 <sub>실제 운영 화면 스크린샷: 라이트/다크 모드 매끄러운 전환과 모바일 완전 반응형. 화면에 보이는 모든 기능은 실제로 동작하는 백엔드 기능과 연결되어 있습니다.</sub>
 
 </div>
@@ -39,14 +42,14 @@
 
 ## 💡 왜 FlareMo인가?
 
-Flomo와 Memos 같은 도구들은 부담 없는 메모 기록과 방해받지 않는 타임라인이 지닌 큰 가치를 증명해 왔습니다. 하지만 전통적인 노트 환경을 자체 호스팅하려면 VPS 비용을 지불하고, Docker와 PostgreSQL을 설정하고, 자동 백업 스크립트를 작성·관리하면서 디스크나 하드웨어 고장을 걱정해야 했습니다.
+부담 없는 메모 기록과 방해받지 않는 타임라인의 가치는 이미 충분히 증명되었습니다. 하지만 전통적인 노트 환경을 자체 호스팅하려면 VPS 비용을 지불하고, Docker와 PostgreSQL을 설정하고, 자동 백업 스크립트를 작성·관리하면서 디스크나 하드웨어 고장을 걱정해야 했습니다.
 
 FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하나만으로, 서버 유지보수 없이 24시간 온라인으로 살아있고 전 세계에서 가속되는 지식 베이스를 만들 수 없을까?**
 
 - **진정한 서버리스**: 코드와 정적 자산 모두 사용자 바로 근처의 Cloudflare Workers 엣지 노드에서 밀리초 단위 지연으로 실행됩니다.
 - **기본 갖춰진 엔터프라이즈급 내구성**: Cloudflare D1이 메모와 메타데이터를 담당하고, Cloudflare R2가 멀티 리전 복제로 미디어 첨부파일을 저장합니다.
-- **AI 네이티브 제2의 뇌**: Agent Memory 허브에 CLI와 크로스 에이전트 스킬이 내장되어, AI 에이전트(Claude, Cursor, Codex, ChatGPT, ZCode)가 장기 선호도와 기억 범위를 읽고 갱신할 수 있습니다. MCP 엔드포인트도 함께 제공됩니다.
-- **혼자서는 조용히, 함께라면 강력하게**: 기본값은 암호화된 비공개 1인용 안식처입니다. 팀 모드를 켜면 역할과 3단계 공개 범위를 갖춘 협업 공간으로 즉시 바뀝니다.
+- **AI 네이티브 제2의 뇌**: 노트 MCP 엔드포인트와 `flaremo-notes` 스킬을 제공합니다. Claude, Cursor, Codex, ChatGPT, ZCode가 사용자의 노트를 검색·읽기·쓰기할 수 있습니다. 별도의 AI 기억 저장소나 관리해야 할 두 번째 노트북은 없습니다.
+- **혼자서는 조용히, 함께라면 강력하게**: 기본값은 암호화된 비공개 1인용 안식처입니다. 팀 모드를 켜면 역할과 3단계 공개 범위를 갖춘 팀 공유 공간이 추가됩니다 — 프로젝트를 함께 진행하는 곳이 아니라 메모를 나누는 곳입니다.
 - **심플하되 단순하지 않게**: 인터페이스는 조용하고 모든 컨트롤은 존재 이유가 분명합니다 — 주의를 끄는 장식도, 빠진 기능도 없습니다.
 
 ---
@@ -55,28 +58,31 @@ FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하�
 
 ### 1. 즉석 기록 & 영감을 주는 회고
 - **밀리초 만에 기록**: 카드형 타임라인, 태그, Markdown/GFM, 이미지·오디오 첨부 미리보기.
+- **메모와 글**: 입력창은 빠른 메모로 유지됩니다(태그, 이미지 최대 9장, 굵게, 목록, 할 일). '전체 화면으로 쓰기'를 누르면 같은 메모를 전체 화면 캔버스에서 이어 씁니다. 글은 '글' 페이지에서 시작합니다.
+- **메모 아래 댓글**: 개인 공간이든 팀 공간이든 웨이보처럼 어떤 메모에나 댓글을 달 수 있습니다. 댓글은 원래 메모 아래에 머물며 타임라인, 검색, 통계, 태그, 회고에는 나타나지 않습니다.
 - **번개같은 검색**: SQLite FTS5 전문 인덱싱과 쿼리 연산자 지원 (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **의미 기반 '찾기' (벡터 검색)**: Workers AI 임베딩과 Vectorize 파생 벡터 인덱스를 결합해 문맥에 맞는 회상을 제공하며, D1 권한을 재검증하고 필요 시 FTS5로 매끄럽게 대체합니다.
 - **생각 활성화**: 내장 **데일리 리뷰**(과거의 오늘), **랜덤 워크**(태그·백링크 그래프를 탐험하며 엽서 요약 수집), 관련 노트 추천.
 - **버전 이력**: 전체 버전 diff 비교와 클릭 한 번으로 과거 버전 복원.
 
-### 2. AI 장기 기억 (CLI + Skills)
-- **Agent Memory**: `flaremo` CLI와 `flaremo-memory` 스킬을 동봉 — AI 에이전트가 공용 REST 기반을 통해 세션을 넘어 이어지는 장기 기억(선호도, 프로젝트 결정, 제약 조건, 교훈)을 기록·갱신합니다.
-- **Human in the loop**: `/memory` 화면에서 AI가 기록한 기억을 검토하고, 확인·잠금·수정할 수 있습니다.
-- **열린 생태계**: 권장 경로는 CLI + Skills이며, 기존 MCP 클라이언트를 위해 `/memory/mcp`(Streamable HTTP MCP)와 `/mcp` 엔드포인트도 제공합니다.
+### 2. AI가 내 노트를 읽고 쓰기 (MCP + Skill)
+- **노트 MCP**: `/mcp`에서 노트 목록·검색·조회·생성·수정·삭제를 제공하며, 폐기 가능한 `memos_pat_` 토큰으로 인증합니다.
+- **하나의 Skill**: `skills/flaremo-notes`가 쓰기 전 검색, 원문 유지, 변경한 노트 ID 반환을 모든 에이전트에 가르칩니다.
+- **별도 기억 없음**: 에이전트는 필요할 때 노트를 읽을 뿐, 백그라운드에서 두 번째 장부로 추출하지 않습니다.
 
-### 3. 프로젝트 & 작업
-- **프로젝트로 작업 모으기**: 관련 메모와 할 일을 프로젝트로 묶어 관리합니다. 상태 열을 드래그로 옮기는 칸반 보드, 우선순위, 수동 정렬, 마감일을 지원합니다.
+### 3. 할 일 & 프로젝트
+- **메모에 일정 잡기**: 메모에 날짜와 프로젝트를 지정하면 그 안의 체크되지 않은 할 일이 각각 작업이 됩니다. 메모에서 체크하든 할 일 페이지에서 체크하든 양방향으로 동기화됩니다.
+- **하나의 할 일 페이지**: `/projects`는 **오늘**, **다음 7일**, **모든 작업**을 날짜별로 묶은 목록으로 보여주고, 프로젝트는 칸반 보드(상태 열 간 드래그, 우선순위, 수동 정렬)로 보여줍니다. 모든 목록에 빠른 추가 행이 있습니다.
 - **개인 전용, 되돌릴 수 있는 삭제**: 작업은 소유자 한 사람의 소유이며, 삭제 시 휴지통으로 이동해 복원하거나 기간이 지나면 자동으로 영구 삭제됩니다.
 
-### 4. 작업 관리 & 알림
-- **작업은 프로젝트 안에**: `/projects` 보드(상태 열 간 드래그), 우선순위, 수동 정렬, 마감일 덕분에 프로젝트 페이지가 일정 관리의 단일한 홈이 됩니다.
+### 4. 알림 & 일정
+- **읽는 곳에 배지 표시**: 일정이 잡힌 메모는 카드에 '할 일 n/m · 날짜 · 프로젝트'를 표시하고, 데일리 리뷰는 오늘의 할 일로 시작합니다.
 - **일정이 한눈에**: 탐색기 홈 화면이 미니 월간 캘린더와 기한 초과/오늘 알림을 함께 보여줘, 마감이 보드 뒤에 숨지 않습니다.
-- **기한 초과 알림**: 기한이 지난 작업은 앱 내 알림을 띄우고, 브라우저 웹 푸시도 선택적으로 켤 수 있습니다.
+- **마감 및 기한 초과 알림**: 매일 실행되는 작업이 '오늘 마감'과 기한 초과 알림을 앱 안에 띄우며, 브라우저 웹 푸시도 선택적으로 켤 수 있습니다. 일정은 날짜 단위이며, 시각을 지정하는 알람은 없습니다.
 
-### 5. 팀 협업 & 3단계 공개 범위
+### 5. 팀 공간 & 3단계 공개 범위
+- **협업이 아닌 공유**: 팀 공간은 멤버들이 서로에게 메모를 발행하고 댓글을 다는 곳입니다. 팀 입력창에서 `@username` 멘션이 자동 완성되고 멘션된 사람에게 알림이 가며, 알림을 열면 원래 메모의 댓글 위치로 이동합니다.
 - **역할 거버넌스**: `owner`, `admin`, `member` 역할. 관리자는 1회용 활성화 링크로 멤버를 초대하고, 멤버가 직접 비밀번호를 설정합니다(관리자는 평문 자격 증명을 절대 다루지 않습니다).
-- **팀 프로젝트 워크벤치**: `/team-projects`는 팀 프로젝트의 담당자, 상태, 현재 진행, 다음 단계, 후속 일정을 한 화면에 모아 보여주고, 상세 페이지에서 개요를 관리하거나 진행 상황과 회의 결과를 기록하고 자료 파일을 업로드할 수 있습니다. 프로젝트는 본문의 `kosx-pm` 메타데이터 블록으로 인식되는 일반 팀 메모이므로, 프로젝트가 아닌 노트는 타임라인에 그대로 남습니다.
 - **3단계 공개 범위**:
   - 🔒 **비공개**: 작성자 본인만 열람 가능.
   - 👥 **팀 공개**: 활성 팀원에게 읽기 전용 공유.
@@ -87,16 +93,17 @@ FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하�
 ### 6. 오프라인 우선 & PWA 경험
 - **설치형 PWA**: macOS, Windows, iOS, Android 홈 화면에 설치해 네이티브 앱과 같은 사용감을 제공합니다.
 - **신뢰할 수 있는 오프라인 동기화**: 초안은 즉시 로컬에 저장됩니다. 오프라인 상태의 제출과 업로드는 큐에 쌓였다가 연결이 복구되면 자동으로 재생됩니다.
-- **실시간 음성 기록**: `/capture` 페이지에서 실시간 스트리밍 음성 인식(ASR) 전사를 지원합니다.
+- **실시간 음성 입력**: 입력창의 마이크 버튼을 누르면 말하는 내용이 실시간 음성 인식(ASR)으로 초안에 입력됩니다.
 
 ### 7. 강력한 Better Auth 애플리케이션 보안
-- **Better Auth 기반**: `HttpOnly`, `SameSite=Lax` 브라우저 쿠키 세션과, 스크립트·CLI·MCP용으로 폐기 가능한 `memos_pat_` Personal Access Token을 제공합니다.
+- **Better Auth 기반**: `HttpOnly`, `SameSite=Lax` 브라우저 쿠키 세션과, 스크립트·MCP용으로 폐기 가능한 `memos_pat_` Personal Access Token을 제공합니다.
 - **엄격한 Origin 보호**: 상태 변경 요청에는 정확한 Origin 화이트리스트 검증을 강제합니다. Cloudflare Access는 선택적 외부 방어선으로 계속 사용할 수 있습니다.
 
-### 8. Memos 호환 & 매끄러운 이전
-- **Memos `/api/v1` 호환**: 핵심 Memos API 엔드포인트(기본 camelCase, 헤더로 legacy snake_case)와 OpenAPI 스키마를 제공합니다.
-- **서드파티 앱 대응**: Moe Memos 같은 모바일 클라이언트에서 바로 연결할 수 있습니다.
-- **양방향 가져오기/내보내기**: Memos / flomo에서 충돌 처리 전략과 함께 원클릭 가져오기, 전체 원본 내보내기 번들을 지원합니다.
+### 8. 데이터는 언제나 내 것
+- **원클릭 전체 내보내기**: 노트, 첨부 파일, 할 일, 프로젝트, 아티클, 공유 관계를 하나의 파일로 묶어 언제든 오프라인 보관합니다.
+- **절반만 남지 않는 가져오기**: 건너뛰기와 복제 두 가지 충돌 전략을 지원하며, 실패한 가져오기는 전부 롤백되어 불완전한 데이터가 남지 않습니다.
+- **기존 기록 가져오기**: 함께 제공되는 변환 스크립트가 기존 내보내기를 FlareMo 가져오기 패키지로 바꾸고, 시각·태그·고정·공개 범위를 유지합니다([마이그레이션 가이드](./docs/en/import-from-memos.md)).
+- **프로토콜로 열기**: `/api/v1` 호환 계층과 폐기 가능한 Personal Access Token, AI 도구를 위한 MCP. 정확한 지원 범위는 [호환성 매트릭스](./docs/en/memos-compatibility.md)에 있습니다.
 
 ---
 
@@ -141,7 +148,7 @@ FlareMo는 더 단순한 질문에 답합니다: **무료 Cloudflare 계정 하�
 
 ### 방법 2: GitHub Action (셀프 호스팅 포크)
 
-포크에서 Actions의 **Deploy to Cloudflare**를 실행하면 리소스 프로비저닝, Worker 배포, 인증 시크릿 동기화가 한 번에 이루어집니다. push만으로는 배포되지 않습니다. [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md)를 참조하세요.
+포크에서 [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml)을 `.github/workflows/`에 복사한 뒤 Actions의 **Deploy to Cloudflare**를 실행하면 리소스 프로비저닝, Worker 배포, 인증 시크릿 동기화가 한 번에 이루어집니다. push만으로는 배포되지 않습니다. [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md)를 참조하세요.
 
 ### 방법 3: AI 에이전트로 배포 (권장)
 
@@ -189,10 +196,10 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

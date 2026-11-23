@@ -1,5 +1,14 @@
 import { type Locale, normalizeLocale, type SupportedLocale } from "@/lib/seo";
 
+export type HeroFact = {
+  /** Short uppercase label above the value, e.g. "D1 storage". */
+  label: string;
+  /** The headline number or unit, kept short so the strip stays one line. */
+  value: string;
+  /** One quiet line of context under the value. */
+  detail: string;
+};
+
 export type HomeContent = {
   heroEyebrow: string;
   heroTitleLine1: string;
@@ -7,10 +16,7 @@ export type HomeContent = {
   heroSubtitle: string;
   primaryCta: string;
   secondaryCta: string;
-  statMemos: string;
-  statPhotos: string;
-  statServers: string;
-  statUptime: string;
+  heroFacts: HeroFact[];
   featuresBadge: string;
   featuresHeading: string;
   featuresSubtitle: string;
@@ -29,13 +35,11 @@ export type HomeContent = {
   }>;
   screenshotsHeading: string;
   screenshotsSubtitle: string;
-  faqBadge: string;
   faqHeading: string;
   faqItems: Array<{
     q: string;
     a: string;
   }>;
-  ctaBadge: string;
   ctaHeading: string;
   ctaSubtitle: string;
   ctaButton: string;

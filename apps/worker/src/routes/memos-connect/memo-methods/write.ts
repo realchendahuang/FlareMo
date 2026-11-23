@@ -1,3 +1,4 @@
+import { thumbnailKeyFor } from "@flaremo/contracts/constants";
 import {
   createMemo,
   getMemoById,
@@ -105,7 +106,11 @@ export async function deleteConnectMemo(
     );
     const objectKeys = attachments
       .filter((attachment) => attachment.state !== "missing")
-      .map((attachment) => attachment.r2Key);
+      .flatMap((attachment) =>
+        attachment.payload?.thumbnail === true
+          ? [attachment.r2Key, thumbnailKeyFor(attachment.r2Key)]
+          : [attachment.r2Key],
+      );
     if (objectKeys.length > 0) await env.ATTACHMENTS.delete(objectKeys);
     await hardDeleteMemo(context.db, context.user, memo.id);
   } else {

@@ -1,16 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useSearch } from "@tanstack/react-router";
-import { Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getBootstrapStatus, getRegistrationStatus } from "@/api";
 import { getAuthProviders } from "@/api/integrations";
 import { authClient } from "@/auth-client";
 import { AuthPageFrame } from "@/components/auth-page-frame";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { queryKeys } from "@/lib/query-keys";
+
+/**
+ * Better Auth answers a wrong account or password with an English message
+ * (`INVALID_EMAIL_OR_PASSWORD`, `INVALID_USERNAME_OR_PASSWORD`, 401). Show the
+ * localized sentence instead; other failures keep their own text.
+ */
+function loginErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object") {
+    const code = "code" in error ? error.code : undefined;
+    const status = "status" in error ? error.status : undefined;
+    if (
+      status === 401 ||
+      (typeof code === "string" && /^INVALID_\w*PASSWORD$/.test(code))
+    ) {
+      return fallback;
+    }
+  }
+  return errorMessage(error, fallback);
+}
 
 // How long the login page waits for the client session to confirm a
 // successful sign-in before falling back to a full document navigation. The
@@ -34,17 +55,17 @@ export function LoginPage() {
   const { redirect } = useSearch({ from: "/login" });
   const session = authClient.useSession();
   const bootstrapQuery = useQuery({
-    queryKey: ["auth-bootstrap-status"],
+    queryKey: queryKeys.authBootstrapStatus,
     queryFn: getBootstrapStatus,
     retry: false,
   });
   const registrationQuery = useQuery({
-    queryKey: ["auth-registration-status"],
+    queryKey: queryKeys.authRegistrationStatus,
     queryFn: getRegistrationStatus,
     retry: false,
   });
   const providersQuery = useQuery({
-    queryKey: ["auth-providers"],
+    queryKey: queryKeys.authProviders,
     queryFn: getAuthProviders,
     staleTime: 60_000,
   });
@@ -117,7 +138,7 @@ export function LoginPage() {
       setSocialPending(null);
     } catch (error) {
       setSocialPending(null);
-      setFormError(errorMessage(error, t("auth.loginFailed")));
+      setFormError(loginErrorMessage(error, t("auth.loginFailed")));
     }
   };
 
@@ -184,7 +205,7 @@ export function LoginPage() {
       // above) owns navigation from here.
       setPostSignIn(true);
     } catch (error) {
-      setFormError(errorMessage(error, t("auth.loginFailed")));
+      setFormError(loginErrorMessage(error, t("auth.loginFailed")));
       setIsSubmitting(false);
     }
   };
@@ -199,17 +220,17 @@ export function LoginPage() {
   return (
     <AuthPageFrame title={t("auth.loginTitle")}>
       {bootstrapQuery.isError && (
-        <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
+        <Alert className="mb-4" variant="destructive">
           {t("auth.statusUnavailable")}
-        </p>
+        </Alert>
       )}
       {bootstrapQuery.data?.initialized === false &&
         !bootstrapQuery.data.setup_available && (
-          <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+          <Alert className="mb-4" role="status" variant="warning">
             {bootstrapQuery.data.state === "recovery_required"
               ? t("auth.recoveryRequired")
               : t("auth.setupUnavailable")}
-          </p>
+          </Alert>
         )}
       <form
         className="flex flex-col gap-4"
@@ -252,11 +273,7 @@ export function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
           />
         </label>
-        {formError && (
-          <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-            {formError}
-          </p>
-        )}
+        {formError && <Alert variant="destructive">{formError}</Alert>}
         <Button
           className="mt-1"
           disabled={isSubmitting}
@@ -281,10 +298,7 @@ export function LoginPage() {
                 }
               >
                 {socialPending === provider && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
+                  <Spinner data-icon="inline-start" />
                 )}
                 {provider === "google"
                   ? t("auth.continueWithGoogle")
@@ -311,10 +325,13 @@ export function LoginPage() {
             </Link>
           </p>
         )}
-        {/* Always-present trailing slot: the register link appears here once
-            the public status lands, and the row keeps its height so the
-            buttons above never shift. */}
-        <div aria-hidden="true" className="min-h-6" />
+        {/* Holds the register link's row while the public status loads, so
+            the buttons above never shift when it lands. Once registration
+            is known to be closed the slot goes, instead of leaving an empty
+            band at the foot of the card. */}
+        {registrationQuery.isPending && (
+          <div aria-hidden="true" className="min-h-5" />
+        )}
       </form>
     </AuthPageFrame>
   );

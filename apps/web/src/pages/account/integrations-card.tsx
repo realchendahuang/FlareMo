@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, MailIcon, ShieldCheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -13,6 +12,11 @@ import {
   saveOauthSettings,
   testEmailSettings,
 } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,10 +39,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
+import { queryKeys } from "@/lib/query-keys";
 
 export function EmailSettingsCard() {
   const { t } = useI18n();
@@ -54,7 +59,7 @@ export function EmailSettingsCard() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const settingsQuery = useQuery({
-    queryKey: ["email-settings"],
+    queryKey: queryKeys.emailSettings,
     queryFn: getEmailSettings,
   });
 
@@ -79,7 +84,7 @@ export function EmailSettingsCard() {
     try {
       await task();
       const value = await cache.fetchQuery({
-        queryKey: ["email-settings"],
+        queryKey: queryKeys.emailSettings,
         queryFn: getEmailSettings,
         staleTime: 0,
       });
@@ -124,10 +129,19 @@ export function EmailSettingsCard() {
     );
   }
 
+  // A failed load must not fall through to a form seeded with defaults.
+  if (!config && settingsQuery.isError) {
+    return (
+      <QueryErrorState
+        isRetrying={settingsQuery.isFetching}
+        onRetry={() => void settingsQuery.refetch()}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <SettingsSectionGroup
-        title={t("admin.integrations.emailTitle")}
         footer={
           envManaged
             ? t("admin.integrations.emailEnvManaged")
@@ -137,7 +151,6 @@ export function EmailSettingsCard() {
         }
       >
         <SettingsRow
-          icon={MailIcon}
           label={t("admin.integrations.emailTitle")}
           description={
             config?.configured
@@ -170,42 +183,31 @@ export function EmailSettingsCard() {
             }
           />
         )}
-      </SettingsSectionGroup>
-
-      <SettingsSectionGroup title={t("common.actions")}>
+        {/* The row is the action: a separate button repeating the label
+            only doubled the words. */}
         <SettingsRow
           label={t("admin.integrations.testEmail")}
-          action={
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || !config?.configured}
-              onClick={() =>
-                void run(
-                  "test",
-                  testEmailSettings,
-                  "admin.integrations.testSuccess",
-                )
-              }
-            >
-              {pendingAction === "test" && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
-              )}
-              {t("admin.integrations.testEmail")}
-            </Button>
+          action={pendingAction === "test" ? <Spinner /> : undefined}
+          disabled={busy || !config?.configured}
+          onClick={() =>
+            void run(
+              "test",
+              testEmailSettings,
+              "admin.integrations.testSuccess",
+            )
           }
         />
-        {config?.revision && !envManaged && (
+      </SettingsSectionGroup>
+
+      {config?.revision && !envManaged && (
+        <SettingsSectionGroup>
           <SettingsRow
             destructive
             label={t("admin.integrations.delete")}
             onClick={() => setConfirmDelete(true)}
           />
-        )}
-      </SettingsSectionGroup>
+        </SettingsSectionGroup>
+      )}
 
       {/* Progressive Disclosure: Email Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -299,10 +301,7 @@ export function EmailSettingsCard() {
               </Button>
               <Button disabled={emailEditingDisabled} type="submit">
                 {pendingAction === "save" && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
+                  <Spinner data-icon="inline-start" />
                 )}
                 {t("common.save")}
               </Button>
@@ -364,7 +363,7 @@ export function OauthSettingsCard() {
   );
 
   const settingsQuery = useQuery({
-    queryKey: ["oauth-settings"],
+    queryKey: queryKeys.oauthSettings,
     queryFn: getOauthSettings,
   });
 
@@ -383,7 +382,7 @@ export function OauthSettingsCard() {
     try {
       await task();
       const value = await cache.fetchQuery({
-        queryKey: ["oauth-settings"],
+        queryKey: queryKeys.oauthSettings,
         queryFn: getOauthSettings,
         staleTime: 0,
       });
@@ -435,6 +434,23 @@ export function OauthSettingsCard() {
 
   const isGoogleActive = Boolean(config?.previews?.google?.active);
   const isGithubActive = Boolean(config?.previews?.github?.active);
+  if (!config && settingsQuery.isPending) {
+    return (
+      <div className="flex flex-col gap-3 p-4">
+        <Skeleton className="h-12 w-full rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-xl" />
+      </div>
+    );
+  }
+  // A failed load must not fall through to rows reading "not configured".
+  if (!config && settingsQuery.isError) {
+    return (
+      <QueryErrorState
+        isRetrying={settingsQuery.isFetching}
+        onRetry={() => void settingsQuery.refetch()}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -447,12 +463,9 @@ export function OauthSettingsCard() {
         }
       >
         <SettingsRow
-          icon={ShieldCheckIcon}
           label="Google"
           description={
-            isGoogleActive
-              ? t("admin.integrations.providerActive")
-              : t("settings.status.notConfigured")
+            isGoogleActive ? t("admin.integrations.providerActive") : undefined
           }
           value={
             isGoogleActive
@@ -465,12 +478,9 @@ export function OauthSettingsCard() {
           }
         />
         <SettingsRow
-          icon={ShieldCheckIcon}
           label="GitHub"
           description={
-            isGithubActive
-              ? t("admin.integrations.providerActive")
-              : t("settings.status.notConfigured")
+            isGithubActive ? t("admin.integrations.providerActive") : undefined
           }
           value={
             isGithubActive
@@ -485,7 +495,7 @@ export function OauthSettingsCard() {
       </SettingsSectionGroup>
 
       {config?.revision && !envManaged && (
-        <SettingsSectionGroup title={t("common.actions")}>
+        <SettingsSectionGroup>
           <SettingsRow
             destructive
             label={t("admin.integrations.delete")}
@@ -621,12 +631,7 @@ export function OauthSettingsCard() {
                 {t("common.cancel")}
               </Button>
               <Button disabled={editingDisabled} type="submit">
-                {busy && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
-                )}
+                {busy && <Spinner data-icon="inline-start" />}
                 {t("common.save")}
               </Button>
             </DialogFooter>

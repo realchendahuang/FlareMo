@@ -22,7 +22,6 @@ export async function buildMemoContext(
     relations,
     backlinks,
     revisions,
-    memories,
   } = await getMemoContextData(db, user, memoId);
   const creatorNames = await getFlaremoUserNames(db, [
     memo.userId,
@@ -43,6 +42,5 @@ export async function buildMemoContext(
     relations: relations.map(mapRelationContext),
     backlinks: backlinks.map(mapRelationContext),
     revisions: revisions.map(memoRevisionToDto),
-    memories,
   };
 }

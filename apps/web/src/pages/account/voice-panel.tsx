@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, MicIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -9,6 +8,11 @@ import {
   testVoiceSettings,
   type VoiceSettings,
 } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,12 +34,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n/key";
 import { queryKeys } from "@/lib/query-keys";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 type CredentialField =
   | "appId"
@@ -86,7 +90,7 @@ export function VoicePanel() {
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
 
   const settingsQuery = useQuery({
-    queryKey: ["voice-settings"],
+    queryKey: queryKeys.voiceSettings,
     queryFn: getVoiceSettings,
   });
 
@@ -132,7 +136,7 @@ export function VoicePanel() {
         baseUrl: "",
       });
       const value = await cache.fetchQuery({
-        queryKey: ["voice-settings"],
+        queryKey: queryKeys.voiceSettings,
         queryFn: getVoiceSettings,
         staleTime: 0,
       });
@@ -204,11 +208,20 @@ export function VoicePanel() {
       </div>
     );
   }
+  // Without the stored settings the form would show defaults, so a failed
+  // load gets a retry instead of an editable-looking but wrong panel.
+  if (!config && settingsQuery.isError) {
+    return (
+      <QueryErrorState
+        isRetrying={settingsQuery.isFetching}
+        onRetry={() => void settingsQuery.refetch()}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
       <SettingsSectionGroup
-        title={t("voiceSettings.title")}
         footer={
           envManaged
             ? t("voiceSettings.envManaged")
@@ -218,7 +231,6 @@ export function VoicePanel() {
         }
       >
         <SettingsRow
-          icon={MicIcon}
           label={t("voiceSettings.enabled")}
           action={
             <Switch
@@ -237,15 +249,15 @@ export function VoicePanel() {
           }
         />
         <SettingsRow
-          label={t("voiceSettings.model")}
-          value={model || "—"}
+          label={t("voiceSettings.modelLabel")}
+          value={model || t("voiceSettings.modelDefault")}
           chevron={!editingDisabled}
           onClick={
             editingDisabled ? undefined : () => setConfigDialogOpen(true)
           }
         />
         <SettingsRow
-          label={t("voiceSettings.configured")}
+          label={t("voiceSettings.credentials")}
           value={
             envManaged
               ? t("settings.status.envManaged")
@@ -260,7 +272,7 @@ export function VoicePanel() {
         />
       </SettingsSectionGroup>
 
-      <SettingsSectionGroup title={t("common.actions")}>
+      <SettingsSectionGroup>
         <SettingsRow
           label={t("voiceSettings.test")}
           description={t("voiceSettings.testWarning")}
@@ -277,13 +289,8 @@ export function VoicePanel() {
                 )
               }
             >
-              {pendingAction === "test" && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
-              )}
-              {t("voiceSettings.test")}
+              {pendingAction === "test" && <Spinner data-icon="inline-start" />}
+              {t("voiceSettings.testAction")}
             </Button>
           }
         />
@@ -419,10 +426,7 @@ export function VoicePanel() {
               </Button>
               <Button disabled={editingDisabled} type="submit">
                 {pendingAction === "save" && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
+                  <Spinner data-icon="inline-start" />
                 )}
                 {t("common.save")}
               </Button>

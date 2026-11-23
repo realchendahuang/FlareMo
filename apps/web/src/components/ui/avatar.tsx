@@ -18,7 +18,7 @@ export interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const SIZE_CLASSES = {
-  xs: "size-5 text-[10px]",
+  xs: "size-5 text-xs",
   sm: "size-6 text-xs",
   md: "size-8 text-sm",
   lg: "size-12 text-base",

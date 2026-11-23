@@ -1,4 +1,4 @@
-import { FLAREMO_API_VERSION } from "@flaremo/contracts";
+import { FLAREMO_API_VERSION } from "@flaremo/contracts/constants";
 import {
   getAuthBootstrapStatus,
   getMemoStats,

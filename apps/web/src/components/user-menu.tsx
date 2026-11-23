@@ -2,14 +2,18 @@ import {
   BellIcon,
   CheckIcon,
   ChevronDownIcon,
+  DownloadIcon,
+  LanguagesIcon,
   LogOutIcon,
   MonitorIcon,
   MoonIcon,
   RefreshCwIcon,
   SettingsIcon,
   SunIcon,
+  UploadIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import type { CurrentFlareMoUser } from "@/api";
 import {
   NotificationList,
@@ -40,19 +44,25 @@ import {
   useUpdateStatus,
 } from "@/components/update-status";
 import { useSignOut } from "@/hooks/use-sign-out";
-import { useI18n } from "@/i18n";
+import { LOCALE_LABELS, type Locale, SUPPORTED_LOCALES, useI18n } from "@/i18n";
 
 // The sidebar's single identity affordance, flomo-style: the topbar shows
 // only the member's name; email, settings, notifications, update check and
 // sign-out all live inside this menu. No logo, no avatars, no icon row.
 export function UserMenu({
   user,
+  onExport,
+  onImportFile,
   onOpenSettings,
 }: {
   user?: CurrentFlareMoUser | null;
+  /** Data transfer lives here, with the account, not as bare icons. */
+  onExport?: () => Promise<void>;
+  onImportFile?: (bundle: unknown) => Promise<void>;
   onOpenSettings: () => void;
 }) {
-  const { t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
+  const importInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
   const [updateOpen, setUpdateOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -104,7 +114,7 @@ export function UserMenu({
               {unreadCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary"
+                  className="absolute -top-0.5 -end-0.5 size-1.5 rounded-full bg-primary"
                 />
               )}
             </Button>
@@ -164,18 +174,39 @@ export function UserMenu({
               <DropdownMenuItem onClick={() => setTheme("system")}>
                 <MonitorIcon />
                 <span className="flex-1">{t("theme.system")}</span>
-                {theme === "system" && <CheckIcon className="ml-auto" />}
+                {theme === "system" && <CheckIcon className="ms-auto" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("light")}>
                 <SunIcon />
                 <span className="flex-1">{t("theme.light")}</span>
-                {theme === "light" && <CheckIcon className="ml-auto" />}
+                {theme === "light" && <CheckIcon className="ms-auto" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")}>
                 <MoonIcon />
                 <span className="flex-1">{t("theme.dark")}</span>
-                {theme === "dark" && <CheckIcon className="ml-auto" />}
+                {theme === "dark" && <CheckIcon className="ms-auto" />}
               </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          {/* Language lives here with appearance, not alone at the foot of
+              the sidebar. */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <LanguagesIcon />
+              <span className="min-w-0 flex-1 truncate">
+                {t("language.toggle")}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {LOCALE_LABELS[locale]}
+              </span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {SUPPORTED_LOCALES.map((next: Locale) => (
+                <DropdownMenuItem key={next} onClick={() => setLocale(next)}>
+                  <span className="flex-1">{LOCALE_LABELS[next]}</span>
+                  {next === locale && <CheckIcon className="ms-auto" />}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuItem onClick={() => setNotificationsOpen(true)}>
@@ -189,6 +220,20 @@ export function UserMenu({
               </span>
             )}
           </DropdownMenuItem>
+          {/* Settings-ish rows, then data in and out, then sign out. */}
+          <DropdownMenuSeparator />
+          {onExport && (
+            <DropdownMenuItem onClick={() => void onExport()}>
+              <DownloadIcon />
+              {t("common.export")}
+            </DropdownMenuItem>
+          )}
+          {onImportFile && (
+            <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
+              <UploadIcon />
+              {t("common.import")}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => setUpdateOpen(true)}>
             <RefreshCwIcon />
             <span className="min-w-0 flex-1 truncate">
@@ -224,6 +269,27 @@ export function UserMenu({
       </Dialog>
 
       <UpdateStatusDialog onOpenChange={setUpdateOpen} open={updateOpen} />
+      {onImportFile && (
+        <input
+          accept="application/json"
+          aria-hidden="true"
+          className="hidden"
+          ref={importInputRef}
+          tabIndex={-1}
+          type="file"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            try {
+              const text = await file.text();
+              void onImportFile(JSON.parse(text) as unknown);
+            } catch {
+              toast.error(t("toast.invalidImport"));
+            }
+          }}
+        />
+      )}
     </>
   );
 }

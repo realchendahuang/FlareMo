@@ -13,7 +13,7 @@ test("the PWA caches the Capture app shell and serves it offline", async () => {
     ok: true,
     redirected: false,
     type: "basic",
-    url: "https://flaremo.test/capture",
+    url: "https://flaremo.test/projects",
     async text() {
       // The v2 shell cache only stores documents that carry the app marker,
       // so an access wall or error page can never masquerade as the shell.
@@ -81,7 +81,7 @@ test("the PWA caches the Capture app shell and serves it offline", async () => {
       request: {
         method: "GET",
         mode: "navigate",
-        url: "https://flaremo.test/capture",
+        url: "https://flaremo.test/projects",
         headers: new Headers(),
       },
       respondWith(value) {
@@ -89,7 +89,7 @@ test("the PWA caches the Capture app shell and serves it offline", async () => {
       },
     });
     assert.ok(response);
-    return response;
+    return Promise.resolve(response);
   };
 
   assert.equal(await navigate(), shell);
@@ -97,4 +97,135 @@ test("the PWA caches the Capture app shell and serves it offline", async () => {
   // The offline serve comes from the verified copy stored by cache.put.
   assert.equal(await navigate(), cached);
   assert.equal(matchCount, 1);
+});
+
+test("the asset cache drops the oldest entries on activate and skips non-asset types", async () => {
+  const handlers = new Map();
+  const source = await readFile(
+    new URL("../apps/web/public/sw.js", import.meta.url),
+    "utf8",
+  );
+
+  // Build a cache that behaves like the real one: `keys()` iterates in
+  // insertion order and `delete()` removes by request.
+  const entries = new Map();
+  const keyOf = (request) =>
+    typeof request === "string" ? request : request.url;
+  const assetCache = {
+    async keys() {
+      return [...entries.keys()].map((url) => ({ url }));
+    },
+    async match(request) {
+      return entries.get(keyOf(request));
+    },
+    async put(request, response) {
+      entries.set(keyOf(request), response);
+    },
+    async delete(request) {
+      return entries.delete(keyOf(request));
+    },
+  };
+
+  const ok = (contentType) => ({
+    ok: true,
+    redirected: false,
+    type: "basic",
+    headers: new Headers({ "content-type": contentType }),
+    clone() {
+      return this;
+    },
+  });
+
+  let fetched = ok("application/javascript");
+  const fetch = async () => fetched;
+
+  runInNewContext(source, {
+    Request: class {
+      constructor(url) {
+        this.url = String(url);
+        this.method = "GET";
+        this.headers = new Headers();
+        this.mode = "no-cors";
+      }
+    },
+    Response: {
+      error: () => ({ error: true }),
+    },
+    Headers,
+    Set,
+    URL,
+    Date,
+    Number,
+    Promise,
+    caches: {
+      async keys() {
+        return ["flaremo-pwa-v2-assets"];
+      },
+      async open() {
+        return assetCache;
+      },
+      async match() {
+        return undefined;
+      },
+      async delete() {
+        return true;
+      },
+    },
+    fetch,
+    self: {
+      addEventListener(type, handler) {
+        handlers.set(type, handler);
+      },
+      clients: { claim() {} },
+      location: { origin: "https://flaremo.test" },
+      registration: { scope: "https://flaremo.test/" },
+      skipWaiting() {},
+    },
+  });
+
+  // Fill past the cap without running activate, then trigger it.
+  const request = (name) => ({
+    method: "GET",
+    mode: "cors",
+    url: `https://flaremo.test/assets/${name}-abcdefgh.js`,
+    headers: new Headers(),
+  });
+  for (let index = 0; index <= 600; index += 1) {
+    entries.set(
+      `https://flaremo.test/assets/old${index}-abcdefgh.js`,
+      ok("text/javascript"),
+    );
+  }
+
+  let activated;
+  handlers.get("activate")?.({
+    waitUntil(promise) {
+      activated = promise;
+    },
+  });
+  assert.ok(activated);
+  await Promise.resolve(activated);
+  assert.equal(entries.size, 600);
+  // The oldest entry is gone and the newest survived.
+  assert.equal(
+    entries.has("https://flaremo.test/assets/old0-abcdefgh.js"),
+    false,
+  );
+  assert.equal(
+    entries.has("https://flaremo.test/assets/old600-abcdefgh.js"),
+    true,
+  );
+
+  // A 200 HTML body under /assets/ must not be stored.
+  fetched = ok("text/html");
+  const before = entries.size;
+  await new Promise((resolve) => {
+    handlers.get("fetch")?.({
+      request: request("mislabeled"),
+      respondWith(promise) {
+        void Promise.resolve(promise).then(resolve);
+      },
+    });
+  });
+  assert.equal(entries.size, before);
 });

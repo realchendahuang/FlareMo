@@ -1,12 +1,17 @@
 # Deploy FlareMo with GitHub Actions
 
-This guide is for **your deployment repository** (a fork or copy of FlareMo). The workflow is `.github/workflows/deploy-cloudflare.yml`. It only runs from a manual `Run workflow` click; pushes do not publish. The upstream repository `realchendahuang/FlareMo` never runs this job.
+This guide is for **your deployment repository** (a fork or copy of FlareMo). The workflow is `.github/workflows/deploy-cloudflare.yml`, copied from the template at [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml). It only runs from a manual `Run workflow` click; pushes do not publish. The upstream repository `realchendahuang/FlareMo` never runs this job.
 
 The maintained paths remain local `pnpm deploy`, or the [Deploy to Cloudflare](./deploy.md#one-click-deploy-community-supported) button with Workers Builds. Do not put `BETTER_AUTH_SECRET` or `FLAREMO_BOOTSTRAP_SECRET` in the workflow file, issues, PRs, chat, or `workflow_dispatch` inputs: GitHub stores those form values in the run record. Keep them in repository **Settings → Secrets**.
 
 ## Prerequisites
 
-- The deployment repository includes `.github/workflows/deploy-cloudflare.yml`.
+- The deployment repository has copied the template [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml) to `.github/workflows/deploy-cloudflare.yml`:
+
+  ```bash
+  mkdir -p .github/workflows
+  cp <FlareMo checkout>/docs/templates/workflows/deploy-cloudflare.yml .github/workflows/
+  ```
 - The Cloudflare account has Workers enabled and an account-level `*.workers.dev` subdomain.
 - Two distinct random secrets of at least 32 characters, stored in a password manager first:
 
@@ -66,9 +71,9 @@ Open `Actions` → `Deploy to Cloudflare` → `Run workflow`:
 A production run will:
 
 1. Generate a job-local `wrangler.jsonc` from `wrangler.jsonc.example` (not committed).
-2. Create or reuse D1 `flaremo`, R2 `flaremo-attachments`, queues `flaremo-member-removal` and `flaremo-data-export`, and Vectorize indexes `flaremo-memos` and `flaremo-memories` (1024 dimensions, cosine).
+2. Create or reuse D1 `flaremo`, R2 `flaremo-attachments`, queues `flaremo-member-removal` and `flaremo-data-export`, and Vectorize index `flaremo-memos` (1024 dimensions, cosine).
 3. If `FLAREMO_PUBLIC_URL` is unset, write `https://flaremo.<subdomain>.workers.dev`.
-4. Run `pnpm deploy`: build the web app, apply remote D1 migrations, publish the Worker.
+4. Run `pnpm deploy`: build the web app, run a Worker bundle dry-run, apply remote D1 migrations, publish the Worker.
 5. Copy GitHub Secrets `BETTER_AUTH_SECRET` and `FLAREMO_BOOTSTRAP_SECRET` onto the Worker. Logs show `***`.
 6. Smoke check: request `FLAREMO_PUBLIC_URL` to confirm the Worker serves traffic, retrying for about a minute; a site that stays unreachable marks the run red.
 
@@ -116,7 +121,7 @@ These cannot be set in the FlareMo UI. Add them in Cloudflare when you need the 
 
 ## 8. Troubleshooting
 
-- No `Deploy to Cloudflare` workflow: you are on the wrong repository, or the file is not on the default branch.
+- No `Deploy to Cloudflare` workflow: copy the template into `.github/workflows/` and push it to the default branch of the deployment repository.
 - workers.dev subdomain lookup fails: register the account subdomain under Workers in the Cloudflare dashboard.
 - `/setup` fails: the two auth GitHub Secrets are missing or invalid, or the last run was `dry_run` only.
 - Queue / Vectorize / D1 create fails: the API token is missing permissions from step 1.

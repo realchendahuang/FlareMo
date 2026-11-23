@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build intermediate: scripts/build-client.mjs 先写 esbuild 的 CJS 产物到这里，
+# 再套上 window.__ModuleLoader__.load wrapper 写成 dist/client.js。
+# 注意：仓库根的 .gitignore 有 `dist/`，所以 dist/client.js 并不进 git——
+# clone 后必须先 `npm install && npm run build`（README「安装」有写）。
+dist/client.bundle.cjs
+dist/*.map
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# 本地环境与密钥（插件不读凭据，这里只是保险）
+.env
+.env.*
+*.local
+
+# Packaging output
+*.tgz

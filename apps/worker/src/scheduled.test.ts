@@ -3,17 +3,20 @@ import {
   attachments,
   createDb,
   dataTasks,
+  memberRemovalJobs,
   memos,
   memosNotifications,
   pushSubscriptions,
 } from "@flaremo/db";
 import {
   createDataTask,
+  createMemberRemovalJob,
   createMemo,
   createProject,
   createResourceId,
   createTask,
   ensureSingleUser,
+  getSchedulerHeartbeat,
   moveMemoToTrash,
   type PushPayload,
   pushNotificationToUser,
@@ -29,9 +32,25 @@ const NOW = Date.parse("2026-09-15T03:00:00.000Z");
 
 vi.mock("@flaremo/domain", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@flaremo/domain")>();
-  // The default no-op resolves like the real function; scheduled-tasks calls
-  // `.catch()` on the result, so a bare vi.fn() would break its callers.
-  return { ...actual, pushNotificationToUser: vi.fn(async () => 0) };
+  // The default no-op resolves with the same stats shape as the real
+  // function; scheduled-tasks aggregates every delivery attempt.
+  return {
+    ...actual,
+    pushNotificationToUser: vi.fn(async () => ({
+      attempted: 0,
+      delivered: 0,
+      failed: 0,
+      failureCategories: {
+        endpoint_expired: 0,
+        http_4xx: 0,
+        http_5xx: 0,
+        network_error: 0,
+        crypto_error: 0,
+        payload_error: 0,
+        unknown: 0,
+      },
+    })),
+  };
 });
 
 /** Minimal R2 bucket double covering the maintenance surface: delete + list. */
@@ -40,6 +59,7 @@ class FakeR2Bucket {
   deletedKeys: string[][] = [];
   listPrefixes: string[] = [];
   failPut = false;
+  failDelete = false;
 
   async put(key: string) {
     if (this.failPut) throw new Error("R2 put failed");
@@ -47,6 +67,7 @@ class FakeR2Bucket {
   }
 
   async delete(keys: string | string[]) {
+    if (this.failDelete) throw new Error("R2 delete failed");
     const list = Array.isArray(keys) ? keys : [keys];
     this.deletedKeys.push(list);
     for (const key of list) this.objects.delete(key);
@@ -152,40 +173,126 @@ describe("scheduled maintenance", () => {
     expect(cronOnlyAfter?.id).toBe(cronOnly.id);
   });
 
-  it("propagates Queue failures and keeps cron recovery available", async () => {
+  it("requeues Queue failures and keeps cron recovery available", async () => {
     const failed = await createDataTask(db, user, { kind: "export" });
     r2.failPut = true;
-    await expect(
-      runQueuedJobs(env, { removalJobIds: [], exportTaskIds: [failed.id] }),
-    ).rejects.toThrow("R2 put failed");
-    expect(
-      (
+
+    // Failures #1 and #2 are retryable. The queue path throws so Cloudflare
+    // redelivers, while the row remains claimable by the cron reconciler.
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      await expect(
+        runQueuedJobs(env, {
+          removalJobIds: [],
+          exportTaskIds: [failed.id],
+        }),
+      ).rejects.toThrow("R2 put failed");
+      expect(
         await db
           .select()
           .from(dataTasks)
           .where(eq(dataTasks.id, failed.id))
-          .get()
-      )?.status,
-    ).toBe("failed");
+          .get(),
+      ).toMatchObject({
+        status: "queued",
+        phase: "retrying",
+        attempts: attempt,
+      });
+    }
 
-    // A redelivery of a failed export is an idempotent no-op rather than a
-    // second write, while an unrelated queued export remains cron-recoverable.
+    // Failure #3 exhausts the budget and becomes terminal; the Queue message
+    // is acknowledged instead of looping forever.
+    await runQueuedJobs(env, {
+      removalJobIds: [],
+      exportTaskIds: [failed.id],
+    });
+    expect(
+      await db
+        .select()
+        .from(dataTasks)
+        .where(eq(dataTasks.id, failed.id))
+        .get(),
+    ).toMatchObject({ status: "failed", attempts: 3 });
+
+    // A redelivery of the terminal export is an idempotent no-op, while an
+    // unrelated queued export remains cron-recoverable.
     r2.failPut = false;
     await runQueuedJobs(env, {
       removalJobIds: [],
       exportTaskIds: [failed.id],
     });
+    expect(
+      await db
+        .select()
+        .from(dataTasks)
+        .where(eq(dataTasks.id, failed.id))
+        .get(),
+    ).toMatchObject({ status: "failed", attempts: 3 });
+
     const cronFallback = await createDataTask(db, user, { kind: "export" });
     await runScheduledMaintenance(env, NOW);
     expect(
-      (
+      await db
+        .select()
+        .from(dataTasks)
+        .where(eq(dataTasks.id, cronFallback.id))
+        .get(),
+    ).toMatchObject({ status: "succeeded" });
+  });
+
+  it("recovers a Queue-requeued export during the next cron sweep", async () => {
+    const task = await createDataTask(db, user, { kind: "export" });
+    r2.failPut = true;
+    await expect(
+      runQueuedJobs(env, { removalJobIds: [], exportTaskIds: [task.id] }),
+    ).rejects.toThrow("R2 put failed");
+    expect(
+      await db.select().from(dataTasks).where(eq(dataTasks.id, task.id)).get(),
+    ).toMatchObject({ status: "queued", phase: "retrying", attempts: 1 });
+
+    r2.failPut = false;
+    await runScheduledMaintenance(env, NOW);
+    expect(
+      await db.select().from(dataTasks).where(eq(dataTasks.id, task.id)).get(),
+    ).toMatchObject({ status: "succeeded" });
+  });
+
+  it("requeues member removal failures and dead-letters the final attempt", async () => {
+    const job = await createMemberRemovalJob(db, "users/missing", user.id);
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      await expect(
+        runQueuedJobs(env, {
+          removalJobIds: [job.id],
+          exportTaskIds: [],
+        }),
+      ).rejects.toThrow();
+      expect(
         await db
           .select()
-          .from(dataTasks)
-          .where(eq(dataTasks.id, cronFallback.id))
-          .get()
-      )?.status,
-    ).toBe("succeeded");
+          .from(memberRemovalJobs)
+          .where(eq(memberRemovalJobs.id, job.id))
+          .get(),
+      ).toMatchObject({
+        status: "queued",
+        phase: "retrying",
+        attempts: attempt,
+      });
+    }
+
+    await runQueuedJobs(env, {
+      removalJobIds: [job.id],
+      exportTaskIds: [],
+    });
+    expect(
+      await db
+        .select()
+        .from(memberRemovalJobs)
+        .where(eq(memberRemovalJobs.id, job.id))
+        .get(),
+    ).toMatchObject({
+      status: "failed",
+      phase: "dead",
+      attempts: 3,
+    });
   });
 
   it("purges expired trash with its attachments and sweeps orphaned ones", async () => {
@@ -285,6 +392,50 @@ describe("scheduled maintenance", () => {
     expect(rows.filter((row) => row.type === "task_overdue")).toHaveLength(1);
   });
 
+  it("keeps later maintenance steps running when an earlier step fails", async () => {
+    const anchor = await createMemo(db, user, {
+      content: "a year ago today",
+      visibility: "private",
+      source: "web",
+    });
+    await db
+      .update(memos)
+      .set({ createdAt: "2025-09-15T10:00:00.000Z" })
+      .where(eq(memos.id, anchor.id));
+    await insertAttachment(db, user.id, {
+      createdAt: new Date(NOW - 10 * 86_400_000).toISOString(),
+    });
+
+    r2.failDelete = true;
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      await runScheduledMaintenance(env, NOW);
+    } finally {
+      r2.failDelete = false;
+    }
+
+    const summaryLine = logSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((line) => line.includes("scheduled maintenance complete"));
+    const summary = JSON.parse(summaryLine ?? "{}") as {
+      ok?: boolean;
+      failedSteps?: string[];
+    };
+    // The R2 delete failure is contained to the attachment step; every pass
+    // after it still runs.
+    expect(summary.ok).toBe(false);
+    expect(summary.failedSteps).toContain("attachment-gc");
+    expect(errorSpy).toHaveBeenCalled();
+    const rows = await db.select().from(memosNotifications);
+    expect(rows.filter((row) => row.type === "daily_review")).toHaveLength(1);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it("expires stale data tasks and garbage-collects their export artifacts", async () => {
     const taskId = createResourceId("data_tasks");
     await db.insert(dataTasks).values({
@@ -297,6 +448,7 @@ describe("scheduled maintenance", () => {
       createdAt: new Date(NOW - 30 * 86_400_000).toISOString(),
       updatedAt: new Date(NOW - 30 * 86_400_000).toISOString(),
       completedAt: new Date(NOW - 30 * 86_400_000).toISOString(),
+      expiresAt: new Date(NOW - 1).toISOString(),
     });
     r2.objects.add(`exports/${taskId}/manifest.json`);
     r2.objects.add("exports/other/artifact.json");
@@ -342,11 +494,68 @@ describe("scheduled maintenance", () => {
     vi.mocked(pushNotificationToUser).mockImplementation(
       async (_db, _keys, userId, payload) => {
         pushes.push({ userId, payload });
-        return 1;
+        return {
+          attempted: 2,
+          delivered: 1,
+          failed: 1,
+          failureCategories: {
+            endpoint_expired: 0,
+            http_4xx: 0,
+            http_5xx: 1,
+            network_error: 0,
+            crypto_error: 0,
+            payload_error: 0,
+            unknown: 0,
+          },
+        };
       },
     );
 
-    await runScheduledMaintenance(env, NOW);
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+    try {
+      await runScheduledMaintenance(env, NOW);
+
+      const summary = logSpy.mock.calls
+        .map(([line]) => {
+          try {
+            return JSON.parse(String(line)) as {
+              message?: string;
+              counts?: { push?: unknown };
+            };
+          } catch {
+            return {};
+          }
+        })
+        .find((entry) => entry.message === "scheduled maintenance complete");
+      expect(summary?.counts?.push).toMatchObject({
+        attempted: 2,
+        delivered: 1,
+        failed: 1,
+        failureCategories: { http_5xx: 1 },
+      });
+      const warning = warnSpy.mock.calls
+        .map(([line]) => {
+          try {
+            return JSON.parse(String(line)) as {
+              message?: string;
+              failureCategories?: { http_5xx?: number };
+            };
+          } catch {
+            return {};
+          }
+        })
+        .find(
+          (entry) =>
+            entry.message === "scheduled web push completed with failures",
+        );
+      expect(warning?.failureCategories?.http_5xx).toBe(1);
+    } finally {
+      logSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
 
     expect(pushes).toHaveLength(1);
     expect(pushes[0]?.userId).toBe(user.id);
@@ -360,5 +569,44 @@ describe("scheduled maintenance", () => {
     const rows = await db.select().from(memosNotifications);
     const overdueRow = rows.find((row) => row.type === "task_overdue");
     expect(overdueRow?.snippet).toBe("overdue chore");
+  });
+
+  it("persists a non-sensitive scheduler heartbeat on completion and counts failed steps", async () => {
+    expect(await getSchedulerHeartbeat(db)).toBeNull();
+
+    await runScheduledMaintenance(env, NOW);
+    const cleanHeartbeat = await getSchedulerHeartbeat(db);
+    expect(cleanHeartbeat).not.toBeNull();
+    expect(cleanHeartbeat).toMatchObject({
+      ok: true,
+      scheduledAt: new Date(NOW).toISOString(),
+      failedSteps: 0,
+    });
+    expect(cleanHeartbeat?.durationMs).toBeGreaterThanOrEqual(0);
+    expect(cleanHeartbeat?.totalSteps).toBeGreaterThanOrEqual(10);
+
+    await insertAttachment(db, user.id, {
+      createdAt: new Date(NOW - 10 * 86_400_000).toISOString(),
+    });
+    r2.failDelete = true;
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      await runScheduledMaintenance(env, NOW + 60_000);
+    } finally {
+      r2.failDelete = false;
+      errorSpy.mockRestore();
+    }
+
+    const degradedHeartbeat = await getSchedulerHeartbeat(db);
+    expect(degradedHeartbeat).toMatchObject({
+      ok: false,
+      scheduledAt: new Date(NOW + 60_000).toISOString(),
+      failedSteps: 1,
+    });
+    // Ensure only aggregate counters are stored — never raw error strings or secrets.
+    expect(JSON.stringify(degradedHeartbeat)).not.toContain("R2 delete failed");
+    expect(JSON.stringify(degradedHeartbeat)).not.toContain("test-private-key");
   });
 });

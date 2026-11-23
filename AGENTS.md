@@ -10,7 +10,7 @@ FlareMo 是一个 Cloudflare 原生的个人知识管理系统：
 - D1 是笔记、用户、关系、分享、设置和附件元数据的事实源。
 - R2 只存附件、导出包和对象文件。
 - `/api/v1/*` 提供 Memos 兼容 API 子集。
-- 应用层使用 Better Auth：浏览器使用 HttpOnly cookie session，脚本、Memos-compatible 客户端和 MCP 使用可撤销的 `memos_pat_` Personal Access Token。
+- 应用层使用 Better Auth：浏览器使用 HttpOnly cookie session，脚本、Memos-compatible 客户端和 MCP 使用可撤销的 `memos_pat_` Personal Access Token。PAT 带权限范围（`notes` 覆盖笔记/待办/文章/MCP，`admin` 额外覆盖 `/api/app/admin/*` 管理面）。新令牌默认 365 天；`notes` 令牌可显式选择永久有效，`admin` 令牌最长 365 天。migration `0050_pat_scope_backfill` 将旧的未存 permissions 令牌回填为 notes 权限；需要管理面的脚本必须显式重建 admin scope 令牌。
 - Cloudflare Access 是可选的外层防线和迁移期防线；启用时，客户端仍必须通过 Access policy，并在应用层提供 cookie session 或 `memos_pat_`。
 - 当前默认是一套单用户 bootstrap；禁止公开 signup，但认证表和 `auth_user_links` 为未来多用户保留扩展边界。
 
@@ -26,7 +26,7 @@ pnpm build
 pnpm backup:drill
 ```
 
-`pnpm verify`（13 步全量门禁）只在维护者明确要求时运行，见下方「敏捷开发节奏」。
+`pnpm verify`（7 步全量门禁）只在维护者明确要求时运行，见下方「敏捷开发节奏」。
 
 本地开发：
 
@@ -57,7 +57,7 @@ pnpm deploy:dry-run
 pnpm deploy
 ```
 
-`pnpm verify` 是 13 步全量门禁（含 e2e），**只在维护者明确要求时执行**（发版也不需要）。
+`pnpm verify` 是 7 步全量门禁（含 e2e），**只在维护者明确要求时执行**（发版也不需要）。
 
 只验证 Cloudflare 配置和打包：
 
@@ -78,8 +78,9 @@ pnpm deploy:dry-run
 - 应用层认证边界是 Better Auth；不要新增绕开 Better Auth 的登录页、共享密码或第二套应用令牌。Cloudflare Access 可以作为可选外层防线，但不能被误当成应用用户身份映射。
 - 凭据相关的 Origin 契约必须保持不变：cookie session 的状态变更请求（包括 `POST`、`PATCH`、`DELETE` 等非安全方法）必须携带并精确匹配 `FLAREMO_PUBLIC_URL` 或 `FLAREMO_TRUSTED_ORIGINS`；PAT 请求可以省略 Origin，但一旦携带也必须精确匹配同一 allowlist，否则返回 `403`。不要用 wildcard、`Referer` 或 Cloudflare Access headers 替代 Origin 校验。
 - 不得把 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET`、初始密码、cookie 或 `memos_pat_` 明文写进代码、文档、migration、issue、PR、日志或聊天；生产 secret 只能通过 Wrangler secret 或 Cloudflare 控制台安全配置。
-- `Temp/` 是参考仓库目录，不能提交。
-- 使用 GitHub Actions 时默认只允许两类 workflow：`.github/workflows/ci.yml`（瘦 CI：format / lint / typecheck / 单元测试，兕底与外部 PR 门禁）和 `.github/workflows/flaremo-update.yml`（只服务自部署用户自己的部署仓库，同步上游 Release 并创建升级 PR）。现有 `.github/workflows/deploy-cloudflare.yml` 是自托管 fork/deployment repository 的受控例外，只响应 `workflow_dispatch`，不在 push 时部署，并且上游 `realchendahuang/FlareMo` 不运行该 job；不要把上游或常规仓库改成 push/CI 自动生产部署。不要新增其它 workflow，不跑 E2E 进 CI；全量门禁 `pnpm verify` 只在维护者明确要求时于本地执行（发版也不需要）。不重新启用 Dependabot 或 Workers Builds。
+- `Temp/` 是本机临时脚本与参考目录（已 gitignore），不能提交。
+- `integrations/` 存放与 FlareMo 同仓发布的外部集成（当前是 DSH 插件 `integrations/dsh-plugin/`）：它有自己的 `package.json`、依赖、构建与测试，**不加入 pnpm workspace，也不进根 tsconfig / biome / verify 门禁**。改插件时只在它自己的目录里跑 `npm test` 和 `node scripts/build-client.mjs`；不要把它的文件拉进内核检查，也不要在内核代码里引用它。
+- 上游仓库**不包含** `.github/workflows`、没有 CI，也不做 push/自动生产部署。自托管部署仓库需要 GitHub Actions 时，从 `docs/templates/workflows/` 复制 `deploy-cloudflare.yml`（只响应 `workflow_dispatch`）和 `flaremo-update.yml`（只创建升级 PR），不要把上游或常规仓库改成 push/CI 自动生产部署，也不要新增其它 workflow、不跑 E2E 进 CI；全量门禁 `pnpm verify` 只在维护者明确要求时于本地执行（发版也不需要）。不重新启用 Dependabot 或 Workers Builds。
 - 改路由、守卫、导航行为时必须同步补 e2e 用例（2026-09-10 事故教训：v0.15.3 守卫重构后门禁拦不住匿名首页无限加载，因为 e2e 只覆盖了深度链接没覆盖 `/`；门禁的有效性 = 测试覆盖率）。**补用例 ≠ 主动跑**：写进仓库即可，跑不跑由维护者决定。
 - 敏捷开发节奏（2026-09-16 维护者定调）：小步快跑，验证只跑与改动直接相关的定向用例（单个 Vitest 文件 / e2e spec）。**全量门禁 `pnpm verify` 只在维护者明确要求时执行——发版、部署、日常提交都不跑**。质量底线不变：改动涉及的测试必须绿、`pnpm format` 通过。
 
@@ -116,7 +117,7 @@ issue -> branch -> PR 流程只用于：对外贡献者、维护者明确要求�
 
 - 改动涉及的测试必须绿：只跑该改动相关的 vitest 文件（e2e 见上：opt-in，不主动跑）。
 - 提交前跑一次 `pnpm format`（很快）。
-- 部署不需要先跑全量门禁：直接部署（`deploy-kosx.mjs` 默认已跳过 verify），迁移、构建和线上冒烟仍由部署脚本执行。
+- 部署不需要先跑全量门禁：直接部署（`flaremo-cloud` 仓库的 `scripts/deploy-kosx.mjs` 默认已跳过 verify；该脚本不在本仓库），迁移、构建和线上冒烟仍由部署脚本执行。
 - 全量 `pnpm verify` 只在维护者明确要求时执行；发版脚本（`pnpm release`）默认不跑，`--verify` 可按需开启。
 
 涉及部署、Wrangler、D1、R2 或 Access 的改动，建议跑 `pnpm deploy:dry-run`。
@@ -125,6 +126,7 @@ issue -> branch -> PR 流程只用于：对外贡献者、维护者明确要求�
 ## 文档入口
 
 - `README.md`：项目入口和部署入口。
+- `docs/README.md`：文档索引（入门 / 架构 / 部署 / 兼容 / 设计 / 历史设计稿分类）。
 - **README 语言版本规则（2026-09-22 整理后定案）**：`README.md` 是唯一基准（英文），`README.zh-CN` / `.ja` / `.ko` / `.fr` / `.es` / `.ru` / `.ar` 七个翻译版是它的结构镜像（逐节 1:1，只差译文）。改主 README 时必须同步更新对应翻译版；只动某一节也要把该节同步到全部语言版。各版本专有约定：zh-CN 的文档链接指向中文文档根 `docs/`，其他语言版指向 `docs/en/`（`plugin-platform-standard.md` 无英文专版，保持根路径）；语言切换器里的链接名保持各语言原生写法，不算混排。
 - `docs/tech-stack.md`：确定的技术栈。
 - `docs/architecture-notes.md`：架构和兼容边界。
@@ -133,7 +135,9 @@ issue -> branch -> PR 流程只用于：对外贡献者、维护者明确要求�
 - `docs/release.md`：发版规则。
 - `docs/maintenance.md`：维护、备份和恢复。
 - `docs/memos-compatibility.md`：Memos 兼容矩阵。
+- `docs/import-from-memos.md`：从 Memos 0.31 导出包迁移到 FlareMo（英文版在 `docs/en/`）。
 - `docs/memos-ecosystem.md`：第三方客户端、认证方式和真实兼容验证记录。
 - `docs/design-system.md`：Ember 设计系统（色彩、字体、动效、组件和文案约定）。
 - `docs/semantic-search.md`：语义搜索、Vectorize 和 Workers AI 的边界。
+- `docs/templates/workflows/`：自托管部署仓库用的 GitHub Actions workflow 模板（`deploy-cloudflare.yml`、`flaremo-update.yml`）。
 - `ROADMAP.md`：稳定方向和公开任务池。

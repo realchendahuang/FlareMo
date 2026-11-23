@@ -2,22 +2,29 @@ packages:
   - "apps/*"
   - "packages/*"
   - "plugins"
+# Supply-chain policy: only install versions that have been published for at
+# least a day (minutes). docs/release.md describes the policy; this is where it
+# is enforced. Exclusions below are deliberate fast-follows for pinned
+# Cloudflare tooling.
+minimumReleaseAge: 1440
 overrides:
   "@esbuild-kit/core-utils>esbuild": 0.25.12
-  fast-uri: "^3.1.5"
-  "@hono/node-server": "^2.0.5"
-  brace-expansion: "^5.0.9"
-  ip-address: "^10.3.1"
-  js-yaml: "^4.3.1"
+  hono: "^4.13.14"
   postcss: "^8.5.23"
-  undici: "^7.29.0"
-  sharp: "^0.35.4"
+  seroval: "^1.6.11"
+  sharp: "^0.35.5"
+  source-map-js: "^1.2.2"
+  undici: "^7.30.1"
+  vite: "^8.3.5"
+  "zod@^4": "^4.6.7"
 allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
 minimumReleaseAgeExclude:
-  - '@cloudflare/workers-types@4.20260627.1'
-  - '@cloudflare/workers-types@5.20260708.1'
+  - "@cloudflare/workers-types@4.20260627.1"
+  - "@cloudflare/workers-types@5.20260708.1"
   - miniflare@4.20260722.0
   - wrangler@4.114.0
+  - seroval@1.7.5
+  - systeminformation@5.33.19

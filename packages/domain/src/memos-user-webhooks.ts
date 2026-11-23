@@ -7,6 +7,7 @@ import {
 import { and, asc, eq } from "drizzle-orm";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { parseUserChildResourceName } from "./memos-user-shared";
+import { OutboundFetchError, validateOutboundUrl } from "./memos-webhooks";
 
 const MAX_WEBHOOK_DISPLAY_NAME_LENGTH = 256;
 const MAX_WEBHOOK_URL_LENGTH = 2_048;
@@ -116,7 +117,9 @@ export async function updateUserWebhook(
             : normalizeSigningSecret(input.signingSecret, false);
         break;
       default:
-        throw new ValidationError(`Unsupported webhook update field: ${field}`);
+        throw new ValidationError(
+          `Unsupported webhook update field: ${String(field)}`,
+        );
     }
   }
 
@@ -188,63 +191,36 @@ function validateWebhookUrl(value: string) {
       "Webhook URL is required and must be <= 2048 characters",
     );
   }
-  let parsed: URL;
   try {
-    parsed = new URL(url);
-  } catch {
+    validateOutboundUrl(url, {
+      allowFragment: false,
+      maxUrlLength: MAX_WEBHOOK_URL_LENGTH,
+    });
+  } catch (error) {
+    if (!(error instanceof OutboundFetchError)) throw error;
+    if (error.code === "unsupported_protocol") {
+      throw new ValidationError("Webhook URL must use http or https");
+    }
+    if (error.code === "blocked_host") {
+      throw new ValidationError(
+        "Webhook URL must not target a local or private host",
+      );
+    }
+    if (error.message === "URL is too long") {
+      throw new ValidationError(
+        "Webhook URL is required and must be <= 2048 characters",
+      );
+    }
+    if (error.message === "URL fragments are not allowed") {
+      throw new ValidationError(
+        "Webhook URL contains unsupported credentials or fragment",
+      );
+    }
     throw new ValidationError(
       "Webhook URL must be an absolute http or https URL",
     );
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new ValidationError("Webhook URL must use http or https");
-  }
-  if (!parsed.hostname || parsed.username || parsed.password || parsed.hash) {
-    throw new ValidationError(
-      "Webhook URL contains unsupported credentials or fragment",
-    );
-  }
-  const hostname = parsed.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (
-    hostname === "localhost" ||
-    hostname.endsWith(".local") ||
-    hostname.endsWith(".internal") ||
-    isReservedIpLiteral(hostname)
-  ) {
-    throw new ValidationError(
-      "Webhook URL must not target a local or private host",
-    );
-  }
   return url;
-}
-
-function isReservedIpLiteral(hostname: string) {
-  if (hostname.includes(":")) {
-    return (
-      hostname === "::" ||
-      hostname === "::1" ||
-      hostname.startsWith("fc") ||
-      hostname.startsWith("fd") ||
-      hostname.startsWith("fe8") ||
-      hostname.startsWith("fe9") ||
-      hostname.startsWith("fea") ||
-      hostname.startsWith("feb")
-    );
-  }
-  const parts = hostname.split(".");
-  if (parts.length !== 4 || parts.some((part) => !/^\d+$/.test(part))) {
-    return false;
-  }
-  const first = Number(parts[0]);
-  const second = Number(parts[1]);
-  return (
-    first === 0 ||
-    first === 10 ||
-    first === 127 ||
-    (first === 169 && second === 254) ||
-    (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 168)
-  );
 }
 
 function validateWebhookDisplayName(value: string) {
@@ -260,7 +236,7 @@ function normalizeSigningSecret(value: string | undefined, generate: boolean) {
   if (!secret && generate) return generateSigningSecret();
   if (
     secret.length > 512 ||
-    [...secret].some((char) => {
+    Array.from(secret).some((char) => {
       const codePoint = char.codePointAt(0) ?? 0;
       return codePoint < 0x20 || codePoint === 0x7f || codePoint > 0x7e;
     })

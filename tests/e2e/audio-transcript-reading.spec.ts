@@ -250,6 +250,10 @@ test("keeps the transcript readable on a phone", async ({
   });
   await mobile.goto(`/memo/${memoId}`);
   await expect(mobile.getByTestId("reading-time")).toBeVisible();
+  // The transcript body is a lazy content chunk; measuring before it mounts
+  // yields an undefined width under a loaded suite.
+  await expect(mobile.locator(".memo-markdown")).toBeVisible();
+  await expect(mobile.getByText("Welcome.")).toBeVisible();
 
   const layout = await mobile.evaluate(() => {
     const body = document.querySelector(".memo-markdown");

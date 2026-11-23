@@ -1,15 +1,18 @@
 import { z } from "zod";
+import { CAPTURE_MAX_TEXT, CAPTURE_SAMPLE_RATE } from "./constants";
 
-export const CAPTURE_SAMPLE_RATE = 16_000;
-export const CAPTURE_MAX_FRAME_BYTES = 6_400;
-export const CAPTURE_MAX_TEXT = 90_000;
-export const CAPTURE_MAX_DURATION_MS = 60 * 60_000;
+// Re-exported so existing `@flaremo/contracts` imports keep working. Code
+// that only needs a constant should import `@flaremo/contracts/constants`
+// instead: importing this module pulls zod in with it.
+export {
+  CAPTURE_BATCH_MAX_BYTES,
+  CAPTURE_BATCH_SLICE_MS,
+  CAPTURE_MAX_DURATION_MS,
+  CAPTURE_MAX_FRAME_BYTES,
+  CAPTURE_MAX_TEXT,
+  CAPTURE_SAMPLE_RATE,
+} from "./constants";
 
-// Batch (MiniMax) transcription (rollout §3, asr-minimax.md). The provider's
-// hard limit is 500 s / 50 MB per request; clients slice below both, and the
-// Worker proxy buffers at most one slice.
-export const CAPTURE_BATCH_SLICE_MS = 480_000;
-export const CAPTURE_BATCH_MAX_BYTES = 16 * 1024 * 1024;
 export const captureUtteranceSchema = z.object({
   startMs: z.number().nonnegative().finite(),
   endMs: z.number().nonnegative().finite(),

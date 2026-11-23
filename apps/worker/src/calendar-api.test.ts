@@ -224,6 +224,13 @@ describe("FlareMo calendar API", () => {
     expect(unauthenticated.status).toBe(401);
   });
 
+  it("rejects an hourly range longer than a month", async () => {
+    const res = await fetchApp(
+      "http://flaremo.test/api/app/stats/hourly?from=2020-01-01&to=2026-01-01",
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("rejects invalid ranges and unauthenticated access", async () => {
     const reversed = await fetchApp(
       "http://flaremo.test/api/app/calendar?from=2026-10-01&to=2026-09-01",

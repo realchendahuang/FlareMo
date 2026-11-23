@@ -14,6 +14,8 @@ import {
   XIcon,
 } from "lucide-react";
 import type { AdminUser } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,7 +72,9 @@ export function UsersTable({
   usersQuery: {
     data?: { users: AdminUser[] };
     isError: boolean;
+    isFetching: boolean;
     isLoading: boolean;
+    refetch: () => unknown;
   };
 }) {
   const { t } = useI18n();
@@ -105,22 +109,25 @@ export function UsersTable({
       {/* Lightweight search input: visible if there are more than 3 members or already searching */}
       {(allUsers.length > 3 || memberSearch) && (
         <div className="relative">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <SearchIcon className="pointer-events-none absolute top-1/2 start-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label={t("admin.memberSearchPlaceholder")}
-            className="h-9 pl-9 pr-8 text-xs bg-muted/20 border-border/50 hover:border-border/80 focus:bg-background transition-colors"
+            className="h-9 ps-9 pe-8 text-xs bg-muted/20 border-border/50 hover:border-border/80 focus:bg-background transition-colors"
             placeholder={t("admin.memberSearchPlaceholder")}
             value={memberSearch}
             onChange={(event) => setMemberSearch(event.target.value)}
           />
           {memberSearch && (
-            <button
+            <Button
               type="button"
+              aria-label={t("search.clear")}
               onClick={() => setMemberSearch("")}
-              className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+              className="absolute top-1/2 end-1.5 -translate-y-1/2 text-muted-foreground"
+              size="icon-xs"
+              variant="ghost"
             >
               <XIcon className="size-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -134,9 +141,11 @@ export function UsersTable({
         )}
 
         {usersQuery.isError && (
-          <p className="p-4 text-xs text-destructive">
-            {t("admin.usersLoadFailed")}
-          </p>
+          <QueryErrorState
+            className="min-h-40 py-6 text-muted-foreground"
+            isRetrying={usersQuery.isFetching}
+            onRetry={() => void usersQuery.refetch()}
+          />
         )}
 
         {usersQuery.data &&
@@ -151,11 +160,11 @@ export function UsersTable({
               >
                 {/* Left: Avatar & Identity */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                    {(user.name || user.username || "?")
-                      .slice(0, 1)
-                      .toUpperCase()}
-                  </div>
+                  <Avatar
+                    className="size-9 shrink-0"
+                    name={user.name || user.username}
+                    src={user.avatar_url ?? null}
+                  />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-xs font-medium text-foreground">
@@ -178,27 +187,18 @@ export function UsersTable({
                 {/* Right: Role & Status & Actions */}
                 <div className="flex shrink-0 items-center gap-2">
                   {user.role === "owner" ? (
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium text-xs"
-                    >
+                    <Badge variant="warning" className="gap-1">
                       <CrownIcon className="size-3" />
                       <span>{t("admin.role.owner")}</span>
                     </Badge>
                   ) : user.role === "admin" ? (
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 border-primary/20 bg-primary/10 text-primary font-medium text-xs"
-                    >
+                    <Badge variant="brand" className="gap-1">
                       <ShieldCheckIcon className="size-3" />
                       <span>{t("admin.role.admin")}</span>
                     </Badge>
                   ) : user.role === "reader" ? (
                     <div className="flex items-center gap-1.5">
-                      <Badge
-                        variant="secondary"
-                        className="gap-1 border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium text-xs"
-                      >
+                      <Badge variant="info" className="gap-1">
                         <EyeIcon className="size-3" />
                         <span>{t("admin.role.reader")}</span>
                       </Badge>

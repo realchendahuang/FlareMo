@@ -1,5 +1,7 @@
 # 语音识别配置管理（ASR Admin Settings）— 需求与实施文档
 
+> **v0.24.0 起**：独立的 `/capture` 录音页已删除，语音输入只保留在输入框的麦克风按钮里；本文描述的 Worker 桥接、服务商适配与限额不变，页面相关段落仅作历史记录。
+
 > 状态（2026-09-16）：本需求已通过外部贡献 PR #135（edison-land）+ 维护者整合落地。实现与本决策稿有四处偏差，均为有意收敛，详见文末「PR #135 整合结论」。运行时设计文档见 [voice-settings.md](./voice-settings.md)，以下保留原始决策稿作为依据记录。
 
 本文是「在管理 UI 上配置语音识别（ASR）凭证」的需求定义与实施规格。决策依据已锁定，实施按此执行；范围裁剪和后续演进见文末。
@@ -34,7 +36,7 @@
 ### 验收标准
 
 1. 未配置任何一层时，`GET /api/app/admin/asr` 返回 `source: "none"`，capture status `available: false`，侧边栏无入口。
-2. 仅 UI 保存配置后（无需重新部署），capture status `available: true`，新开的 `/capture` 会话可用新配置完成录音保存。
+2. 仅 UI 保存配置后（无需重新部署），capture status `available: true`，输入框（长文画布）的麦克风可用新配置完成转写与保存。
 3. 环境变量已配置时，UI 展示 env 来源与掩码值且编辑区置灰并附说明；`PUT /api/app/admin/asr` 仍可保存 D1 副本（作为 env 移除后的接管值），但不改变当前生效结果。
 4. 任何 GET 响应中密钥字段只出现掩码（如 `sk-****7f2a`），完整明文不出现在任何响应、日志或导出物中。
 5. 非 owner 调用 `PUT /admin/asr` 得到 403；团队 admin 不可见该配置入口。

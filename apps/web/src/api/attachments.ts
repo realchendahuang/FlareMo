@@ -1,3 +1,4 @@
+import { createThumbnail } from "@/lib/upload/image-compression";
 import { prepareUploadFile } from "@/lib/upload-compression";
 import { apiRequest } from "./client";
 import type { Attachment } from "./types";
@@ -79,6 +80,13 @@ export async function uploadAttachment(input: {
   if (dimensions) {
     formData.set("width", String(dimensions.width));
     formData.set("height", String(dimensions.height));
+  }
+  // Best-effort card preview, generated from the bytes actually being uploaded
+  // (i.e. after compression). A null result omits the part and the timeline
+  // falls back to the original URL.
+  const thumbnail = await createThumbnail(file).catch(() => null);
+  if (thumbnail) {
+    formData.set("thumbnail", thumbnail);
   }
   return apiRequest<Attachment>("/api/v1/attachments", {
     method: "POST",

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 
 /**
@@ -69,8 +70,10 @@ export function CaptchaField({
   return (
     <div className="flex flex-col gap-1.5">
       {provider === "tencent" ? (
-        <button
-          className="w-fit rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+        <Button
+          className="w-fit"
+          size="sm"
+          variant="outline"
           disabled={disabled || verifying}
           onClick={() => {
             setVerifying(true);
@@ -82,7 +85,7 @@ export function CaptchaField({
           type="button"
         >
           {verifying ? t("auth.captchaVerifying") : t("auth.captchaRequired")}
-        </button>
+        </Button>
       ) : (
         <p className="text-xs text-muted-foreground">
           {t("auth.captchaRequired")}

@@ -17,7 +17,7 @@ export function useSignOut() {
   const navigate = useNavigate();
 
   return async () => {
-    let result: Awaited<ReturnType<typeof authClient.signOut>> | undefined;
+    let result: { error?: unknown } | undefined;
     try {
       result = await authClient.signOut();
     } catch {

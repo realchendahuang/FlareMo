@@ -1,12 +1,30 @@
 import type { DataTaskDto } from "@flaremo/contracts";
-import type { UseQueryResult } from "@tanstack/react-query";
-import { DownloadIcon, Loader2Icon, RefreshCcwIcon } from "lucide-react";
-import { downloadExportJson } from "@/api";
+import {
+  type UseQueryResult,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { DownloadIcon, RefreshCcwIcon, UploadIcon } from "lucide-react";
+import { useRef } from "react";
+import { toast } from "sonner";
+import { createImportTask, downloadExportJson, retryImportTask } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { TranslationKey } from "@/i18n";
-import { SettingsSectionGroup } from "./apple-settings-ui";
+import { Spinner } from "@/components/ui/spinner";
+import { type TranslationKey, useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/error";
 
 type TransferPanelProps = {
   createExportIsPending: boolean;
@@ -25,44 +43,88 @@ export function TransferPanel({
   onCreateExport,
   onRetryExport,
 }: TransferPanelProps) {
+  const importMutation = useImportBundle();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  // The prop form of `t` is unbound; interpolation needs the hook's variant.
+  const { t: translate } = useI18n();
+  const retryImportMutation = useMutation({
+    mutationFn: retryImportTask,
+    onSuccess: ({ task, result }) => {
+      if (task.status === "succeeded") {
+        toast.success(
+          translate("toast.importDone", { count: result.imported_memos }),
+        );
+      } else {
+        toast.error(
+          translate("toast.importFailed", {
+            message: task.error_message ?? task.status,
+          }),
+        );
+      }
+      void queryClient.invalidateQueries();
+    },
+    onError: (error) => {
+      toast.error(
+        errorMessage(error, translate("toast.importFailed", { message: "" })),
+      );
+    },
+  });
+
   return (
     <div className="flex flex-col gap-5">
-      <SettingsSectionGroup
-        title={
-          <div className="flex items-center justify-between">
-            <span>{t("transfer.title")}</span>
-            <Button
-              disabled={createExportIsPending}
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={onCreateExport}
-            >
-              {createExportIsPending ? (
-                <Loader2Icon
-                  className="animate-spin size-3.5"
-                  data-icon="inline-start"
-                />
-              ) : (
-                <DownloadIcon className="size-3.5" data-icon="inline-start" />
-              )}
-              {t("transfer.newExport")}
-            </Button>
-          </div>
-        }
-      >
+      {/* The section is "import & export": both directions start here, the
+          import used to live only in the sidebar's user menu. */}
+      <SettingsSectionGroup>
+        <SettingsRow
+          icon={DownloadIcon}
+          label={t("transfer.newExport")}
+          action={createExportIsPending ? <Spinner /> : undefined}
+          disabled={createExportIsPending}
+          onClick={onCreateExport}
+        />
+        <SettingsRow
+          icon={UploadIcon}
+          label={t("common.import")}
+          action={importMutation.isPending ? <Spinner /> : undefined}
+          disabled={importMutation.isPending}
+          onClick={() => importInputRef.current?.click()}
+        />
+      </SettingsSectionGroup>
+      <input
+        accept="application/json"
+        aria-hidden="true"
+        className="hidden"
+        ref={importInputRef}
+        tabIndex={-1}
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) importMutation.mutate(file);
+        }}
+      />
+
+      <SettingsSectionGroup>
         {dataTasksQuery.isLoading ? (
           <div className="p-4">
             <Skeleton className="h-16 w-full" />
           </div>
         ) : dataTasksQuery.isError ? (
-          <div className="p-4 text-sm text-destructive">
-            {t("transfer.loadFailed")}
-          </div>
+          <QueryErrorState
+            className="min-h-40 py-6 text-muted-foreground"
+            isRetrying={dataTasksQuery.isFetching}
+            onRetry={() => void dataTasksQuery.refetch()}
+          />
         ) : dataTasksQuery.data?.tasks.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            {t("transfer.empty")}
-          </div>
+          <Empty className="min-h-36 py-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <DownloadIcon />
+              </EmptyMedia>
+              <EmptyTitle>{t("transfer.empty")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="flex flex-col divide-y divide-border/40">
             {dataTasksQuery.data?.tasks.map((task) => (
@@ -85,9 +147,8 @@ export function TransferPanel({
                             ? "destructive"
                             : "outline"
                       }
-                      className="text-[10px] h-4 px-1.5"
                     >
-                      {task.status}
+                      {t(`transfer.status.${task.status}`)}
                     </Badge>
                   </div>
                   <p className="truncate text-xs text-muted-foreground mt-0.5">
@@ -108,7 +169,7 @@ export function TransferPanel({
                           }}
                         />
                       </div>
-                      <span className="text-[10px] tabular-nums text-muted-foreground">
+                      <span className="text-xs tabular-nums text-muted-foreground">
                         {task.progress_done}/{task.progress_total}
                       </span>
                     </div>
@@ -122,14 +183,23 @@ export function TransferPanel({
                       variant="outline"
                       className="h-8 text-xs"
                       onClick={() =>
-                        void downloadExportJson(task.id).then((blob) => {
-                          const url = URL.createObjectURL(blob);
-                          const anchor = document.createElement("a");
-                          anchor.href = url;
-                          anchor.download = `flaremo-export-${task.id}.json`;
-                          anchor.click();
-                          setTimeout(() => URL.revokeObjectURL(url), 1000);
-                        })
+                        void downloadExportJson(task.id)
+                          .then((blob) => {
+                            const url = URL.createObjectURL(blob);
+                            const anchor = document.createElement("a");
+                            anchor.href = url;
+                            anchor.download = `flaremo-export-${task.id}.json`;
+                            anchor.click();
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                          })
+                          .catch((error) => {
+                            toast.error(
+                              errorMessage(
+                                error,
+                                translate("toast.requestFailed"),
+                              ),
+                            );
+                          })
                       }
                     >
                       <DownloadIcon
@@ -154,6 +224,29 @@ export function TransferPanel({
                       {t("transfer.retry")}
                     </Button>
                   )}
+                  {task.status === "failed" && task.kind === "import" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      disabled={retryImportMutation.isPending}
+                      onClick={() => retryImportMutation.mutate(task.id)}
+                    >
+                      {retryImportMutation.isPending &&
+                      retryImportMutation.variables === task.id ? (
+                        <Spinner
+                          data-icon="inline-start"
+                          className="size-3.5"
+                        />
+                      ) : (
+                        <RefreshCcwIcon
+                          data-icon="inline-start"
+                          className="size-3.5"
+                        />
+                      )}
+                      {t("transfer.retry")}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -162,4 +255,46 @@ export function TransferPanel({
       </SettingsSectionGroup>
     </div>
   );
+}
+
+/** Reads a Memos/FlareMo JSON bundle and imports it, the same request the
+ *  user menu's import sends; on success every cached view is refetched since
+ *  an import can touch memos, tags, stats and the task list at once. */
+function useImportBundle() {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      let bundle: unknown;
+      try {
+        bundle = JSON.parse(await file.text()) as unknown;
+      } catch {
+        throw new Error(t("toast.invalidImport"));
+      }
+      return createImportTask({ bundle });
+    },
+    onSuccess: ({ task, result }) => {
+      if (task.status !== "succeeded") {
+        toast.error(
+          t("toast.importFailed", {
+            message: task.error_message ?? task.status,
+          }),
+        );
+      } else {
+        toast.success(t("toast.importDone", { count: result.imported_memos }));
+      }
+      void queryClient.invalidateQueries();
+    },
+    onError: (error) => {
+      const message = errorMessage(error, "");
+      toast.error(
+        message === t("toast.invalidImport")
+          ? message
+          : t("toast.importFailed", { message }),
+      );
+      // The request failed but its task row may still exist with a rollback
+      // checkpoint, ready to retry from the list below.
+      void queryClient.invalidateQueries();
+    },
+  });
 }

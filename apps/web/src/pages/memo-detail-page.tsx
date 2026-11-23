@@ -1,21 +1,17 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeftIcon, BrainIcon, FileTextIcon } from "lucide-react";
+import { ArrowLeftIcon, FileTextIcon, PinIcon } from "lucide-react";
 import type { Memo, MemoContext, RelatedMemo } from "@/api";
+import { MemoTaskProvider } from "@/components/memo-card/memo-task-context";
+import { QueryErrorState } from "@/components/query-error-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
 import { useI18n } from "@/i18n";
-import { formatMemoTime } from "@/lib/memo";
+import { formatMemoRelativeTime, formatMemoTime, memoTitle } from "@/lib/memo";
 import type { MemoDetailTaskInteraction } from "./memo-detail/content-tab";
 import { ContentTab } from "./memo-detail/content-tab";
 import { HistoryTab } from "./memo-detail/history-tab";
@@ -35,19 +31,19 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
     revokeMutation,
     restoreMutation,
     relationMutation,
-    rememberMutation,
     taskInteraction,
   } = useMemoDetail(memoId);
 
   return (
     <WorkspaceLayout
-      maxWidthClass="max-w-3xl"
+      contentMaxWidth={768}
       header={({
         sidebarCollapsed,
         toggleSidebarCollapsed,
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           actions={
@@ -74,17 +70,32 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
             </Button>
           }
           explorer={explorer}
-          icon={
-            <FileTextIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
-          maxWidthClass="max-w-3xl"
+          icon={<FileTextIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
           title={
-            <span className="font-mono text-xs text-muted-foreground">
-              {contextQuery.data?.memo.name ?? memoId}
-            </span>
+            // The note's own opening line, not its resource name: a header
+            // reading `memos/a60cdd29-…` identifies the row to the database
+            // and to nobody else. Falls back to the timestamp for a memo whose
+            // body is only tags or media.
+            contextQuery.data ? (
+              <span className="truncate" title={contextQuery.data.memo.name}>
+                {memoTitle(contextQuery.data.memo.content) ||
+                  formatMemoRelativeTime(
+                    contextQuery.data.memo.create_time,
+                    locale,
+                  )}
+              </span>
+            ) : contextQuery.isError ? (
+              t("detail.unavailable")
+            ) : (
+              <>
+                <Skeleton aria-hidden className="h-4 w-40" />
+                <span className="sr-only">{t("common.loading")}</span>
+              </>
+            )
           }
           toggleSidebarCollapsed={toggleSidebarCollapsed}
         />
@@ -98,12 +109,11 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
           </div>
         )}
         {contextQuery.isError && (
-          <Empty className="min-h-72 border">
-            <EmptyHeader>
-              <EmptyTitle>{t("detail.unavailable")}</EmptyTitle>
-              <EmptyDescription>{t("list.errorDescription")}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <QueryErrorState
+            className="min-h-72 border text-muted-foreground"
+            isRetrying={contextQuery.isFetching}
+            onRetry={() => void contextQuery.refetch()}
+          />
         )}
         {contextQuery.data && (
           <MemoDetail
@@ -153,9 +163,7 @@ export function MemoDetailPage({ memoId }: { memoId: string }) {
               })
             }
             onRevoke={(share) => revokeMutation.mutate(share)}
-            onRemember={() => rememberMutation.mutate()}
             taskInteraction={taskInteraction}
-            rememberPending={rememberMutation.isPending}
             relationPending={relationMutation.isPending}
             restorePending={restoreMutation.isPending}
             revokePending={revokeMutation.isPending}
@@ -181,11 +189,9 @@ function MemoDetail({
   setRelatedMemo,
   onAddRelation,
   onCreateShare,
-  onRemember,
   onRestore,
   onRemoveRelation,
   onRevoke,
-  rememberPending,
   relationPending,
   restorePending,
   revokePending,
@@ -204,17 +210,26 @@ function MemoDetail({
   setRelatedMemo: (value: string) => void;
   onAddRelation: (name: string) => void;
   onCreateShare: () => void;
-  onRemember: () => void;
   onRestore: (revision: string) => void;
   onRemoveRelation: (name: string) => void;
   onRevoke: (share: string) => void;
-  rememberPending: boolean;
   relationPending: boolean;
   restorePending: boolean;
   revokePending: boolean;
   sharePending: boolean;
 }) {
   const { t } = useI18n();
+  // The links tab is about wiki links; a comment thread shows under the
+  // content instead. The page's relation edits still read the full context,
+  // so replacing links never drops a comment's parent relation.
+  const isLink = ({ relation }: { relation: { type: string } }) =>
+    relation.type !== "comment";
+  const linkContext = {
+    ...context,
+    relations: context.relations.filter(isLink),
+    backlinks: context.backlinks.filter(isLink),
+  };
+  const linkCount = linkContext.relations.length + linkContext.backlinks.length;
   return (
     // overflow-clip keeps the rounded clipping but, unlike the Card base's
     // overflow-hidden, does not turn the card into a scroll container — the
@@ -226,50 +241,58 @@ function MemoDetail({
             {formatMemoTime(context.memo.display_time, locale)}
             {context.memo.creator_name ? ` · ${context.memo.creator_name}` : ""}
           </CardTitle>
-          <div className="flex flex-wrap gap-2">
-            {context.memo.pinned && <Badge>{t("memo.pinnedBadge")}</Badge>}
-            <Badge variant="outline">
-              {t(`visibility.${context.memo.visibility}`)}
-            </Badge>
-            <Button
-              disabled={rememberPending}
-              size="sm"
-              variant="ghost"
-              onClick={onRemember}
-            >
-              <BrainIcon data-icon="inline-start" />
-              {t("memory.newMemory")}
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {context.memo.pinned && (
+              <Badge variant="brand">
+                <PinIcon data-icon="inline-start" />
+                {t("memo.pinnedBadge")}
+              </Badge>
+            )}
+            {/* Private is the default, so only shared notes say so — the
+                same rule as the timeline card. */}
+            {context.memo.visibility !== "private" && (
+              <Badge className="text-muted-foreground" variant="outline">
+                {t(`visibility.${context.memo.visibility}`)}
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="content">
-          <TabsList className="max-w-full overflow-x-auto">
+          <TabsList className="no-scrollbar max-w-full overflow-x-auto">
             <TabsTrigger value="content">{t("detail.content")}</TabsTrigger>
             <TabsTrigger value="relations">
               {t("detail.relations")}
-              {context.relations.length + context.backlinks.length > 0
-                ? ` (${context.relations.length + context.backlinks.length})`
-                : ""}
+              {linkCount > 0 ? ` (${linkCount})` : ""}
             </TabsTrigger>
             {(canManage || canGovern) && (
-              <TabsTrigger value="history">{t("detail.history")}</TabsTrigger>
+              <TabsTrigger value="history">
+                {t("detail.history")}
+                {context.revisions.length > 0
+                  ? ` (${context.revisions.length})`
+                  : ""}
+              </TabsTrigger>
             )}
             {canManage && (
-              <TabsTrigger value="sharing">{t("detail.sharing")}</TabsTrigger>
+              <TabsTrigger value="sharing">
+                {t("detail.sharing")}
+                {context.shares.length > 0 ? ` (${context.shares.length})` : ""}
+              </TabsTrigger>
             )}
           </TabsList>
-          <ContentTab
-            context={context}
-            related={related}
-            relatedPending={relatedPending}
-            taskInteraction={taskInteraction}
-          />
+          <MemoTaskProvider memoIds={[context.memo.name]}>
+            <ContentTab
+              context={context}
+              related={related}
+              relatedPending={relatedPending}
+              taskInteraction={taskInteraction}
+            />
+          </MemoTaskProvider>
           <RelationsTab
             canManage={canManage}
             candidates={candidates}
-            context={context}
+            context={linkContext}
             isSearching={isSearching}
             relatedMemo={relatedMemo}
             relationPending={relationPending}

@@ -1,13 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
   FootprintsIcon,
-  Loader2Icon,
   PlusIcon,
+  RotateCcwIcon,
   ShuffleIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRandomWalkMemo, getWalkNextMemo } from "@/api";
 import { MemoSnapshotCard } from "@/components/memo-snapshot-card";
+import { QueryErrorState } from "@/components/query-error-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -18,7 +21,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { ReviewTabs } from "@/components/workspace/review-tabs";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { WorkspacePageHeader } from "@/components/workspace/workspace-page-header";
 import { type TranslationKey, useI18n } from "@/i18n";
@@ -99,6 +105,42 @@ export function RandomWalkPage() {
     void start();
   };
 
+  // Keyboard walking, so a long wander needs no pointer: → or J continues,
+  // ← or K steps back through the trail. Typing in a field is left alone.
+  const keyActionsRef = useRef<{ walk: () => void; back: () => void }>({
+    walk: () => {},
+    back: () => {},
+  });
+  keyActionsRef.current = {
+    walk: () =>
+      cursor < steps.length - 1 ? setCursor(cursor + 1) : void walk(),
+    back: () => setCursor((current) => Math.max(0, current - 1)),
+  };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        target?.closest(
+          "input, textarea, select, [contenteditable=true], [role=dialog], [role=menu]",
+        )
+      ) {
+        return;
+      }
+      if (event.key === "ArrowRight" || event.key === "j") {
+        event.preventDefault();
+        keyActionsRef.current.walk();
+      } else if (event.key === "ArrowLeft" || event.key === "k") {
+        event.preventDefault();
+        keyActionsRef.current.back();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const step = steps[cursor];
 
   return (
@@ -109,53 +151,53 @@ export function RandomWalkPage() {
         mobileSheetOpen,
         setMobileSheetOpen,
         explorer,
+        isMainScrolled,
       }) => (
         <WorkspacePageHeader
           explorer={explorer}
-          icon={
-            <FootprintsIcon className="size-4 shrink-0 text-brand-600 dark:text-brand-400" />
-          }
+          icon={<FootprintsIcon />}
+          isScrolled={isMainScrolled}
           mobileSheetOpen={mobileSheetOpen}
           setMobileSheetOpen={setMobileSheetOpen}
           sidebarCollapsed={sidebarCollapsed}
-          title={t("nav.randomWalk")}
+          title={t("nav.review")}
+          actions={<ReviewTabs />}
           toggleSidebarCollapsed={toggleSidebarCollapsed}
         />
       )}
     >
       <div className="flex flex-col gap-4 py-2">
+        <div className="flex flex-col gap-1 px-1">
+          <h2 className="font-heading text-xl font-semibold tracking-tight">
+            {t("nav.randomWalk")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {t("review.walkIntro")}
+          </p>
+        </div>
         {finished ? (
-          <WalkPostcard onRestart={restart} pending={pending} steps={steps} />
+          <WalkPostcard
+            onResume={() => setFinished(false)}
+            onRestart={restart}
+            pending={pending}
+            steps={steps}
+          />
         ) : (
           <>
             {pending && steps.length === 0 && (
               <Skeleton className="h-64 w-full" />
             )}
             {loadError && (
-              <Empty className="min-h-72 border">
-                <EmptyHeader>
-                  <EmptyTitle>{t("list.errorTitle")}</EmptyTitle>
-                  <EmptyDescription>
-                    {t("list.errorDescription")}
-                  </EmptyDescription>
-                </EmptyHeader>
-                <Button
-                  className="mt-2"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void (steps.length > 0 ? walk() : start())}
-                >
-                  {t("common.retry")}
-                </Button>
-              </Empty>
+              <QueryErrorState
+                className="min-h-72 border text-muted-foreground"
+                isRetrying={pending}
+                onRetry={() => void (steps.length > 0 ? walk() : start())}
+              />
             )}
             {!pending && !loadError && steps.length === 0 && (
               <Empty className="min-h-72 border border-border/60 bg-card/50 motion-safe:animate-rise">
                 <EmptyHeader>
-                  <EmptyMedia
-                    className="bg-accent text-accent-foreground"
-                    variant="icon"
-                  >
+                  <EmptyMedia variant="icon">
                     <FootprintsIcon className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>{t("review.walkEmptyTitle")}</EmptyTitle>
@@ -189,36 +231,90 @@ export function RandomWalkPage() {
             )}
             {step && (
               <>
-                <MemoSnapshotCard
-                  badge={viaLabel(step, t)}
-                  locale={locale}
-                  memo={step.memo}
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    disabled={pending || exhausted}
-                    onClick={() => void walk()}
+                <div
+                  className={cn(
+                    "relative",
+                    steps.length > 2
+                      ? "pb-2.5"
+                      : steps.length > 1
+                        ? "pb-1.5"
+                        : undefined,
+                  )}
+                >
+                  {steps.length > 2 && (
+                    <div
+                      aria-hidden="true"
+                      className="paper pointer-events-none absolute inset-x-4 top-2.5 bottom-0 rounded-xl border border-border/50 bg-card/70 shadow-2xs"
+                    />
+                  )}
+                  {steps.length > 1 && (
+                    <div
+                      aria-hidden="true"
+                      className="paper pointer-events-none absolute inset-x-2 top-1.5 bottom-1 rounded-xl border border-border/60 bg-card/90 shadow-2xs"
+                    />
+                  )}
+                  <div
+                    className="relative motion-safe:animate-rise"
+                    key={step.memo.name}
                   >
-                    {pending ? (
-                      <Loader2Icon
-                        className="motion-safe:animate-spin"
-                        data-icon="inline-start"
-                      />
-                    ) : (
-                      <FootprintsIcon data-icon="inline-start" />
-                    )}
-                    {t("review.walkContinue")}
-                  </Button>
+                    <MemoSnapshotCard
+                      badge={viaLabel(step, t)}
+                      locale={locale}
+                      memo={step.memo}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
                   <Button
+                    disabled={cursor === 0}
+                    variant="ghost"
+                    onClick={() => keyActionsRef.current.back()}
+                  >
+                    <ArrowLeftIcon
+                      className="rtl:rotate-180"
+                      data-icon="inline-start"
+                    />
+                    {t("review.walkBack")}
+                  </Button>
+                  <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
+                    <span aria-hidden="true" className="inline-flex gap-1">
+                      <Kbd>←</Kbd>
+                      <Kbd>→</Kbd>
+                    </span>
+                    {t("review.walkKeyHint")}
+                  </span>
+                  <Button
+                    className="ms-auto"
                     disabled={pending}
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => setFinished(true)}
                   >
                     {t("review.walkFinish")}
                   </Button>
+                  <Button
+                    disabled={
+                      pending || (exhausted && cursor >= steps.length - 1)
+                    }
+                    onClick={() =>
+                      cursor < steps.length - 1
+                        ? setCursor(cursor + 1)
+                        : void walk()
+                    }
+                  >
+                    {pending ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <FootprintsIcon data-icon="inline-start" />
+                    )}
+                    {t("review.walkContinue")}
+                    <ArrowRightIcon
+                      className="rtl:rotate-180"
+                      data-icon="inline-end"
+                    />
+                  </Button>
                 </div>
                 {exhausted && (
-                  <div className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                  <div className="paper rounded-xl border border-dashed border-border/70 bg-card/50 px-4 py-3 text-sm text-muted-foreground motion-safe:animate-rise">
                     <p className="font-medium text-foreground">
                       {t("review.walkExhausted")}
                     </p>
@@ -241,7 +337,7 @@ export function RandomWalkPage() {
                     })}
                     className="flex flex-col gap-2"
                   >
-                    <p className="px-1 text-xs text-muted-foreground">
+                    <p className="px-1 text-xs text-muted-foreground tabular-nums">
                       {t("review.walkHistory", { count: steps.length })}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -249,10 +345,12 @@ export function RandomWalkPage() {
                         <button
                           aria-current={index === cursor ? "step" : undefined}
                           className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-lg border text-xs tabular-nums motion-safe:transition-colors motion-safe:duration-150",
+                            // A selector, like FilterPill: card face and
+                            // hairline at rest, solid ink when current.
+                            "flex h-8 w-8 items-center justify-center rounded-lg border text-xs tabular-nums outline-none motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-3 focus-visible:ring-ring/25",
                             index === cursor
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                              ? "border-foreground bg-foreground text-background"
+                              : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
                           )}
                           key={item.memo.name}
                           title={formatMemoTime(item.memo.create_time, locale)}
@@ -275,10 +373,12 @@ export function RandomWalkPage() {
 }
 
 function WalkPostcard({
+  onResume,
   onRestart,
   pending,
   steps,
 }: {
+  onResume: () => void;
   onRestart: () => void;
   pending: boolean;
   steps: WalkStep[];
@@ -289,12 +389,15 @@ function WalkPostcard({
   const end = summary.latest ? spanPoint(summary.latest, t) : null;
 
   return (
-    <Card className="border-brand-300/40 ring-brand-400/20 dark:border-brand-400/25">
+    <Card className="paper motion-safe:animate-rise">
       <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-xs tracking-[0.3em] text-muted-foreground uppercase">
+        <EmptyMedia className="mb-0" variant="icon">
+          <FootprintsIcon />
+        </EmptyMedia>
+        <p className="text-xs font-medium text-muted-foreground">
           {t("review.postcardTitle")}
         </p>
-        <p className="font-heading text-2xl font-semibold">
+        <p className="font-heading text-2xl font-semibold tabular-nums">
           {t("review.postcardStats", {
             count: summary.count,
             characters: summary.characters,
@@ -305,15 +408,18 @@ function WalkPostcard({
             {start === end ? start : t("review.timeSpan", { start, end })}
           </p>
         )}
-        <Button
-          className="mt-2"
-          disabled={pending}
-          variant="outline"
-          onClick={onRestart}
-        >
-          <ShuffleIcon data-icon="inline-start" />
-          {t("review.walkAgain")}
-        </Button>
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {steps.length > 0 && (
+            <Button size="sm" variant="outline" onClick={onResume}>
+              <RotateCcwIcon data-icon="inline-start" />
+              {t("review.readAgain")}
+            </Button>
+          )}
+          <Button disabled={pending} size="sm" onClick={onRestart}>
+            <ShuffleIcon data-icon="inline-start" />
+            {t("review.walkAgain")}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

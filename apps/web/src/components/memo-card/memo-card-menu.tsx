@@ -41,6 +41,7 @@ const ShareImageDialog = lazy(() =>
 type MemoCardMenuProps = {
   memo: Memo;
   id: string;
+  isEditing?: boolean;
   isTrashed: boolean;
   canManage: boolean;
   canGovern: boolean;
@@ -65,6 +66,7 @@ type MemoCardMenuProps = {
 export function MemoCardMenu({
   memo,
   id,
+  isEditing = false,
   isTrashed,
   canManage,
   canGovern,
@@ -128,7 +130,10 @@ export function MemoCardMenu({
               <>
                 {canManage && (
                   <DropdownMenuGroup>
-                    <DropdownMenuItem onClick={onStartEditing}>
+                    <DropdownMenuItem
+                      disabled={isEditing}
+                      onClick={onStartEditing}
+                    >
                       <Edit3Icon />
                       {t("common.edit")}
                     </DropdownMenuItem>

@@ -51,7 +51,11 @@ test("keeps loaded cards mounted when pagination fails and retries the missing p
   await page.goto("/");
   await expect(page.locator("article")).toHaveCount(30);
   const firstCard = await page.locator("article").first().elementHandle();
-  await page.getByRole("button", { name: /load more|加载更多/i }).click();
+  const loadMore = page.getByRole("button", { name: /load more|加载更多/i });
+  await loadMore.scrollIntoViewIfNeeded();
+  // The virtualized footer re-renders while scrolling, so a coordinate click
+  // can be intercepted by its wrapper. Invoke the button's own handler.
+  await loadMore.evaluate((element) => (element as HTMLElement).click());
   await expect(page.getByRole("alert")).toContainText(
     /previously loaded|已加载/i,
   );
@@ -123,12 +127,12 @@ test("waits for composition to finish and cancels obsolete search requests", asy
     await route.fulfill({ json: { memos: [note(q ?? "initial")] } });
   });
   await page.goto("/");
-  // The debounced inline input only exists below the `md` breakpoint; on
-  // desktop the same query goes through the spotlight dialog instead. This
-  // test is about the debounce and IME guards, which live on the inline input,
-  // so narrow the viewport to reach it.
+  // Narrow layouts expose a search trigger that opens the spotlight palette;
+  // the debounce and IME guards live on that input.
   await page.setViewportSize({ width: 480, height: 900 });
+  await page.getByRole("button", { name: /搜索记录|Search notes/i }).click();
   const search = mobileSearchInput(page);
+  await expect(search).toBeVisible();
   await search.dispatchEvent("compositionstart");
   await search.fill("输入中的文字");
   await page.waitForTimeout(400);
@@ -139,7 +143,7 @@ test("waits for composition to finish and cancels obsolete search requests", asy
   await expect.poll(() => Boolean(releaseSlow)).toBe(true);
   await search.fill("latest-query");
   await expect(
-    page.locator("article").filter({ hasText: "Workspace note latest-query" }),
+    page.getByText("Workspace note latest-query", { exact: true }),
   ).toBeVisible();
   await expect
     .poll(() => cancelled.some((url) => url.includes("slow-query")))
@@ -149,7 +153,7 @@ test("waits for composition to finish and cancels obsolete search requests", asy
     page.getByText("Workspace note slow-query", { exact: true }),
   ).toHaveCount(0);
   await search.press("Escape");
-  await expect(search).toHaveValue("");
+  await expect(search).toHaveCount(0);
   await expect
     .poll(() => new URL(page.url()).searchParams.has("q"))
     .toBe(false);
@@ -271,11 +275,9 @@ test("keeps the draft when moving between the timeline and archive", async ({
   await page.goto("/");
   const composer = page.locator("#flaremo-composer-input");
   await composer.fill("Draft that survives workspace navigation");
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /archive|归档/i }).click();
+  await page.getByRole("link", { name: /^(archive|归档)$/i }).click();
   await expect(composer).toHaveCount(0);
-  await page.getByRole("button", { name: /note scope|笔记范围/i }).click();
-  await page.getByRole("menuitem", { name: /all|全部/i }).click();
+  await page.getByRole("link", { name: /^(notes|记录)$/i }).click();
   await expect(composer).toHaveText("Draft that survives workspace navigation");
 });
 

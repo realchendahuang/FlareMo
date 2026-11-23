@@ -1,7 +1,7 @@
 import {
   CAPTURE_BATCH_SLICE_MS,
   CAPTURE_SAMPLE_RATE,
-} from "@flaremo/contracts";
+} from "@flaremo/contracts/constants";
 
 // Client-side container encoding for batch ASR (rollout §3.3, D3). The tap
 // receives the controller's 16 kHz mono s16le frames — the same

@@ -1,8 +1,15 @@
+import {
+  type MemosPatScope,
+  PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS,
+} from "@flaremo/contracts";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { Loader2Icon, PlusIcon } from "lucide-react";
+import { KeyRoundIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import type { PersonalAccessToken } from "@/api";
+import { QueryErrorState } from "@/components/query-error-state";
 import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
+import { SettingsSectionGroup } from "@/components/settings-section";
+import { Alert } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,12 +29,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { formatDateTime } from "@/lib/date-format";
 import { useCloseOnSuccess } from "./account-panel-presets";
-import { SettingsSectionGroup } from "./apple-settings-ui";
 
 /** The personal access token group, its create dialog and the one-time reveal,
  *  plus the row that can revoke or delete a single token. */
@@ -40,9 +55,11 @@ type AccountTokensSectionProps = {
   revokingTokenId: string | undefined;
   setTokenExpiryDays: (value: string) => void;
   setTokenName: (value: string) => void;
+  setTokenScopes: (value: MemosPatScope[]) => void;
   tokenError: string | null;
   tokenExpiryDays: string;
   tokenName: string;
+  tokenScopes: MemosPatScope[];
   tokensQuery: UseQueryResult<
     { personal_access_tokens: PersonalAccessToken[] },
     Error
@@ -65,9 +82,11 @@ export function AccountTokensSection({
   revokingTokenId,
   setTokenExpiryDays,
   setTokenName,
+  setTokenScopes,
   tokenError,
   tokenExpiryDays,
   tokenName,
+  tokenScopes,
   tokensQuery,
   onCopyToken,
   onCreateToken,
@@ -78,6 +97,9 @@ export function AccountTokensSection({
   t,
 }: AccountTokensSectionProps) {
   const [createTokenOpen, setCreateTokenOpen] = useState(false);
+  const adminScoped = tokenScopes.includes("admin");
+  const permanent =
+    tokenExpiryDays === String(PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS);
 
   // Auto-close dialogs on mutation success
   useCloseOnSuccess(createTokenIsPending, tokenError !== null, () =>
@@ -104,22 +126,27 @@ export function AccountTokensSection({
       >
         {tokenError && (
           <div className="p-3">
-            <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-              {tokenError}
-            </p>
+            <Alert variant="destructive">{tokenError}</Alert>
           </div>
         )}
 
         {tokensQuery.isLoading && <TokenListSkeleton />}
         {tokensQuery.isError && (
-          <div className="p-4 text-sm text-destructive">
-            {t("auth.tokensLoadFailed")}
-          </div>
+          <QueryErrorState
+            className="min-h-40 py-6 text-muted-foreground"
+            isRetrying={tokensQuery.isFetching}
+            onRetry={() => void tokensQuery.refetch()}
+          />
         )}
         {tokensQuery.data?.personal_access_tokens.length === 0 && (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            {t("auth.noTokens")}
-          </div>
+          <Empty className="min-h-36 py-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <KeyRoundIcon />
+              </EmptyMedia>
+              <EmptyTitle>{t("auth.noTokens")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
         {tokensQuery.data?.personal_access_tokens.map((token) => (
           <PersonalAccessTokenRow
@@ -165,19 +192,65 @@ export function AccountTokensSection({
             </label>
             <label
               className="flex flex-col gap-1.5 text-sm font-medium"
+              htmlFor="token-scopes"
+            >
+              {t("auth.tokenScopes")}
+              <Select
+                disabled={createTokenIsPending}
+                id="token-scopes"
+                value={tokenScopes.includes("admin") ? "admin" : "notes"}
+                onChange={(event) => {
+                  const next = event.target.value as MemosPatScope;
+                  setTokenScopes([next]);
+                  // A permanent token may only carry the notes scope. Clear
+                  // the opt-in when the user switches to admin.
+                  if (next === "admin" && permanent) setTokenExpiryDays("");
+                }}
+              >
+                <option value="notes">{t("auth.tokenScopeNotes")}</option>
+                <option value="admin">{t("auth.tokenScopeAdmin")}</option>
+              </Select>
+              <span className="text-xs font-normal text-muted-foreground">
+                {adminScoped
+                  ? t("auth.tokenScopeAdminHint")
+                  : t("auth.tokenScopeNotesHint")}
+              </span>
+            </label>
+            <label
+              className="flex flex-col gap-1.5 text-sm font-medium"
               htmlFor="token-expiry"
             >
               {t("auth.tokenExpiry")}
               <Input
                 autoComplete="off"
-                disabled={createTokenIsPending}
+                disabled={createTokenIsPending || permanent}
                 id="token-expiry"
                 max={365}
                 min={1}
-                placeholder={t("auth.never")}
+                placeholder="365"
                 type="number"
-                value={tokenExpiryDays}
+                value={permanent ? "" : tokenExpiryDays}
                 onChange={(event) => setTokenExpiryDays(event.target.value)}
+              />
+              <span className="text-xs font-normal text-muted-foreground">
+                {t("auth.tokenExpiryHint")}
+              </span>
+            </label>
+            <label
+              className="flex items-center justify-between gap-3 text-sm font-medium"
+              htmlFor="token-permanent"
+            >
+              <span>{t("auth.tokenPermanent")}</span>
+              <Switch
+                aria-label={t("auth.tokenPermanent")}
+                checked={permanent}
+                disabled={createTokenIsPending || adminScoped}
+                id="token-permanent"
+                onCheckedChange={(checked) =>
+                  setTokenExpiryDays(
+                    checked ? String(PERMANENT_MEMOS_PAT_EXPIRES_IN_DAYS) : "",
+                  )
+                }
               />
             </label>
             <DialogFooter className="mt-2">
@@ -190,12 +263,7 @@ export function AccountTokensSection({
                 {t("common.cancel")}
               </Button>
               <Button disabled={createTokenIsPending} type="submit">
-                {createTokenIsPending && (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
-                )}
+                {createTokenIsPending && <Spinner data-icon="inline-start" />}
                 {createTokenIsPending
                   ? t("auth.creatingToken")
                   : t("auth.createToken")}
@@ -264,6 +332,10 @@ function PersonalAccessTokenRow({
         <p className="mt-0.5 text-xs text-muted-foreground truncate">
           {token.prefix ?? "memos_pat_"}
           {token.start ? `${token.start}…` : ""} · {t("auth.expires")}: {expiry}
+          {" · "}
+          {token.scopes.includes("admin")
+            ? t("auth.tokenScopeAdmin")
+            : t("auth.tokenScopeNotes")}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -275,9 +347,7 @@ function PersonalAccessTokenRow({
             className="h-8 px-2 text-xs"
             onClick={() => setConfirmingRevoke(true)}
           >
-            {pending && (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            )}
+            {pending && <Spinner data-icon="inline-start" />}
             {t("auth.revokeToken")}
           </Button>
         )}
@@ -288,9 +358,7 @@ function PersonalAccessTokenRow({
           className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
           onClick={() => setConfirmingDelete(true)}
         >
-          {deleting && (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
-          )}
+          {deleting && <Spinner data-icon="inline-start" />}
           {t("common.delete")}
         </Button>
       </div>
@@ -310,6 +378,7 @@ function PersonalAccessTokenRow({
               {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={(event) => {
                 event.preventDefault();
                 setConfirmingRevoke(false);

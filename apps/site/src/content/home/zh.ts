@@ -1,55 +1,61 @@
 import type { HomeContent } from "../copy";
 
 export const ZH_HOME: HomeContent = {
-  heroEyebrow: "开源免费 · Cloudflare 边缘原生 · Memos 生态兼容",
-  heroTitleLine1: "零服务器，永久拥有",
-  heroTitleLine2: "跑在边缘网络的第二大脑",
+  heroEyebrow: "开源免费 · Cloudflare 原生 · 知识管理",
+  heroTitleLine1: "不用一台服务器",
+  heroTitleLine2: "会生长的 AI 第二大脑",
   heroSubtitle:
-    "简约，不简单；克制，不放肆。基于 Cloudflare 边缘网络（Workers + D1 + R2）原生构建的知识库：无需 VPS、免运维，完整兼容 Memos 生态，还能作为 AI Agent 的长期记忆。灵感随手记下，永久沉淀。",
+    "在 Cloudflare 边缘打开即写：记录自然长成任务、文章与可检索的知识库，也是你的 AI Agent 能通过 MCP 直接读写的记录库。",
   primaryCta: "快速开始部署",
   secondaryCta: "GitHub 源码",
-  statMemos: "约 250 万条纯文本记录",
-  statPhotos: "1 万张图片 · 0 出口流量费",
-  statServers: "全球 300+ 边缘近场直连",
-  statUptime: "企业级多副本 · 本地自由归档",
-  featuresBadge: "为什么是 FlareMo",
+  heroFacts: [
+    { label: "D1 数据库", value: "5 GB", detail: "约 250 万条纯文本记录" },
+    {
+      label: "R2 存储",
+      value: "10 GB",
+      detail: "约 1 万张压缩图片 · 0 出口流量费",
+    },
+    { label: "全球边缘", value: "300+", detail: "个节点，就近响应" },
+    { label: "部署耗时", value: "5 分钟", detail: "从克隆到上线" },
+  ],
+  featuresBadge: "为什么选 FlareMo",
   featuresHeading: "为专注记录与长期沉淀而生",
   featuresSubtitle: "把运维交给 Cloudflare，把注意力留给记录本身",
   features: [
     {
       title: "多区域持久化，数据稳稳落地",
       description:
-        "记录存储于 Cloudflare D1 分布式数据库与 R2 存储桶，自带跨地域冗余容灾。无需担心硬盘坏道、停电或单点损坏。",
+        "记录存进 Cloudflare D1 与 R2，自带多地域复制。换电脑、迁移部署，记录都还在。",
     },
     {
-      title: "免费额度，明码实价",
+      title: "免费额度，边界清晰",
       description:
-        "Cloudflare 免费层自带 5GB D1 数据库与 10GB R2 存储，且 R2 不收出口流量费——记得再多，也没有一张账单。",
+        "Cloudflare 免费层自带 5GB D1 数据库（约 250 万条文本记录）与 10GB R2 存储（约 1 万张压缩图）。用量留在配额内时，R2 不收出口流量费。",
     },
     {
       title: "离线优先，全平台 PWA",
       description:
-        "深度支持 PWA 原生安装。在飞行模式或地铁弱网下照常书写，草稿本地秒级暂存，重新联网后自动按序安全提交。",
+        "可安装为本地应用。断网或在地铁里照常写，草稿先存本地，联网后按顺序补交，一条不漏。",
     },
     {
-      title: "AI 原生，跨会话长期记忆",
+      title: "AI 原生，直接读写你的记录",
       description:
-        "内置标准化 MCP（Model Context Protocol）端点，Claude Desktop、Cursor、Codex 等 AI 助手可将知识库作为长期记忆安全读写。",
+        "内置标准 MCP 端点，Claude Desktop、Cursor、Codex 等 AI 助手可以搜索、读取和写入你的记录；不另建独立的 AI 记忆账本。",
     },
     {
-      title: "团队协作，三级精细权限",
+      title: "团队空间，只做分享",
       description:
-        "支持 Owner / Admin / Member 多角色协同，提供私密、团队可见、公开三档可见性，离职成员私密数据支持深度彻底清理。",
+        "把记录发到团队，在原帖下评论、@ 彼此——用来分享，不做项目协作。Owner / Admin / Member / Reader 四种角色，私密、团队可见、公开三档可见性，成员离开时私密数据彻底清理。",
     },
     {
-      title: "全面兼容 Memos 与 flomo",
+      title: "数据随时带走",
       description:
-        "完整实现 Memos /api/v1 核心接口与 OpenAPI 规范，支持第三方客户端直接连接，Memos/flomo 数据一键无损导入导出。",
+        "记录、任务、文章和附件，一键全量导出。导入遇到冲突可自选策略；中途出错整批撤回，不留半截数据。",
     },
     {
-      title: "项目、任务与日历",
+      title: "记录、长文与待办",
       description:
-        "按项目归拢记录与待办：看板、优先级、截止日一应俱全。月历以任务为日程的事实源，逾期自动提醒，支持可选的浏览器推送。",
+        "随手记录，长文进全屏画布。给记录定个日子，里面的待办就转成任务，两头一起变；按今天、未来 7 天或项目看板翻看，到期当天提醒，还能开启浏览器推送。",
     },
   ],
   comparisonBadge: "横向对比",
@@ -59,13 +65,13 @@ export const ZH_HOME: HomeContent = {
   comparisonRows: [
     {
       label: "数据存储位置",
-      cloudflare: "Cloudflare 企业级多地域持久化",
+      cloudflare: "Cloudflare 多地域持久化存储",
       nas: "家中的单块或多块物理硬盘",
       vps: "单一云厂商机房虚拟机磁盘",
     },
     {
       label: "硬件/灾难风险",
-      cloudflare: "自动故障转移，零硬件焦虑",
+      cloudflare: "跨地域复制，无需自己换硬盘",
       nas: "硬盘损坏、断电漏水可能全丢",
       vps: "机房网络故障或误操作可能丢失",
     },
@@ -77,7 +83,7 @@ export const ZH_HOME: HomeContent = {
     },
     {
       label: "日常运维开销",
-      cloudflare: "零运维：无系统补丁、无 Docker 容器",
+      cloudflare: "无需打系统补丁，也不跑 Docker 容器",
       nas: "需维护系统升级、监控硬盘 SMART",
       vps: "需维护操作系统安全补丁与看门狗",
     },
@@ -89,39 +95,37 @@ export const ZH_HOME: HomeContent = {
     },
     {
       label: "长期费用成本",
-      cloudflare: "0 元 / 永久利用官方免费配额",
+      cloudflare: "免费额度内 0 元（有明确配额）",
       nas: "数千元硬件采购费用 + 持续电费",
       vps: "按月/年持续支付服务器与带宽续费",
     },
   ],
-  screenshotsHeading: "精致视觉，开箱即用",
+  screenshotsHeading: "打开看看",
   screenshotsSubtitle:
-    "浅色明亮、深色沉浸与全功能移动端自适应，所有功能真实可用",
-  faqBadge: "你可能想问",
+    "浅色、深色与手机端，全部是上线版本的真实截图，不是效果图。",
   faqHeading: "常见问题",
   faqItems: [
     {
       q: "免费配额真的够用吗？",
-      a: "完全够用。Cloudflare 免费层提供 5GB D1 数据库（可存约 250 万条普通文本记录）与 10GB R2 存储（约 1 万张压缩图片）。即使每天写 100 条记录，也能写 68 年，对绝大部分用户而言终生都难以触及上限。",
+      a: "按每条约 2KB 估算，5GB 大约能存 250 万条记录；具体上限取决于内容大小，日常记录很少碰到。",
     },
     {
-      q: "如何确保我的数据绝对安全？",
-      a: "记录保存在 Cloudflare 企业级分布式基础设施中，自带跨地域冗余持久化，不会因单点硬件故障丢失。同时 FlareMo 支持一键导出标准 Memos 格式备份包，随时可本地离线归档形成双重保障。",
+      q: "我的数据存在哪里，安全吗？",
+      a: "记录落在 Cloudflare 的全球网络里，自带多地域复制。你还能把记录、任务、文章与附件一键打包导出，随时在本地留一份完整副本。",
     },
     {
-      q: "能从 Memos 或 flomo 搬家过来吗？",
-      a: "可以。FlareMo 支持导入 Memos 和 flomo 导出的 ZIP 或 JSON 格式数据包，导入时可自由配置冲突策略，时间戳、标签与正文完整保留。",
+      q: "能把以前的记录搬过来吗？",
+      a: "可以。仓库自带转换脚本，把旧工具的导出包转成 FlareMo 导入包，时间戳、标签、置顶与可见性都会保留。已知限制：评论会转成独立记录，外部链接附件不迁移。",
     },
     {
-      q: "现有的第三方 App 和自动化脚本还能用吗？",
-      a: "完全兼容。FlareMo 实现了 Memos 核心的 /api/v1 接口子集与可撤销的 Personal Access Token（PAT），市面上主流的 Memos 客户端（如 Moe Memos）及快捷指令脚本均可无缝连接使用。",
+      q: "能接我自己的脚本和工具吗？",
+      a: "可以。开放 API 配可撤销的 Personal Access Token，自动化脚本能直接接；AI 工作流走内置 `/mcp` 记录工具与 `flaremo-notes` Skill，直接读写你的 memo。具体支持范围以文档中的兼容矩阵为准。",
     },
     {
       q: "单人使用和团队使用有什么区别？",
-      a: "默认是一套安静专注的单人记录系统；如果需要协同，管理员可在后台一键生成邀请激活链接添加成员。记录支持设为私密（仅自己可见）、团队可见（成员只读）或全网公开，数据权属清晰明确。",
+      a: "默认是一套安静专注的单人记录系统；如果需要协同，管理员在后台发一条邀请链接就能加人。记录支持设为私密（仅自己可见）、团队可见（团队成员可阅读并评论）或全网公开，数据归谁，清清楚楚。",
     },
   ],
-  ctaBadge: "开始上手",
   ctaHeading: "灵感已就位，只差一次部署",
   ctaSubtitle:
     "无需服务器，无需信用卡，用免费 Cloudflare 账号 5 分钟即可跑起来。",

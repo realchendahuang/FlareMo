@@ -61,6 +61,12 @@ export const memos = sqliteTable(
     // last indexed before this column existed (delete then falls back to the
     // bounded 256-chunk window).
     embeddingChunks: integer("embedding_chunks"),
+    // Optimistic-lock / sync version (migration 0048). Every accepted write
+    // increments it; the native clients send it back as `expected_version` and
+    // the `sync_changes` row carries it so a client can tell a stale local row
+    // from a fresh one without re-reading content. Comments are memos rows, so
+    // this one column covers comment writes too.
+    version: integer("version").notNull().default(1),
   },
   (table) => [
     index("memos_user_status_pinned_created_id_idx").on(
@@ -93,6 +99,13 @@ export const memos = sqliteTable(
     index("memos_recycle_sweep_idx")
       .on(table.deletedAt)
       .where(sql`status = 'trashed'`),
+    // "On this day" matches a month-day with `substr(created_at, 6, 5)`, which
+    // no b-tree can seek into, so the daily cron used to read every normal
+    // memo row — content blob included. This covering index lets that scan
+    // read only the three small columns it projects.
+    index("memos_normal_review_cover_idx")
+      .on(table.createdAt, table.id, table.userId)
+      .where(sql`status = 'normal'`),
   ],
 );
 
@@ -211,6 +224,10 @@ export const memoRevisions = sqliteTable(
   ],
 );
 
+// Comment/reference edges between memos. Comments are not a table of their
+// own: a comment is a full `memos` row plus one relation row here, so a
+// comment's edits/deletes ride the memo row while the *edge* is its own sync
+// entity (`sync_changes.entity = 'relation'`).
 export const memoRelations = sqliteTable(
   "memo_relations",
   {
@@ -224,6 +241,12 @@ export const memoRelations = sqliteTable(
       .notNull()
       .default("reference"),
     createdAt: text("created_at").notNull(),
+    // Sync timestamp (migration 0048). Relations are append-only today, so
+    // `created_at` is the only write time; the column exists so the native
+    // sync contract has one timestamp per entity and so a future edit/delete
+    // path has somewhere to land. The 0049 backfill copies `created_at` into
+    // it for every pre-existing row.
+    updatedAt: text("updated_at").notNull().default("1970-01-01T00:00:00.000Z"),
   },
   (table) => [
     primaryKey({ columns: [table.memoId, table.relatedMemoId, table.type] }),
@@ -232,6 +255,31 @@ export const memoRelations = sqliteTable(
       table.type,
       table.memoId,
     ),
+  ],
+);
+
+// What the daily review remembers about one memo for its reader: the local
+// day it was last read in the review (so the same note does not come back the
+// next morning, and today's progress survives a reload or another device) and
+// whether the reader asked never to see it there again. Purely derived reader
+// state: losing a row only means a note may resurface sooner.
+export const memoReviewMarks = sqliteTable(
+  "memo_review_marks",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    memoId: text("memo_id")
+      .notNull()
+      .references(() => memos.id, { onDelete: "cascade" }),
+    /** Viewer-local `YYYY-MM-DD` of the last review read, or NULL. */
+    lastReviewedOn: text("last_reviewed_on"),
+    muted: integer("muted", { mode: "boolean" }).notNull().default(false),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.memoId] }),
+    index("memo_review_marks_memo_idx").on(table.memoId),
   ],
 );
 

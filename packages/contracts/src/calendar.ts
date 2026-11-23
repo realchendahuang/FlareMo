@@ -78,7 +78,18 @@ export const hourlyActivityQuerySchema = z
   .refine(
     (q) => Boolean(q.date || (q.from && q.to)),
     "Must specify either `date` or both `from` and `to`.",
-  );
+  )
+  .refine((q) => {
+    const from = q.from ?? q.date;
+    const to = q.to ?? q.date;
+    if (!from || !to) return true;
+    const span =
+      (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+      86_400_000;
+    // The widest view that asks is one month. A longer span would walk the
+    // counter rows of years and then emit 24 slots per day.
+    return span >= 0 && span <= 30;
+  }, "The requested range must be within 31 days.");
 
 export const hourlyActivityResponseSchema = z.object({
   hours: z.array(

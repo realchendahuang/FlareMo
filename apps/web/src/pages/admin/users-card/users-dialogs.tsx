@@ -1,7 +1,7 @@
-import { Loader2Icon } from "lucide-react";
 import type { AdminUser } from "@/api";
 import { InfoTip } from "@/components/info-tip";
 import { SecretRevealDialog } from "@/components/secret-reveal-dialog";
+import { Alert } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 
 /**
@@ -143,11 +144,7 @@ function CreateUserDialog({
             <InfoTip text={t("admin.activationDescription")} />
             <span className="sr-only">{t("admin.activationDescription")}</span>
           </p>
-          {createError && (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-              {createError}
-            </p>
-          )}
+          {createError && <Alert variant="destructive">{createError}</Alert>}
           <DialogFooter>
             <Button
               disabled={createUserMutation.isPending}
@@ -159,10 +156,7 @@ function CreateUserDialog({
             </Button>
             <Button disabled={createUserMutation.isPending} type="submit">
               {createUserMutation.isPending && (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
+                <Spinner data-icon="inline-start" />
               )}
               {createUserMutation.isPending
                 ? t("admin.creatingUser")
@@ -194,7 +188,7 @@ function CreatedLinkDialog({
       copyLabelKey="admin.copyResetLink"
       description={t("admin.activationDescription")}
       onCopy={() => {
-        if (createdLink) void handleCopyResetLink(createdLink);
+        if (createdLink) handleCopyResetLink(createdLink);
       }}
       onOpenChange={(open) => {
         if (!open) setCreatedLink(null);
@@ -226,7 +220,7 @@ function ResetLinkDialog({
       copyLabelKey="admin.copyResetLink"
       description={t("admin.resetLinkDescription")}
       onCopy={() => {
-        if (resetLink) void handleCopyResetLink(resetLink);
+        if (resetLink) handleCopyResetLink(resetLink);
       }}
       onOpenChange={(open) => {
         if (!open) setResetLink(null);

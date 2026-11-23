@@ -39,7 +39,7 @@ function parseArgs(argv: string[]) {
   return { flags, positional };
 }
 
-function documentCard(id: string) {
+function documentCard(_id: string) {
   return {
     specVersion: 1,
     root: {
@@ -239,20 +239,25 @@ async function main() {
   await writeFile(path.join(dir, "README.md"), readme(id, kind, tier));
 
   console.log("");
-  console.log(`${GREEN}✓${RESET} Created plugins/${tier}/${id} (${kind} card "${cardId}")`);
+  console.log(
+    `${GREEN}✓${RESET} Created plugins/${tier}/${id} (${kind} card "${cardId}")`,
+  );
   console.log("");
   console.log(`${DIM}Next steps${RESET}`);
   console.log(`  1. pnpm plugin:check plugins/${tier}/${id}`);
   console.log(`  2. pnpm dev  → open the share-image dialog to preview`);
-  console.log(`  3. pnpm plugins:build  → regenerate registry.json + store artifacts`);
+  console.log(
+    `  3. pnpm plugins:build  → regenerate registry.json + store artifacts`,
+  );
   console.log("");
 }
 
 function readme(id: string, kind: string, tier: string) {
-  const install = tier === "community"
-    ? `Community plugins are off by default on every instance: an owner installs
+  const install =
+    tier === "community"
+      ? `Community plugins are off by default on every instance: an owner installs
 this plugin from the store (or uploads the zip) and enables it explicitly.`
-    : `Official plugins ship with the app and are enabled by default.`;
+      : `Official plugins ship with the app and are enabled by default.`;
   return `# ${id}
 
 A FlareMo plugin contributing a **${kind}** share-card template.

@@ -17,9 +17,28 @@ function frame(sampleCount: number, value = 7): ArrayBuffer {
   return buffer;
 }
 
-/** One second of 100 ms frames. */
+/** One 10 ms frame (160 samples at 16 kHz). */
 function second(value = 7) {
   return frame(160, value);
+}
+
+/**
+ * First byte offset of an ASCII marker, or -1.
+ *
+ * The obvious `bytes.findIndex((_, i) => bytes.subarray(i, i + 8).every(...))`
+ * allocates one Uint8Array per candidate byte; over multi-hundred-KB slices that
+ * ran for tens of seconds and pushed the Opus container test against its 60 s
+ * timeout on slower runners. Same result, no per-byte allocation.
+ */
+function indexOfMagic(bytes: Uint8Array, magic: string): number {
+  const last = bytes.byteLength - magic.length;
+  outer: for (let i = 0; i <= last; i++) {
+    for (let j = 0; j < magic.length; j++) {
+      if (bytes[i + j] !== magic.charCodeAt(j)) continue outer;
+    }
+    return i;
+  }
+  return -1;
 }
 
 afterEach(() => {
@@ -109,12 +128,8 @@ describe("Opus container (real WASM encoder)", () => {
       const pages = splitOggPages(bytes);
       expect(pages.length).toBeGreaterThan(0);
       const all = bytes;
-      const headIndex = all.findIndex((_, i) =>
-        all.subarray(i, i + 8).every((b, j) => b === "OpusHead".charCodeAt(j)),
-      );
-      const tagsIndex = all.findIndex((_, i) =>
-        all.subarray(i, i + 8).every((b, j) => b === "OpusTags".charCodeAt(j)),
-      );
+      const headIndex = indexOfMagic(all, "OpusHead");
+      const tagsIndex = indexOfMagic(all, "OpusTags");
       // Headers are prepended to every slice, so each uploads standalone.
       expect(headIndex).toBeGreaterThanOrEqual(0);
       expect(tagsIndex).toBeGreaterThan(headIndex);
@@ -152,9 +167,11 @@ describe("Opus container (real WASM encoder)", () => {
     );
     sink.dispose();
     // Real WASM opus encode of a full recording is CPU-bound; on a busy laptop
-    // it blows well past the 5s default. The value under test is the container
-    // structure, not encode speed.
-  }, 60_000);
+    // it blows well past the 5s default, and even the 60s default was tight
+    // enough that the suite flipped between pass and "timed out" on the same
+    // commit. The value under test is the container structure, not encode
+    // speed, so the budget stays generous rather than the assertion loose.
+  }, 120_000);
 });
 
 describe("Opus fallback", () => {

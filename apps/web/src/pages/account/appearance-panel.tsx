@@ -1,8 +1,9 @@
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import { type Theme, useTheme } from "@/components/theme-provider";
+import { Kbd } from "@/components/ui/kbd";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { SettingsSectionGroup } from "./apple-settings-ui";
 
 type AppearancePanelProps = {
   t: (key: TranslationKey, params?: TranslationParams) => string;
@@ -39,26 +40,27 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         {themes.map((item) => {
           const active = theme === item.id;
           const Icon = item.icon;
           return (
             <button
+              aria-pressed={active}
               key={item.id}
               type="button"
               onClick={() => setTheme(item.id)}
               className={cn(
-                "group relative flex flex-col items-center rounded-xl border p-4 text-center transition-all cursor-pointer",
+                "group relative flex cursor-pointer flex-col items-center rounded-xl border p-2.5 text-center outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-3 focus-visible:ring-ring/25 sm:p-4",
                 active
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                  ? "border-primary bg-card ring-1 ring-primary/30 shadow-xs"
                   : "border-border/60 bg-card hover:border-border hover:bg-accent/40",
               )}
             >
               {/* Preview Box */}
               <div
                 className={cn(
-                  "relative mb-3 flex h-20 w-full items-center justify-center overflow-hidden rounded-lg border text-xs shadow-2xs transition-transform group-hover:scale-[1.02]",
+                  "relative mb-2.5 flex h-14 w-full items-center justify-center overflow-hidden rounded-lg border text-xs shadow-2xs sm:mb-3 sm:h-20",
                   item.id === "light" &&
                     "border-border/80 bg-[#faf9f7] text-[#1f1d1a]",
                   item.id === "dark" &&
@@ -90,7 +92,7 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
                 </div>
 
                 {active && (
-                  <div className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs">
+                  <div className="absolute top-2 end-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs">
                     <CheckIcon className="size-3 stroke-[2.5]" />
                   </div>
                 )}
@@ -99,19 +101,24 @@ export function AppearancePanel({ t }: AppearancePanelProps) {
               <div className="flex items-center gap-1.5 font-medium text-xs text-foreground">
                 <span>{item.label}</span>
               </div>
+              <span className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
+                {item.description}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <SettingsSectionGroup title={t("theme.previewDetails")}>
+      {/* A keyboard shortcut means nothing on a touch screen. */}
+      <SettingsSectionGroup
+        className="hidden sm:flex"
+        title={t("theme.previewDetails")}
+      >
         <div className="flex items-center justify-between px-4 py-3 text-xs">
           <span className="text-muted-foreground">
             {t("theme.shortcutTip")}
           </span>
-          <kbd className="inline-flex h-5 items-center rounded border border-border/80 bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
-            D
-          </kbd>
+          <Kbd>D</Kbd>
         </div>
       </SettingsSectionGroup>
     </div>

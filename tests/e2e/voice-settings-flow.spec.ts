@@ -48,8 +48,10 @@ for (const mobile of [false, true]) {
     // desktop), so every string inside it appears twice in the DOM. Scope all
     // visibility assertions to the rendered branch; `visible=true` is what
     // keeps strict mode satisfied.
+    // The pane no longer draws its own heading; its first settings row is the
+    // stable marker that the permission-gated content mounted.
     const voiceTitle = page
-      .getByText(/Voice recognition settings|语音识别设置/, { exact: true })
+      .getByText(/Enable voice capture|启用语音记录/, { exact: true })
       .locator("visible=true");
     await expect(voiceTitle).toHaveCount(0);
     expect(settingsRequests).toBe(0);
@@ -58,10 +60,10 @@ for (const mobile of [false, true]) {
     // appears once the viewer permission resolves.
     await page.getByRole("button", { name: /语音服务|Voice service/i }).click();
     await expect(voiceTitle).toBeVisible();
-    // Credentials sit behind the "配置服务凭据" dialog; opening it proves the
+    // Credentials sit behind the "凭据" dialog; opening it proves the
     // fields are reachable and rendered as password inputs.
     await page
-      .getByRole("button", { name: /凭据已配置|Credentials configured/i })
+      .getByRole("button", { name: /^(凭据|Credentials)/i })
       .locator("visible=true")
       .first()
       .click();
@@ -148,10 +150,10 @@ test("owner saves encrypted credentials through the UI and disables capture", as
     .locator('[role="switch"]:visible')
     .first()
     .click();
-  // The credential fields live behind the "凭据已配置" dialog now; the pane
+  // The credential fields live behind the "凭据" dialog now; the pane
   // itself only shows the status rows.
   await page
-    .getByRole("button", { name: /凭据已配置|Credentials configured/i })
+    .getByRole("button", { name: /^(凭据|Credentials)/i })
     .locator("visible=true")
     .first()
     .click();

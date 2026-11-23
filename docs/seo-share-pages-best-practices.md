@@ -17,8 +17,8 @@
 | worker 注入路由 | `GET /share/:token` 服务端改写 SPA 壳 | `apps/worker/src/routes/share-page.ts` |
 | 注入内容 | title / description（去 markdown 噪音，80/160 字截断）、OG 全套、Twitter Card、JSON-LD（SocialMediaPosting）、SSR 正文段落、`robots: index, follow` | 同上 |
 | 死分享处理 | 撤销 / 过期 / 不存在的 token → 注入 `noindex, nofollow`（仍是 200，见 Gap 2） | 同上 |
-| wrangler 配置 | `run_worker_first: true`——worker 先于静态资源路由处理**所有**请求。此前的坑（两段式）：先是不放行 `/share/*` 导致 SPA 兜底直接返回空壳、worker 不执行；后是只放行部分路径导致 `/sitemap.xml` 与未知路径同样绕过 worker。改为布尔 true 后状态码语义全部收敛到 worker（精确资源文件在 notFound 里经 ASSETS 精确匹配返回，状态与 content-type 不变） | `wrangler.jsonc`（gitignore 的本地配置，**新机器克隆后必须带上这行**） |
-| robots.txt | 真实静态文件（`Disallow /api/ /file/ /mcp /memory/mcp /memos.api.v1`） | `apps/web/public/robots.txt` |
+| wrangler 配置 | `assets.run_worker_first` 路径白名单（`/share/*`、`/article/*`、`/sitemap*.xml`、`/feed.xml`、`/file/*`、`/api/*`、`/mcp`、`/openapi.json`、`/memos.api.v1.*`、`/favicon.ico`）——命中清单的请求先由 worker 处理，其余静态资源由 ASSETS 直接返回；未命中资源的导航进入 worker，再由 SPA 路由白名单决定 200 还是 404（`assets.not_found_handling: "none"`）。改白名单必须同步 `apps/web/vite.config.ts` 的 `server.proxy`，`apps/web/src/dev-proxy-parity.test.ts` 会兜底 | `wrangler.jsonc` / `apps/worker/src/spa-routes.ts` |
+| robots.txt | 真实静态文件（`Disallow /api/ /file/ /mcp /memos.api.v1`） | `apps/web/public/robots.txt` |
 | canonical origin | og:url/og:image 以 `FLAREMO_PUBLIC_URL` 为准，请求 origin 兜底 | `share-page.ts` `publicOrigin()` |
 | 测试 | `apps/worker/src/share-page.test.ts`（4 例，Miniflare + 真 D1） | |
 

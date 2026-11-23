@@ -1,6 +1,19 @@
 import type { MemoDto } from "@flaremo/contracts";
 import { expect, test } from "@playwright/test";
+import { E2E_BASE_URL } from "./auth-fixture";
 import { startWithCleanClientState } from "./workspace-helpers";
+
+// The personal/team split only shows once someone else holds a seat; the e2e
+// owner is alone in the default team, so report a second member.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/app/me", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    const body = await response.json();
+    if (body.team) body.team.member_count = 2;
+    await route.fulfill({ response, json: body });
+  });
+});
 
 function note(id: string, visibility: MemoDto["visibility"]): MemoDto {
   return {
@@ -47,9 +60,9 @@ test("switching spaces scopes the timeline request and keeps the URL restorable"
   ).toBeVisible();
   expect(requestedSpaces.every((space) => space === "all")).toBe(true);
 
-  // Spaces moved to the header ScopeSwitcher.
+  // The space filter sits on the right of the timeline header.
   const scopeTrigger = page.getByRole("button", {
-    name: /note scope|笔记范围/i,
+    name: /note scope|记录范围/i,
   });
   await scopeTrigger.click();
   await page.getByRole("menuitem", { name: /team space|团队空间/i }).click();
@@ -76,7 +89,9 @@ test("switching spaces scopes the timeline request and keeps the URL restorable"
   ).toHaveCount(0);
 
   await scopeTrigger.click();
-  await page.getByRole("menuitem", { name: /^all|全部$/i }).click();
+  await page
+    .getByRole("menuitem", { name: /^(all spaces|全部空间)$/i })
+    .click();
   await expect(
     page.locator("article").filter({ hasText: "Space note team-only" }),
   ).toBeVisible();
@@ -154,6 +169,12 @@ test("a private capture in the team space only appears in its own timeline", asy
     page.locator("article").filter({ hasText: "Space note team-only" }),
   ).toBeVisible();
 
+  // The target follows the space context asynchronously; sending before it
+  // settles files the note as personal and the optimistic card never enters
+  // the team timeline.
+  await expect(
+    page.getByRole("button", { name: /send target|发送目标/i }),
+  ).toContainText(/team|团队/i);
   await composer.fill("Private note typed in the team space");
   await page.getByRole("button", { name: /^(send|发送)$/i }).click();
 
@@ -240,4 +261,26 @@ test("the composer send target follows the active space", async ({ page }) => {
     "Team-side note|protected",
     "Personal-side note|private",
   ]);
+});
+
+test("a shared workspace comments on a card in place", async ({ page }) => {
+  await startWithCleanClientState(page);
+  const marker = `Inline thread ${Date.now()}`;
+  await page.request.post("/api/app/memos", {
+    headers: { origin: E2E_BASE_URL },
+    data: { content: marker, visibility: "protected" },
+  });
+  await page.goto("/");
+  const card = page.locator("article").filter({ hasText: marker });
+  await expect(card).toBeVisible();
+  await card.hover();
+  await card.getByRole("button", { name: /^(comment|评论)$/i }).click();
+  const reply = `Reply ${Date.now()}`;
+  const box = card.getByRole("textbox", { name: /comment|评论/i });
+  await box.fill(reply);
+  await box.press("Enter");
+  await expect(card.getByText(reply)).toBeVisible();
+  await expect(
+    card.getByRole("button", { name: /1 (comment|条评论)/i }),
+  ).toBeVisible();
 });

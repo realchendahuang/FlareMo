@@ -1,10 +1,13 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { ActivityIcon, CloudIcon, GaugeIcon, InfoIcon } from "lucide-react";
+import { InfoIcon } from "lucide-react";
 import type { CloudflareUsageReport, VectorUsageReport } from "@/api";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TranslationKey } from "@/i18n";
 import { formatBytes } from "@/lib/utils";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 type UsagePanelProps = {
   t: (key: TranslationKey) => string;
@@ -81,16 +84,12 @@ function VectorUsageContent({
 
   return (
     <div className="flex flex-col divide-y divide-border/40">
-      <SettingsRow
-        icon={GaugeIcon}
-        label={t("usage.model")}
-        value={report.model}
-      />
+      <SettingsRow label={t("usage.model")} value={report.model} />
       <SettingsRow
         label={t("usage.vectors")}
         value={`${totalVectors.toLocaleString()} (${report.dimensions} dim)`}
       />
-      <div className="p-4 flex flex-col gap-4">
+      <div className="flex flex-col gap-4 px-3.5 py-4">
         <UsageBar
           hint={t("usage.storedHint")}
           label={t("usage.stored")}
@@ -119,7 +118,6 @@ function CloudflareUsageContent({
   return (
     <div className="flex flex-col divide-y divide-border/40">
       <SettingsRow
-        icon={ActivityIcon}
         label={t("usage.cfPeriod")}
         value={`${report.window.since.slice(0, 10)} ~ ${report.window.until.slice(0, 10)} (UTC)`}
       />
@@ -132,7 +130,6 @@ function CloudflareUsageContent({
       {report.d1 && (
         <>
           <SettingsRow
-            icon={CloudIcon}
             label={t("usage.cfD1Storage")}
             value={
               report.d1.storageBytes !== null
@@ -219,12 +216,6 @@ function PlanQuotaBars({
           key: "usage.planMemos",
           used: plan.user.usage.maxMemosPerUser,
           limit: plan.user.limits.maxMemosPerUser,
-          format: localeFormat,
-        },
-        {
-          key: "usage.planMemories",
-          used: plan.user.usage.maxMemoryItemsPerUser,
-          limit: plan.user.limits.maxMemoryItemsPerUser,
           format: localeFormat,
         },
       ]
@@ -318,7 +309,7 @@ function UsageBar({
             <span className="text-xs text-muted-foreground">{hint}</span>
           ) : null}
         </span>
-        <span className="ml-auto text-muted-foreground tabular-nums">
+        <span className="ms-auto text-muted-foreground tabular-nums">
           {format(used)} / {format(limit)}
         </span>
       </div>

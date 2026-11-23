@@ -183,7 +183,7 @@ document.documentElement.dataset.glassEngine = e;
 |---|---|
 | Ember token（`--brand-*`、`.dark`、`[data-accent]`） | `--glass-*` 同区并列；玻璃中性无色，换主题色零影响 |
 | Dialog/Sheet 遮罩的 `supports-backdrop-filter:backdrop-blur-xs` | 不动。遮罩是压暗层不是玻璃；玻璃加在浮层内容容器上 |
-| 圆角基准（`--radius: 0.875rem`，浮层 14px） | 折射位移图档位与之对齐（§5），不新增圆角档 |
+| 圆角基准（`--radius: 0.625rem`，Ember 2：控件 10px、卡片 14px、弹窗 18px） | 折射位移图档位与之对齐（§5），不新增圆角档 |
 | 官网 Paper 独立 token | 不合并；配方段自包含抄入（§4.1），与"官网不与应用共刷变量"的既有决策一致 |
 | 杀伤性开关 | `<html data-glass="off">` 一行回退全站实心，留给管理端/应急 |
 

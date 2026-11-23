@@ -1,6 +1,514 @@
 # Changelog
 
-FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和 Memos 兼容面变化。
+FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 资源变化和兼容层变化。
+
+## v0.33.0
+
+**卡片就地编辑附件上传、X/Twitter 链接预览、Ember 3 全站交互打磨与运行时可靠性加固。** 无新增数据库 migration、无新环境变量或 Cloudflare 绑定变化；Memos 兼容面与 Better Auth / Origin 安全契约不变，直接升级即可。
+
+### 新增与体验升级
+
+- **卡片就地编辑完整附件上传（修复 #162）**：`MemoCardEditor` 接入工具栏回形针按钮、多选上传、粘贴/拖拽图片与任意文件预上传（取消编辑不污染原记录）、上传进度芯片与保存保护、既有附件与新附件缩略图预览及移除，保存时原子合并绑定并乐观更新缓存。同时将新建框、全屏画布与卡片编辑器的 `<input type="file">` 全部改为 `useId()` 实例级唯一选择器，消除多编辑器并存时的文件选择冲突；解除卡片编辑态 320px 内部滚动封顶并补充未保存改动两段式 `Esc` 保护。
+- **X / Twitter 免鉴权链接预览与时间线外链卡片**：`MemoService/GetLinkMetadata` 识别 `x.com` / `twitter.com` 推文链接（含 `www.`、`mobile.`、`/i/web/status/`、`/i/status/` 与短链重定向落点），通过 `publish.twitter.com/oembed`（走统一安全出站 `safeOutboundFetch`）提取作者与推文摘要，404 或超时静默降级不抛 500，同时加固通用 `<meta>` 属性乱序/单引号解析与相对图片 URL 归一化。时间线正文新增去重缓存的纸片外链预览卡，正文内联图片支持点击打开 `ImageLightbox`，灯箱补齐开关动画、双击 `1x/2x` 缩放、拖拽平移与键盘 `+`/`-`/`0` 控制。
+- **文章即时发布修复、历史行级对比与 Ember 3 全站打磨**：修复新建文章后 2 秒内点击「发布」因首个草稿尚未落盘返回 400 的竞态（打开发布弹窗前等待自动保存链完成，并补 `⌘S` 快捷键）；记录详情页历史版本新增 `computeLineDiff` 行级增删对比；修复 Chromium 121+ 下继承链 `scrollbar-color` 覆盖 `::-webkit-scrollbar` 导致回退原生粗滚动条的问题（改用 `@supports not selector(::-webkit-scrollbar)` 仅对 Firefox 降级，恢复 6px 暖墨细丝滚动条与暗色 `color-scheme: dark` 一致性，回应 #162）；补齐 Markdown 块级 `dir="auto"`、`#标签`/`@mention` `<bdi>` 双向隔离及全站 8 语言（含阿拉伯语 RTL 与 Apple 端生成词条）同步。
+
+### 运维与可靠性
+
+- **定时维护心跳（Scheduler Heartbeat）**：`runScheduledMaintenance` 将最近一次执行时间、耗时与各步骤脱敏摘要持久化到实例级 `settings` 表，`GET /api/app/health` 新增 `scheduler` 字段（未执行过为 `null`），供外部监控配置存活与新鲜度巡检。
+- **D1 参数上限与触发器计数修复**：收口 Domain 层剩余 5 处 D1 100 绑定参数分块路径（含 130 项跨块单测）与附件列表分页参数校验；修复 `import-data` 在 `0049_native_sync_triggers` 触发器下因 `meta.changes` 叠加 `sync_changes` 行数导致 `imported_relations` 计数翻倍的问题。
+- **插件管理与门禁加固**：插件商店非法压缩包或 manifest 归一返回 `400`（不再落入 `500`），补齐插件 `install` / `uninstall` 完整 HTTP 集成测试（SHA-256 校验、静态资源读取、角色与 PAT scope 守卫、卸载 R2 清理），并在根 Vitest 配置排除 `integrations/**` 的 `node:test` 套件。
+
+### 兼容面、认证与升级说明
+
+- **数据库 migration**：无新增 migration（最新仍为 `0050_pat_scope_backfill`）。
+- **Cloudflare 资源与配置**：无新增环境变量、secret、D1/R2/Queue/Workers AI 绑定或 Cloudflare Access 配置变化。
+- **Memos 兼容面与认证安全**：Memos REST / Connect / `/mcp` 兼容子集不变（`GetLinkMetadata` 在原有契约内增强解析覆盖）；Better Auth cookie session、bootstrap、signup 状态、`FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS` Origin 校验与 PAT `notes` / `admin` scope 契约不变。
+- **升级步骤**：拉取 `v0.33.0` 直接构建并执行 `pnpm deploy`（或自托管部署 workflow）即可，无需额外手工迁移步骤。
+
+## v0.32.1
+
+**安全修复：历史 Personal Access Token 收窄为 notes 权限。** 新增 1 个纯数据 migration（0050），无 Cloudflare 资源变化、无新环境变量、无 API 形状变化。
+
+v0.30.0 起新建的 PAT 带 `notes` / `admin` 权限范围，但升级前创建的令牌在 `auth_apikeys.permissions` 里是空的，代码把空权限当作「完全访问」处理——一条历史令牌既能读笔记，也能进 `/api/app/admin/*` 删成员。本次把存量行就地收敛。
+
+### 数据库
+
+- `0050_pat_scope_backfill`：把 `auth_apikeys.permissions` 为空的令牌回填成 `{"memos":["read","write"]}`（notes 权限）。纯数据 UPDATE，幂等，不动表结构；已显式带权限的令牌不受影响。
+- 运行时语义不变：空权限仍按完全访问处理，只是升级后不再出现这样的行——因此未跑 migration 的库行为与 v0.32.0 完全一致。
+
+### 升级说明
+
+- 直接升级即可，部署会先应用 0050。
+- **用脚本驱动管理面的用户需要在升级后重建令牌**：`/api/app/admin/*`（设置、品牌、插件、用户、读者席位、维护端点）现在只接受 `admin` scope 的令牌。notes 令牌覆盖内容 API、MCP 与 `/api/capture`。
+- 没有新的环境变量、secret 或 Cloudflare 绑定。
+
+## v0.32.0
+
+**原生客户端的后端契约（M0）+ 客户端生成的 memo id。** 新增 2 个纯增量 migration（0048、0049），无 Cloudflare 资源变化、无新环境变量；旧 Web 客户端、Memos 兼容面与旧 PAT 行为不变。
+
+### 新增
+
+- **实例能力发现 `GET /api/app/instance`**：匿名可缓存，返回 `version`、`api_versions` 与 `capabilities`（`name → 版本号` 对象）。只报实际已实现的能力：`optimistic_lock` 当前为 0（`version` 列已存在，但 `PATCH` 尚未强制 `expected_version`）、`native_push` 是空数组、`direct_upload` 与 `pat_grant` 为 0——客户端据此降级，不去调用会 404 的路由。
+- **增量同步 `GET /api/app/sync/changes`**：`since` / `limit`（上限 500）游标分页，返回 `{ changes, next_seq, has_more }`，只回引用不回正文；空轮询走索引区间加 `min(seq)` 主键探测，零表扫描；水位早于裁剪点返回 `410`，客户端据此整库重建。
+- **批量取正文 `POST /api/app/sync/hydrate`**：一次最多 200 个 id，覆盖 memos / attachments / articles / memo_relations，按 D1 的 100 参数上限分块（每块 90 个 id）。
+- **创建 memo 可带客户端 id**：`createMemoSchema` 新增可选 `id`（`memos/<uuid>` 或裸 uuid，其他格式 400），`/api/app/memos`、`/api/v1/memos` 与 MCP 共用。同 id 重放幂等返回已存在行；该 id 属于别的账号返回 409 且不返回正文。不传 `id` 的既有调用方（Web / MCP / IM / 导入）行为完全不变。
+- **`/api/app/capture/status` 接受 `notes` 作用域的 Bearer**，走与其他数据端点同一条 PAT 路径，供客户端首屏决定是否显示麦克风。付费的 `/transcribe`、WebSocket 握手、账户与令牌管理、已连接应用撤销仍只允许浏览器会话。
+
+### 数据库
+
+- `0048_dapper_captain_america`：`memos` / `attachments` / `articles` 加 `version`（默认 1），`memo_relations` 加 `updated_at`；新增 `sync_changes`（AUTOINCREMENT `seq` + `(user_id, seq)` 索引）与 `native_push_devices`（纯增量）。
+- `0049_native_sync_triggers`：四张表共 11 个触发器把增删改写进 `sync_changes`，并一次性回填存量行。`op` 由 `deleted_at` 推导，软删除与硬删除都记为 `delete`，墓碑能活过整行删除；`memo_relations` 的 1970 占位在触发器与 hydrate 里归一成 `created_at`。
+- 持久化清单把 `sync_changes` 与 `native_push_devices` 归入灾备恢复（42 张恢复表 / 3 张可重建表）。
+
+### 其他
+
+- DSH 插件升到 `0.5.0`：面板改为内嵌真实 Web 应用（host 侧反代 + 设备令牌，令牌不出宿主进程）；顺带修掉 `withAuth` 在兄弟请求刚轮换过令牌时二次刷新、把一对好令牌同时作废的问题。插件在 `integrations/` 内独立构建与测试，不进内核门禁。
+- 四端原生客户端源码进仓库：`apps/apple/`（macOS + iOS，Swift）、`apps/kotlin/`（Android + Windows，Compose Multiplatform），两栈都不进 pnpm workspace；方案与 M0 契约见 `docs/native-clients.md`。
+
+### 升级说明
+
+- 直接升级即可：部署会先应用 0048 / 0049 两个增量 migration，旧 Worker 与旧客户端不受影响。
+- 没有新的环境变量、secret 或 Cloudflare 绑定。
+- 0049 的回填会为存量库的每条 memo / attachment / article / relation 写一行 `sync_changes`，大库首次升级会多花一点时间；这是纯 INSERT，不影响旧 Worker 读写。
+
+## v0.31.1
+
+**修复：配对页 `/connect` 在线上返回 404。** Worker 的 SPA 路由白名单（`apps/worker/src/spa-routes.ts`）没有收录新增的 `/connect`，导航请求被当成未知路径返回 404，设备授权页因此打不开。无 migration、无 Cloudflare 资源变化、无 API 变化。
+
+- 把 `/connect` 加入前端精确路由白名单；`share-page.test.ts` 的 web/worker 路由一致性断言继续通过。
+- 升级只需重新部署 Worker（不需要跑数据库迁移）。
+
+## v0.31.0
+
+**第三方客户端接入（设备授权/配对码）+ AI 洞察契约。** 新增 2 个纯增量 migration（0046、0047），无 Cloudflare 资源变化，无 Memos 兼容面变化，旧 PAT 与旧客户端行为不变。
+
+### 新增
+
+- **设备授权接入（RFC 8628）**：`POST /connect/device` 申请配对码，用户在 Web 批准（`POST /api/app/connect/approve`），客户端用 `POST /connect/token` 兑换短期 access token + refresh token（`grant_type=refresh_token` 刷新并轮换）。access token 就是 `memos_pat_`，沿用现有 scope 与校验路径。
+- **设置「已连接应用」**：列出第三方客户端、权限、最后使用与状态，可一键撤销；撤销同时失效该客户端的 access/refresh token。
+- **Web 配对页 `/connect`**：输入 8 位配对码完成批准，支持 `?code=` 预填与 `verification_uri_complete` 回跳；未登录跳登录并保留配对码。
+- **AI 洞察契约**：`/api/app/insights` 提供任务创建、pending 队列、结果读回、删除与幂等写回（`pending → running → done | failed`，`failed` 可重试）。FlareMo 只存契约与结果，模型执行器外置（DSH 插件、Workers AI 或其他 agent）。
+- **memo 详情页洞察入口**：创建任务后轮询最多 60 秒，展示结构化或纯文本结果，支持重试与删除。
+- 定时维护新增过期配对码与失效 refresh token 清理；持久化清单把连接表归入灾备恢复、洞察表归入可重建。
+
+### 数据库
+
+- `0046_agent_access`：新增 `app_clients`、`device_authorizations`、`device_refresh_tokens`（纯增量）。
+- `0047_memo_insights`：新增 `memo_insights`（派生数据，可重建，不进导出包）。
+
+### 认证与安全
+
+- 配对码（`user_code`）与设备码（`device_code`）只存 SHA-256，5 分钟过期、一次性、限速；`/connect/*` 是公开端点，按 IP 与设备码限速。
+- 只有浏览器会话能批准配对码；只有 PAT 能写回洞察结果（浏览器会话只能创建、读取、删除自己的任务）。
+- 「已连接应用」只展示有客户端身份归属的第三方令牌，手动 PAT 仍留在「个人访问令牌」列表。
+
+### 升级说明
+
+- 直接升级即可：部署会先应用 0046/0047 两个增量 migration，旧 Worker 与旧客户端不受影响。
+- 没有新的环境变量或 Cloudflare 绑定；不需要新增 secret。
+- 洞察任务需要外部执行器才会产出结果；未接入执行器时任务停留在 pending，Web 端会显示等待状态。
+
+### 已知问题
+
+- 洞察执行器尚未随上游提供（按设计外置）；DSH 插件 `dsh-flaremo` 是第一个参考实现。
+- 设备授权的 Web 批准页与已连接应用页尚未跑 e2e（用例已写，按项目规则 opt-in）。
+
+## v0.30.2
+
+**PAT 默认有效期改为 365 天，并恢复 notes-only 令牌的永久有效选项。** 无 D1 migration，无 Cloudflare 资源变化；已有令牌继续按原有效期运行。
+
+### 安全与兼容
+
+- 新建 PAT 的默认有效期从 90 天改为 365 天；缺省或 `null` 始终表示 365 天。
+- `notes` 权限令牌可由用户显式选择永久有效（`expires_in_days: 0` / Connect `expiresInDays: 0`）。
+- `admin` 权限令牌仍限制为 1–365 天，显式请求永久返回 400，避免管理凭证永久化。
+- 账户页新增“永久有效（仅笔记权限）”开关；选择 admin scope 时自动清除并禁用该选项。8 个语言包同步更新说明与校验文案。
+- 旧的无 permissions 令牌保持完全访问；本轮不延长、不降权任何已存在令牌。
+
+## v0.30.1
+
+**安全边界、数据可靠性与前端一致性的一轮加固。** 新增 1 个向后兼容的 D1 索引 migration（0045），无 Cloudflare 资源变化；旧数据和旧 PAT 继续可用。
+
+### 安全
+
+- 兼容 API 的 PAT 创建入口（current REST 与 Connect `CreatePersonalAccessToken`）统一走服务端创建 helper：默认 `notes` scope、90 天有效期，显式 `0`/缺省不再生成永久全权令牌；`admin` 仍需显式请求，旧的无 permissions 令牌保持兼容。
+- Webhook、插件商店目录/artifact、link metadata 与 Web Push 共用安全出站 fetch：逐跳手动跟随重定向、拒绝私网/保留地址与 URL 凭据、总超时、响应体上限；插件和 Push 强制 HTTPS。Worker 无同步 DNS，DNS rebinding 仍需 Cloudflare egress policy 兜底。
+- 插件 artifact 的绝对 `http:` URL 和 `https→http` 降级被拒绝；Push subscription endpoint 保存与发送均校验。
+
+### 数据与可靠性
+
+- 修复 D1 100 绑定参数边界：task reorder（200 条）、article attachment claim（100 个）、webhook outbox prune（100 个）全部按预留参数分块。
+- 内联导出在 `include_binary=false` 时不再查询 R2 key；binary key 查询分块；32 MiB 估算改为逐记录早停，避免额外整包 `JSON.stringify`。
+- export 任务失败最多自动重试 3 次，stale running export 恢复为 queued；stale queued export 清空过期 lease 后继续排队；import 仍保持回滚后 failed 的安全语义。member removal 同样增加 3 次重试与 dead-letter 状态。
+- Web Push 汇总 `attempted/delivered/failed` 与失败分类，不再把目标订阅数当作成功数。
+- 新增 attachment storage covering index（含 `thumbnail_size`）和 `data_tasks.expires_at` 清理路径。
+
+### 前端与运维
+
+- 删除全屏富文本画布的 idle 预取，保留 hover/focus/touch intent 预取。
+- 日/周时间视界不再使用作者口径的 hourly 数据；非 all space 时回退到 scoped 日统计，避免团队空间显示错误数据。
+- PasswordInput 恢复键盘可达、补充 `aria-pressed` 与 8 语言 aria-label；移动侧栏 Sheet、后台搜索、官网对比表与导航修正 RTL 逻辑方向。
+- workspace stats/tags 与 Spotlight 远程搜索失败显示可重试错误态，不再伪装成空数据。
+- deploy、deploy-kosx 在 remote migration 前强制 Worker bundle dry-run；flaremo-cloud 清理内核已删除的记忆配额字段、升级 Hono、加入 production audit/typecheck/scripts 门禁。
+- 备份文档改用不会传播删除的 `rclone copy --backup-dir`，并明确 live-copy drill 不等同于从落盘备份工件恢复。
+
+## v0.30.0
+
+**个人访问令牌（PAT）收窄为带 scope 与有效期的凭证。** 无 D1 migration（`auth_apikeys.permissions` 列早已存在），无 Cloudflare 资源变化；已有令牌继续可用。
+
+### 安全
+
+- PAT 新增 `notes` / `admin` 权限范围：`notes` 覆盖 `/api/v1/*`、MCP 与文章/待办/附件等业务面，`admin` 额外覆盖 `/api/app/admin/*`。Worker 在每个 PAT 请求上校验 scope，管理面只接受 admin。
+- 新建 PAT 默认 90 天有效期，允许 1–365 天，不再提供「永不过期」；升级前创建的旧令牌 `auth_apikeys.permissions` 为空，保持完全访问以兼容既有脚本（账户页会显示“笔记 + 管理”，建议按最小权限重建）。
+- 账户页令牌对话框新增权限选择与默认 90 天占位，令牌列表展示 scope；`docs/architecture-notes.md`、`docs/deploy.md`、`docs/memos-compatibility.md`（含英文版）与 `AGENTS.md` 同步说明。
+
+### 工程
+
+- 新增 `pat-scopes.test.ts`（默认 scope/90 天、admin 面拦截、旧令牌兼容）并更新 team-admin、admin-member-removal 与 e2e 验收用例。
+- 新增 `docs/assets/screenshots/v0.29.0/`：发版前目检截图归档（桌面 / 暗色 / RTL / 手机 / 设置）。
+## v0.29.0
+
+**部署链路、维护可靠性与工程门禁的一轮加固。** 无 D1 migration，无 Cloudflare 资源变化；已有部署按正常流程升级即可。
+
+### 部署与文档
+
+- 自托管部署/更新 workflow 恢复为模板 `docs/templates/workflows/`；README（8 语言）、AGENTS、ROADMAP 与 deploy/update/maintenance/release/github-action 文档统一为「复制模板」口径，并明确上游仓库没有 CI。
+- `wrangler.json` 移除空的可选变量（`FLAREMO_TRUSTED_ORIGINS`、`FLAREMO_DEPLOY_REPOSITORY`），修复 Deploy to Cloudflare 表单把它们当必填项的问题；一键部署章节补齐公开 origin、embedding 维度（1024）与 Repository 指向说明。
+- 修正过期文档：恢复手册里已删除的 memory reindex 步骤、`run_worker_first` 路径白名单、`/capture` 残留描述、CHANGELOG 的死小节，以及英文 agent/deploy 文档与「全量门禁 opt-in」矛盾的说明。
+- 全量门禁步数统一为 7 步（`scripts/preflight.mjs` 是唯一口径），`CONTRIBUTING` / `release` / `maintenance` / `AGENTS` 同步。
+
+### 维护与可靠性
+
+- 每日 cron 的每个维护 pass 独立 try/catch，并输出 `scheduled maintenance complete` 汇总（步骤、耗时、计数、失败项）；单个 pass 失败不再跳过当天的附件清理、计数重建、回顾通知与 Web Push。
+- 文章回收站清理补批次上限与逐行保护；回收站清理的 owner 查询改为批量，消除逐行点查的 N+1。
+- Web Push 通知的 icon/badge 指向真实图片资源；PWA 更新提示新增「稍后」，复用已有的 `pwa.updateLater` 文案。
+- `pnpm backup:drill` 默认只保留最近 10 次本地演练目录与 3 次远端恢复演练（`--keep=N` 或 `FLAREMO_BACKUP_KEEP` 可调）；新增 `pnpm clean` 清理构建与测试产物。
+
+### 安全与数据
+
+- 更新检查改为 Worker 代理 `GET /api/app/releases/latest`：边缘缓存 10 分钟、校验 `repository` 形状（只接受 `owner/name`）、上游失败映射为 502；浏览器不再直连 `api.github.com`，国内网络与 60 次/小时/IP 限流不再影响「系统更新」入口。
+- `/api/v1/memos` 增加响应级契约测试：create / list / get / attachments 的返回体用 `@flaremo/contracts` 的 zod schema 校验，响应字段漂移不再只靠 path+method 的覆盖检查。`/api/app` 的 articles / projects / tasks 也补了同样的契约校验。
+- 补 admin 端点的集成测试：插件商店的鉴权与目录失败降级、`embeddings/rebuild` 的 owner 守卫与未配置提示，以及 PAT 删除成员时 R2 失败的回归测试（验证失败 job 会被记录，此前 PAT 调用会静默停在 removing）。
+- 修正 e2e 规格里过期的侧栏标签（`memos` → `notes`）；发版前完整跑通 Playwright 端到端套件（71 个用例），并用截图目检了桌面/手机、明暗主题、阿拉伯语 RTL、回顾/待办/文章/设置页。
+- 新增 `docs/README.md` 文档索引，按入门 / 架构 / 部署 / 兼容 / 设计 / 历史设计稿分类；`llms.txt` 与 `AGENTS.md` 已链接。
+- 低强调文字的对比度：explorer 计数、可见性提示、月份表头、回收站分组等正文从 `muted-foreground/70–/80` 改为全色，tabs 的非激活文字由 `foreground/60` 提到 `/70`。
+- `FLAREMO_TRUSTED_ORIGINS` 与 `FLAREMO_PUBLIC_URL` 使用同一套 HTTPS 校验（localhost 除外），http origin 在部署启动时直接报配置错误。
+- cookie 请求先按会话 cookie 是否存在分流：无凭据仍返回 401；跨站状态变更在 session 查询之前返回 403。
+- 管理员删除成员失败时，PAT 调用也会写入 failed job（此前被 session-only 的 context 解析器吞掉，排障时看不到原因）。
+- 插件商店复用 admin 的 owner 守卫，删除重复实现。
+
+### 前端
+
+- 全局快捷键不再劫持按钮、菜单、下拉与组合框里的方向键和字母键。
+- 语言包晚于首屏到达时触发一次重渲染，不再让页面停在英文（阿拉伯语也不会出现 RTL 布局配英文）。
+- Spotlight 搜索补 combobox / listbox / option 语义与 `aria-activedescendant`。
+- 方向相关的物理 utility 改为逻辑 utility（`text-start` / `ms-auto` / `end-*` / `border-s` / `rounded-s`），32 个文件与 toggle-group 分段控件都覆盖；阿拉伯语 RTL 下菜单、对齐与定位不再反向（居中用的 `left-1/2 + -translate-x-1/2` 保留物理方向）。
+- 修复 RTL 下代码块被镜像的问题：`.memo-markdown` / 文章编辑器的 `pre`、`code` 以及 SSR 文章页的 `article pre/code` 统一 `direction: ltr; unicode-bidi: isolate`，阿拉伯语界面里的代码、括号与行内命令不再反向（发版前端到端目检发现）。
+- 所有 `queryKey` 收口到 `lib/query-keys.ts`（新增 projects/articles/memoContext/memoRelated/statsHourly 等 20+ 组 key，并抽出 `invalidateTaskSurfaces` 共享失效助手）；新增测试禁止再写行内 queryKey 字面量，避免拼错 key 后静默不刷新。
+- 清理 71 个无引用 i18n key（8 语言各 71 行，1027 → 956 键），新增 usage 测试（白名单只保留 10 个待接线的 `pwa.install*` key），parity 测试继续保证 8 语言键集合一致。
+- 删除未使用的 `haptics` 与 `getDailyReview`，共享设置组件移到 `components/settings-section.tsx`。
+
+### 工程
+
+- `pnpm verify` 改为 7 步；新增 `scripts:test` 自动发现 `scripts/**/*.test.mjs`，补跑此前从未纳入门禁的 `setup:usage`、`migrate-memos-export` 测试，并新增备份保留策略测试。
+- 清理 10 个已不在依赖图中的 override，启用 `minimumReleaseAge: 1440`（供应链策略与 docs/release.md 一致）；补 `engines.node >= 22` 与 `.nvmrc`。
+
+## v0.28.0
+
+**破坏性收缩：删除 Agent Memory 的 D1 表、向量索引绑定与导出字段。** migration `0044_drop_agent_memory` 会删除 `memory_*` 八张表、`memory_fts` 及其触发器；导出 bundle 升到 v7，不再包含 `memories` / `memory_*` 字段。升级后记忆表数据不可恢复，升级前必须备份 D1。
+
+### 升级步骤
+
+1. 备份 D1（记忆数据不会迁移；确认不再需要后再执行）。
+2. 正常部署；migration 先清理遗留的 memory embedding/import 审计行，再按外键顺序删除记忆表。
+3. 旧版导出的 bundle（v1–v6）仍可导入：其中的 memory 字段会被忽略，不再写入。
+4. 追踪配置已移除 `VECTORIZE_MEMORIES` binding；已有部署可保留或手动删除 `flaremo-memories` Vectorize index，代码不再读取它。
+
+### 行为变化
+
+- `memory_*` 表与 `memory_fts` 删除，memo/任务/账户删除路径不再处理记忆表。
+- 导入导出、备份/恢复清单与导入回滚审计不再包含记忆；bundle 版本为 7。
+- 向量用量报告、重建端点与账户清理只处理 memo 索引；`embedding_tasks` 中的 memory 任务在 migration 中清除。
+- `maxMemoryItemsPerUser` 配额维度与 `memory_recall` 相关文档全部移除。
+
+## v0.27.0
+
+**删除 Agent Memory。** `/memory` 页面、`/api/app/memory`、`/memory/mcp`、Dreaming/冲突巡检、记忆量配额、`flaremo` CLI 与 harness 记忆插件全部下架；Agent 只通过笔记 MCP（`/mcp`、`/api/v1/mcp`）和一个新的 `flaremo-notes` Skill 读写用户的 memo。
+
+### 升级步骤
+
+1. 如果装过旧的 harness 记忆插件，先在旧版本仓库运行 `flaremo uninstall`（或手动移除 `~/.flaremo` 与各 harness 的插件/hook），再升级本版；否则会话开头的记忆注入会请求已删除的 `/memory/mcp`。
+2. 本版无 D1 migration、无 Cloudflare 资源变化；`memory_*` 表保留，下一版再按破坏性收缩规则删除。
+3. 把 MCP 客户端指向 `/mcp`，用 `memos_pat_` 令牌认证；工具名见 `skills/flaremo-notes/SKILL.md`。
+
+### 行为变化
+
+- 删除 `/memory` Web 页面与导航入口；memo 详情页不再显示关联记忆，也不再提供「提炼为记忆」。
+- 删除 `/api/app/memory/*`、`/memory/mcp`、`POST /memos/:id/memory`。
+- 关闭每日 Dreaming 自动抽取与每周冲突巡检；不再产生新的 AI 记忆条目。
+- 删除 `flaremo` CLI、`harness/` 跨 Agent 插件、`skills/flaremo-memory`；新增 `skills/flaremo-notes`，笔记 MCP 工具面不变。
+- 账户用量面板不再显示「Agent 记忆条数」。
+- 旧版导出的 bundle 仍可导入；本版导出保留 memory 字段一版，下一版随表删除。
+
+## v0.26.0
+
+**安全与一致性修复版本。无 migration、无 Cloudflare 资源变化；升级后不需要迁移数据。** 公开分享页与文章页新增更严格的 CSP；导入的资源名与附件大小改为服务端校验；只读席位（reader）的发布边界补齐评论与导入两条路径；管理员凭据类接口改为仅接受浏览器会话。
+
+### 升级步骤
+
+1. 照常备份 D1 与 R2。
+2. `pnpm deploy`：无 migration，直接发布 Worker。
+3. 部署后检查登录、时间线、分享页、文章页、任务侧栏与成员管理各一次。
+
+### 行为变化
+
+- **管理员 PAT 不能再铸造凭据**：`POST /api/app/admin/users` 与 `POST /api/app/admin/users/:id/reset-password` 现在只接受浏览器会话；用 PAT 调用会返回 401。按邮箱幂等开通读者的 `PUT /api/app/admin/team/reader` 仍保留 PAT 通道，供支付回调或脚本使用。
+- **标签解析统一**：web 端改用与服务端相同的解析器，标签段会 trim 并转小写；URL 里的 `#fragment` 不再被误认为标签。
+- 时间线首页的回顾横幅改为请求 count-only 的 `/api/app/review/today/summary`；侧栏提醒改用 `/api/app/tasks/reminders`；记录卡片上的任务徽标改用 `/api/app/tasks/badges`，不再拉取全部任务。
+- 公开分享页与文章页响应新增 `Content-Security-Policy` 与 `X-Content-Type-Options: nosniff`。
+
+### 安全
+
+- **修复公开页附件 ID 的存储型 XSS**：导入的附件 ID 此前只校验为任意字符串，分享页/文章页又把它直接拼进 `src`/`href`。现在导入侧只接受安全字符集，渲染侧对 ID 与 URL 双重编码/转义，公开页再套严格 CSP。
+- **修复导入附件配额绕过**：`attachments.size` 此前直接采用 bundle 声明值，声明 0 字节即可让配额账本永远为 0。现在按 base64 实际解码长度记账；覆盖导入且无二进制时保留原大小。
+- **只读席位边界补齐**：reader 不能再通过评论把内容发布进团队空间（父记录非 private 时拒绝），导入的 team/public 记录会降级为 private。
+- **D1 参数上限再修四处**：附件与表情水合、语义搜索、评论水合在满页（100 个 id）时会把 98/96 个 id 加上 `memoReadScope` 的绑定数推到 100 以上，直接触发 `too many SQL variables`。预留值统一提高，并新增 100 条记录的回归测试。
+
+### 修复
+
+- **头像切换格式后仍返回旧图**：上传只写新后缀、不删旧后缀，读取顺序固定 `webp → png → jpg → gif`，导致 PNG 换 JPEG 后永远显示旧 PNG。现在写入新图后会清理其余后缀。
+- **校验失败不再把 Zod 原始 JSON 弹给用户**：全部路由改用统一的 `zValidator` 包装，返回 `{ error: { message } }`，与 `jsonError` 一致。
+- **补充全局 `app.onError`**：未包 try/catch 的路由或中间件异常现在也返回 JSON，不再落到 Hono 默认的 text/plain 500。
+- **文章 sitemap 与 RSS 的可见性规则下沉 domain**：路由层不再手写第二份 `published + not deleted` 查询。
+
+### 性能
+
+- 每日回顾的 20 个“往年今日”窗口与 4 个年龄档查询合并为一次 `db.batch`，首页横幅不再水合记录与附件。
+- 记录卡片的任务徽标按当前页 memo id 批量查询（每 100 个 id 一个请求），不再为每个卡片订阅最多 20 页的全量任务缓存。
+- 侧栏提醒改为一条聚合 count 查询。
+
+### 工程
+
+- 标签解析、附件引用解析、品牌色白名单收敛到 `@flaremo/contracts`，删掉 web/worker/domain 三处“保持同步”的复制实现。
+
+### 文档
+
+- **定位调整：FlareMo 不再以「兼容某个外部产品」作为身份，改为「跑在 Cloudflare 上的 AI 原生第二大脑，含知识管理」。** 8 语 README、官网首页与 meta、`llms.txt`、`ROADMAP`、GitHub 描述与 topics 全部撤下外部品牌；`/api/v1` 兼容层与迁移脚本保留，但降级为迁移与开发文档里的说明，不再作为卖点。同时修正了官网 FAQ 中「完全兼容某客户端」的过度承诺。
+
+## v0.25.0
+
+**新增 migration `0041_attachment_thumbnail_size`（`attachments` 加一列）、`0042_import_task_rows`（导入 checkpoint 台账）、`0043_data_task_options`（任务选项列），均为增量变更；无 Cloudflare 资源变化。导入导出包升级到 v6，Memos 兼容面新增时区偏移时间戳。**
+
+### 升级步骤
+
+1. 部署前照常备份 D1 与 R2（含认证表）。
+2. `pnpm deploy`：先应用 `0041`、`0042`、`0043`，再发布 Worker。
+3. 部署后检查登录、时间线、图片附件（缩略图）、导入任务与分享弹窗各一次。
+
+### 已知问题
+
+- 同步导入的 `overwrite` 模式仍按旧行为直接改写现有行；它没有 ledger 可回滚。大包/任务导入只支持 `skip` 与 `duplicate`，两者都具备失败回滚与重试。
+- 导出包 v6 不再携带分享 token，导入时会重新生成；旧分享链接不会在恢复后继续有效，需要重新复制。
+
+### 修复
+
+- **硬删父记录不再把评论提级成普通记录**：评论原本只靠 `memo_relations` 标记为评论，关系行随父记录级联删除后，评论会以普通记录出现在时间线、标签统计与活跃度里。现在删除父记录会连同整棵回复树一起删除，并把评论附件标记为待回收。
+- **补上三处 D1 100 参数上限的漏网**：评论页一次水合 60 条以上、移除拥有 50 条以上私密记录的成员、单条记录绑定 100 个附件时，原先会因绑定参数超限直接 500。关系查询改为按「每个 id 绑定两次」计算分块，并对分块后重复返回的关系行去重；附件绑定逐块查询与更新。
+- **缩略图计入存储配额**：上传请求里的 `thumbnail` 分片此前既不限额也不计入 `attachments.size`，可以绕过配额向 R2 写入任意大小的预览图。现在缩略图有 1 MiB 上限、字节数计入配额（新列 `thumbnail_size`），主文件对外的 `size` 语义不变。
+- **插件资产加固**：匿名可访问的插件资产路由此前只给 HTML 加 `CSP: sandbox`。插件包里的 SVG 直接导航时会在应用同源执行脚本，可读取会话并铸造长期 PAT。现在 SVG 同样套 `sandbox` 并加 `Content-Disposition: attachment`；`<img>` 用法不受影响。
+- **回收站清扫不再被单条坏数据卡死**：过期记录逐条 try/catch，失败只记日志；每轮最多排干 10 批（每批 200 条），没有进展时停止。此前一条异常会让其后的附件 GC、小时计数校准、回顾通知、到期提醒与 Web Push 全部跳过，且每天都卡在同一条。
+- **导入跨账号保护**：资源 id 是全局的。把 A 账号的导出包导入 B 账号时，此前要么写到一半撞主键 500，要么通过按 id 的 upsert 覆盖对方的记忆/项目/任务。现在写入前先检查五类资源的归属，发现他人记录直接拒绝；无二进制的重复导入也不再复用原 R2 key（避免两行共用同一对象、删一个毁另一个）。
+- **快捷键**：弹窗守卫此前查的是 Radix 的 `data-state`，而项目已迁移 Base UI（只输出 `data-open`）且确认框角色是 `alertdialog`，导致弹窗打开时 `e`/`p`/`/`/`?` 仍会操作背后的记录。j/k 焦点也改用记录 id 而非数组下标，切换归档/搜索/空间后不会再对错记录执行归档或置顶。
+- **分享弹窗**：选择「公开」后不再立刻关闭，分享链接在弹窗内立即可见、可复制；切到个人/团队仍按原行为关闭。详情页评论草稿按记录重新挂载，切换记录不会把上一条的草稿发到新记录下。
+- **文章**：自动保存改为串行链，慢网下后发的旧响应不会覆盖新正文；发布/取消发布后同步更新详情缓存，头部按钮与弹层状态不再相反。
+- **其它交互**：详情页勾选待办失败时回滚并重新校验；回顾设置的标签在请求进行中禁用；待办行在提交中禁用，连点不会丢状态。
+- **搜索**：聚光灯搜索的远端请求加 250ms 防抖，并在输入法组合期间暂停；本地缓存结果仍即时反馈。窄屏的搜索入口统一为打开聚光灯，不再维护一套独立的内联输入。
+- **Memos 兼容**：`createTime`/`updateTime` 等时间戳接受 `+08:00` 这类时区偏移；webhook 地址校验补齐 IPv4-mapped IPv6、末尾点和 CGNAT/保留网段。
+- **发布门禁**：`persistence:check` 登记 `memo_review_marks`（v0.24.0 起该检查一直失败）；`backup:drill` 的 R2 查询补 `--config ./wrangler.jsonc`，不再被根目录占位 `wrangler.json` 抢先解析。
+- **首屏体积**：`@floating-ui` 单独成块，不再经由 Base UI 的静态依赖把整个编辑器 chunk（约 570 kB，gzip 约 178 kB）带进首屏预加载；输入框、文章编辑器与气泡菜单仍按需加载。
+- **文档**：官网文档目录新增中英文《从 Memos 迁移到 FlareMo》；`CONTRIBUTING.md`、`llms.txt`、发版与 Agent 部署文档更正为「仓库没有 CI」，不再宣称存在 `ci.yml`。
+
+## v0.24.0
+
+**新增 migration `0039_memo_review_marks`（只加一张表，向后兼容）与 `0040_memory_core_rules_locked`（只改数据），无 Cloudflare 资源变化，Memos 兼容面不变。**
+
+### 升级步骤
+
+1. 部署前照常备份 D1 与 R2（含认证表）。
+2. `pnpm deploy`：先应用 `0039`、`0040`，再发布 Worker。
+3. 部署后检查登录、时间线、回顾页与文章页各一次。
+
+### 已知问题
+
+- Memos 导出转换脚本按 1.x 导出格式实现：评论会变成独立记录，外部链接附件会被跳过，不支持 ZIP64。
+- 兼容面仍未覆盖完整 CEL、完整上游 webhook 事件/egress 语义、完整多用户 ACL、原生 JWT parity，第三方客户端 smoke test 仍未完成。
+
+- **记录按写下的样子显示**（issue #157）：此前记录按 Markdown 排版，连续空行被折成一段间距，单独一行的 `#` 被当成空标题消失，行首缩进被去掉，保存后再打开就对不上写下时的样子。现在记录、评论与详情页保留这些：多出的每个空行仍占一行，`#`、`## #` 这类没有正文的标题按原字符显示，行首缩进保留且不会被误当成代码块。真正的标题、列表、任务、引用、代码块和标签不受影响。文章是排版过的文档，不在此列。
+- **今日回顾不再整表扫描**：`GET /api/app/review/today` 的「往年今天」此前用 `datetime()` 包住 `created_at` 比较月日，扫过该用户的全部记录且无法用索引。现改为往前 20 年、每年一个有界的日期范围（走 `memos_user_created_id_idx`，每年最多 50 条），2 月 29 日只匹配真正有这一天的年份。选出的记录与原来一致。
+- **小时活跃度改读聚合表**：日、周、月视图的 `GET /api/app/stats/hourly` 此前按请求区间分组扫描 `memos`。现改为读 `memo_hourly_counts`（与日热力图同一个计数），按 UTC 小时换算回本地小时。请求跨度限制在 31 天以内，更长的区间返回 400。计数口径不变：正常与已归档的记录，不含评论。
+- **宣传文案不再提及 flomo**：README 八个语言版本与官网首页去掉了对 flomo 的点名。导入实际只接受 Memos 导出的数据包，原文案与实现不符。
+- **从 Memos 0.31 迁移**：新增 `scripts/migrate-memos-export.mjs`，把 Memos 的 ZIP 导出（manifest + 每条记录 JSON + Markdown 正文 + 附件）转成 FlareMo「导入」接受的 JSON 包，含附件字节、时间戳、置顶与可见性映射；Space 记录收紧为仅自己可见，评论按独立记录导入。教程见 `docs/import-from-memos.md`（英文版 `docs/en/import-from-memos.md`），README 八个语言版本的导入说明同步改写并加链接。
+- **Workers Builds 缺配置不再只报 ENOENT**（issue #151）：`pnpm deploy` 的 preflight 发现根目录没有 `wrangler.jsonc` 时，会按 `FLAREMO_PUBLIC_URL` / `FLAREMO_D1_DATABASE_ID` / `WRANGLER_JSONC` 自动从模板生成；一个都没有时直接列出「复制模板 + provision」或「设置构建变量」两条路径。`docs/deploy.md` 新增 Workers Builds 小节。
+- **README 截图重拍**：八种语言共用的桌面明色、桌面暗色、移动端三张换成当前界面（Ember 3、侧栏与页头新分工），新增待办看板与文章列表两张功能截图；图片体积从约 1MB 降到 70KB 左右。
+
+- **导入有了任务级 checkpoint，失败不再留下半成品**：每条导入写入都会在同一批次里登记到 `import_task_rows`。失败（包括 Worker 被中断后由 cron 发现）先按台账回滚所有顶层记录及附件对象，再标记失败；任务重试会从干净状态重跑，不会重复插入。`/api/v1/import/tasks/:id/retry` 用创建任务时存入 R2 的原始 bundle 直接重试，导入面板对失败的导入显示「重试」。同步 `/import` 的 `skip`/`duplicate` 也走同一套台账；`overwrite` 保持旧行为。
+- **导出包升级到 v6**：memo 条目新增 `team_id`，团队可见记录恢复到接收方自己的团队；跨团队或不存在的团队回退为仅自己可见，不再产生「protected 但没有 team」的行。分享条目不再导出 `token`（capability URL 不应写进备份文件），导入时重新生成。
+- **移除 dev-only 的 `shadcn` CLI 依赖**：它只用于生成组件，不参与构建或运行；连带清掉 Dependabot 报的 `minimatch` 与 `deepmerge` 两条开发依赖告警。需要时用 `pnpm dlx shadcn@latest`。
+- **记忆页重做**：
+  - 「随身小抄」此前每次打开都报错（前端没传必填的 `agent`，还把返回的对象当字符串用），现已修好：显示 Agent 通过 MCP 实际拿到的那份内容、带上几条、约多少 tokens、因篇幅没带上的条目，可以切换到某个项目里看。
+  - 「铁律」只认已锁定（`verification=locked`）的记忆，与编译器和 Agent 的规则一致。此前菜单里「钉住」只锁定、不进「铁律」筛选；编辑弹窗的「铁律」开关只改 `tier`、实际并不锁定。现在开关就是锁定/解锁，锁定时 `tier` 同步为 core。migration `0040` 把用户自己写的、`tier=core` 但未锁定的有效记忆补成锁定。
+  - 「待我确认」里，Agent 想替换或与之矛盾的那条旧记忆显示在提议上方（`/api/app/memory/review` 每条新增 `conflict_with`），按钮改为「换成新的 / 保留原来的」；依据变了的记忆问「仍然成立 / 归档」；`review_reason` 不再显示原始代码。提议只出现在「待我确认」，不再混进「全部」等列表。顶部提醒改为与首页回顾横幅同样的安静样式。
+  - 「项目」去掉概览卡片与项目横幅，改为按项目分组的列表，项目名重名时显示更完整的路径。卡片头部显示来源 Agent 和「用过 N 次」，「AI 摸索」统一为「AI 发现」，「通过/删除」改为「采纳/不采纳」（不采纳是归档，可在归档里找回）；观察到的记忆可「我确认过」；提议不能直接设为铁律；已换新的记忆不再显示无效的「复原」。自定义项目从 `window.prompt` 改为小弹窗。
+  - 后端：确认已锁定的记忆不再把它降级为已确认；解锁只对已锁定的记忆生效（此前对提议解锁会让它直接生效而不退役旧事实）；已归档或已换新的记忆不再因依据变化回到待确认队列。
+- **评论在时间线里展开**：有共享团队时，每条记录卡片右上角多一个评论按钮（有评论时常显条数，没有时悬停出现，触屏常显），点开后评论区直接在卡片下方展开，不必再进详情页；只显示最近 5 条，更多的跳到详情页。评论带头像和作者名，输入框随内容变高，回车发送、Shift+回车换行；团队可见的记录里输入 `@` 会弹出成员补全（与服务端提及通知同一份名单），详情页的评论框同样支持。草稿和展开状态在虚拟列表滚出再滚回时保留。新增 `comments.action`、`comments.placeholderMentions`、`comments.mentionList`、`comments.viewAll`。
+- **待办页去掉页内侧栏**：「今天 / 接下来 7 天 / 全部任务」改为页头右侧的分段切换（与回顾页同一套样式，抽到 `nav-item-styles.ts` 的 `SEGMENT_*`），项目改为列表上方的「全部项目 ▾」选择器，选中项目后旁边出现「…」菜单（编辑、归档、删除）；日期视图与项目可以组合，计数随项目变化。回收站沉在列表底部。页面宽度由 1024 收到 768。`project-row.tsx` 改为 `project-menu.tsx`，新增 `project-picker.tsx`。
+- **今日回顾重做**：「往年今日」改名「今日回顾」。旧记录一次只读一条，上方是进度条，←/→ 翻页，读完显示完成卡片。
+  - 取材改到服务端（新接口 `GET /api/app/review/today`）：往年今天每年一条（最多 3 条，阶梯不满时补到每年两条），再按 3–13 天、2–8 周、2–5 个月、5–12 个月四个时间段各取一条，直接按日期范围读 D1，不再只看最近 100 条，所以写得多的人也能翻到几个月前的记录。昨天、前天写的不算回顾。整叠最多 7 条，用当天日期做种子挑选，同一天刷新不变，第二天换一批。标签显示真实距离（「5 天前」「3 周前」「4 个月前」）。
+  - 读过会被记住（新表 `memo_review_marks`，`POST /api/app/review/marks`）：刷新或换设备从没读的那条继续，全部读完直接显示完成卡片；读过的记录 30 天内不再出现；首页横幅改为「今日回顾 · 还有 N 条旧记录」，读完就不再显示。
+  - 每张卡片下方可以「补一句」（在卡片里展开评论框，写下今天的看法）、「归档」或「不再回顾」，后两个都能撤销。
+  - 右上角「回顾设置」（`GET/PATCH /api/app/review/settings`）：选择不回顾的标签（含子标签），查看并一键恢复设为不再回顾的记录。
+  - 去掉「最近 7 天」统计卡片（与侧栏热力图重复），完成卡片里保留一句「这一周你写下了 N 条新记录」。待办摘要从回顾页移除（`today-tasks.tsx` 已删）。随机漫游加上同样的标题与说明，操作行改为「上一站 / 结束漫游 / 继续漫游」。
+- **文章页改为紧凑列表**：上方「全部 / 草稿 / 已发布 / 回收站」筛选（回收站为空时不显示），文章放在同一张纸上逐行排列，右侧是状态与日期，「查看公开页」「删除」收进「…」菜单。页面宽度与时间线一致。新增 `article.filterAll`、`article.filterEmpty`。
+- 记忆卡片的「…」改为悬停出现，与记录卡片一致。
+
+- **侧栏与页头分工**：时间线页头的下拉框只剩空间筛选（全部空间 / 个人空间 / 团队空间），移到页头右侧、搜索框旁边，没有共享团队时不显示；页头左侧改为和其他页面一样的标题（记录 / 归档 / 回收站）。归档、回收站从下拉框移到侧栏底部，成为独立的页面入口，可以和空间筛选组合（切换空间不再把你从归档带回时间线）。侧栏「全部记录」改名「记录」，`space.all` 改为「全部空间」，避免两个「全部」含义不同。新增文案键 `sidebar.storage`（8 语言）。e2e `memo-flow`、`space-flow`、`workspace-flow` 改为从侧栏进入归档与回收站，已改未跑。
+- **设计系统 Ember 3**：`accent` 改为中性暖灰，菜单焦点、命令面板选中、空状态图标不再铺品牌浅底；页面标题图标改为墨色；日历热力图数字保持墨色，只用底色深浅表示活跃度；空状态图标改为一张小纸片；浮层入场缩放从 95% 收到 97%，位移从 8px 收到 4px，并新增三档时长 token；新增共享组件 `Kbd`、`SendButton` 与页头搜索框样式 `HEADER_SEARCH_FIELD_CLASS`，记忆页的发送按钮和搜索框与时间线保持一致；全站开启中英混排自动间距与行首标点挤压。中文文案里残留的「笔记 / 便签」统一为「记录 / 记忆」。设计文档 `docs/design-system.md` 同步。
+- **搜索只保留 ⌘K 一个入口**：手机端去掉时间线顶部的搜索框，改为页头放大镜打开同一个命令面板，有生效的查询时图标带小圆点。宽屏页头搜索框在有查询时直接显示查询词与清除按钮，点击仍打开面板。
+- **全屏书写只写记录**：输入框的「写长文」改名为「全屏书写」，图标改为展开箭头；画布去掉标题栏和「记录 / 文章」切换，发送后进入时间线。文章统一从「文章」页的「写文章」开始。旧草稿里如果存过标题，发送时会作为记录的一级标题保留。删除 `composer-type-menu.tsx`、`workspace-search.tsx`。
+
+- **产品结构精简**：侧栏「往年今日」「记忆漫游」合并为一行「回顾」，页头分段切换「往年今日 / 随机漫游」（`nav.randomWalk` 中文值改为「随机漫游」，避免与 AI「记忆」撞名；新增 `nav.review`，八种语言同步）。待办页去掉页头「新建任务」「新建项目」按钮：建任务用「添加待办」行，行尾新增展开按钮打开完整表单并带上已输入的标题与日期；建项目用左栏「＋新建项目」。新建记忆默认不再勾选「铁律」；小抄按钮加上文字。只有一个人的工作区隐藏团队概念：视图菜单只剩「全部 / 归档 / 回收站」，详情页私密记录不再显示可见性徽章（`/api/app/me` 的 `team` 新增 `member_count`，旧服务器不返回时按有团队处理）。语言切换从侧栏底部移入账户菜单子菜单。
+
+- **图片查看器**：同一条记录里的多张图片可以用两侧箭头或 ←/→ 翻页，左上角显示「3 / 4」；默认缩放改为「铺满宽度但不超过原图尺寸」，小图不再被放大发虚，手机上大图也不再被裁掉一半；点击图片周围的暗处即可关闭；缩放按钮只在鼠标设备上显示（触屏用双指缩放）；下载按钮与其他按钮同样式。新增 `imageViewer.previous`、`imageViewer.next`，八种语言同步。
+- **空状态**：归档、回收站的空状态分别用归档盒、垃圾桶图标（原先与首页同用收件箱）；记忆页空状态改用与其他页面一致的图标块，说明文字不再折出孤字；待办页空状态去掉与上方「添加待办」输入行、页头按钮重复的「新建项目 / 新建任务」按钮，文案改为指向上方输入行（`projects.allTasksEmptyDescription` 八种语言改写）。
+- **侧栏**：一个标签都没有时不再显示「无标签」行（此时它等于全部记录），「还没有标签」提示与导航行左对齐；手机抽屉右上角的关闭按钮原先被吸顶头部盖住、几乎看不见，现已置顶；触屏上标签行的展开箭头不再与「…」重叠。
+- **账户菜单**：分成「账户、外观、通知」「导出、导入、检查更新」「退出登录」三组。
+- **手机端**：待办页页头只留「新建任务」（新建项目在下方横滑栏里），标题不再被挤；评论框在触屏上不再显示 ⌘↵ 快捷键提示。
+- **侧栏标签**：每个标签都显示条数（原先只显示大于 1 的），展开箭头放在条数前；重命名、删除两个常驻占位的小按钮收进「…」菜单，悬停时占用条数的位置（触屏常显），与待办页项目行一致。重命名改为在原行就地输入，回车保存，Esc 或点别处取消，去掉下方的保存/取消按钮。
+- **时间线筛选条**：日期、标签、无标签三种筛选标签统一为 28px 高、整枚可点；只有一个筛选时不再显示「清除筛选」（标签自带 ×）。
+- **侧栏待办提醒**：「今日到期」「本月已逾期」改为与导航行同样的安静行，用小圆点表示紧急程度，文字不再整行标红。
+- **分享与笔记详情打磨**：生成图片卡片的模板选择器改成单行横滑（9 个模板原先折成 7+2），并给 `<fieldset>` 加 `min-w-0`，避免默认 `min-inline-size` 把弹窗撑宽；弹窗底部加「取消」。详情页「已置顶」改为带图钉的品牌浅色徽章，不再是实心红块，可见性徽章转灰；分享 tab 已有链接时「创建分享」降为描边按钮，链接改灰、新标签打开；历史与分享的空状态改为虚线框居中。
+- **注册页**：未开放注册或尚未初始化时不再显示一张注定失败的表单，只留说明和「登录」按钮。
+- **离线**：断网时输入框上方出现常驻的虚线提示「当前离线，新记录会先存在本机」；有待同步的记录时显示「N 条记录待同步」，联网同步完成后自动消失（此前只有一闪而过的 toast）。新增 `composer.offlineNotice`、`composer.offlinePending`，八种语言同步。
+- **PWA**：`site.webmanifest` 的 `theme_color`、`background_color` 由深色 `#17191d` 改为应用默认浅色 `#faf9f7`，安卓从桌面启动不再先闪一屏深色。
+
+- **删除独立的语音速记页 `/capture`**：语音输入只保留输入框（及长文画布）里的麦克风按钮，录完的文字进草稿，照常编辑发送。浏览器标签页里的长时间录音在锁屏或切走时就会中断，不是可靠的功能，短语音已由输入框覆盖。侧栏入口、PWA 快捷方式「语音记录」、`/capture` 路由（现返回 404）、专属 e2e（`capture-flow`、`capture-webkit`）和手机验收脚本（`capture:dev`、`capture:phone`、`capture:live-smoke`、`capture:gate:test`、`test:capture:webkit`）一并删除；`pnpm verify` 由 13 步变为 12 步。Worker 的语音 WebSocket、服务商适配、语音服务设置与 `capture:production:check` 保持不变。
+- **打磨**：往年今日与漫游的卡片与时间线一致（长笔记折叠、正文已内嵌的图片不再重复）；漫游步骤块改为墨色选中；待办页侧栏与主侧栏同一套导航样式，项目计数对齐，看板卡片去掉双重内边距与空头部行。
+- **设置页打磨**：「导入导出」页现在能直接导入（此前只能从侧栏用户菜单导入），导出也改为同一组操作行；品牌外观、插件、插件商店改用与其他设置页一致的分组样式，不再出现和页头重复的卡片标题；各页去掉与页头同名的分组标题和「操作」分组；「发送测试邮件」不再是“同名行 + 同名按钮”；语音「识别模型」为空时显示「默认」；用户名、邮箱行换上各自的图标；团队成员列表显示成员头像（`/api/admin/users` 新增可选字段 `avatar_url`）；手机上外观三选一并排一行，隐藏无意义的 D 键提示。
+- **文章页打磨**：列表里回收站的文章沉到底部、单独成组，不再压在正在写的草稿上面；草稿不再逐条挂「草稿」徽标，只有已发布的文章带徽标。编辑器的顶栏（保存状态、预览、发布）和格式工具栏在长文章里吸顶；工具栏按标题 / 行内 / 列表 / 块分组，手机上单行横向滚动而不是折成两行；预览不再把标题重复渲染一遍；编辑时标题与正文之间有了和阅读视图一致的段落间距。
+- **暗色模式目检**：文章编辑器吸顶顶栏改为整宽并带上纸张纹理，暗色下不再显出一条比正文更深的色带；文章预览里的代码块用应用自己的暖色底，不再是 github-dark 的冷灰蓝；待办行的勾选框改用与笔记任务列表相同的细线方框，暗色下不再是一块灰色实心方块。
+- **长文画布打磨**：修复打开画布即触发的渲染死循环（React「Maximum update depth exceeded」，每次编辑器事务都写入新的格式状态对象）；待上传附件移到纸面底部、与正文左对齐，不再悬在半屏；标题占位改为与文章编辑器一致的「写一个标题…」，去掉与默认文章类型矛盾的「填写后转为文章」；手机上发布类型只显示图标，格式工具不再被挤到只剩三个。
+- **文章预览与公开页对齐**：编辑器「预览」改用公开文章页 `/article/:slug` 的排版：同样的衬线字体（Iowan Old Style / 宋体）、17px 字号、1.9 行高、约 32 字的行宽、标题与段落间距、引用、代码块、表格（只留横线）、分隔线「· · ·」和嵌套列表符号，换行位置与读者看到的一致；颜色仍跟随应用主题。
+- **文章工具栏与认证页**：文章编辑器工具栏按光标位置点亮对应按钮（光标在加粗文字里时「加粗」高亮，标题、列表、引用等同理），点击按钮不再让编辑器先失焦。登录时账号或密码错误不再显示英文的「Invalid email or password」，改为本地化提示；关闭注册的部署里，登录卡片底部不再留一条空白；邮箱验证链接失效的说明改为灰色正文，不再整段标红。
+
+## v0.23.0
+
+产品定位收口版本：FlareMo 是带团队空间的个人笔记软件，团队空间只做分享，不做协作。本版把便签与长文分成两种体裁，把「日期」改成与待办、项目双向同步的「安排」，评论挂回原帖下面，并删除团队项目工作台；同时整页走查打磨记录、回顾、文章、团队、记忆、设置与认证页，修复未知路径返回 200、依赖安全告警和 D1 绑定参数超限。**有 5 个 migration（4 个只加索引，1 个回填评论的团队归属），无新增 Cloudflare 资源；assets 建议改用 `not_found_handling: "none"`（见升级步骤）；Better Auth 升至 1.7.14，认证表结构不变。**
+
+### 主要变化
+
+- **便签与长文分体裁**：发送框只保留便签需要的格式（标签、图片、加粗、列表、待办、安排、语音），最多 9 张图，卡片里的图片改为网格；「写长文」打开全屏画布，默认按文章写。
+- **「安排」替代「插入日期」**：给便签选提醒日和项目，发送时未勾选的待办各建一项任务；便签里勾选 ↔ 任务完成在服务端双向同步。每日 cron 新增「今日到期」通知。只到日，不做时刻闹钟。
+- **待办页**：侧栏「项目」改为「待办」，分「今天 / 接下来 7 天 / 全部任务」和各项目；日期视图按天分组，项目保留看板；每个列表顶部可快速添加；便签卡片显示「待办 n/m · 日期 · 项目」标记；每日回顾顶部列出今日待办。全站任务读同一份全量缓存，修复超过 30 条任务后静默丢失。
+- **评论挂在原帖下**（类似微博，个人和团队空间都可用）：时间线、搜索、统计、标签、日历、回顾、漫游与语义搜索都不再把评论当成独立便签；详情页正文下方是评论区，卡片显示评论数。
+- **团队空间**：修复团队便签下的评论没带团队（其他成员看不到、作者收不到通知）；修复 @提及从不产生通知；团队发送框支持 @ 补全；通知点开直达原帖评论区，并显示是谁评论或提到了你；团队卡片头部改为「作者 · 时间」。
+- **删除团队项目工作台**：移除 `/team-projects` 页面与相关模块（约 5.5k 行）。旧的团队项目 memo 作为普通 memo 保留，数据不动。
+- **视觉与交互**：Ember 2 设计基座（墨色为默认、火焰色为强调、状态色 token、统一焦点环）、全站纸张质感；选中文字浮动格式菜单；双链插入真实链接；快捷键统一为 Enter 段落、⌘/Ctrl+Enter 发送；新增 `Spinner` 原语统一加载图标。
+- **分享页与文章页**（Worker SSR）改为信笺样式；文章页现在渲染文章标题（此前标题只进 `<title>`，页面上看不到）。
+- **回顾与文章**：往年今日按周年计算；阶梯回顾常驻；漫游支持 →/J、←/K；修复文章编辑器在切换可编辑状态时可能把正文自动保存为空。
+- **设置与认证页**：认证页说明文字直接显示（此前只剩一个孤立的「?」图标）；语音速记页的提示改为「设置 → 语音服务」并直接打开该分区；语音设置「凭据」一行不再出现「凭据已配置：未配置」的矛盾文案。
+
+### 修复
+
+- **未知路径返回 404**：此前 assets 的 SPA 回退让任何拼错的地址都返回 200（软 404）。现在 Worker 按前端路由白名单下发应用外壳：已知路由 200，未知路径 404（同一外壳，界面显示「页面不存在」），缺失的静态文件保持无正文的 404。
+- **D1 绑定参数超限**：8 处在大数据量实例上会抛 `too many SQL variables` 的查询全部改为在共享函数内部分块；标签树改为 SQL 聚合，详情页关联改为一次批量读，导入改为预取 + `db.batch`。
+- 侧栏「全部任务」计数漏掉未分配项目的任务；详情页标题不再显示原始 `memos/<uuid>`；未知前端路由不再只渲染裸字符串。
+
+### 工程卫生
+
+- **依赖安全告警清零到 1 个 low**（上游未发布修复的 `deepmerge`，仅在 shadcn CLI 开发依赖链中）：`better-auth` 与 `@better-auth/*` 1.6.25 → 1.7.14（修复 critical/high 公告），`zod` ^4.6.7、`hono` ^4.13.14、`vite` ^8.3.5、`vitest` ^4.1.12、`shadcn` ^4.23.0；传递依赖（`proxy-addr`、`body-parser`、`qs`、`@modelcontextprotocol/sdk`、`undici`、`sharp`、`seroval`、`systeminformation`、`source-map-js` 等）用 `pnpm-workspace.yaml` 的 overrides 收口。
+- Better Auth 1.7 会在启动时校验 organization 插件的全部模型，`auth.ts` 补上 `invitation` 表映射（表在 v0.x 早期迁移中已存在，FlareMo 不发邀请）。
+- e2e：`todo-flow.spec.ts` 纳入 `memo-ui` 项目；按现行界面更新语音凭据、搜索摘要、详情标题、虚拟列表分页、吸顶与附件画廊断言。
+
+### Memos 兼容面变化
+
+- `/api/v1` 时间线与搜索不再返回评论（与上游 Memos 一致）；评论仍可通过 memo 关系读取。
+- Connect 通知列表不再返回 FlareMo 专属的任务类通知。
+- 附件 DTO 在上传时生成了预览图的情况下增加 `thumbnail_url`；没有时客户端回退 `preview_url`。
+- 其余 API 形状不变。
+
+### 数据库 migration
+
+- `0034`–`0037`：只新增索引（记忆读取与清理、附件读取与存储用量、回顾封面），无数据改动。
+- `0038_comment_team_backfill`：把团队便签下历史评论的 `team_id` 回填为父便签的团队。只写 `team_id IS NULL` 的评论行，可重复执行。
+- 全部向后兼容 v0.22.2 的 Worker。团队项目相关的表保留不删。
+
+### Cloudflare 资源变化
+
+- 无新增或改名的绑定。
+- **建议**把 `wrangler.jsonc` 的 `assets.not_found_handling` 从 `"single-page-application"` 改为 `"none"`（`wrangler.jsonc.example` 已改）。不改也能正常运行，只是未知路径仍返回 200。改为 `"none"` 后，不匹配静态文件的导航请求会进入 Worker，Worker 调用量随之略增（只有页面导航，不含 `/assets/*`）。
+
+### Better Auth 应用认证变化
+
+- Better Auth 1.6.25 → 1.7.14。认证表结构与 1.6 相同，无需迁移；cookie session、bootstrap、注册开关、PAT 前缀与撤销行为、`FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS` 与各 secret 的配置要求均不变。认证相关的 Worker 测试与 e2e `auth-flow` / `auth-ui-flow` 全部通过。
+
+### 升级步骤
+
+1. 部署前照常备份 D1 与 R2（含认证表）。
+2. （建议）把 `assets.not_found_handling` 改为 `"none"`。
+3. `pnpm deploy`：先应用 `0034`–`0038`，再发布 Worker。
+4. 部署后检查登录、PAT、公开分享，以及一个不存在的路径返回 404。
+5. 活动计数表里历史评论的计数会在每日 cron（UTC 03:17）重算时自动修正，无需手动处理。
+
+### 已知问题
+
+- 发版前本地全量 e2e 77 个用例：75 个一次通过；`memo-flow`「edits and shares a memo」与 `space-flow`「a private capture in the team space…」在整套连续运行中偶发超时，单独复跑通过，属既有的负载敏感用例。
+- `deepmerge` 的 low 级公告上游尚无修复版本。
+- 兼容面仍未覆盖完整 CEL、完整上游 webhook 事件/egress 语义、完整多用户 ACL、原生 JWT parity，第三方客户端 smoke test 仍未完成。
+
+## v0.22.2
+
+可靠性补丁：修复移动端长 memo 编辑器打不开、标签解析误伤代码块（含标签改名/删除会写坏代码块的严重缺陷）、历史月份热力图颜色错误；对齐文档门禁描述并升级 Worker 运行时依赖。**无 migration、无新增 Cloudflare 资源、无 API 破坏性变化、无认证面配置变化。**
+
+### 修复
+
+- **移动端（触摸布局）长 memo 点「编辑」打不开**（issue #155）。根因是 `RichComposerEditor` 的 autoFocus effect 在挂载同一提交周期里同步 dispatch 焦点事务；移动布局 + 长内容时初始内容应用与焦点事务竞态，ProseMirror 抛 `RangeError: Applying a mismatched transaction`。现改为下一帧聚焦，并用 `editor.isDestroyed` + try/catch 兜住挂载期文档替换；抽成 `focusEditorOnNextFrame` helper 并补 5 个单测。
+- **代码块里的 `#xxx` 不再被当成标签**（issue #152）。保存期 `extractTags` 与 web composer 端的两份实现都改为跳过围栏代码块与行内代码；顺带修了标签改名/删除的两个既有缺陷——此前围栏分段是反的，**会改写代码块内容、反而漏改围栏前的正文**；行内代码段被提前 push 也会打乱片段顺序。补充围栏（``` / ~~~、info string、未闭合、多 fence、fence 前正文）与改名/删除回归测试。
+- **编辑器内标签高亮不再装饰代码**：代码块/行内代码里的 `#tag` 不再显示品牌色 chip（纯视觉，此前会误导用户以为被识别成标签）。
+- **历史月份热力图颜色错误**（issue #144 的收尾）。月视图改用「当月范围」的小时统计聚合着色，不再依赖 today 锚定的尾部窗口；当前年份加载中回退已加载的统计，历史年份保持诚实的空态；新建/编辑 memo 后日/周/月/年统计缓存一并失效。（采纳 #149 的思路，作者 @0Pluto，并补空间过滤、当年兜底、缓存失效三处遗漏）
+- **文档门禁描述对齐**：`llms.txt` 删除不存在的 `README.en.md` 链接、CI 时长改为约 14 分钟、全量门禁表述改为「只在维护者明确要求时本地执行」；修复 `docs/en` 两处死链。
+
+### 工程卫生
+
+- **worker 运行时依赖 hono 升级到 `^4.13.13`**，修 GHSA-5r4p-p66f-jhc7（`serveStatic` 二次解码；本项目未使用 `serveStatic`，但这是生产依赖里唯一的 moderate advisory）。
+- `.gitignore` 增加 `/wrangler.*.jsonc`：`wrangler.kosx.jsonc` / `wrangler.personal.jsonc` 含真实 account_id 与 D1 id，此前只靠本机 `.git/info/exclude` 忽略，换机克隆后 `git add -A` 有误提交风险。
+- 新增测试：标签代码块解析与改写回归（domain 23 例）、composer 标签一致性（web）、autoFocus helper（5 例）、月热力聚合纯函数（3 例）。
+
+### Memos 兼容面变化
+
+- 无 API 形状变化。`/api/v1` 的 memo `tags` 与 UI 同源；本版起代码块/行内代码内以 `#` 开头的词不再进入 `tags`（与「代码不是正文」的预期一致）。客户端在请求体显式传 `tags` 时仍以客户端值为准，解析规则不变。
+
+### 数据库 migration
+
+- 无。
+
+### Cloudflare 资源变化
+
+- 无新增或改名。部署前无需手动操作。
+
+### Better Auth 应用认证变化
+
+- 无破坏性变化。cookie session、bootstrap、注册开关、PAT 前缀与撤销行为、`FLAREMO_PUBLIC_URL` / `FLAREMO_TRUSTED_ORIGINS` 与各 secret 的配置要求均不变。
+
+### 升级步骤
+
+1. 直接部署即可（无 migration、无资源变化）。
+2. 存量 memo 中历史上从代码块提取出的错误 tags **不会自动回填**；如需清理需单独评估一次性脚本（只影响旧数据，新写入与再次编辑已正确）。
+
+### 已知问题
+
+- 团队空间过滤（`space≠all`）时月热力回退 `notesCountMap`（该接口无空间参数，覆盖最近 366 天），历史月份在该过滤下仍为空态——属已知取舍。
+- 编辑器内的标签自动补全（`tag-autocomplete`）尚未排除代码块上下文，纯输入期提示、不影响落库。
+- 兼容面仍未覆盖完整 CEL、完整上游 webhook 事件/egress 语义、完整多用户 ACL、原生 JWT parity，第三方客户端 smoke test 仍未完成。
 
 ## v0.22.1
 
@@ -51,19 +559,3 @@ FlareMo 使用 SemVer。每个 release 都要写清楚升级影响、Cloudflare 
 - 团队项目工作台目前只有中英文文案，其余语言回落到英文。
 - 「降级为读者后仍可编辑自己既有团队笔记」的权限边界待决策（v0.22.0 起记录在案，本版未变更）。
 - 兼容面仍未覆盖完整 CEL、完整上游 webhook 事件/egress 语义、完整多用户 ACL、原生 JWT parity，第三方客户端 smoke test 仍未完成。
-
-## Unreleased（harness 插件，未发版）
-
-### 修复
-
-- **L1 开工锦囊不再把网络请求放在会话启动关键路径上**（2026-10-03 实测事故驱动：一次 2.5s 窗口内的网络抖动导致整个会话降级使用无年龄标注的旧快照，且快照越不稳越旧）。改为读副本模型（spec v0.3 §5.5）：
-  - session-start / pre-invocation 读本地快照**即注**（统一头注 + 快照年龄，如"2 小时前的版本"），0ms 网络；≤10 分钟的新副本不再触发刷新。
-  - 后台新增 `flaremo maintain`（hook detached spawn，`FLAREMO_NO_MAINTAIN=1` 可关）：outbox 补写 + lens 副本刷新（8s ×2，重试统一收进 transport 层 `requestWithRetry`；CLI 交互读命令同样受益）。投影与已注入内容不同时落 delta 文件。
-  - **降级不再粘连**：served-from-replica 的会话在下一条 UserPromptSubmit / PreInvocation **一次性**补注 delta（`fetchedAt > 会话 startedAt` 守卫，刷新后新开的会话自然跳过），"一次抖动毒化全场"变成"最多落后一轮"。投影仍由服务端 `memory_compile` 编译，客户端只比对不重渲染。
-  - 冷启动（完全无副本）是唯一的例外路径：单次 1.5s 尝试，失败注入显式不可达声明（原契约不变）。
-  - 快照离线注改为如实陈述（"后台刷新已在进行"），不再断言本次会话从未观察过的"服务不可达"。
-- **可观测性**：新增 `~/.flaremo/events.jsonl`（1MB 轮转、永不上传）记录每次 hook 的服务层（replica/live/unreachable）、delta 注入与 maintain 结果——静默降级路径从此可以事后 grep，而不是靠代理日志考古；`doctor` 新增"读副本"一行（快照数 + 最旧年龄）。
-
-### 兼容性
-
-- 无 migration、无服务端改动、无 API 破坏性变化。会话状态文件新增 `lensFromSnapshot` / `awaitingLens` 字段（旧文件缺省按 false 处理，天然兼容）；delta 文件 24h TTL 自动清理。

@@ -4,25 +4,57 @@ FlareMo 部署到 Cloudflare Workers。Worker 同时承载前端静态资源和 
 
 ## 一键部署（社区支持）
 
-仓库提供一份面向 [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo) 按钮的跟踪配置 `wrangler.json`（D1 `database_id` 是占位值，Cloudflare 会在部署时自动创建资源并改写 ID）。按钮流程会克隆仓库到你的 GitHub 账号并接入 Workers Builds。
+仓库提供一份面向 [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/FlareMo) 按钮的跟踪配置 `wrangler.json`（D1 `database_id` 是占位值，Cloudflare 会在部署时自动创建资源并改写 ID）。按钮流程会把仓库克隆到你的 GitHub 账号并接入 Workers Builds：按钮页的 **Repository** 选上游 `realchendahuang/FlareMo` 即可，Cloudflare 会替你 fork，不需要先手动 fork。
+
+按钮页会按 `wrangler.json` 的 `vars` 生成表单，逐项这样填：
+
+| 表单字段 | 填什么 |
+| --- | --- |
+| `FLAREMO_PUBLIC_URL` | 你的公开 origin，例如 `https://flaremo.<你的子域>.workers.dev` 或自定义域名；不能带 path、query 或 fragment |
+| `FLAREMO_EMBEDDING_DIMENSIONS` | 固定填 `1024`（与默认嵌入模型 `@cf/qwen/qwen3-embedding-0.6b` 的输出维度、Vectorize 索引 `flaremo-memos` 的维度一致；填错会让语义搜索静默失效） |
+| `FLAREMO_EMBEDDING_PROVIDER` / `FLAREMO_EMBEDDING_MODEL` / `FLAREMO_VECTORIZE_*` | 保持默认值 |
+| `FLAREMO_SINGLE_USER_EMAIL` / `FLAREMO_SINGLE_USER_NAME` | 保持默认值；首次认证身份以 `/setup` 页面输入为准 |
+
+`FLAREMO_TRUSTED_ORIGINS` 和 `FLAREMO_DEPLOY_REPOSITORY` 已从跟踪配置中移除：前者只在确实需要跨 origin Web 客户端时通过 Worker 变量补上，后者只在部署仓库需要显示"系统更新"入口时补上。
 
 已知问题与注意点：
 
 - 首次尝试可能出现 “Github API Limit Exceeded”，这是 Cloudflare 侧克隆时的临时限流，等待几分钟重试通常即可。
 - 部署完成后，需要把 Worker 的 `FLAREMO_PUBLIC_URL` 变量改成你的实际 origin（workers.dev 子域名或自定义域名），并用 `wrangler secret put BETTER_AUTH_SECRET`（及可选 `FLAREMO_BOOTSTRAP_SECRET`）补上密钥，然后重试部署一次使新配置生效。
-- 语义搜索依赖的 Vectorize index 与 R2/D1/Queue 一样由按钮流程自动创建。
+- 语义搜索依赖的 Vectorize index 与 R2/D1/Queue 一样由按钮流程自动创建；如果部署后发现语义搜索不可用，检查 `flaremo-memos` 索引是否存在且为 **1024 维 / cosine**，缺失时在 Cloudflare 控制台手动创建，或按下方手动部署执行 `pnpm provision:remote`。
 
 手动部署仍是受支持的完整路径，按钮流程更适合快速试用。
 
+## Cloudflare Workers Builds（原生构建）
+
+不经过 Deploy 按钮、自己把仓库接到 Workers Builds 时，在 Worker 的
+Settings → Build 里填：
+
+- **Build command**：`pnpm run build`
+- **Deploy command**：`pnpm run deploy`
+- **Build variables**：
+  - `FLAREMO_PUBLIC_URL`：你的公开 origin（必填，例如 `https://notes.example.com`，不要带路径）
+  - `FLAREMO_D1_DATABASE_ID`：已有 D1 的 UUID；留空则保留模板里的占位 ID
+  - 或者用 `WRANGLER_JSONC` 直接提供整份 `wrangler.jsonc`
+
+仓库不跟踪 `wrangler.jsonc`，因为它带着真实的 account id 和 D1 id，干净的
+checkout 里没有这个文件。`pnpm deploy` 的 preflight 会在文件缺失时用上面的
+变量从 `wrangler.jsonc.example` 生成；一个变量都没设置时，它会直接列出需要
+补的配置，而不是让 wrangler 报 `ENOENT: wrangler.jsonc`。
+
+`BETTER_AUTH_SECRET` 不要放进构建变量：CI 环境里 preflight 只给出警告，
+正式 secret 应在首次发布后用 `wrangler secret put BETTER_AUTH_SECRET`
+写入 Worker。
+
 ## GitHub Action 手动部署（自托管 fork）
 
-自己的 fork 或部署仓库可以使用 `.github/workflows/deploy-cloudflare.yml`：在 Actions 里手动 `Run workflow`，创建缺失的 D1 / R2 / Queue / Vectorize，发布 Worker，并把仓库 Secrets 里的 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 同步到 Cloudflare。push 不会自动发布；上游 `realchendahuang/FlareMo` 不会跑这个 job。
+自己的 fork 或部署仓库先把模板 [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml) 复制到 `.github/workflows/deploy-cloudflare.yml`，然后在 Actions 里手动 `Run workflow`：它会创建缺失的 D1 / R2 / Queue / Vectorize，发布 Worker，并把仓库 Secrets 里的 `BETTER_AUTH_SECRET`、`FLAREMO_BOOTSTRAP_SECRET` 同步到 Cloudflare。push 不会自动发布；上游 `realchendahuang/FlareMo` 不会跑这个 job。
 
 完整步骤见 [用 GitHub Action 部署](./github-action-deploy.md)。
 
 ## 手动部署
 
-仓库不跟踪 `wrangler.jsonc`（手动部署者的配置以本机文件形式存在）；上游仓库不通过 push 自动部署，自托管 fork 或部署仓库可以按上一节通过受控 GitHub Action 的 `workflow_dispatch` 手动发布。先创建资源、复制配置模板并填入自己的值，再执行部署命令。
+仓库不跟踪 `wrangler.jsonc`（手动部署者的配置以本机文件形式存在）；上游仓库不通过 push 自动部署，自托管 fork 或部署仓库可以复制上一节的 GitHub Action 模板，通过受控的 `workflow_dispatch` 手动发布。先创建资源、复制配置模板并填入自己的值，再执行部署命令。
 
 安装依赖：
 
@@ -49,7 +81,7 @@ pnpm exec wrangler r2 bucket create flaremo-attachments
 
 手动创建时需要把 D1 输出的 `database_id` 写入 `wrangler.jsonc`；bucket、queue 和 Vectorize index 名称可以保留为建议默认值。
 
-部署；这个命令会先构建前端、应用远端 migrations，再发布 Worker：
+部署；这个命令会先构建前端并做 Worker bundle dry-run，再应用远端 migrations，最后发布 Worker：
 
 ```bash
 pnpm deploy
@@ -75,7 +107,7 @@ store，首次部署后由部署者用 `wrangler secret put` 配置。本地手�
 
 ## Better Auth 原生认证
 
-FlareMo 的应用层认证由 Better Auth 提供。当前是“单用户完整能力、多用户数据地基”模型：首次部署通过一次性 bootstrap 创建用户名、显示名、邮箱和密码，之后关闭公共 signup。浏览器使用 `HttpOnly`、`SameSite=Lax` cookie session；脚本、MCP 和 Memos-compatible 客户端使用由已登录账户创建的可撤销 `memos_pat_` PAT。
+FlareMo 的应用层认证由 Better Auth 提供。当前是“单用户完整能力、多用户数据地基”模型：首次部署通过一次性 bootstrap 创建用户名、显示名、邮箱和密码，之后关闭公共 signup。浏览器使用 `HttpOnly`、`SameSite=Lax` cookie session；脚本、MCP 和 Memos-compatible 客户端使用由已登录账户创建的可撤销 `memos_pat_` PAT。PAT 默认只有笔记范围（`notes`），可访问 `/api/app/admin/*` 的令牌必须在创建时显式选择 `admin`；有效期默认 365 天（1–365 天），仅 `notes` 令牌可显式选择永久有效，`admin` 令牌最长 365 天。创建后不可再修改，过期需重新创建。
 
 Cloudflare Access 可以作为额外的外层防线，但 Access 身份或 Access Service Token 不会自动映射为 FlareMo 用户。启用 Access 时必须同时满足外层 policy 和下面的应用层认证。
 
@@ -88,7 +120,8 @@ Cloudflare Access 可以作为额外的外层防线，但 Access 身份或 Acces
 | 变量 | 要求 |
 | --- | --- |
 | `FLAREMO_PUBLIC_URL` | 必填；canonical origin，例如 `https://notes.example.com`，不能带 path、query 或 fragment。生产使用 HTTPS。 |
-| `FLAREMO_TRUSTED_ORIGINS` | 可选；逗号分隔的额外完整 origin，只在确实需要跨 origin Web 客户端时设置。 |
+| `FLAREMO_TRUSTED_ORIGINS` | 可选；逗号分隔的额外完整 origin，只在确实需要跨 origin Web 客户端时设置（只接受 https:// 完整 origin，localhost 除外）。 |
+| `FLAREMO_EMBEDDING_DIMENSIONS` | 可选；语义搜索向量维度，默认 `1024`，必须与 Vectorize `flaremo-memos` 索引维度一致。见 [语义搜索](./semantic-search.md)。 |
 | `FLAREMO_SINGLE_USER_EMAIL` / `FLAREMO_SINGLE_USER_NAME` | 既有 `users/owner` domain metadata 的 legacy 公开变量，不是 Better Auth 登录凭据，也不提供初始密码；首次认证身份和 setup 时提交的 owner 资料以 `/setup` 页面输入为准。已有 `users/owner` 行不会因修改这两个变量而被自动重写。 |
 
 `FLAREMO_PUBLIC_URL` 和 `FLAREMO_TRUSTED_ORIGINS` 不是凭据，可以写入部署配置。`FLAREMO_PUBLIC_URL` 为空或格式不合法时，Better Auth 会 fail closed，不能完成 setup。
@@ -152,7 +185,7 @@ curl "$FLAREMO_URL/api/auth/flaremo/bootstrap/status"
 
 - `/api/auth/update-user`：修改用户名等 Better Auth 用户资料。
 - `/api/auth/change-password`：修改密码；密码修改时可以撤销其他 session。
-- `/api/app/account/personal-access-tokens`：在 cookie session 下创建、列出和撤销 `memos_pat_` PAT。
+- `/api/app/account/personal-access-tokens`：在 cookie session 下创建、列出和撤销 `memos_pat_` PAT。创建体支持 `scopes`（`notes` 默认，或 `admin`）与 `expires_in_days`（缺省 365；1–365；显式 0 表示永久，仅允许 `notes`）。
 
 当前没有配置邮件 provider，因此 Better Auth 的普通 `request-password-reset` 邮件流程保持关闭；账户页提供的是“知道当前密码时修改密码”。如需忘记密码自助找回，应先接入真实 transactional email provider，再配置 Better Auth 的 `sendResetPassword` 和 reset 页面，不要把一个假的成功提示当作恢复能力。
 
@@ -263,7 +296,7 @@ D1 免费套餐按 UTC 自然日重置额度，其中 `rows_read` 是 **5M 行 /
 
 **怎么读实际用量。** Cloudflare Dashboard 里进入 D1 → 你的数据库 → Metrics，看 `rows read` 曲线；或者按上一小节配置一次 `pnpm setup:usage`，直接在账户页的用量面板看同一口径。面板数据有延迟，击穿后看到的数值未必是当时的峰值，判断余量时留出余量。付费套餐（Standard 起）没有这层限制。
 
-**升级到含聚合表的版本需要手动做什么：不需要。** 新增一张表和一个 migration，纯新增 + 回填，向后兼容——migration 只读 `memos`，不改动任何既有表或列，所以迁移期间和迁移之后旧版本 Worker 都能正常工作。`pnpm deploy` 的执行顺序是「构建前端 → 应用远端 migrations → 发布 Worker」，GitHub Action 手动部署（`Deploy to Cloudflare`）跑的是同一条命令，所以两条路径都会在发布新 Worker 之前先建好表；Workers Builds 的自动迁移见 [更新指南](./update.md)。不需要新增变量、binding 或 cron，也没有需要回填的数据——migration 已经把存量 memo 按 UTC 小时回填进聚合表，定时任务随后每天做一次全量校准。
+**升级到含聚合表的版本需要手动做什么：不需要。** 新增一张表和一个 migration，纯新增 + 回填，向后兼容——migration 只读 `memos`，不改动任何既有表或列，所以迁移期间和迁移之后旧版本 Worker 都能正常工作。`pnpm deploy` 的执行顺序是「构建前端 → Worker bundle dry-run → 应用远端 migrations → 发布 Worker」，GitHub Action 手动部署（`Deploy to Cloudflare`）跑的是同一条命令，所以两条路径都会在发布新 Worker 之前先建好表；Workers Builds 的自动迁移见 [更新指南](./update.md)。不需要新增变量、binding 或 cron，也没有需要回填的数据——migration 已经把存量 memo 按 UTC 小时回填进聚合表，定时任务随后每天做一次全量校准。
 
 ## Cloudflare Access（可选外层防线）
 

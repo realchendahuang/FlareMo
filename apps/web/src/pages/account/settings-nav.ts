@@ -5,6 +5,7 @@ import {
   GaugeIcon,
   type LucideIcon,
   MicIcon,
+  MonitorSmartphoneIcon,
   PaintbrushIcon,
   PuzzleIcon,
   SunMoonIcon,
@@ -24,7 +25,8 @@ export type SettingsSection =
   | "team"
   | "branding"
   | "plugins"
-  | "integrations";
+  | "integrations"
+  | "connectedApps";
 
 export type NavItem = {
   id: SettingsSection;
@@ -94,6 +96,12 @@ export function settingsNavGroups({
           iconBg: "bg-muted text-muted-foreground",
           id: "transfer",
           label: t("settings.nav.transfer"),
+        },
+        {
+          icon: MonitorSmartphoneIcon,
+          iconBg: "bg-muted text-muted-foreground",
+          id: "connectedApps",
+          label: t("settings.nav.connectedApps"),
         },
       ],
     },

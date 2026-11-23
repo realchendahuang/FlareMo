@@ -1,0 +1,72 @@
+{
+  "name": "dsh-flaremo",
+  "version": "0.5.0",
+  "description": "FlareMo 笔记工作台 for DeepSeek Harness — 全局面板 + 左栏入口 + 设置页连接 + 洞察执行器（设备授权 + typert RPC + DSH 模型）。",
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./dist/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "contract.js",
+    "lib/",
+    "dist/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "dsh": ">=0.2.2-rc.1 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-typert-protocol": "^0.2.2-rc.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.5 <5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "jsdom": "^31.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "scripts": {
+    "build": "node scripts/build-client.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "check": "node --check index.js && node --check contract.js && node --check dist/client.js && for f in lib/*.js; do node --check \"$f\" || exit 1; done && node scripts/check-client.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/realchendahuang/FlareMo.git",
+    "directory": "integrations/dsh-plugin"
+  },
+  "homepage": "https://github.com/realchendahuang/FlareMo/tree/main/integrations/dsh-plugin"
+}

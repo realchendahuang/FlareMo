@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Zéro serveur · Aucun coût de maintenance · Haute disponibilité globale 24/7 · Maîtrise totale de vos données</b><br>
-  Pour les particuliers : un espace de prise de notes intime et second cerveau IA. Pour les équipes : une base de connaissances partagée avec gestion fine des rôles.
+  Un second cerveau natif IA pour vous. Une base de connaissances partagée pour votre équipe.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Site%20Web-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -31,6 +30,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="Interface FlareMo thème clair" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="Interface FlareMo thème sombre" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="Interface mobile FlareMo" /> |
 
+| ✅ Tâches, projets et relecture | 📄 Articles et publication |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="Tâches, projets et relecture" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="Articles et publication" /> |
+
 <sub>Captures réelles d'utilisation : transition fluide entre modes clair et sombre, design mobile entièrement réactif. Toutes les fonctionnalités présentées sont reliées au backend.</sub>
 
 </div>
@@ -39,14 +42,14 @@
 
 ## 💡 Pourquoi choisir FlareMo ?
 
-Les outils comme Flomo ou Memos ont démontré la puissance d'une capture d'idées fluide et d'un fil chronologique sans distraction. Cependant, auto-héberger un système traditionnel implique souvent de payer un VPS chaque mois, de configurer Docker et PostgreSQL, d'écrire des scripts de sauvegarde et de redouter la panne d'un disque dur.
+La capture d'idées fluide et le fil chronologique sans distraction ont prouvé leur valeur. Auto-héberger un système traditionnel implique pourtant souvent de payer un VPS chaque mois, de configurer Docker et PostgreSQL, d'écrire des scripts de sauvegarde et de redouter la panne d'un disque dur.
 
 FlareMo répond à une question plus simple : **Peut-on obtenir une base de connaissances en ligne 24h/24, résiliente, accélérée mondialement et sans maintenance de serveur, simplement avec un compte gratuit Cloudflare ?**
 
 - **Véritablement Serverless** : Le code et les fichiers statiques s'exécutent sur les nœuds edge Cloudflare les plus proches de vous, avec une latence en millisecondes.
 - **Durabilité de classe entreprise dès l'installation** : Cloudflare D1 gère les notes et les métadonnées ; Cloudflare R2 stocke les pièces jointes avec réplication multi-régions.
-- **Second cerveau pensé pour l'IA** : le hub « Agent Memory » embarque un CLI et un skill multi-agents permettant à vos agents IA (Claude, Cursor, Codex, ChatGPT, ZCode) de lire et mettre à jour vos préférences et votre mémoire à long terme ; des endpoints MCP restent également disponibles.
-- **Discret pour un seul, puissant pour une équipe** : Par défaut, un sanctuaire personnel chiffré et privé. Activez le mode équipe, et il se transforme instantanément en espace de travail collaboratif avec rôles et visibilité à trois niveaux.
+- **Second cerveau pensé pour l'IA** : un endpoint MCP de notes et le skill `flaremo-notes` permettent à Claude, Cursor, Codex, ChatGPT et ZCode de chercher, lire et écrire vos propres notes. Pas de stockage de mémoire IA séparé, pas de second carnet à entretenir.
+- **Discret pour un seul, puissant pour une équipe** : Par défaut, un sanctuaire personnel chiffré et privé. Activez le mode équipe pour ajouter un espace d'équipe partagé avec rôles et visibilité à trois niveaux — pour partager des notes, pas pour mener des projets ensemble.
 - **Minimal, pas simplifié** : L'interface reste silencieuse et chaque commande mérite sa place — rien de décoratif qui crie, rien d'utile qui manque.
 
 ---
@@ -55,28 +58,31 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 
 ### 1. Capture instantanée & Revue stimulante
 - **Prise de note immédiate** : Flux chronologique sous forme de cartes, multi-étiquettes, Markdown/GFM, prévisualisation des pièces jointes image et audio.
+- **Notes et articles** : L'éditeur reste une note rapide (étiquettes, jusqu'à 9 images, gras, listes, tâches) ; « Écrire en plein écran » ouvre la même note dans un canevas plein écran. Les articles s'écrivent depuis la page Articles.
+- **Commentaires sous la note** : Commentez n'importe quelle note, dans votre espace personnel ou l'espace d'équipe, comme sur Weibo. Les commentaires restent sous la note d'origine et n'apparaissent ni dans le flux, ni dans la recherche, les statistiques, les étiquettes ou la revue.
 - **Recherche plein texte ultra-rapide** : Indexation SQLite FTS5 avec opérateurs de requête (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Recherche sémantique vectorielle** : Embeddings Workers AI couplés aux index vectoriels dérivés de Vectorize pour un rappel contextuel ; re-vérification des permissions contre D1 et repli transparent sur FTS5.
 - **Activation de la pensée** : **Revue quotidienne** (ce jour-là dans l'histoire), **Balade aléatoire** (dérive dans les graphes d'étiquettes et de liens retour, avec résumés en carte postale) et suggestions de notes connexes.
 - **Historique des versions** : Diff complet des versions et restauration historique en un clic.
 
-### 2. Mémoire IA à long terme (CLI + Skills)
-- **Agent Memory** : Livré avec le CLI `flaremo` et le skill `flaremo-memory` — vos agents IA enregistrent et mettent à jour une mémoire à long terme transversale aux sessions (préférences, décisions de projet, contraintes, leçons) sur une base REST commune.
-- **Contrôle humain** : Consultez, vérifiez, verrouillez ou corrigez les souvenirs enregistrés par l'IA sur la page `/memory`.
-- **Écosystème ouvert** : La voie recommandée est CLI + Skills ; les endpoints `/memory/mcp` (Streamable HTTP MCP) et `/mcp` restent disponibles pour les clients MCP existants.
+### 2. L'IA travaille sur vos notes (MCP + Skill)
+- **MCP de notes** : `/mcp` expose la liste, la recherche, la lecture, la création, la modification et la suppression de vos notes, authentifiées par un jeton révocable `memos_pat_`.
+- **Un skill** : `skills/flaremo-notes` apprend à chaque agent à chercher avant d'écrire, à respecter votre formulation et à renvoyer l'ID de la note modifiée.
+- **Pas de mémoire séparée** : les agents lisent vos notes à la demande ; rien n'est extrait en arrière-plan vers un second registre.
 
-### 3. Projets et tâches
-- **Rassemblez le travail par projet** : Notes et tâches organisées en projets, avec tableau kanban (glisser entre les colonnes de statut), priorités, tri manuel et échéances.
+### 3. Tâches et projets
+- **Planifiez une note** : Choisissez un jour et un projet pour une note ; chaque case à cocher non cochée qu'elle contient devient une tâche. La cocher dans la note ou sur la page des tâches reste synchronisé dans les deux sens.
+- **Une seule page de tâches** : `/projects` affiche **Aujourd'hui**, **7 prochains jours** et **Toutes les tâches** sous forme de listes groupées par jour, ainsi que vos projets en tableaux kanban (glisser entre les colonnes de statut, priorités, tri manuel). Chaque liste dispose d'une ligne d'ajout rapide.
 - **Privé par conception, suppression réversible** : Les tâches appartiennent à un seul propriétaire ; la suppression les déplace vers une corbeille jusqu'à restauration ou purge automatique.
 
-### 4. Gestion des tâches et rappels
-- **Les tâches vivent dans les projets** : Le tableau `/projects` (glisser entre les colonnes de statut), les priorités, le tri manuel et les échéances font des pages projet l'endroit unique où planifier le travail.
+### 4. Rappels et horizons temporels
+- **Des badges là où vous lisez** : Les notes planifiées affichent « tâches n/m · date · projet » sur la carte, et la Revue quotidienne s'ouvre sur les tâches du jour.
 - **Le temps en un coup d'œil** : La vue d'accueil de l'explorateur associe un mini-calendrier mensuel aux rappels des tâches en retard et du jour, pour qu'aucune échéance ne se cache derrière le tableau.
-- **Rappels des retards** : Les tâches en retard déclenchent des notifications dans l'application, avec Web Push navigateur en option.
+- **Rappels d'échéance et de retard** : Une tâche quotidienne déclenche dans l'application des notifications « à faire aujourd'hui » et de retard, avec Web Push navigateur en option. La planification se fait au jour près ; il n'y a pas d'alarme à heure fixe.
 
-### 5. Collaboration d'équipe & Visibilité à 3 niveaux
+### 5. Espace d'équipe & Visibilité à 3 niveaux
+- **Partager, pas collaborer** : L'espace d'équipe est l'endroit où les membres se publient des notes et les commentent. Les mentions `@username` se complètent automatiquement dans l'éditeur d'équipe et notifient la personne mentionnée ; les notifications ouvrent la note d'origine au niveau de ses commentaires.
 - **Gouvernance par rôles** : Rôles `owner`, `admin` et `member`. Les administrateurs invitent les membres via des liens d'activation à usage unique (les membres choisissent leur propre mot de passe ; les administrateurs ne manipulent jamais d'identifiants en clair).
-- **Atelier de projets d'équipe** : `/team-projects` regroupe tous les projets de l'équipe dans une seule vue — responsable, statut, avancement actuel, prochaine étape et date de suivi — et ouvre une page de détail pour tenir la synthèse, consigner les avancées et les décisions de réunion, et téléverser les fichiers de référence. Un projet est un mémo d'équipe ordinaire reconnu par un bloc de métadonnées `kosx-pm` dans son corps : les notes qui ne sont pas des projets restent intactes dans la timeline.
 - **Visibilité à 3 niveaux** :
   - 🔒 **Privé** : Visible uniquement par l'auteur.
   - 👥 **Équipe** : Lecture partagée avec les membres actifs de l'équipe.
@@ -87,16 +93,17 @@ FlareMo répond à une question plus simple : **Peut-on obtenir une base de conn
 ### 6. Mode hors-ligne & Expérience PWA
 - **PWA installable** : Installez FlareMo sur l'écran d'accueil de macOS, Windows, iOS ou Android, avec une sensation d'application native.
 - **Synchronisation hors-ligne fiable** : Les brouillons s'enregistrent localement instantanément. Les soumissions et envois hors-ligne sont mis en file d'attente et rejoués automatiquement dès le retour de la connexion.
-- **Dictée vocale en direct** : Page `/capture` avec transcription vocale continue en temps réel (ASR).
+- **Dictée vocale en direct** : Le bouton micro de l'éditeur transcrit la parole en temps réel (ASR) directement dans le brouillon.
 
 ### 7. Sécurité applicative Better Auth
-- **Propulsé par Better Auth** : Sessions par cookies `HttpOnly` et `SameSite=Lax` pour le navigateur ; jetons d'accès personnels révocables (`memos_pat_`) pour les scripts, le CLI et MCP.
+- **Propulsé par Better Auth** : Sessions par cookies `HttpOnly` et `SameSite=Lax` pour le navigateur ; jetons d'accès personnels révocables (`memos_pat_`) pour les scripts et MCP.
 - **Protection stricte de l'Origin** : Les requêtes modifiant l'état imposent une liste blanche d'origines exactes. Cloudflare Access reste disponible comme périmètre défensif externe optionnel.
 
-### 8. Compatibilité Memos & Migration sans friction
-- **Compatibilité `/api/v1` de Memos** : Fournit les principaux endpoints de l'API Memos (camelCase par défaut, snake_case historique via en-tête) et le schéma OpenAPI.
-- **Prêt pour les applications tierces** : Fonctionne directement avec des clients mobiles comme Moe Memos.
-- **Import / Export bidirectionnel** : Import en un clic depuis Memos / flomo avec stratégies de gestion des conflits et paquets d'export brut complets.
+### 8. Vos données, toujours à vous
+- **Export complet en un clic** : notes, pièces jointes, tâches, projets, articles et relations de partage dans un seul fichier, à archiver hors ligne quand vous voulez.
+- **Des imports sans données à moitié écrites** : stratégies de conflit « ignorer » ou « dupliquer » ; un import échoué est entièrement annulé, sans jeu de données incomplet.
+- **Reprenez votre historique** : un convertisseur fourni transforme un export existant en paquet d'import FlareMo, en conservant dates, étiquettes, épinglages et visibilité ([guide de migration](./docs/en/import-from-memos.md)).
+- **Ouvert par protocole** : une couche de compatibilité `/api/v1` avec jetons personnels révocables, plus MCP pour l'IA ; la surface exacte figure dans la [matrice de compatibilité](./docs/en/memos-compatibility.md).
 
 ---
 
@@ -141,7 +148,7 @@ Clone le dépôt dans votre compte GitHub et provisionne automatiquement D1, R2,
 
 ### Méthode 2 : GitHub Action (fork auto-hébergé)
 
-Sur votre fork, lancez **Deploy to Cloudflare** depuis les Actions pour provisionner les ressources, publier le Worker et synchroniser les secrets d'authentification. Les pushes ne publient rien. Voir [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
+Copiez [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) dans `.github/workflows/` de votre fork, puis lancez **Deploy to Cloudflare** depuis les Actions pour provisionner les ressources, publier le Worker et synchroniser les secrets d'authentification. Les pushes ne publient rien. Voir [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
 
 ### Méthode 3 : Déploiement par Agent IA (Recommandé)
 
@@ -189,10 +196,10 @@ Guides détaillés : [Guide de déploiement](./docs/en/deploy.md) · [Déploieme
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

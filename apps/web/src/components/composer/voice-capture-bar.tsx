@@ -1,5 +1,5 @@
-import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import type { CaptureSnapshot } from "@/lib/audio-capture/controller";
 
@@ -29,12 +29,12 @@ export function VoiceCaptureBar({
 }) {
   const { t } = useI18n();
   return (
-    <div className="absolute inset-x-4 bottom-12 z-30 flex items-center gap-3 rounded-lg border border-border bg-popover px-3 py-2.5 shadow-md motion-safe:animate-rise">
+    <div className="absolute inset-x-4 bottom-12 z-30 flex items-center gap-3 rounded-lg border border-border/60 bg-popover px-3 py-2.5 shadow-lg motion-safe:animate-rise">
       {capture.state === "recording" || capture.state === "reconnecting" ? (
         <>
           <span
             aria-hidden="true"
-            className="size-2 shrink-0 rounded-full bg-red-500 motion-safe:animate-pulse"
+            className="size-2 shrink-0 rounded-full bg-destructive motion-safe:animate-partial-pulse"
           />
           <span className="shrink-0 font-mono text-sm tabular-nums">
             {formatVoiceClock(
@@ -54,10 +54,7 @@ export function VoiceCaptureBar({
         </>
       ) : (
         <>
-          <Loader2Icon
-            aria-hidden="true"
-            className="size-4 shrink-0 text-muted-foreground motion-safe:animate-spin"
-          />
+          <Spinner className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             {capture.state === "requesting_permission"
               ? t("capture.requestingPermission")

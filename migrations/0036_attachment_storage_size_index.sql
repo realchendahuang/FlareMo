@@ -1,0 +1,1 @@
+CREATE INDEX `attachments_user_state_size_idx` ON `attachments` (`user_id`,`size`) WHERE "attachments"."state" = 'ready';

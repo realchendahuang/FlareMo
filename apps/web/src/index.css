@@ -1,9 +1,68 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
+
+/*
+ * Base UI state variants. These used to arrive by importing all of
+ * `shadcn/tailwind.css`, which also shipped ~500 lines of unusued scroll-fade
+ * and shimmer utilities into the blocking stylesheet. Only the variants the
+ * components actually author against are kept here.
+ */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
 
 /*
  * FlareMo "Ember" design tokens.
@@ -15,7 +74,7 @@
  */
 
 @theme inline {
-    /* Latin runs on the bundled Geist Variable (small, ~tens of KB) so the
+  /* Latin runs on the bundled Geist Variable (small, ~tens of KB) so the
        brand face is identical everywhere. CJK deliberately stays on platform
        system fonts (zero CJK bytes shipped); that list is language-scoped in
        --font-cjk below so Japanese and Korean keep their own glyph forms.
@@ -24,368 +83,444 @@
        faces must get first pick, while Arabic still lands on the bundled font
        wherever the platform ships none. MiSans / HarmonyOS Sans are name
        references only — their licenses forbid bundling them into this repo. */
-    --font-heading:
-        "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
-        var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
-    --font-sans:
-        "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
-        var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
-    /* Han is appended before the generic keyword so CJK inside a monospace
+  --font-heading:
+    "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
+  --font-sans:
+    "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    var(--font-cjk), "Noto Sans Arabic Variable", system-ui, sans-serif;
+  /* Han is appended before the generic keyword so CJK inside a monospace
        context (a Chinese comment in a fenced code block, the `mono` share
        card's body) resolves per script instead of falling through to whatever
        the browser happens to pick. Latin still wins on the first entry. */
-    --font-mono:
-        ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-        var(--font-cjk), monospace;
-    /* Fourth tier, exposed to share-card plugins as `family: "serif"`. Latin
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, var(--font-cjk),
+    monospace;
+  /* Fourth tier, exposed to share-card plugins as `family: "serif"`. Latin
        keeps Georgia — present on every desktop, so an exported card rasterizes
        the same everywhere — and the Han side is script-scoped below for the
        same reason as --font-cjk. */
-    --font-serif:
-        Georgia, "Times New Roman", var(--font-cjk-serif), serif;
+  --font-serif: Georgia, "Times New Roman", var(--font-cjk-serif), serif;
 
-    /* Brand ramp (default = flame; presets override --brand-* under
+  /* Brand ramp (default = flame; presets override --brand-* under
        [data-accent] set by BrandingProvider). .dark remaps the tokens below. */
-    --color-brand-50: var(--brand-50);
-    --color-brand-100: var(--brand-100);
-    --color-brand-200: var(--brand-200);
-    --color-brand-300: var(--brand-300);
-    --color-brand-400: var(--brand-400);
-    --color-brand-500: var(--brand-500);
-    --color-brand-600: var(--brand-600);
-    --color-brand-700: var(--brand-700);
-    --color-brand-coral: var(--brand-coral);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-coral: var(--brand-coral);
 
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-success-foreground: var(--success-foreground);
-    --color-success: var(--success);
-    --color-warning-foreground: var(--warning-foreground);
-    --color-warning: var(--warning);
-    --color-info-foreground: var(--info-foreground);
-    --color-info: var(--info);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
 
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 
-    /* Elevation: warm-tinted shadows in light mode; dark mode relies on
+  /* Elevation: warm-tinted shadows in light mode; dark mode relies on
        surface lightness steps instead of shadows. */
-    --shadow-xs: var(--shadow-xs);
-    --shadow-sm: var(--shadow-sm);
-    --shadow-md: var(--shadow-md);
-    --shadow-lg: var(--shadow-lg);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  /* The outer steps alias into the warm scale. Left unmapped, Tailwind's
+       cold black defaults would apply and keep casting in dark mode, where
+       every other elevation token is zeroed. */
+  --shadow-2xs: var(--shadow-xs);
+  --shadow-xl: var(--shadow-lg);
+  --shadow-2xl: var(--shadow-lg);
 
-    /* Motion: one duration scale + two easing curves for the whole product.
+  /* Readable text on a 10–15% tint of the matching status color. The
+       *-foreground tokens are for text on a solid fill and go dark in dark
+       mode, so they cannot be reused on tinted banners and badges. */
+  --color-success-emphasis: var(--success-emphasis);
+  --color-warning-emphasis: var(--warning-emphasis);
+  --color-info-emphasis: var(--info-emphasis);
+
+  /* Motion: one duration scale + two easing curves for the whole product.
        Interaction feedback ≤ 140ms, entrances ≤ 320ms. The animate tokens
        hardcode durations and easings because @theme inline does not emit
        intermediate vars. */
-    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-signal: cubic-bezier(0.22, 1, 0.36, 1); /* KOSX signature curve */
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --animate-rise: flaremo-rise 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-fade: flaremo-fade 140ms ease-out both;
-    --animate-scale-in: flaremo-scale-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    --animate-shimmer: flaremo-shimmer 1.6s linear infinite;
-    /* Real-state indicators (recording ring, live partial line): whitelisted
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-signal: cubic-bezier(0.22, 1, 0.36, 1); /* KOSX signature curve */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-rise: flaremo-rise 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade: flaremo-fade 140ms ease-out both;
+  --animate-scale-in: flaremo-scale-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1)
+    both;
+  --animate-shimmer: flaremo-shimmer 1.6s linear infinite;
+  /* Real-state indicators (recording ring, live partial line): whitelisted
        informational motion, not decoration. */
-    --animate-signal-ring: flaremo-signal-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-    --animate-partial-pulse: flaremo-partial-pulse 1.6s ease-in-out infinite;
-    --animate-horizon-flip: flaremo-horizon-flip 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-horizon-zoom: flaremo-horizon-zoom 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-calendar-page-turn: flaremo-calendar-page-turn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    --animate-satellite-orbit: flaremo-satellite-orbit 60s linear infinite;
+  --animate-signal-ring: flaremo-signal-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1)
+    infinite;
+  --animate-partial-pulse: flaremo-partial-pulse 1.6s ease-in-out infinite;
+  --animate-horizon-flip: flaremo-horizon-flip 260ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-horizon-zoom: flaremo-horizon-zoom 220ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-calendar-page-turn: flaremo-calendar-page-turn 280ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-satellite-orbit: flaremo-satellite-orbit 60s linear infinite;
 }
 
 :root {
-    /* Brand brand: hue-aligned with the KOSX signal orange (#ff6a00).
+  color-scheme: light;
+  /* Brand brand: hue-aligned with the KOSX signal orange (#ff6a00).
        Lightness/chroma ramp unchanged from the logo-gradient sampling. */
-    --brand-50: oklch(0.96 0.025 52);
-    --brand-100: oklch(0.93 0.05 49);
-    --brand-200: oklch(0.87 0.09 46);
-    --brand-300: oklch(0.79 0.135 42);
-    --brand-400: oklch(0.72 0.17 40);
-    --brand-500: oklch(0.63 0.19 35);
-    --brand-600: oklch(0.55 0.20 30);
-    --brand-700: oklch(0.47 0.18 26);
-    --brand-coral: oklch(0.64 0.21 20);
-    /* CTA gradient text stays white in every theme except bright presets
+  --brand-50: oklch(0.96 0.025 52);
+  --brand-100: oklch(0.93 0.05 49);
+  --brand-200: oklch(0.87 0.09 46);
+  --brand-300: oklch(0.79 0.135 42);
+  --brand-400: oklch(0.72 0.17 40);
+  --brand-500: oklch(0.63 0.19 35);
+  --brand-600: oklch(0.55 0.2 30);
+  --brand-700: oklch(0.47 0.18 26);
+  --brand-coral: oklch(0.64 0.21 20);
+  /* CTA gradient text stays white in every theme except bright presets
        (amber) whose gradient steps are too light for white text. */
-    --brand-gradient-foreground: oklch(1 0 0);
-    --gradient-brand: linear-gradient(
-        135deg,
-        var(--brand-400),
-        var(--brand-coral)
-    );
+  --brand-gradient-foreground: oklch(1 0 0);
+  --gradient-brand: linear-gradient(
+    135deg,
+    var(--brand-400),
+    var(--brand-coral)
+  );
 
-    /* Near-neutral surfaces (KOSX paper/ink family) with a hint of warmth
+  /* Near-neutral surfaces (KOSX paper/ink family) with a hint of warmth
        so the signal-orange accent never sits on cold gray. */
-    --background: oklch(0.982 0.003 75);
-    --foreground: oklch(0.24 0.006 75);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.24 0.006 75);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.24 0.006 75);
-    --primary: var(--brand-500);
-    --primary-foreground: oklch(0.99 0.003 75);
-    --secondary: oklch(0.955 0.004 75);
-    --secondary-foreground: oklch(0.28 0.006 75);
-    --muted: oklch(0.952 0.004 75);
-    --muted-foreground: oklch(0.52 0.008 75);
-    --accent: var(--brand-50);
-    --accent-foreground: var(--brand-700);
-    --destructive: oklch(0.577 0.245 27.325);
-    --success: oklch(0.62 0.13 155);
-    --success-foreground: oklch(0.98 0.01 150);
-    --warning: oklch(0.70 0.13 75);
-    --warning-foreground: oklch(0.30 0.04 70);
-    --info: oklch(0.58 0.10 240);
-    --info-foreground: oklch(0.98 0.005 240);
-    --border: oklch(0.912 0.004 75);
-    --input: oklch(0.912 0.004 75);
-    --ring: var(--brand-400);
-    --radius: 0.875rem;
-    --shadow-xs: 0 1px 2px oklch(0.30 0.02 60 / 0.05);
-    --shadow-sm:
-        0 1px 3px oklch(0.30 0.02 60 / 0.07),
-        0 1px 2px -1px oklch(0.30 0.02 60 / 0.07);
-    --shadow-md:
-        0 4px 12px -2px oklch(0.30 0.02 60 / 0.09),
-        0 2px 4px -2px oklch(0.30 0.02 60 / 0.05);
-    --shadow-lg:
-        0 12px 32px -8px oklch(0.30 0.02 60 / 0.14),
-        0 4px 8px -4px oklch(0.30 0.02 60 / 0.06);
+  --background: oklch(0.976 0.0075 82);
+  --foreground: oklch(0.235 0.012 65);
+  --card: oklch(0.996 0.003 85);
+  --card-foreground: oklch(0.24 0.006 75);
+  --popover: oklch(0.997 0.003 85);
+  --popover-foreground: oklch(0.24 0.006 75);
+  --primary: var(--brand-500);
+  --primary-foreground: oklch(0.99 0.003 75);
+  --secondary: oklch(0.952 0.007 80);
+  --secondary-foreground: oklch(0.28 0.006 75);
+  --muted: oklch(0.948 0.007 80);
+  --muted-foreground: oklch(0.5 0.009 75);
+  /* Ember 3: accent is the neutral "pointer is here" fill (menu focus,
+       palette selection, row hover, empty-state tiles). Brand tint washing
+       every hovered row read loud; selection is ink, emphasis is flame. */
+  --accent: oklch(0.948 0.008 78);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.62 0.13 155);
+  --success-foreground: oklch(0.98 0.01 150);
+  --warning: oklch(0.7 0.13 75);
+  --warning-foreground: oklch(0.3 0.04 70);
+  --info: oklch(0.58 0.1 240);
+  --info-foreground: oklch(0.98 0.005 240);
+  --success-emphasis: oklch(0.45 0.11 155);
+  --warning-emphasis: oklch(0.47 0.1 65);
+  --info-emphasis: oklch(0.45 0.1 245);
+  --border: oklch(0.918 0.008 80);
+  --input: oklch(0.885 0.009 78);
+  --ring: var(--brand-400);
+  /* Ember 2: a tighter, more exact corner. Controls 10px, cards 14px,
+       dialogs 18px. The 0.875rem base read as soft and bubbly at h-8. */
+  --radius: 0.625rem;
+  /* Motion durations (Ember 3). Three steps only: feedback (hover, press,
+       toggles), overlay (menus, popovers, tooltips) and surface (dialogs,
+       sheets, page entrances). Easing is --ease-signal everywhere except
+       micro pops (--ease-spring). */
+  --duration-fast: 120ms;
+  --duration-overlay: 160ms;
+  --duration-surface: 220ms;
+  /* Two-layer warm shadows: a tight contact shadow for edge definition plus
+       a soft ambient one for lift. Kept low so surfaces read as paper. */
+  --shadow-xs: 0 1px 2px oklch(0.3 0.02 60 / 0.045);
+  --shadow-sm:
+    0 1px 2px oklch(0.3 0.02 60 / 0.05),
+    0 2px 6px -2px oklch(0.3 0.02 60 / 0.06);
+  --shadow-md:
+    0 1px 2px oklch(0.3 0.02 60 / 0.05),
+    0 6px 16px -6px oklch(0.3 0.02 60 / 0.1);
+  --shadow-lg:
+    0 1px 3px oklch(0.3 0.02 60 / 0.06),
+    0 16px 40px -12px oklch(0.3 0.02 60 / 0.18);
 
-    /* Liquid Glass material (docs/liquid-glass-design.md). Neutral by design:
+  /* Paper grain: a fractal-noise tile laid over the page and every paper
+       surface. ~6% warm ink in light mode, a faint light fleck in dark.
+       Static, ~400 bytes, no request. */
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .25 0 0 0 0 .16 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* The lit top edge of a sheet catching light. */
+  --paper-edge: inset 0 1px 0 oklch(1 0 0 / 0.7);
+
+  /* Liquid Glass material (docs/liquid-glass-design.md). Neutral by design:
        [data-accent] presets never tint the glass, so the accent matrix stays
        8 presets x 2 themes regardless of the material. Tint alpha is tuned
        for text contrast first (readability pass 2026-09-19). */
-    --glass-blur: 18px;
-    --glass-saturate: 1.5;
-    --glass-tint: oklch(1 0 0 / 0.78);
-    --glass-rim: oklch(1 0 0 / 0.9);
-    --glass-edge: oklch(1 0 0 / 0.28);
-    --glass-shadow: oklch(0.2 0.02 60 / 0.16);
+  --glass-blur: 18px;
+  --glass-saturate: 1.5;
+  --glass-tint: oklch(1 0 0 / 0.78);
+  --glass-rim: oklch(1 0 0 / 0.9);
+  --glass-edge: oklch(1 0 0 / 0.28);
+  --glass-shadow: oklch(0.2 0.02 60 / 0.16);
 }
 
 .dark {
-    /* KOSX paper/surface anchors: paper #0a0a0a ≈ oklch(0.155),
+  color-scheme: dark;
+  /* KOSX paper/surface anchors: paper #0a0a0a ≈ oklch(0.155),
        surface #1c1c1e ≈ oklch(0.21). */
-    --background: oklch(0.155 0.003 75);
-    --foreground: oklch(0.955 0.003 75);
-    --card: oklch(0.21 0.003 75);
-    --card-foreground: oklch(0.955 0.003 75);
-    --popover: oklch(0.235 0.003 75);
-    --popover-foreground: oklch(0.955 0.003 75);
-    --primary: var(--brand-400);
-    --primary-foreground: oklch(0.20 0.03 30);
-    --secondary: oklch(0.265 0.004 75);
-    --secondary-foreground: oklch(0.955 0.003 75);
-    --muted: oklch(0.26 0.004 75);
-    --muted-foreground: oklch(0.68 0.008 75);
-    --accent: oklch(0.30 0.03 35);
-    --accent-foreground: var(--brand-200);
-    --destructive: oklch(0.704 0.191 22.216);
-    --success: oklch(0.70 0.13 155);
-    --success-foreground: oklch(0.16 0.03 155);
-    --warning: oklch(0.76 0.12 75);
-    --warning-foreground: oklch(0.20 0.04 70);
-    --info: oklch(0.70 0.10 240);
-    --info-foreground: oklch(0.16 0.03 240);
-    --border: oklch(1 0 0 / 9%);
-    --input: oklch(1 0 0 / 14%);
-    --ring: var(--brand-400);
-    /* 暗色不用阴影表达层级（表面明度阶梯 + 发丝线）；token 置近零以免散落各处
+  --background: oklch(0.158 0.006 70);
+  --foreground: oklch(0.95 0.008 80);
+  --card: oklch(0.207 0.007 70);
+  --card-foreground: oklch(0.955 0.003 75);
+  --popover: oklch(0.232 0.007 70);
+  --popover-foreground: oklch(0.955 0.003 75);
+  --primary: var(--brand-400);
+  --primary-foreground: oklch(0.2 0.03 30);
+  --secondary: oklch(0.265 0.004 75);
+  --secondary-foreground: oklch(0.955 0.003 75);
+  --muted: oklch(0.26 0.004 75);
+  --muted-foreground: oklch(0.68 0.008 75);
+  --accent: oklch(0.285 0.006 72);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.7 0.13 155);
+  --success-foreground: oklch(0.16 0.03 155);
+  --warning: oklch(0.76 0.12 75);
+  --warning-foreground: oklch(0.2 0.04 70);
+  --info: oklch(0.7 0.1 240);
+  --info-foreground: oklch(0.16 0.03 240);
+  --success-emphasis: oklch(0.82 0.11 155);
+  --warning-emphasis: oklch(0.85 0.1 80);
+  --info-emphasis: oklch(0.82 0.09 240);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: var(--brand-400);
+  /* 暗色不用阴影表达层级（表面明度阶梯 + 发丝线）；token 置近零以免散落各处
        的 shadow-* 类在暗色下投影（docs/design-system.md 形状与层级） */
-    --shadow-xs: 0 0 0 transparent;
-    --shadow-sm: 0 0 0 transparent;
-    --shadow-md: 0 0 0 transparent;
-    --shadow-lg: 0 0 0 transparent;
-    /* Dark hierarchy comes from tint depth, not shadows — same rule as the
+  --shadow-xs: 0 0 0 transparent;
+  --shadow-sm: 0 0 0 transparent;
+  --shadow-md: 0 0 0 transparent;
+  --shadow-lg: 0 0 0 transparent;
+  /* Dark hierarchy comes from tint depth, not shadows — same rule as the
        shadow tokens above. */
-    --glass-tint: oklch(0.22 0.012 60 / 0.70);
-    --glass-rim: oklch(1 0 0 / 0.24);
-    --glass-edge: oklch(1 0 0 / 0.08);
-    --glass-shadow: transparent;
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --paper-edge: inset 0 1px 0 oklch(1 0 0 / 0.05);
+  --glass-tint: oklch(0.22 0.012 60 / 0.7);
+  --glass-rim: oklch(1 0 0 / 0.24);
+  --glass-edge: oklch(1 0 0 / 0.08);
+  --glass-shadow: transparent;
 }
 
 /* Accent presets, derived from Radix Colors v3 (single shared ramp per preset;
    .dark remaps --primary/--ring via var(--brand-400) globally). */
-:root[data-accent='ocean'] {
-    --brand-50: oklch(0.96 0.02 239);
-    --brand-100: oklch(0.938 0.035 235);
-    --brand-200: oklch(0.905 0.051 240);
-    --brand-300: oklch(0.863 0.068 243);
-    --brand-400: oklch(0.734 0.121 243);
-    --brand-500: oklch(0.649 0.193 252);
-    --brand-600: oklch(0.622 0.183 252);
-    --brand-700: oklch(0.556 0.162 252);
-    --brand-coral: oklch(0.622 0.183 252);
+:root[data-accent="ocean"] {
+  --brand-50: oklch(0.96 0.02 239);
+  --brand-100: oklch(0.938 0.035 235);
+  --brand-200: oklch(0.905 0.051 240);
+  --brand-300: oklch(0.863 0.068 243);
+  --brand-400: oklch(0.734 0.121 243);
+  --brand-500: oklch(0.649 0.193 252);
+  --brand-600: oklch(0.622 0.183 252);
+  --brand-700: oklch(0.556 0.162 252);
+  --brand-coral: oklch(0.622 0.183 252);
 }
 
-:root[data-accent='indigo'] {
-    --brand-50: oklch(0.961 0.017 268);
-    --brand-100: oklch(0.935 0.031 270);
-    --brand-200: oklch(0.902 0.047 270);
-    --brand-300: oklch(0.862 0.068 271);
-    --brand-400: oklch(0.731 0.112 270);
-    --brand-500: oklch(0.544 0.191 267);
-    --brand-600: oklch(0.511 0.195 267);
-    --brand-700: oklch(0.509 0.172 267);
-    --brand-coral: oklch(0.511 0.195 267);
+:root[data-accent="indigo"] {
+  --brand-50: oklch(0.961 0.017 268);
+  --brand-100: oklch(0.935 0.031 270);
+  --brand-200: oklch(0.902 0.047 270);
+  --brand-300: oklch(0.862 0.068 271);
+  --brand-400: oklch(0.731 0.112 270);
+  --brand-500: oklch(0.544 0.191 267);
+  --brand-600: oklch(0.511 0.195 267);
+  --brand-700: oklch(0.509 0.172 267);
+  --brand-coral: oklch(0.511 0.195 267);
 }
 
-:root[data-accent='iris'] {
-    --brand-50: oklch(0.961 0.017 283);
-    --brand-100: oklch(0.934 0.032 284);
-    --brand-200: oklch(0.904 0.048 283);
-    --brand-300: oklch(0.863 0.069 283);
-    --brand-400: oklch(0.729 0.118 281);
-    --brand-500: oklch(0.54 0.184 278);
-    --brand-600: oklch(0.509 0.187 277);
-    --brand-700: oklch(0.511 0.174 280);
-    --brand-coral: oklch(0.509 0.187 277);
+:root[data-accent="iris"] {
+  --brand-50: oklch(0.961 0.017 283);
+  --brand-100: oklch(0.934 0.032 284);
+  --brand-200: oklch(0.904 0.048 283);
+  --brand-300: oklch(0.863 0.069 283);
+  --brand-400: oklch(0.729 0.118 281);
+  --brand-500: oklch(0.54 0.184 278);
+  --brand-600: oklch(0.509 0.187 277);
+  --brand-700: oklch(0.511 0.174 280);
+  --brand-coral: oklch(0.509 0.187 277);
 }
 
-:root[data-accent='jade'] {
-    --brand-50: oklch(0.961 0.022 160);
-    --brand-100: oklch(0.935 0.034 163);
-    --brand-200: oklch(0.902 0.047 165);
-    --brand-300: oklch(0.86 0.06 166);
-    --brand-400: oklch(0.721 0.103 173);
-    --brand-500: oklch(0.642 0.115 171);
-    --brand-600: oklch(0.613 0.11 171);
-    --brand-700: oklch(0.547 0.098 170);
-    --brand-coral: oklch(0.613 0.11 171);
+:root[data-accent="jade"] {
+  --brand-50: oklch(0.961 0.022 160);
+  --brand-100: oklch(0.935 0.034 163);
+  --brand-200: oklch(0.902 0.047 165);
+  --brand-300: oklch(0.86 0.06 166);
+  --brand-400: oklch(0.721 0.103 173);
+  --brand-500: oklch(0.642 0.115 171);
+  --brand-600: oklch(0.613 0.11 171);
+  --brand-700: oklch(0.547 0.098 170);
+  --brand-coral: oklch(0.613 0.11 171);
 }
 
-:root[data-accent='teal'] {
-    --brand-50: oklch(0.96 0.026 182);
-    --brand-100: oklch(0.934 0.042 180);
-    --brand-200: oklch(0.9 0.053 181);
-    --brand-300: oklch(0.856 0.064 181);
-    --brand-400: oklch(0.721 0.097 183);
-    --brand-500: oklch(0.649 0.114 182);
-    --brand-600: oklch(0.619 0.109 181);
-    --brand-700: oklch(0.552 0.101 179);
-    --brand-coral: oklch(0.619 0.109 181);
+:root[data-accent="teal"] {
+  --brand-50: oklch(0.96 0.026 182);
+  --brand-100: oklch(0.934 0.042 180);
+  --brand-200: oklch(0.9 0.053 181);
+  --brand-300: oklch(0.856 0.064 181);
+  --brand-400: oklch(0.721 0.097 183);
+  --brand-500: oklch(0.649 0.114 182);
+  --brand-600: oklch(0.619 0.109 181);
+  --brand-700: oklch(0.552 0.101 179);
+  --brand-coral: oklch(0.619 0.109 181);
 }
 
-:root[data-accent='crimson'] {
-    --brand-50: oklch(0.954 0.026 356);
-    --brand-100: oklch(0.926 0.04 356);
-    --brand-200: oklch(0.893 0.053 356);
-    --brand-300: oklch(0.854 0.065 355);
-    --brand-400: oklch(0.749 0.1 354);
-    --brand-500: oklch(0.634 0.213 1);
-    --brand-600: oklch(0.607 0.211 2);
-    --brand-700: oklch(0.552 0.207 4);
-    --brand-coral: oklch(0.607 0.211 2);
+:root[data-accent="crimson"] {
+  --brand-50: oklch(0.954 0.026 356);
+  --brand-100: oklch(0.926 0.04 356);
+  --brand-200: oklch(0.893 0.053 356);
+  --brand-300: oklch(0.854 0.065 355);
+  --brand-400: oklch(0.749 0.1 354);
+  --brand-500: oklch(0.634 0.213 1);
+  --brand-600: oklch(0.607 0.211 2);
+  --brand-700: oklch(0.552 0.207 4);
+  --brand-coral: oklch(0.607 0.211 2);
 }
 
-:root[data-accent='amber'] {
-    --brand-50: oklch(0.97 0.068 100);
-    --brand-100: oklch(0.945 0.103 98);
-    --brand-200: oklch(0.918 0.133 98);
-    --brand-300: oklch(0.88 0.123 93);
-    --brand-400: oklch(0.758 0.14 77);
-    --brand-500: oklch(0.854 0.157 84);
-    --brand-600: oklch(0.571 0.129 64); /* bright step 10 fails white-thumb contrast */
-    --brand-700: oklch(0.571 0.129 64);
-    --brand-coral: oklch(0.831 0.168 81);
-    --primary-foreground: oklch(0.352 0.049 54);
-    --brand-gradient-foreground: oklch(0.352 0.049 54);
+:root[data-accent="amber"] {
+  --brand-50: oklch(0.97 0.068 100);
+  --brand-100: oklch(0.945 0.103 98);
+  --brand-200: oklch(0.918 0.133 98);
+  --brand-300: oklch(0.88 0.123 93);
+  --brand-400: oklch(0.758 0.14 77);
+  --brand-500: oklch(0.854 0.157 84);
+  --brand-600: oklch(
+    0.571 0.129 64
+  ); /* bright step 10 fails white-thumb contrast */
+  --brand-700: oklch(0.571 0.129 64);
+  --brand-coral: oklch(0.831 0.168 81);
+  --primary-foreground: oklch(0.352 0.049 54);
+  --brand-gradient-foreground: oklch(0.352 0.049 54);
 }
 
 /* .dark's dark primary-foreground must survive the higher-specificity preset
    block above: amber's dark primary (brand-400, a light tan) needs dark text. */
-.dark[data-accent='amber'] {
-    --primary-foreground: oklch(0.20 0.03 30);
+.dark[data-accent="amber"] {
+  --primary-foreground: oklch(0.2 0.03 30);
 }
 
 /* Custom accent: the ramp itself is injected as inline style variables by
    BrandingProvider (derived from the seed hex in JS); these slots only route
    the two theme-dependent foregrounds, which inline styles can't vary. */
-:root[data-accent='custom'] {
-    --primary-foreground: var(--brand-custom-fg-light, oklch(0.99 0.003 75));
+:root[data-accent="custom"] {
+  --primary-foreground: var(--brand-custom-fg-light, oklch(0.99 0.003 75));
 }
-.dark[data-accent='custom'] {
-    --primary-foreground: var(--brand-custom-fg-dark, oklch(0.20 0.03 30));
+.dark[data-accent="custom"] {
+  --primary-foreground: var(--brand-custom-fg-dark, oklch(0.2 0.03 30));
 }
-
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground antialiased;
-    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent) transparent;
+    background-image: var(--paper-grain);
     text-rendering: optimizeLegibility;
+  }
+  /* Scoped to engines without ::-webkit-scrollbar (Firefox): in Chromium 121+,
+     setting `scrollbar-color` or `scrollbar-width` (even inherited from body)
+     disables ::-webkit-scrollbar and forces a thick native bar. Keeping this in
+     @layer base also lets `.no-scrollbar` in @layer utilities override it. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(
+          in oklab,
+          var(--muted-foreground) 28%,
+          transparent
+        )
+        transparent;
     }
+  }
   html {
     @apply font-sans;
-    }
+    /* Mixed CJK/Latin setting: a hair of space between Han and Latin or
+       digits ("D1 是事实源" without the author typing the spaces), and
+       full-width punctuation trimmed at line starts and in runs ("，「"),
+       the two habits that separate typeset Chinese from a raw text dump.
+       Progressive: engines without support render exactly as before, and
+       an existing space is never doubled. */
+    text-autospace: normal;
+    text-spacing-trim: normal;
+    font-kerning: normal;
+  }
   /* CJK fallback list, keyed off the document language that I18nProvider
      writes to <html lang>. Font matching walks the family list per character,
      so a single shared list would hand Japanese kana/kanji to PingFang SC and
      render them with Chinese glyph forms; scoping by :lang() keeps each
      script on its own system face (and Korean off a last-resort fallback). */
   :root {
-    --font-cjk: "PingFang SC", "Hiragino Sans GB", MiSans,
-      "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans CJK SC",
-      "Noto Sans SC";
-    }
+    --font-cjk:
+      "PingFang SC", "Hiragino Sans GB", MiSans, "HarmonyOS Sans SC",
+      "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC";
+  }
   :root:lang(ja) {
-    --font-cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI",
-      "Yu Gothic", Meiryo, "Noto Sans JP", "Noto Sans CJK JP", "PingFang SC",
+    --font-cjk:
+      "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic",
+      Meiryo, "Noto Sans JP", "Noto Sans CJK JP", "PingFang SC",
       "Microsoft YaHei";
-    }
+  }
   :root:lang(ko) {
-    --font-cjk: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR",
+    --font-cjk:
+      "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR",
       "Noto Sans CJK KR", "PingFang SC", "Microsoft YaHei";
-    }
+  }
   /* Same scoping for the serif tier the share-card plugins select. Exported
      card images are rasterized in this document, so a Japanese user must get
      Mincho forms here — the pre-existing Chinese-only list is exactly what
      painted their cards with Chinese glyphs. */
   :root {
-    --font-cjk-serif: "Songti SC", "STSong", "Noto Serif CJK SC",
-      "Noto Serif SC", SimSun;
-    }
+    --font-cjk-serif:
+      "Songti SC", "STSong", "Noto Serif CJK SC", "Noto Serif SC", SimSun;
+  }
   :root:lang(ja) {
-    --font-cjk-serif: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP",
-      "Noto Serif CJK JP", "Songti SC";
-    }
+    --font-cjk-serif:
+      "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", "Noto Serif CJK JP",
+      "Songti SC";
+  }
   :root:lang(ko) {
-    --font-cjk-serif: "AppleMyungjo", Batang, "Noto Serif KR",
-      "Noto Serif CJK KR", "Songti SC";
-    }
+    --font-cjk-serif:
+      "AppleMyungjo", Batang, "Noto Serif KR", "Noto Serif CJK KR", "Songti SC";
+  }
   /* 字距重置在 @layer base 之外（见下方说明）——写在层内会被 utilities 盖掉 */
   ::selection {
     background: color-mix(in oklab, var(--brand-400) 28%, transparent);
-    }
-   /* 全局 reduced-motion 兜底：prefers-reduced-motion 下关停全部动画与过渡，
+  }
+  /* 全局 reduced-motion 兜底：prefers-reduced-motion 下关停全部动画与过渡，
       组件级 motion-safe: 前缀只对新增大型编排动画强制 */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -394,8 +529,8 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-      }
     }
+  }
 }
 
 /* 字距重置必须在 @layer base 之外。负字距来自 .tracking-* 工具类，而工具类
@@ -405,13 +540,13 @@
    两套分开写：各自只在本语言下该生效，拉丁语系保留负字距仍是正确的。 */
 [dir="rtl"] :is(h1, h2, h3, h4, [class*="tracking-"]) {
   letter-spacing: 0;
-  }
+}
 /* 汉字是满字身方块，字面几乎占满 em 框，两侧留白本就极小（实测 18px 下仅
    约 3.3px），tracking-tight 的 -0.025em 会吃掉其中约 15%，笔画多的字开始
    粘连。:lang(zh) 按 RFC 4647 前缀匹配，能命中 zh-CN。 */
 :is(:lang(zh), :lang(ja), :lang(ko)) :is(h1, h2, h3, h4, [class*="tracking-"]) {
   letter-spacing: 0;
-  }
+}
 
 /* 汉字没有真正的斜体字形，浏览器只能做几何倾斜（伪斜体）——笔画被剪切、
    观感廉价，而本项目的主力语言正是中文。两条真实路径会触发它：编辑器的
@@ -419,21 +554,46 @@
    逐处去掉斜体会让英文也失去强调，所以在语言层禁掉合成，拉丁语系不受影响。 */
 :is(:lang(zh), :lang(ja), :lang(ko)) {
   font-synthesis: none;
-  }
+}
 
+/* Quiet warm-paper scrollbars (Issue #162): a 3px warm-ink filament inside a
+   6px hit area, with transparent track and corner so dark mode never flashes
+   a white gutter on vertical or horizontal overflow. */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
+  border: 1.5px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
-  background-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+  background-color: color-mix(
+    in oklab,
+    var(--muted-foreground) 22%,
+    transparent
+  );
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  background-color: color-mix(
+    in oklab,
+    var(--muted-foreground) 42%,
+    transparent
+  );
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(
+    in oklab,
+    var(--muted-foreground) 58%,
+    transparent
+  );
 }
 
 /* Liquid Glass baseline material (docs/liquid-glass-design.md): one recipe for
@@ -464,9 +624,13 @@
     transparent 62%,
     var(--glass-edge)
   );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   mask-composite: exclude;
   pointer-events: none;
 }
@@ -474,7 +638,7 @@
 /* sonner injects its styles at runtime, AFTER this sheet, at 0-2-0
    specificity ([data-sonner-toast][data-styled=true]); the glass override
    must out-rank that or the material never lands on toasts. */
-[data-sonner-toast][data-styled=true].glass {
+[data-sonner-toast][data-styled="true"].glass {
   background: var(--glass-tint);
   -webkit-backdrop-filter: blur(var(--glass-blur))
     saturate(var(--glass-saturate));
@@ -485,7 +649,7 @@
    <html data-glass="off"> — both fall back to the solid card surface. */
 @media (prefers-reduced-transparency: reduce) {
   .glass,
-  [data-sonner-toast][data-styled=true].glass {
+  [data-sonner-toast][data-styled="true"].glass {
     background: var(--card);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -497,7 +661,7 @@
 }
 
 :root[data-glass="off"] .glass,
-:root[data-glass="off"] [data-sonner-toast][data-styled=true].glass {
+:root[data-glass="off"] [data-sonner-toast][data-styled="true"].glass {
   background: var(--card);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -505,6 +669,24 @@
 
 :root[data-glass="off"] .glass::after {
   display: none;
+}
+
+/* Paper surface: grain + a lit top edge over whatever card background the
+   element already has. Used on the composer, memo cards, cards and settings
+   groups so every sheet in the app shares one material. */
+.paper {
+  background-image: var(--paper-grain);
+  /* Tailwind v4 composes every shadow/ring utility into one box-shadow that
+     starts with --tw-inset-shadow; filling that slot adds the lit edge
+     without clobbering the element's ring or drop shadow. */
+  --tw-inset-shadow: var(--paper-edge);
+}
+
+/* Icons: lucide's default 2px stroke reads heavy next to 13–15px text. 1.75
+   matches the weight of Geist at UI sizes. Only the default attribute is
+   overridden, so an explicit strokeWidth (the big capture mic) still wins. */
+svg.lucide[stroke-width="2"] {
+  stroke-width: 1.75;
 }
 
 /* Keep auth controls compact on desktop while giving touch users a reliable
@@ -521,7 +703,10 @@
 }
 
 @layer utilities {
+  /* Kept local rather than inherited from shadcn's stylesheet: `-ms-overflow-style`
+     was the only thing the vendor copy added, and it now costs nothing. */
   .no-scrollbar {
+    -ms-overflow-style: none;
     scrollbar-width: none;
   }
 
@@ -543,17 +728,18 @@
     word-break: break-word;
   }
 
-  .dark .bg-card,
-  .dark [data-slot="card"] {
-    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.05);
-  }
-
   .memo-markdown > * + * {
     @apply mt-3;
   }
 
   .memo-markdown p + p {
     @apply mt-1;
+  }
+
+  /* A note keeps the blank lines its author typed (see remark-literal): each
+     extra one renders as a paragraph whose only child is a break. */
+  .memo-markdown p:has(> br:only-child) {
+    min-height: 1.75rem;
   }
 
   .memo-markdown h1 {
@@ -581,7 +767,14 @@
   }
 
   .memo-markdown li::marker {
-    @apply text-brand-400;
+    @apply text-muted-foreground/70;
+  }
+
+  /* GFM task items already carry a checkbox; a bullet beside it doubles the
+     marker. */
+  .memo-markdown li:has(> input[type="checkbox"]),
+  .memo-markdown li:has(> p > input[type="checkbox"]) {
+    @apply -ms-5 list-none;
   }
 
   .memo-markdown a {
@@ -589,19 +782,37 @@
   }
 
   .memo-markdown blockquote {
-    @apply rounded-e-md border-s-2 border-brand-300 bg-brand-50 py-1 pe-3 ps-4 text-muted-foreground dark:border-brand-600 dark:bg-brand-400/5;
+    @apply border-s-2 border-primary/45 py-0.5 ps-4 text-muted-foreground;
   }
 
   .memo-markdown code {
-    @apply rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
+    @apply rounded-[5px] border border-border/60 bg-muted/70 px-1 py-px font-mono text-[0.85em];
   }
 
   .memo-markdown pre {
     @apply overflow-x-auto rounded-xl border border-border/60 bg-muted p-4;
   }
 
+  /* Fenced code sits in its own block: none of the inline chip (border,
+     radius, shrunk size) carries over, or every line wears a box. */
   .memo-markdown pre code {
-    @apply bg-transparent p-0;
+    @apply rounded-none border-0 bg-transparent p-0 text-[13px] leading-6;
+  }
+
+  /* Code is always LTR. Arabic RTL otherwise leaks into <pre>/<code> and
+     mirrors brackets, operators and line punctuation (screenshot check
+     2026-11-04: a TS snippet rendered its closing brace on the left). */
+  .memo-markdown pre,
+  .memo-markdown pre code,
+  .memo-markdown :not(pre) > code,
+  .article-editor-content pre,
+  .article-editor-content pre code,
+  .article-editor-content :not(pre) > code,
+  .article-paper .memo-markdown pre,
+  .article-paper .memo-markdown pre code,
+  .article-paper .memo-markdown :not(pre) > code {
+    direction: ltr;
+    unicode-bidi: isolate;
   }
 
   .memo-markdown table {
@@ -610,25 +821,46 @@
 
   .memo-markdown th,
   .memo-markdown td {
-    @apply border px-3 py-2 text-left;
+    @apply border px-3 py-2 text-start;
   }
 
+  /* Drawn task box: the native one renders as a glaring white square in dark
+     mode. A hairline square on the card, ticked with a primary fill. Shared
+     by Markdown task lists and the todo rows (.task-checkbox). */
   .memo-markdown input[type="checkbox"] {
-    @apply mr-2 align-middle accent-brand-500;
+    @apply me-2 align-[-2px];
+  }
+
+  .memo-markdown input[type="checkbox"],
+  .task-checkbox {
+    @apply inline-grid size-[15px] cursor-pointer appearance-none place-content-center rounded-[4px] border-[1.5px] border-muted-foreground/45 bg-card transition-colors hover:border-primary/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/25 disabled:cursor-default;
+  }
+
+  .memo-markdown input[type="checkbox"]:checked,
+  .task-checkbox:checked {
+    @apply border-primary bg-primary;
+  }
+
+  .memo-markdown input[type="checkbox"]:checked::after,
+  .task-checkbox:checked::after {
+    @apply -mt-px h-[8px] w-[4.5px] rotate-45 border-r-[1.75px] border-b-[1.75px] border-primary-foreground;
+    content: "";
+  }
+
+  .memo-markdown li:has(> input[type="checkbox"]:checked) {
+    @apply text-muted-foreground;
   }
 
   /* Shiki dual themes on article surfaces: colors arrive as CSS variables
-     (defaultColor: false), resolved per color-scheme at display time. */
+     (defaultColor: false), resolved per color-scheme at display time. Only
+     the token colors come from Shiki; the block keeps the app's warm muted
+     surface, since github-dark's cool slate fights the dark palette. */
   .memo-markdown pre.shiki {
-    @apply bg-[var(--shiki-light-bg)];
+    @apply bg-muted;
   }
 
   .memo-markdown pre.shiki span {
     color: var(--shiki-light);
-  }
-
-  .dark .memo-markdown pre.shiki {
-    @apply bg-[var(--shiki-dark-bg)];
   }
 
   .dark .memo-markdown pre.shiki span {
@@ -648,6 +880,13 @@
     @apply min-h-32 max-h-80 overflow-y-auto px-4 pt-4 pb-2 text-[15px] leading-7 outline-none motion-safe:transition-[min-height,max-height,padding] motion-safe:duration-200 motion-safe:ease-signal;
   }
 
+  /* Inline edit in a timeline card: the text stays exactly where the read
+     view drew it. The card already pads; the composer's own inset and its
+     128px floor would shove a one-line note right and down on entering edit. */
+  .composer-editor-content.memo-card-editor-content {
+    @apply min-h-7 px-0 pt-0 pb-0;
+  }
+
   /* Article editor body: same typography as the reading surface, but
      unclipped — a long article grows the page instead of scrolling inside
      a fixed box. */
@@ -659,20 +898,27 @@
     @apply my-0 min-h-7;
   }
 
-  .article-editor-content p + p {
+  /* Block rhythm mirrors .memo-markdown (the preview and public page), so a
+     heading no longer sits flush on the paragraph below it while editing.
+     `:not(:first-child)` outranks the element rules above and below. */
+  .article-editor-content > :not(:first-child) {
     @apply mt-3;
   }
 
+  .article-editor-content > :is(h1, h2, h3):not(:first-child) {
+    @apply mt-6;
+  }
+
   .article-editor-content h1 {
-    @apply mt-4 text-2xl font-semibold tracking-tight;
+    @apply text-2xl font-semibold tracking-tight;
   }
 
   .article-editor-content h2 {
-    @apply mt-4 text-xl font-semibold tracking-tight;
+    @apply text-xl font-semibold tracking-tight;
   }
 
   .article-editor-content h3 {
-    @apply mt-3 text-lg font-semibold;
+    @apply text-lg font-semibold;
   }
 
   .article-editor-content table {
@@ -681,7 +927,145 @@
 
   .article-editor-content th,
   .article-editor-content td {
-    @apply border px-3 py-2 text-left;
+    @apply border px-3 py-2 text-start;
+  }
+
+  /* Article preview: the typesetting of the public article page
+     (apps/worker/src/routes/paper-page-styles.ts, the `article …` rules),
+     on the app's own colors. Same serif, size, measure and block rhythm, so
+     line breaks and spacing match what a reader will see. Keep the two in
+     step when either changes. */
+  .article-paper {
+    @apply mx-auto w-full max-w-[31.5rem];
+    font-family:
+      "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Songti SC",
+      "STSong", "Noto Serif CJK SC", "Noto Serif SC", "Source Han Serif SC",
+      SimSun, serif;
+    font-kerning: normal;
+  }
+
+  .article-paper .memo-markdown {
+    font-size: 17px;
+    line-height: 1.9;
+    hanging-punctuation: first;
+  }
+
+  .article-paper .memo-markdown > * + *,
+  .article-paper .memo-markdown p + p {
+    margin-top: 0;
+  }
+
+  .article-paper .memo-markdown :is(p, ul, ol) {
+    margin-bottom: 1.05em;
+  }
+
+  .article-paper .memo-markdown :is(h1, h2, h3, h4, h5, h6) {
+    margin: 1.9em 0 0.7em;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  .article-paper .memo-markdown > :first-child {
+    margin-top: 0;
+  }
+
+  .article-paper .memo-markdown h1 {
+    font-size: 1.85rem;
+    margin-top: 0;
+  }
+
+  .article-paper .memo-markdown h2 {
+    font-size: 1.35rem;
+  }
+
+  .article-paper .memo-markdown h3 {
+    font-size: 1.12rem;
+  }
+
+  .article-paper .memo-markdown :is(h4, h5, h6) {
+    font-size: 1em;
+  }
+
+  .article-paper .memo-markdown strong {
+    font-weight: 650;
+  }
+
+  .article-paper .memo-markdown a {
+    @apply font-normal text-foreground decoration-primary decoration-1 underline-offset-[0.22em] hover:text-primary dark:text-foreground dark:hover:text-primary;
+  }
+
+  .article-paper .memo-markdown blockquote {
+    @apply my-[1.5em] border-s-2 border-primary py-[0.1em] ps-[1.2em] text-muted-foreground;
+  }
+
+  .article-paper .memo-markdown blockquote > :last-child {
+    margin-bottom: 0;
+  }
+
+  .article-paper .memo-markdown code {
+    @apply rounded-[3px] border-0 bg-muted px-[0.36em] py-[0.12em] text-[0.84em];
+  }
+
+  .article-paper .memo-markdown pre {
+    @apply my-[1.4em] rounded-[4px] border border-border/60 bg-muted px-[1.15em] py-[1em] text-[0.82rem] leading-[1.65];
+  }
+
+  .article-paper .memo-markdown pre code {
+    @apply bg-transparent p-0 text-[length:inherit] leading-[inherit];
+  }
+
+  .article-paper .memo-markdown table {
+    @apply my-[1.4em] text-[0.9rem];
+  }
+
+  .article-paper .memo-markdown :is(th, td) {
+    @apply border-0 border-b border-border px-[0.6em] py-[0.5em] text-start;
+  }
+
+  .article-paper .memo-markdown th {
+    @apply font-semibold border-muted-foreground/60;
+  }
+
+  .article-paper .memo-markdown hr {
+    @apply my-[2.4em] overflow-visible border-0 text-center;
+  }
+
+  .article-paper .memo-markdown hr::after {
+    @apply tracking-[0.6em] text-muted-foreground/70;
+    content: "· · ·";
+  }
+
+  .article-paper .memo-markdown :is(ul, ol) {
+    padding-inline-start: 1.5em;
+  }
+
+  .article-paper .memo-markdown ul ul {
+    list-style-type: circle;
+  }
+
+  .article-paper .memo-markdown li,
+  .article-paper .memo-markdown li + li {
+    margin: 0.25em 0;
+  }
+
+  .article-paper .memo-markdown li:has(> input[type="checkbox"]),
+  .article-paper .memo-markdown li:has(> p > input[type="checkbox"]) {
+    margin-inline-start: -1.5em;
+  }
+
+  .article-paper .memo-markdown input[type="checkbox"] {
+    @apply me-[0.4em] size-[0.95em] align-[-0.1em];
+  }
+
+  .article-paper .memo-markdown img {
+    @apply mx-auto my-[1.6em] block rounded-[2px] border-0 shadow-[0_1px_2px_rgb(60_40_10/0.12),0_10px_24px_-14px_rgb(60_40_10/0.35)];
+  }
+
+  /* Public pages render #tags as plain text. */
+  .article-paper .memo-markdown .memo-tag {
+    @apply inline bg-transparent p-0 text-[1em] leading-[inherit] text-inherit dark:bg-transparent;
   }
 
   /* flomo-style idle composer: an unfocused empty box shrinks to one quiet
@@ -732,12 +1116,12 @@
 
   .composer-editor-content blockquote,
   .article-editor-content blockquote {
-    @apply my-3 rounded-e-md border-s-2 border-brand-300 bg-brand-50 py-1 pe-3 ps-4 text-muted-foreground dark:border-brand-600 dark:bg-brand-400/5;
+    @apply my-3 border-s-2 border-primary/45 py-0.5 ps-4 text-muted-foreground;
   }
 
   .composer-editor-content code,
   .article-editor-content code {
-    @apply rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
+    @apply rounded-[5px] border border-border/60 bg-muted/70 px-1 py-px font-mono text-[0.85em];
   }
 
   .composer-editor-content pre,
@@ -747,7 +1131,7 @@
 
   .composer-editor-content pre code,
   .article-editor-content pre code {
-    @apply bg-transparent p-0;
+    @apply rounded-none border-0 bg-transparent p-0 text-[13px] leading-6;
   }
 
   .composer-editor-content img,
@@ -761,6 +1145,30 @@
     @apply my-3 list-none ps-1;
   }
 
+  /* A note's lists sit in the text flow with the same rhythm as paragraphs
+     (articles keep their airier block spacing). */
+  .composer-editor-content ul,
+  .composer-editor-content ol,
+  .composer-editor-content ul[data-type="taskList"] {
+    @apply my-1;
+  }
+
+  /* The first block starts on the first line. The container scrolls, so a
+     child's top margin never collapses into its padding: without this,
+     turning an empty note into a list dropped the caret 12px below where the
+     placeholder stood. The task-list selector repeats to outrank its rule. */
+  .composer-editor-content > :first-child,
+  .composer-editor-content > ul[data-type="taskList"]:first-child,
+  .article-editor-content > :first-child,
+  .article-editor-content > ul[data-type="taskList"]:first-child {
+    @apply mt-0;
+  }
+
+  .composer-editor-content > :last-child,
+  .composer-editor-content > ul[data-type="taskList"]:last-child {
+    @apply mb-0;
+  }
+
   .composer-editor-content ul[data-type="taskList"] li,
   .article-editor-content ul[data-type="taskList"] li {
     @apply flex items-start gap-2;
@@ -771,14 +1179,41 @@
     @apply mt-[5px] shrink-0 select-none;
   }
 
-  .composer-editor-content ul[data-type="taskList"] li > label input[type="checkbox"],
-  .article-editor-content ul[data-type="taskList"] li > label input[type="checkbox"] {
+  .composer-editor-content
+    ul[data-type="taskList"]
+    li
+    > label
+    input[type="checkbox"],
+  .article-editor-content
+    ul[data-type="taskList"]
+    li
+    > label
+    input[type="checkbox"] {
     @apply size-4 accent-brand-500;
   }
 
-  .composer-editor-content ul[data-type="taskList"] li[data-checked="true"] > div,
-  .article-editor-content ul[data-type="taskList"] li[data-checked="true"] > div {
+  .composer-editor-content
+    ul[data-type="taskList"]
+    li[data-checked="true"]
+    > div,
+  .article-editor-content
+    ul[data-type="taskList"]
+    li[data-checked="true"]
+    > div {
     @apply text-muted-foreground line-through;
+  }
+
+  /* Links read as links while writing, same ink as the reading view. The
+     editor does not follow them on click (openOnClick: false), so the
+     pointer stays a text caret. */
+  .composer-editor-content a,
+  .article-editor-content a {
+    @apply cursor-text font-medium text-brand-600 underline decoration-brand-400/40 underline-offset-4 dark:text-brand-300;
+  }
+
+  .composer-editor-content hr,
+  .article-editor-content hr {
+    @apply my-4 border-border/60;
   }
 
   /* `#tag` chips are a typing-time decoration; storage keeps plain text. */
@@ -829,6 +1264,21 @@
   /* Timestamp chips: tappable cues in a transcript. */
   .memo-timestamp {
     @apply mr-1.5 inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 font-mono text-[0.8em] text-brand-700 tabular-nums transition-colors hover:bg-brand-100 dark:bg-brand-400/12 dark:text-brand-200 dark:hover:bg-brand-400/20;
+  }
+
+  /* An in-text #tag: a quiet chip at the point it was written. It never
+     breaks between the hash and the name. */
+  .memo-markdown .memo-tag {
+    @apply inline-block rounded-md bg-muted px-1 align-baseline text-[0.92em] leading-[1.6] whitespace-nowrap text-foreground/75 no-underline decoration-transparent dark:bg-muted/80;
+  }
+
+  /* An @mention: a name, not a filter. Brand-tinted ink, no chip. */
+  .memo-markdown .memo-mention {
+    @apply font-medium whitespace-nowrap text-brand-700 dark:text-brand-300;
+  }
+
+  .memo-markdown button.memo-tag {
+    @apply cursor-pointer motion-safe:transition-colors hover:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_8%)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
   }
 
   .memo-timestamp-static {

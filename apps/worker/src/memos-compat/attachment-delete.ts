@@ -6,6 +6,7 @@
  * identical copies of this sequence; the surrounding error envelope stays
  * the caller's business.
  */
+import { thumbnailKeyFor } from "@flaremo/contracts/constants";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import {
   finalizeAttachmentDelete,
@@ -20,7 +21,11 @@ export async function deleteMemosAttachment(
   attachmentId: string,
 ) {
   const attachment = await markAttachmentDeleting(db, user, attachmentId);
-  await env.ATTACHMENTS.delete(attachment.r2Key);
+  await env.ATTACHMENTS.delete(
+    attachment.payload?.thumbnail === true
+      ? [attachment.r2Key, thumbnailKeyFor(attachment.r2Key)]
+      : attachment.r2Key,
+  );
   await finalizeAttachmentDelete(db, user, attachment.id);
   return attachment;
 }

@@ -86,6 +86,16 @@ export function buildActivityCountMap(
   return map;
 }
 
+/** Sum the activity counts for a concrete list of local day keys. */
+export function sumActivityCountsForDays(
+  countMap: ReadonlyMap<string, number>,
+  dayKeys: readonly string[],
+): number {
+  let total = 0;
+  for (const key of dayKeys) total += countMap.get(key) ?? 0;
+  return total;
+}
+
 /**
  * Day key -> four quadrant totals from hourly records:
  * q0: 00-06h (深夜), q1: 06-12h (上午), q2: 12-18h (下午), q3: 18-24h (晚上).

@@ -1,14 +1,16 @@
 {
   "name": "@flaremo/web",
-  "license": "AGPL-3.0-only",
+  "version": "0.33.0",
   "private": true,
-  "version": "0.22.1",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && tsc --noEmit -p tsconfig.team-projects.json && vite build",
-    "check": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false && tsc --noEmit -p tsconfig.team-projects.json --pretty false",
-    "typecheck": "tsc -b --pretty false && tsc --noEmit -p tsconfig.team-projects.json --pretty false",
+    "build": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast && vite build",
+    "check": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast",
+    "typecheck": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast",
+    "typecheck:strict": "tsrs --noEmit -p tsconfig.app.json --pretty false && tsrs --noEmit -p tsconfig.node.json --pretty false",
+    "typecheck:tsc": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests",
     "preview": "vite preview"
   },
@@ -26,7 +28,9 @@
     "@tailwindcss/vite": "^4",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-router": "^1.140.0",
+    "@tanstack/react-virtual": "^3.14.22",
     "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-bubble-menu": "^3.31.3",
     "@tiptap/extension-code-block-lowlight": "^3.31.3",
     "@tiptap/extension-image": "^3.31.3",
     "@tiptap/extension-list": "^3.31.3",
@@ -36,7 +40,7 @@
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
-    "better-auth": "1.6.25",
+    "better-auth": "1.7.14",
     "boring-avatars": "^2.0.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -60,9 +64,8 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
     "react-grab": "^0.2.0",
-    "shadcn": "^4.12.0",
     "typescript": "^5.9.3",
     "unified": "^11.0.5",
-    "vite": "^8"
+    "vite": "^8.3.5"
   }
 }

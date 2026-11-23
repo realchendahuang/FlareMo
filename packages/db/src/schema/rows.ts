@@ -1,15 +1,6 @@
 import type { authApiKeys, authBootstrap, authUsers, users } from "./auth";
 import type { articles, attachments, shares } from "./content";
-import type {
-  memoryCompileArchives,
-  memoryEvents,
-  memoryEvidence,
-  memoryItems,
-  memoryRejections,
-  memoryRelations,
-  memoryResourceLinks,
-  memoryRevisions,
-} from "./memory";
+import type { memoInsights } from "./insight";
 import type {
   memoRevisions,
   memos,
@@ -26,6 +17,7 @@ import type {
   memosWebhooks,
   pushSubscriptions,
 } from "./social";
+import type { nativePushDevices, syncChanges } from "./sync";
 import type { projects, taskActivity, tasks } from "./tasks";
 import type { embeddingTasks, usageCounters } from "./usage";
 
@@ -68,20 +60,6 @@ export type DataTaskRow = typeof dataTasks.$inferSelect;
 export type NewDataTaskRow = typeof dataTasks.$inferInsert;
 export type MemberRemovalJobRow = typeof memberRemovalJobs.$inferSelect;
 export type NewMemberRemovalJobRow = typeof memberRemovalJobs.$inferInsert;
-export type MemoryItemRow = typeof memoryItems.$inferSelect;
-export type NewMemoryItemRow = typeof memoryItems.$inferInsert;
-export type MemoryRevisionRow = typeof memoryRevisions.$inferSelect;
-export type MemoryRelationRow = typeof memoryRelations.$inferSelect;
-export type MemoryResourceLinkRow = typeof memoryResourceLinks.$inferSelect;
-export type MemoryEvidenceRow = typeof memoryEvidence.$inferSelect;
-export type NewMemoryEvidenceRow = typeof memoryEvidence.$inferInsert;
-export type MemoryEventRow = typeof memoryEvents.$inferSelect;
-export type NewMemoryEventRow = typeof memoryEvents.$inferInsert;
-export type MemoryRejectionRow = typeof memoryRejections.$inferSelect;
-export type NewMemoryRejectionRow = typeof memoryRejections.$inferInsert;
-export type MemoryCompileArchiveRow = typeof memoryCompileArchives.$inferSelect;
-export type NewMemoryCompileArchiveRow =
-  typeof memoryCompileArchives.$inferInsert;
 export type EmbeddingTaskRow = typeof embeddingTasks.$inferSelect;
 export type NewEmbeddingTaskRow = typeof embeddingTasks.$inferInsert;
 export type UsageCounterRow = typeof usageCounters.$inferSelect;
@@ -92,3 +70,9 @@ export type TaskRow = typeof tasks.$inferSelect;
 export type NewTaskRow = typeof tasks.$inferInsert;
 export type TaskActivityRow = typeof taskActivity.$inferSelect;
 export type NewTaskActivityRow = typeof taskActivity.$inferInsert;
+export type MemoInsightRow = typeof memoInsights.$inferSelect;
+export type NewMemoInsightRow = typeof memoInsights.$inferInsert;
+export type SyncChangeRow = typeof syncChanges.$inferSelect;
+export type NewSyncChangeRow = typeof syncChanges.$inferInsert;
+export type NativePushDeviceRow = typeof nativePushDevices.$inferSelect;
+export type NewNativePushDeviceRow = typeof nativePushDevices.$inferInsert;

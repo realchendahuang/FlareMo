@@ -13,6 +13,8 @@ export type CreateAttachmentMetadataInput = {
   filename: string;
   contentType?: string | null;
   size: number;
+  /** Bytes of the derived preview object, which is stored separately. */
+  thumbnailSize?: number;
   r2Key: string;
   state?: "ready" | "deleting" | "missing";
   clientId?: string | null;
@@ -57,6 +59,7 @@ export async function createAttachmentMetadata(
     filename: input.filename,
     contentType: input.contentType ?? null,
     size: input.size,
+    thumbnailSize: input.thumbnailSize ?? 0,
     state: input.state ?? "ready",
     clientId,
     etag: input.etag ?? null,

@@ -108,9 +108,7 @@ async function buildTier(
       JSON.parse(new TextDecoder().decode(manifestBytes)),
     );
     if (!manifest) {
-      throw new Error(
-        `plugins/${tier}/${folder}: ${problems.join("; ")}`,
-      );
+      throw new Error(`plugins/${tier}/${folder}: ${problems.join("; ")}`);
     }
     if (manifest.id !== folder) {
       throw new Error(
@@ -134,7 +132,10 @@ async function buildTier(
     if (errors.length > 0) {
       throw new Error(
         `plugins/${tier}/${folder} failed validation:\n${errors
-          .map((issue) => `  - ${issue.where ? `${issue.where}: ` : ""}${issue.message}`)
+          .map(
+            (issue) =>
+              `  - ${issue.where ? `${issue.where}: ` : ""}${issue.message}`,
+          )
           .join("\n")}`,
       );
     }
@@ -192,19 +193,19 @@ async function buildTier(
         : {}),
       preview,
       contributes: {
-        shareCardTemplates: (
-          manifest.contributes.shareCardTemplates ?? []
-        ).map((card) => ({
-          id: card.id,
-          kind: card.kind,
-          name: card.name,
-          ...(card.description ? { description: card.description } : {}),
-          ...(card.size ? { size: card.size } : {}),
-          ...(card.options ? { options: card.options } : {}),
-          ...(cardPreviews[card.id]
-            ? { preview: cardPreviews[card.id] }
-            : {}),
-        })),
+        shareCardTemplates: (manifest.contributes.shareCardTemplates ?? []).map(
+          (card) => ({
+            id: card.id,
+            kind: card.kind,
+            name: card.name,
+            ...(card.description ? { description: card.description } : {}),
+            ...(card.size ? { size: card.size } : {}),
+            ...(card.options ? { options: card.options } : {}),
+            ...(cardPreviews[card.id]
+              ? { preview: cardPreviews[card.id] }
+              : {}),
+          }),
+        ),
       },
       artifact: {
         url: `${manifest.id}/${artifactName}`,

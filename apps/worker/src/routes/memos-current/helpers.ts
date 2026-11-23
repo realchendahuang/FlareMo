@@ -5,10 +5,12 @@ import {
   getAuthBootstrapStatus,
   type getMemoById,
   getMemoByIdForViewer,
+  getMemosByIdsForViewer,
   getUserRegistrationAllowed,
   isInstanceOwner,
   listMemoAttachmentsForViewer,
   listMemoRelationsForViewer,
+  NotFoundError,
   UnauthorizedError,
   type updateMemo,
 } from "@flaremo/domain";
@@ -72,12 +74,23 @@ export async function currentRelations(
     context.user,
     memoId,
   );
+  if (rows.length === 0) return [];
+  // Fetch both endpoints of every relation in one scoped read. Passing the
+  // single-id helper here issued two extra round trips per relation — on a
+  // memo with 50 comments that is 100 queries to render one detail page.
+  const memosById = await getMemosByIdsForViewer(
+    context.db,
+    context.user,
+    [...new Set(rows.flatMap((row) => [row.memoId, row.relatedMemoId]))],
+    { includeDeleted: true },
+  );
   return memoRelationsToDtos(
     rows,
-    (id) =>
-      getMemoByIdForViewer(context.db, context.user, id, {
-        includeDeleted: true,
-      }),
+    async (id) => {
+      const memo = memosById.get(id);
+      if (!memo) throw new NotFoundError("Memo not found");
+      return memo;
+    },
     { skipUnavailable: true },
   );
 }
@@ -194,7 +207,7 @@ function unwrapNestedBody<T extends Record<string, unknown>>(
   key: keyof T,
 ): T {
   const nested = isRecord(body[key]) ? body[key] : undefined;
-  return { ...body, ...(nested ?? {}) } as T;
+  return (nested ? { ...body, ...nested } : { ...body }) as T;
 }
 
 export function unwrapMemoBody(body: z.infer<typeof currentMemoBodySchema>) {

@@ -1,6 +1,11 @@
-import { KeyRoundIcon, RefreshCcwIcon, ShieldCheckIcon } from "lucide-react";
+import { KeyRoundIcon, MailIcon, RefreshCcwIcon } from "lucide-react";
 import { useState } from "react";
 import { InfoTip } from "@/components/info-tip";
+import {
+  SettingsRow,
+  SettingsSectionGroup,
+} from "@/components/settings-section";
+import { Alert } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +31,6 @@ import {
   MIN_PASSWORD_LENGTH,
   useCloseOnSuccess,
 } from "./account-panel-presets";
-import { SettingsRow, SettingsSectionGroup } from "./apple-settings-ui";
 
 /**
  * The account group's email and password rows with their dialogs. Like the
@@ -97,7 +101,7 @@ export function AccountCredentialsSection({
   return (
     <>
       <SettingsRow
-        icon={ShieldCheckIcon}
+        icon={MailIcon}
         label={
           <div className="flex items-center gap-1.5">
             <span>{t("auth.emailTitle")}</span>
@@ -168,11 +172,7 @@ export function AccountCredentialsSection({
                 onChange={(event) => setNewEmail(event.target.value)}
               />
             </label>
-            {emailError && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                {emailError}
-              </p>
-            )}
+            {emailError && <Alert variant="destructive">{emailError}</Alert>}
             <DialogFooter className="mt-2">
               <Button
                 disabled={changeEmailIsPending}
@@ -256,9 +256,7 @@ export function AccountCredentialsSection({
               />
             </label>
             {passwordError && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                {passwordError}
-              </p>
+              <Alert variant="destructive">{passwordError}</Alert>
             )}
             <DialogFooter className="mt-2">
               <Button
@@ -345,11 +343,7 @@ export function DeleteAccountSection({
                 onChange={(event) => setDeletePassword(event.target.value)}
               />
             </label>
-            {deleteError && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-                {deleteError}
-              </p>
-            )}
+            {deleteError && <Alert variant="destructive">{deleteError}</Alert>}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel

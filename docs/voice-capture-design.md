@@ -1,5 +1,7 @@
 # Voice Capture design
 
+> **v0.24.0:** the standalone `/capture` page has been removed. Voice input now lives only in the composer's microphone button; the Worker bridge, provider adapters and limits described here are unchanged. Page-specific sections are kept as history.
+
 FlareMo owns the full product: React/PWA → same-origin Worker → Tencent Cloud or DashScope → browser transcript → existing Memo API → D1/FTS and the configured embedding pipeline. `circleoflife/realtime-context` supplies the reference audio/ASR approach, not another deployed service. There are no new database tables, authentication tokens, Durable Objects, or original-audio attachments in V1.
 
 ## Audio and browser lifecycle

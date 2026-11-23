@@ -17,6 +17,7 @@ import {
 import { type CSSProperties, useState } from "react";
 import { toast } from "sonner";
 import { deleteTask, type Task, type TaskStatus, updateTask } from "@/api";
+import { formatScheduleDay } from "@/components/composer/composer-schedule-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/i18n";
+import { todayKey } from "@/lib/calendar-date";
 import { errorMessage } from "@/lib/error";
 import { queryKeys } from "@/lib/query-keys";
 import { cn, stripResourceName } from "@/lib/utils";
@@ -74,7 +76,7 @@ export function TaskCard({
   task: Task;
   onMutated: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -95,7 +97,16 @@ export function TaskCard({
       );
       return snapshots;
     },
-    onSuccess: () => onMutated(),
+    onSuccess: (_data, input) => {
+      onMutated();
+      // Completing a task ticks its line in the source memo on the server.
+      if (task.source_memo_id && input.status !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.memoContext.all,
+        });
+      }
+    },
     onError: (error, _input, snapshots) => {
       for (const [key, value] of snapshots ?? []) {
         queryClient.setQueryData(key, value);
@@ -148,6 +159,8 @@ export function TaskCard({
   const sourceMemoId = task.source_memo_id
     ? stripResourceName(task.source_memo_id, "memos")
     : null;
+  const showUnassigned = !projectName && !task.project_id;
+  const hasMeta = Boolean(projectName || showUnassigned || sourceMemoId);
 
   return (
     <>
@@ -156,49 +169,42 @@ export function TaskCard({
           "group",
           interactive && "cursor-grab active:cursor-grabbing",
         )}
+        size="sm"
       >
-        <CardContent className="flex flex-col gap-2 p-3">
-          <div className="flex items-center gap-1.5">
-            {projectName && (
-              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                {projectName}
-              </span>
-            )}
-            {!projectName && !task.project_id && (
-              <Badge className="text-xs" variant="outline">
-                {t("projects.unassigned")}
-              </Badge>
-            )}
-            {sourceMemoId && (
-              <Badge
-                className="text-xs"
-                render={
-                  <Link
-                    params={{ memoId: sourceMemoId }}
-                    title={t("projects.fromMemo")}
-                    to="/memo/$memoId"
-                  />
-                }
-                variant="brand"
-              >
-                <NotebookTextIcon />
-                {t("projects.fromMemo")}
-              </Badge>
-            )}
-            {interactive && (
-              <GripVerticalIcon
-                aria-hidden="true"
-                className={cn(
-                  "ml-auto size-3.5 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100",
-                  COARSE_VISIBLE,
-                )}
-              />
-            )}
-          </div>
+        <CardContent className="flex flex-col gap-2">
+          {/* Only when there is something to say: an empty meta row left a
+              blank band above the title on every project board card. */}
+          {hasMeta && (
+            <div className="flex items-center gap-1.5">
+              {projectName && (
+                <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                  {projectName}
+                </span>
+              )}
+              {showUnassigned && (
+                <Badge variant="outline">{t("projects.unassigned")}</Badge>
+              )}
+              {sourceMemoId && (
+                <Badge
+                  render={
+                    <Link
+                      params={{ memoId: sourceMemoId }}
+                      title={t("projects.fromMemo")}
+                      to="/memo/$memoId"
+                    />
+                  }
+                  variant="outline"
+                >
+                  <NotebookTextIcon />
+                  {t("projects.fromMemo")}
+                </Badge>
+              )}
+            </div>
+          )}
           <div className="flex items-start gap-2">
             <button
               aria-label={t(ADVANCE_KEY[task.status])}
-              className="mt-0.5 shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
+              className="mt-0.5 shrink-0 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/25"
               title={t(ADVANCE_KEY[task.status])}
               type="button"
               onClick={advance}
@@ -215,11 +221,21 @@ export function TaskCard({
             >
               {task.title}
             </span>
+            {interactive && (
+              <GripVerticalIcon
+                aria-hidden="true"
+                className={cn(
+                  "mt-1 size-3.5 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100",
+                  COARSE_VISIBLE,
+                )}
+              />
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
-                    className={MORE_BUTTON_CLASS}
+                    aria-label={t("common.more")}
+                    className={cn(MORE_BUTTON_CLASS, "-my-1 -me-1")}
                     size="icon-sm"
                     variant="ghost"
                   >
@@ -270,9 +286,18 @@ export function TaskCard({
                 </Badge>
               )}
               {task.due_at && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <CalendarDaysIcon data-icon="inline-start" />
-                  {task.due_at}
+                <span
+                  className={cn(
+                    "flex items-center gap-1 text-xs text-muted-foreground",
+                    task.status !== "done" &&
+                      task.due_at.slice(0, 10) < todayKey() &&
+                      "text-destructive",
+                  )}
+                >
+                  <CalendarDaysIcon aria-hidden="true" className="size-3.5" />
+                  {task.due_at.slice(0, 10) === todayKey()
+                    ? t("composer.schedule.today")
+                    : formatScheduleDay(task.due_at.slice(0, 10), locale)}
                 </span>
               )}
             </div>

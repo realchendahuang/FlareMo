@@ -1,18 +1,20 @@
-import { FLAREMO_API_VERSION } from "@flaremo/contracts";
+import { FLAREMO_API_VERSION } from "@flaremo/contracts/constants";
 import {
   canManageVoiceService,
+  countOrganizationMembers,
   getBranding,
   getMembershipState,
+  getSchedulerHeartbeat,
   isInstanceOwner,
   updateFlaremoUserProfile,
   ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { getRequestContext, type HonoBindings } from "../../context";
 import { jsonError } from "../../http";
 import { getAuthUserCached } from "../../identity-cache";
+import { zValidator } from "../../validated";
 import { normalizeGitHubRepository } from "./helpers";
 
 const FLAREMO_RELEASES_URL =
@@ -23,6 +25,17 @@ const FLAREMO_UPDATE_GUIDE_URL =
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   avatar_url: z.string().nullable().optional(),
+});
+
+// Update checks proxy through the Worker: browsers in mainland China often
+// cannot reach api.github.com, and the unauthenticated GitHub API allows only
+// 60 requests/hour per IP. The reply is cached at the edge for ten minutes.
+const DEFAULT_RELEASE_REPOSITORY = "realchendahuang/FlareMo";
+const RELEASE_CACHE_TTL_SECONDS = 600;
+const gitHubReleaseSchema = z.object({
+  tag_name: z.string(),
+  name: z.string().nullable().optional(),
+  published_at: z.string().nullable().optional(),
 });
 
 export function registerMeRoutes(app: Hono<HonoBindings>) {
@@ -45,6 +58,10 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
         state?.role === "reader" &&
         state.expiresAt !== null &&
         state.expiresAt.getTime() <= Date.now();
+      const memberCount =
+        state && !teamExpired
+          ? await countOrganizationMembers(db, state.organizationId)
+          : 0;
       const avatarUrl = user.avatarUrl ?? resolvedAuthUser?.image ?? null;
       return c.json({
         id: user.id,
@@ -58,7 +75,11 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
         avatar_url: avatarUrl,
         team:
           state && !teamExpired
-            ? { id: state.organizationId, name: state.organizationName }
+            ? {
+                id: state.organizationId,
+                name: state.organizationName,
+                member_count: memberCount,
+              }
             : null,
         team_expired: teamExpired,
         ...(state?.role === "reader"
@@ -127,6 +148,15 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
       await c.env.ATTACHMENTS.put(key, bytes, {
         httpMetadata: { contentType },
       });
+      // The reader probes webp → png → jpg → gif in order, so an old-format
+      // object would keep winning after a format switch. Drop the siblings
+      // once the new object is safely written.
+      for (const other of ["webp", "png", "jpg", "gif"] as const) {
+        if (other === ext) continue;
+        await c.env.ATTACHMENTS.delete(
+          `avatars/users/${bareUserId}.${other}`,
+        ).catch(() => undefined);
+      }
       const avatarUrl = `/api/app/avatar/${encodeURIComponent(bareUserId)}?v=${Date.now()}`;
       await updateFlaremoUserProfile(db, user, {
         avatarUrl,
@@ -165,7 +195,11 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
       );
       if (object) {
         const headers = new Headers();
-        object.writeHttpMetadata(headers);
+        // Read the metadata directly instead of `writeHttpMetadata`: the
+        // latter hands the runtime a Headers object that Miniflare's R2 proxy
+        // cannot serialize in tests ("Cannot stringify arbitrary non-POJOs").
+        const contentType = object.httpMetadata?.contentType;
+        if (contentType) headers.set("content-type", contentType);
         headers.set("etag", object.httpEtag);
         headers.set("Cache-Control", "public, max-age=3600");
         return new Response(object.body, { headers });
@@ -178,9 +212,12 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
     try {
       const { db } = await getRequestContext(c);
       const repository = normalizeGitHubRepository(
-        c.env.FLAREMO_DEPLOY_REPOSITORY,
+        c.env.FLAREMO_DEPLOY_REPOSITORY ?? "",
       );
-      const branding = await getBranding(db);
+      const [branding, scheduler] = await Promise.all([
+        getBranding(db),
+        getSchedulerHeartbeat(db),
+      ]);
       return c.json({
         ok: true,
         product: branding.product,
@@ -199,7 +236,83 @@ export function registerMeRoutes(app: Hono<HonoBindings>) {
         // Non-secret capability flags the UI needs (e.g. to explain that the
         // forgot-password flow is closed when no email provider is configured).
         email_provider: (c.env.FLAREMO_EMAIL_PROVIDER ?? "none").trim(),
+        // Non-secret cron execution summary (null before the first scheduled run).
+        scheduler,
       });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  });
+
+  /**
+   * Latest stable release, recency-cached at the edge. The web client renders
+   * the in-app "System update" entry from this payload instead of calling
+   * api.github.com directly.
+   */
+  app.get("/releases/latest", async (c) => {
+    try {
+      await getRequestContext(c);
+      const repositoryParam = c.req.query("repository");
+      const requested = repositoryParam
+        ? normalizeGitHubRepository(repositoryParam)
+        : (normalizeGitHubRepository(c.env.FLAREMO_DEPLOY_REPOSITORY ?? "") ??
+          DEFAULT_RELEASE_REPOSITORY);
+      if (!requested) {
+        throw new ValidationError("Repository must look like <owner>/<name>.");
+      }
+      const response = await fetch(
+        `https://api.github.com/repos/${requested}/releases/latest`,
+        {
+          headers: {
+            accept: "application/vnd.github+json",
+            "user-agent": "FlareMo",
+          },
+          cf: {
+            cacheEverything: true,
+            cacheTtl: RELEASE_CACHE_TTL_SECONDS,
+          },
+        },
+      );
+      if (!response.ok) {
+        return c.json(
+          {
+            error: {
+              message: `GitHub release check failed (${response.status})`,
+            },
+          },
+          502,
+        );
+      }
+      const parsed = gitHubReleaseSchema.safeParse(await response.json());
+      if (!parsed.success) {
+        return c.json(
+          {
+            error: { message: "GitHub returned an unexpected release payload" },
+          },
+          502,
+        );
+      }
+      const version = parsed.data.tag_name.replace(/^v/, "");
+      if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+        return c.json(
+          {
+            error: {
+              message: "GitHub returned an invalid FlareMo release version",
+            },
+          },
+          502,
+        );
+      }
+      return c.json(
+        {
+          version,
+          name: parsed.data.name?.trim() || `v${version}`,
+          published_at: parsed.data.published_at ?? null,
+          url: `https://github.com/${requested}/releases/tag/v${encodeURIComponent(version)}`,
+        },
+        200,
+        { "Cache-Control": "private, max-age=300" },
+      );
     } catch (error) {
       return jsonError(c, error);
     }

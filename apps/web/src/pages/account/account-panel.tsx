@@ -7,6 +7,7 @@
 
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { PersonalAccessToken } from "@/api";
+import { SettingsSectionGroup } from "@/components/settings-section";
 import type { TranslationKey, TranslationParams } from "@/i18n";
 import {
   AccountCredentialsSection,
@@ -14,7 +15,6 @@ import {
 } from "./account-credentials-section";
 import { AccountProfileSection } from "./account-profile-section";
 import { AccountTokensSection } from "./account-tokens-section";
-import { SettingsSectionGroup } from "./apple-settings-ui";
 
 export { MIN_PASSWORD_LENGTH } from "./account-panel-presets";
 
@@ -79,9 +79,11 @@ export type AccountPanelProps = {
   revokingTokenId: string | undefined;
   setTokenExpiryDays: (value: string) => void;
   setTokenName: (value: string) => void;
+  setTokenScopes: (value: import("@flaremo/contracts").MemosPatScope[]) => void;
   tokenError: string | null;
   tokenExpiryDays: string;
   tokenName: string;
+  tokenScopes: import("@flaremo/contracts").MemosPatScope[];
   tokensQuery: UseQueryResult<
     { personal_access_tokens: PersonalAccessToken[] },
     Error
@@ -153,9 +155,11 @@ export function AccountPanel({
   revokingTokenId,
   setTokenExpiryDays,
   setTokenName,
+  setTokenScopes,
   tokenError,
   tokenExpiryDays,
   tokenName,
+  tokenScopes,
   tokensQuery,
   onCopyToken,
   onCreateToken,
@@ -168,7 +172,7 @@ export function AccountPanel({
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Account & Credentials */}
-      <SettingsSectionGroup title={t("settings.group.account")}>
+      <SettingsSectionGroup>
         <AccountProfileSection
           accountError={accountError}
           avatarError={avatarError}
@@ -230,10 +234,12 @@ export function AccountPanel({
         revokingTokenId={revokingTokenId}
         setTokenExpiryDays={setTokenExpiryDays}
         setTokenName={setTokenName}
+        setTokenScopes={setTokenScopes}
         t={t}
         tokenError={tokenError}
         tokenExpiryDays={tokenExpiryDays}
         tokenName={tokenName}
+        tokenScopes={tokenScopes}
         tokensQuery={tokensQuery}
       />
 

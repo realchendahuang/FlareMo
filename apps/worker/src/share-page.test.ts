@@ -147,6 +147,38 @@ describe("Share page (standalone SEO HTML)", () => {
     ).toHaveLength(0);
   });
 
+  it("sends a strict CSP on public share documents", async () => {
+    await seedShare();
+    const response = await shareRequest();
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("encodes uploaded attachment ids before writing them into HTML", async () => {
+    await seedShare();
+    const db = createDb(env.DB);
+    await db.insert(attachments).values({
+      id: 'attachments/x" onerror="alert(1)',
+      userId: "users/e2e-share-owner",
+      memoId: "memos/e2e-share-memo",
+      r2Key: "attachments/e2e-share-malicious",
+      filename: "evil.png",
+      contentType: "image/png",
+      size: 1,
+      state: "ready",
+      etag: "e2e",
+      payload: {},
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    });
+
+    const html = await shareRequest().then((r) => r.text());
+    expect(html).not.toContain('onerror="alert(1)"');
+    expect(html).toContain("%22%20onerror%3D%22alert(1)/blob?preview=1");
+  });
+
   it("renders markdown server-side like the web app, sanitized", async () => {
     await seedShare();
     const html = await shareRequest().then((r) => r.text());
@@ -257,11 +289,64 @@ describe("Unknown-path status semantics (P0-5)", () => {
     // The shell still renders so the SPA shows its not-found UI.
     expect(await unknown.text()).toContain("<title>FlareMo</title>");
 
+    // Agent Memory is gone: neither the SPA page nor its API/MCP surface
+    // should answer any more.
+    for (const path of ["/memory", "/memory/mcp", "/api/app/memory"]) {
+      const removed = await app.fetch(
+        new Request(`https://flaremo.example${path}`),
+        env,
+      );
+      expect(removed.status, path).toBe(404);
+    }
+
     const trailingSlash = await app.fetch(
       new Request("https://flaremo.example/login/"),
       env,
     );
     expect(trailingSlash.status).toBe(200);
+  });
+
+  it('serves the shell itself under not_found_handling "none"', async () => {
+    // The production binding answers 404 for any path that is not a file;
+    // only "/" maps to index.html.
+    const noneEnv = {
+      ...env,
+      ASSETS: {
+        fetch: async (input: RequestInfo | URL) => {
+          const url = new URL(input instanceof Request ? input.url : input);
+          if (url.pathname === "/") {
+            return new Response("<!doctype html><title>FlareMo</title>", {
+              status: 200,
+              headers: { "content-type": "text/html; charset=utf-8" },
+            });
+          }
+          return new Response(null, { status: 404 });
+        },
+      } as Fetcher,
+    } as Env;
+    const known = await app.fetch(
+      new Request("https://flaremo.example/memo/abc", {
+        headers: { "if-none-match": '"stale"' },
+      }),
+      noneEnv,
+    );
+    expect(known.status).toBe(200);
+    expect(await known.text()).toContain("<title>FlareMo</title>");
+
+    const unknown = await app.fetch(
+      new Request("https://flaremo.example/no-such-page"),
+      noneEnv,
+    );
+    expect(unknown.status).toBe(404);
+    expect(await unknown.text()).toContain("<title>FlareMo</title>");
+
+    // A missing file stays a bare 404, never an HTML shell.
+    const missingAsset = await app.fetch(
+      new Request("https://flaremo.example/assets/missing-abcdef12.js"),
+      noneEnv,
+    );
+    expect(missingAsset.status).toBe(404);
+    expect(await missingAsset.text()).toBe("");
   });
 
   it("stays in sync with the web router table", () => {

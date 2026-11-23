@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { FlareMoLogo } from "@/components/flaremo-logo";
-import { InfoTip } from "@/components/info-tip";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import {
   Card,
@@ -26,12 +25,16 @@ export function AuthPageFrame({
 
   return (
     <main className="grid min-h-svh lg:grid-cols-2" data-auth-page>
-      <aside className="relative hidden bg-muted lg:flex lg:flex-col lg:justify-between lg:border-r lg:border-border/60 lg:p-12">
+      <aside className="relative hidden overflow-hidden bg-muted lg:flex lg:flex-col lg:justify-between lg:border-e lg:border-border/60 lg:p-12">
         <div className="flex items-center gap-2.5">
           <FlareMoLogo labelClassName="text-lg" markClassName="size-8" />
         </div>
-        <div className="relative max-w-md py-16">
-          <h1 className="max-w-sm font-heading text-4xl font-semibold leading-tight tracking-tight text-ink xl:text-5xl">
+        <div className="relative max-w-md">
+          <span
+            aria-hidden="true"
+            className="mb-6 block h-1 w-10 rounded-full bg-brand-gradient"
+          />
+          <h1 className="max-w-sm font-heading text-4xl font-semibold leading-[1.1] tracking-tight text-balance text-foreground xl:text-5xl">
             {t("auth.brandTitle")}
           </h1>
         </div>
@@ -43,18 +46,17 @@ export function AuthPageFrame({
           </span>
           <LocaleSwitcher />
         </header>
-        <Card className="w-full max-w-md shadow-lg">
+        <Card className="w-full max-w-[400px] gap-5 py-6 shadow-md [--card-spacing:--spacing(6)]">
           <CardHeader className="gap-2">
             {eyebrow ? (
-              <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
-                {eyebrow}
-              </p>
+              <p className="text-xs font-medium text-primary">{eyebrow}</p>
             ) : null}
-            <CardTitle className="text-xl">{title}</CardTitle>
+            <CardTitle className="text-xl font-semibold tracking-tight">
+              {title}
+            </CardTitle>
             {description ? (
-              <CardDescription className="flex items-start gap-1.5">
-                <InfoTip text={description} />
-                <span className="sr-only">{description}</span>
+              <CardDescription className="text-sm leading-6 text-pretty">
+                {description}
               </CardDescription>
             ) : null}
           </CardHeader>

@@ -1,14 +1,5 @@
 import { z } from "zod";
 import {
-  exportMemoryEventSchema,
-  exportMemoryEvidenceSchema,
-  exportMemoryRelationSchema,
-  exportMemoryResourceLinkSchema,
-  exportMemoryRevisionSchema,
-  importMemorySchema,
-  memoryDtoSchema,
-} from "./memory";
-import {
   projectStatusSchema,
   taskActivityActionSchema,
   taskActorTypeSchema,
@@ -62,7 +53,27 @@ export const memoPayloadSchema = z
   })
   .passthrough();
 
+/**
+ * Client-generated memo id (docs/native-clients.md §7.7 global rule 1: the
+ * client owns the primary key so an offline note can be referenced, scheduled,
+ * or commented on before it ever reaches the server). Accepts `memos/<uuid>`
+ * or a bare uuid; the domain layer normalizes the prefix and the case. Only
+ * UUID-shaped values are allowed — this becomes the row's primary key and part
+ * of its URL, so a free-form string is not accepted.
+ */
+export const createMemoIdSchema = z
+  .string()
+  .trim()
+  .max(64)
+  .regex(
+    /^(?:memos\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Must be a UUID or memos/<uuid>",
+  );
+
 export const createMemoSchema = z.object({
+  // Optional: omitted by every server-side caller (web, MCP, IM, import),
+  // which keeps the server-generated id path unchanged.
+  id: createMemoIdSchema.optional(),
   content: z.string().trim().min(1).max(100_000),
   visibility: memoVisibilitySchema.default("private"),
   payload: memoPayloadSchema.optional(),
@@ -139,6 +150,18 @@ export const dailyReviewQuerySchema = z.object({
   tzOffset: z.coerce.number().int().min(-840).max(840).default(0),
 });
 
+export const reviewMarkSchema = z.object({
+  memoId: z.string().trim().min(1).max(200),
+  /** The viewer-local day the read happened, YYYY-MM-DD. */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  action: z.enum(["reviewed", "mute", "unmute"]),
+});
+
+export const reviewSettingsUpdateSchema = z.object({
+  excludedTags: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  restoreMuted: z.boolean().optional(),
+});
+
 export const randomMemoQuerySchema = z.object({
   /** Comma-separated memo resource names already walked through. */
   exclude: z.string().trim().max(64_000).optional(),
@@ -173,6 +196,8 @@ export const attachmentDtoSchema = z.object({
   update_time: z.string(),
   download_url: z.string(),
   preview_url: z.string(),
+  /** Card-sized WebP preview; absent when none was generated at upload. */
+  thumbnail_url: z.string().optional(),
 });
 
 export const memoDtoSchema = z.object({
@@ -199,6 +224,8 @@ export const memoDtoSchema = z.object({
   // even though they cannot edit them.
   can_govern: z.boolean().optional(),
   attachments: z.array(attachmentDtoSchema).optional(),
+  // Comments under this memo the viewer can read (app timeline only).
+  comment_count: z.number().int().nonnegative().optional(),
 });
 
 export const listMemosResponseSchema = z.object({
@@ -282,7 +309,7 @@ export const shareDtoSchema = z.object({
 });
 
 export const createShareSchema = z.object({
-  expires_at: z.string().datetime().nullable().optional(),
+  expires_at: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export const listMemoSharesResponseSchema = z.object({
@@ -326,7 +353,6 @@ export const memoContextResponseSchema = z.object({
   relations: z.array(memoRelationContextSchema),
   backlinks: z.array(memoRelationContextSchema),
   revisions: z.array(memoRevisionDtoSchema),
-  memories: z.array(memoryDtoSchema),
 });
 
 export const publicShareDtoSchema = z.object({
@@ -341,14 +367,36 @@ export const exportAttachmentSchema = attachmentDtoSchema
     data_base64: z.string().max(48_000_000).optional(),
   });
 
-const importAttachmentSchema = exportAttachmentSchema.partial({
-  state: true,
-  etag: true,
-});
+/**
+ * Imported resource names become D1 keys and, for attachments, URL path
+ * segments in the public share/article renderers. Only accept the character
+ * set our own ids use (plus the optional `prefix/`), so a bundle cannot smuggle
+ * a quote, slash, or whitespace into an id that is later interpolated into
+ * HTML.
+ */
+const importedResourceName = (prefix: "memos" | "attachments") =>
+  z
+    .string()
+    .regex(
+      new RegExp(`^(?:${prefix}/)?[A-Za-z0-9][A-Za-z0-9._~:-]{0,127}$`),
+      `Invalid ${prefix} resource name.`,
+    );
+
+const importAttachmentSchema = exportAttachmentSchema
+  .partial({
+    state: true,
+    etag: true,
+  })
+  .extend({
+    name: importedResourceName("attachments"),
+  });
 
 const importShareSchema = shareDtoSchema.partial({
   update_time: true,
   revoked_at: true,
+  // Since bundle v6 exports omit the capability token: an export file must
+  // never carry working share URLs. Import always mints a fresh token.
+  token: true,
 });
 
 export const importBundleSchema = z.object({
@@ -359,6 +407,8 @@ export const importBundleSchema = z.object({
       z.literal(3),
       z.literal(4),
       z.literal(5),
+      z.literal(6),
+      z.literal(7),
     ])
     .default(1),
   memos: z
@@ -380,31 +430,18 @@ export const importBundleSchema = z.object({
           update_time: true,
           display_time: true,
         })
-        .extend({ source: z.string().max(64).optional() }),
+        .extend({
+          name: importedResourceName("memos"),
+          source: z.string().max(64).optional(),
+          // v6: team-visible memos carry their organization id. Older bundles
+          // omit it and import into the receiver's own team when possible.
+          team_id: z.string().nullable().optional(),
+        }),
     )
     .max(50_000),
   attachments: z.array(importAttachmentSchema).max(5_000).default([]),
   relations: z.array(memoRelationDtoSchema).max(100_000).default([]),
   shares: z.array(importShareSchema).max(10_000).default([]),
-  memories: z.array(importMemorySchema).max(50_000).default([]),
-  memory_revisions: z
-    .array(exportMemoryRevisionSchema)
-    .max(200_000)
-    .default([]),
-  memory_relations: z
-    .array(exportMemoryRelationSchema)
-    .max(100_000)
-    .default([]),
-  memory_resource_links: z
-    .array(exportMemoryResourceLinkSchema)
-    .max(100_000)
-    .default([]),
-  // v5: the memory ledger's evidence chain and lifecycle trail joined the
-  // bundle. Both are user-owned source data (not derived state): without them a
-  // round-trip would drop every "why does this fact exist" link and the whole
-  // supersession narrative, which is the product's core promise.
-  memory_evidence: z.array(exportMemoryEvidenceSchema).max(200_000).default([]),
-  memory_events: z.array(exportMemoryEventSchema).max(200_000).default([]),
   // v4: projects/tasks/task_activity joined the self-service bundle. Rows keep
   // their namespaced ids; soft-deleted (recycle-bin) rows travel with
   // `deleted_at` so nothing is silently dropped from a backup.
@@ -469,7 +506,6 @@ export const importResultSchema = z.object({
   imported_attachments: z.number().int().nonnegative(),
   imported_relations: z.number().int().nonnegative(),
   imported_shares: z.number().int().nonnegative(),
-  imported_memories: z.number().int().nonnegative().default(0),
   imported_projects: z.number().int().nonnegative().default(0),
   imported_tasks: z.number().int().nonnegative().default(0),
   imported_task_activity: z.number().int().nonnegative().default(0),
@@ -508,7 +544,9 @@ export const createDataTaskResponseSchema = z.object({
 
 export const createImportTaskRequestSchema = z.object({
   bundle: importBundleSchema,
-  conflict: importOptionsSchema.shape.conflict.optional(),
+  // Task imports are checkpointed and insert-only, so they cannot overwrite
+  // pre-existing rows. The inline /import endpoint keeps the full enum.
+  conflict: z.enum(["skip", "duplicate"]).optional(),
 });
 
 export const exportManifestSchema = z.object({
@@ -586,10 +624,14 @@ export const appNotificationDtoSchema = z.object({
     "memo_mention",
     "daily_review",
     "task_overdue",
+    "task_due",
   ]),
   status: z.enum(["unread", "archived"]),
   // Task-overdue rows have no memo anchor; memo_snippet carries the title.
   memo: z.string().nullable(),
+  // Parent memo for comment notifications (the thread to open).
+  related_memo: z.string().nullable().optional(),
+  sender_name: z.string().optional(),
   memo_snippet: z.string(),
   create_time: z.string(),
 });
@@ -626,6 +668,29 @@ export type WalkNextQuery = z.infer<typeof walkNextQuerySchema>;
 export type RelatedMemosQuery = z.infer<typeof relatedMemosQuerySchema>;
 export type ReviewWalkVia = z.infer<typeof reviewWalkViaSchema>;
 export type DailyReviewResponse = { memos: MemoDto[] };
+export type ReviewMarkInput = z.infer<typeof reviewMarkSchema>;
+export type ReviewSettingsUpdate = z.infer<typeof reviewSettingsUpdateSchema>;
+/** Why a note is in today's review: a past year's same day, or its age. */
+export type TodayReviewReason =
+  | { type: "years"; years: number }
+  | { type: "ladder"; days: number };
+export type TodayReviewItem = {
+  memo: MemoDto;
+  reason: TodayReviewReason;
+  /** Already read in today's review (here or on another device). */
+  reviewed: boolean;
+};
+export type TodayReviewResponse = { date: string; items: TodayReviewItem[] };
+export type TodayReviewSummaryResponse = {
+  date: string;
+  total: number;
+  reviewed: number;
+  remaining: number;
+};
+export type ReviewSettingsResponse = {
+  excluded_tags: string[];
+  muted_count: number;
+};
 export type RandomMemoResponse = { memo: MemoDto | null };
 export type WalkNextResponse = {
   memo: MemoDto | null;
@@ -676,3 +741,11 @@ export type TagHierarchyResponse = z.infer<typeof tagHierarchyResponseSchema>;
 export type RenameTagInput = z.infer<typeof renameTagRequestSchema>;
 export type RenameTagResponse = z.infer<typeof renameTagResponseSchema>;
 export type DeleteTagResponse = z.infer<typeof deleteTagResponseSchema>;
+
+// A comment is plain prose under its parent memo; it inherits the parent's
+// visibility, so the request carries only the text.
+export const createMemoCommentSchema = z.object({
+  content: z.string().trim().min(1).max(20_000),
+  client_id: z.string().trim().min(1).max(128).optional(),
+});
+export type CreateMemoCommentRequest = z.infer<typeof createMemoCommentSchema>;

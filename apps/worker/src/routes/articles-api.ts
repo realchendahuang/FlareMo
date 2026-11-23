@@ -16,11 +16,11 @@ import {
   updateArticle,
   ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../context";
 import { jsonError } from "../http";
 import { rateLimitGuard } from "../rate-limit";
+import { zValidator } from "../validated";
 
 export const articlesApi = new Hono<HonoBindings>();
 

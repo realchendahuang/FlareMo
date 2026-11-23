@@ -22,6 +22,7 @@ import {
   restoreMemoSnapshot,
 } from "@/lib/memo-cache";
 import { createMemoWithAttachments } from "@/lib/memo-submission";
+import { queryKeys } from "@/lib/query-keys";
 
 /**
  * All memo mutations (create, trash/restore/update/hard-delete, share, tag
@@ -40,12 +41,29 @@ export function useMemoMutations() {
   // changes from serving stale detail data.
   const invalidateWorkspace = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["memos"] }),
-      queryClient.invalidateQueries({ queryKey: ["semantic-search"] }),
-      queryClient.invalidateQueries({ queryKey: ["memo-stats"] }),
-      queryClient.invalidateQueries({ queryKey: ["tag-hierarchy"] }),
-      queryClient.invalidateQueries({ queryKey: ["memo-context"] }),
-      queryClient.invalidateQueries({ queryKey: ["memo-related"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.memos.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.semanticSearch.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.memoStats.all }),
+      // The time-horizon day/week/month/year views read their own stats
+      // queries (60s staleTime); without these they would keep pre-mutation
+      // heat colors after a write.
+      queryClient.invalidateQueries({ queryKey: queryKeys.statsHourly.allDay }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.statsHourly.allMonth,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.statsHourly.allWeek,
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.memoStatsYear.all }),
+      // Day slots are a separate query family: without this the horizon kept
+      // the pre-edit memo list for the selected day.
+      queryClient.invalidateQueries({ queryKey: queryKeys.memosDaySlots.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.tagHierarchy.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.memoContext.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.memoRelated.all }),
+      // Ticking a to-do line moves the task scheduled from it (server-side),
+      // so the board and the memo badges must re-read.
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all }),
     ]);
 
   const handleMutationError = (error: unknown) => {

@@ -16,7 +16,7 @@ if (!version || !/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
 const bareVersion = version.slice(1);
 const rootPackage = JSON.parse(readFileSync("package.json", "utf8"));
 const apiVersion = readFileSync(
-  "packages/contracts/src/openapi.ts",
+  "packages/contracts/src/constants.ts",
   "utf8",
 ).match(/FLAREMO_API_VERSION = "([^"]+)"/)?.[1];
 const mismatches = [];
@@ -25,7 +25,7 @@ if (rootPackage.version !== bareVersion) {
 }
 if (apiVersion !== bareVersion) {
   mismatches.push(
-    `packages/contracts/src/openapi.ts FLAREMO_API_VERSION: ${apiVersion}`,
+    `packages/contracts/src/constants.ts FLAREMO_API_VERSION: ${apiVersion}`,
   );
 }
 const workspaceDirs = [
@@ -82,7 +82,7 @@ if (existingTag) {
   process.exit(1);
 }
 
-// The full 9-step gate is opt-in (--verify): the maintainer runs it only on
+// The full `pnpm verify` gate is opt-in (--verify): the maintainer runs it only on
 // explicit request. Releases otherwise rely on the targeted tests each change
 // already ran, plus the deploy dry-run and drill gates below.
 if (process.argv.includes("--verify")) {

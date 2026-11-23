@@ -117,3 +117,79 @@ describe("attachmentObjectResponse range handling", () => {
     expect(response?.headers.get("content-length")).toBe(String(SIZE));
   });
 });
+
+describe("attachmentObjectResponse thumbnail variant", () => {
+  const image = {
+    r2Key: "attachments/user-1/photo.webp",
+    filename: "photo.webp",
+    contentType: "image/webp",
+  } as ObjectResponseInput["attachment"];
+
+  function bucketWithPreview(preview: unknown) {
+    return {
+      get: async (key: string) => {
+        if (key.endsWith(".thumb.webp")) return preview;
+        return {
+          body: new ArrayBuffer(64),
+          httpEtag: '"original"',
+          size: 4096,
+        };
+      },
+    } as unknown as ObjectResponseInput["bucket"];
+  }
+
+  function request(url: string) {
+    return new Request(url, { headers: {} });
+  }
+
+  it("serves the derived preview when one exists", async () => {
+    const preview = {
+      body: new ArrayBuffer(4),
+      httpEtag: '"thumb"',
+      size: 128,
+      httpMetadata: { contentType: "image/webp" },
+    };
+    const response = await attachmentObjectResponse({
+      attachment: image,
+      bucket: bucketWithPreview(preview),
+      cacheControl: "private, max-age=3600",
+      inlineRequested: true,
+      thumbnailRequested: true,
+      request: request("https://flaremo.test/blob?thumbnail=true"),
+    });
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get("content-type")).toBe("image/webp");
+    expect(response?.headers.get("content-length")).toBe("128");
+  });
+
+  it("falls back to the original when no preview was generated", async () => {
+    const response = await attachmentObjectResponse({
+      attachment: image,
+      bucket: bucketWithPreview(undefined),
+      cacheControl: "private, max-age=3600",
+      inlineRequested: true,
+      thumbnailRequested: true,
+      request: request("https://flaremo.test/blob?thumbnail=true"),
+    });
+    expect(response?.status).toBe(200);
+    // The attachment's own type, not the preview's.
+    expect(response?.headers.get("content-type")).toBe("image/webp");
+    expect(response?.headers.get("content-length")).toBe("4096");
+  });
+
+  it("ignores the thumbnail flag when it is not requested", async () => {
+    const response = await attachmentObjectResponse({
+      attachment: image,
+      bucket: bucketWithPreview({
+        body: new ArrayBuffer(4),
+        httpEtag: '"thumb"',
+        size: 128,
+        httpMetadata: { contentType: "image/webp" },
+      }),
+      cacheControl: "private, max-age=3600",
+      inlineRequested: false,
+      request: request("https://flaremo.test/blob"),
+    });
+    expect(response?.headers.get("content-length")).toBe("4096");
+  });
+});

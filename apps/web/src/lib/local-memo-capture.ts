@@ -1,4 +1,5 @@
 import type { MemoVisibility } from "@flaremo/contracts";
+import type { MemoSchedule } from "@/lib/memo-schedule";
 
 /**
  * The single composer uses this id. Consumers that expose multiple compose
@@ -33,6 +34,12 @@ export type MemoCaptureInput = {
    * retried so a future idempotent create endpoint can recognize the replay.
    */
   clientId?: string;
+  /**
+   * "Remind me on this day": on send, the memo's open to-dos are filed as
+   * tasks due that day. Persisted with drafts and queued submissions so an
+   * offline send still schedules once it syncs.
+   */
+  schedule?: MemoSchedule;
 };
 
 export type MemoDraft = MemoCaptureInput & {
@@ -169,6 +176,7 @@ export function createMemoCaptureInput(
       ? { preuploadedAttachmentNames: [...input.preuploadedAttachmentNames] }
       : {}),
     clientId: input.clientId ?? createMemoCaptureClientId(),
+    ...(input.schedule ? { schedule: { ...input.schedule } } : {}),
   };
 }
 
@@ -330,6 +338,7 @@ function toPersistedCapture(input: MemoCaptureInput): PersistedMemoCapture {
         }
       : {}),
     clientId: capture.clientId ?? createMemoCaptureClientId(),
+    ...(capture.schedule ? { schedule: capture.schedule } : {}),
     attachments: capture.files.map((file) => ({
       filename: file.name,
       contentType: file.type,
@@ -376,6 +385,7 @@ function fromPersistedCapture(record: PersistedMemoCapture): MemoCaptureInput {
       ? { preuploadedAttachmentNames: [...record.preuploadedAttachmentNames] }
       : {}),
     clientId: record.clientId,
+    ...(record.schedule ? { schedule: { ...record.schedule } } : {}),
   };
 }
 

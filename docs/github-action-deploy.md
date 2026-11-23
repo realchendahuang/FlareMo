@@ -6,7 +6,12 @@
 
 ## 前置
 
-- 部署仓库已包含 `.github/workflows/deploy-cloudflare.yml`。
+- 部署仓库已把模板 [`docs/templates/workflows/deploy-cloudflare.yml`](./templates/workflows/deploy-cloudflare.yml) 复制到 `.github/workflows/deploy-cloudflare.yml`：
+
+  ```bash
+  mkdir -p .github/workflows
+  cp <FlareMo 仓库>/docs/templates/workflows/deploy-cloudflare.yml .github/workflows/
+  ```
 - Cloudflare 账号已开通 Workers，并在 Dashboard 里能看到账号级 `*.workers.dev` 子域。
 - 两段至少 32 个字符的随机密钥，彼此不同，先存在密码管理器：
 
@@ -66,9 +71,9 @@ Account ID 在 Cloudflare Dashboard 首页右侧。
 正式运行会依次：
 
 1. 从 `wrangler.jsonc.example` 生成本次 job 的 `wrangler.jsonc`（不提交进 Git）。
-2. 创建或复用 D1 `flaremo`、R2 `flaremo-attachments`、Queue `flaremo-member-removal` 与 `flaremo-data-export`、Vectorize `flaremo-memos` 与 `flaremo-memories`（1024 维、cosine）。
+2. 创建或复用 D1 `flaremo`、R2 `flaremo-attachments`、Queue `flaremo-member-removal` 与 `flaremo-data-export`、Vectorize `flaremo-memos`（1024 维、cosine）。
 3. 若未配置 `FLAREMO_PUBLIC_URL`，用账号 workers.dev 子域写成 `https://flaremo.<子域>.workers.dev`。
-4. 执行 `pnpm deploy`：构建前端、应用远端 D1 migrations、发布 Worker。
+4. 执行 `pnpm deploy`：构建前端、Worker bundle dry-run、应用远端 D1 migrations、发布 Worker。
 5. 把 GitHub Secrets 里的 `BETTER_AUTH_SECRET` 和 `FLAREMO_BOOTSTRAP_SECRET` 同步到 Worker。日志里的密钥显示为 `***`。
 6. 冒烟检查：访问 `FLAREMO_PUBLIC_URL` 确认 Worker 正在服务，重试约一分钟；仍不可达则把 run 标红。
 
@@ -94,7 +99,7 @@ https://flaremo.<子域>.workers.dev
 | 场景 | 做法 |
 | --- | --- |
 | 自己改了代码 | 推到默认分支，再手动运行 `Deploy to Cloudflare`。资源已存在时可取消勾选 `provision`。 |
-| 上游发布了新的稳定版 | 按 [更新指南](./update.md) 运行 `Prepare FlareMo update`，审查并合并升级 PR，再运行 `Deploy to Cloudflare`。使用本 workflow 时，合并 PR **不会**自动发布。 |
+| 上游发布了新的稳定版 | 先按 [更新指南](./update.md) 把 `docs/templates/workflows/flaremo-update.yml` 复制为 `.github/workflows/flaremo-update.yml`，再运行 `Prepare FlareMo update`，审查并合并升级 PR，最后运行 `Deploy to Cloudflare`。使用本 workflow 时，合并 PR **不会**自动发布。 |
 | 只轮换认证密钥 | 改 GitHub Secret，再运行一次正式部署（会覆盖 Worker 上的对应 secret）。 |
 | 改用自定义域名 | Cloudflare 绑定域名，设置 Variable `FLAREMO_PUBLIC_URL`，再部署。 |
 
@@ -116,7 +121,7 @@ https://flaremo.<子域>.workers.dev
 
 ## 8. 常见问题
 
-- Actions 里没有 `Deploy to Cloudflare`：确认看的是自己的部署仓库，并且该 workflow 文件已在默认分支上。
+- Actions 里没有 `Deploy to Cloudflare`：确认看的是自己的部署仓库，并且已把 `docs/templates/workflows/deploy-cloudflare.yml` 复制为 `.github/workflows/deploy-cloudflare.yml` 并推到默认分支。
 - 读取 workers.dev 子域失败：在 Cloudflare Dashboard 的 Workers 里先注册账号子域。
 - `/setup` 失败：两个认证 GitHub Secret 未设或不合规，或上次只跑了 `dry_run`。
 - 创建 Queue / Vectorize / D1 失败：API Token 权限不足，按第 1 步补全。

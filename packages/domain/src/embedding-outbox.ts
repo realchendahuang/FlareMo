@@ -15,7 +15,7 @@ import {
 import type { PlanLimits, UserPlanLimits } from "./limits";
 import { readMonthlyUsageTotal, readUserMonthlyUsage } from "./quotas";
 
-export type EmbeddingResourceType = "memo" | "memory";
+export type EmbeddingResourceType = "memo";
 export type EmbeddingTaskOperation =
   | "index"
   | "reindex"
@@ -25,7 +25,6 @@ export type EmbeddingTaskOperation =
 export type EmbeddingDispatchDeps = {
   provider: EmbeddingProvider | null;
   memosIndex: VectorIndex | null;
-  memoriesIndex: VectorIndex | null;
   /**
    * Monthly embedding-token budget. When set and exhausted, the sweep pauses:
    * claimed tasks are released back to pending and resume on a later sweep
@@ -176,11 +175,7 @@ function embeddingFailureMessage(error: unknown): string {
 
 // The vector-id helpers and the full index rebuild live in sibling modules;
 // re-exported here so the original public surface of this module is unchanged.
-export {
-  chunkIdsForMemo,
-  EMBEDDING_MAX_CHUNKS,
-  memoryIdVector,
-} from "./embedding-processors";
+export { chunkIdsForMemo, EMBEDDING_MAX_CHUNKS } from "./embedding-processors";
 export {
   type RebuildEmbeddingDeps,
   rebuildEmbeddingIndexes,

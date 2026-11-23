@@ -1,9 +1,11 @@
 import {
-  ForbiddenError,
   getPluginSettings,
   type InstalledPluginRecord,
+  OutboundFetchError,
   type PluginSettings,
   pluginAssetPrefix,
+  type SafeOutboundResponse,
+  safeOutboundFetch,
   setPluginSettings,
   ValidationError,
 } from "@flaremo/domain";
@@ -12,11 +14,13 @@ import {
   readPluginPackage,
   sha256Hex,
 } from "@flaremo/plugins/package";
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { getBrowserRequestContext, type HonoBindings } from "../context";
+import type { HonoBindings } from "../context";
 import { jsonError } from "../http";
+import { invalidatePluginSettingsCache } from "../settings-cache";
+import { zValidator } from "../validated";
+import { ownerContext } from "./admin/context";
 
 /**
  * Owner-only plugin store: browse directory sources, install/uninstall
@@ -37,6 +41,10 @@ export const DEFAULT_PLUGIN_SOURCE = {
   name: "FlareMo 官方目录",
   url: "https://flaremo.app/plugins/registry.json",
 } as const;
+
+const PLUGIN_DIRECTORY_MAX_BYTES = 512 * 1024;
+const PLUGIN_DIRECTORY_TIMEOUT_MS = 5_000;
+const PLUGIN_ARTIFACT_TIMEOUT_MS = 15_000;
 
 const registryEntrySchema = z.object({
   id: z
@@ -95,14 +103,6 @@ const registrySchema = z.object({
 
 type RegistryEntry = z.infer<typeof registryEntrySchema>;
 
-async function ownerContext(c: Parameters<typeof getBrowserRequestContext>[0]) {
-  const context = await getBrowserRequestContext(c);
-  if (context.user.id !== "users/owner") {
-    throw new ForbiddenError("Owner access is required.");
-  }
-  return context;
-}
-
 function resolveUrl(base: string, relative: string): string {
   return new URL(relative, base).toString();
 }
@@ -121,8 +121,11 @@ async function fetchDirectory(source: {
   url: string;
 }): Promise<DirectoryResult> {
   try {
-    const response = await fetch(source.url, {
+    const response = await safeOutboundFetch(source.url, {
       headers: { accept: "application/json" },
+      maxResponseBytes: PLUGIN_DIRECTORY_MAX_BYTES,
+      requireHttps: true,
+      timeoutMs: PLUGIN_DIRECTORY_TIMEOUT_MS,
     });
     if (!response.ok) {
       return {
@@ -132,7 +135,13 @@ async function fetchDirectory(source: {
         error: `directory responded ${response.status}`,
       };
     }
-    const parsed = registrySchema.safeParse(await response.json());
+    let json: unknown;
+    try {
+      json = JSON.parse(new TextDecoder().decode(response.body));
+    } catch {
+      return { source, entries: [], previews: {}, error: "invalid registry" };
+    }
+    const parsed = registrySchema.safeParse(json);
     if (!parsed.success) {
       return { source, entries: [], previews: {}, error: "invalid registry" };
     }
@@ -224,6 +233,7 @@ pluginsStoreApi.put(
       const settings = await setPluginSettings(db, {
         sources: c.req.valid("json").sources,
       });
+      invalidatePluginSettingsCache(db);
       return c.json({ sources: settings.sources });
     } catch (error) {
       return jsonError(c, error);
@@ -238,14 +248,19 @@ async function installPackage(
   bytes: Uint8Array,
   source: string,
 ): Promise<{ settings: PluginSettings; installed: InstalledPluginRecord }> {
-  const { manifest, files } = await readPluginPackage(bytes);
+  let unpacked: Awaited<ReturnType<typeof readPluginPackage>>;
+  try {
+    unpacked = await readPluginPackage(bytes);
+  } catch (error) {
+    throw new ValidationError(
+      error instanceof Error ? error.message : "Invalid plugin package.",
+    );
+  }
+  const { manifest, files } = unpacked;
   const prefix = pluginAssetPrefix(manifest.id, manifest.version);
   await Promise.all(
     Object.entries(files).map(([relative, data]) =>
-      env.ATTACHMENTS.put(
-        `${prefix}${relative}`,
-        data as unknown as ArrayBuffer,
-      ),
+      env.ATTACHMENTS.put(`${prefix}${relative}`, data),
     ),
   );
   const current = await getPluginSettings(db);
@@ -253,12 +268,13 @@ async function installPackage(
     id: manifest.id,
     version: manifest.version,
     source,
-    manifest: manifest as unknown as Record<string, unknown>,
+    manifest: { ...manifest },
   };
   const rest = current.installed.filter((record) => record.id !== manifest.id);
   const settings = await setPluginSettings(db, {
     installed: [...rest, installed],
   });
+  invalidatePluginSettingsCache(db);
   return { settings, installed };
 }
 
@@ -293,13 +309,30 @@ pluginsStoreApi.post(
         throw new ValidationError("Package exceeds the download size limit.");
       }
       const artifactUrl = resolveUrl(source.url, entry.artifact.url);
-      const response = await fetch(artifactUrl);
+      let response: SafeOutboundResponse;
+      try {
+        response = await safeOutboundFetch(artifactUrl, {
+          maxResponseBytes: PLUGIN_PACKAGE_LIMITS.maxZipBytes,
+          requireHttps: true,
+          timeoutMs: PLUGIN_ARTIFACT_TIMEOUT_MS,
+        });
+      } catch (error) {
+        if (error instanceof OutboundFetchError) {
+          if (error.code === "response_too_large") {
+            throw new ValidationError(
+              "Package exceeds the download size limit.",
+            );
+          }
+          throw new ValidationError("Package download failed.");
+        }
+        throw error;
+      }
       if (!response.ok) {
         throw new ValidationError(
           `Package download failed (${response.status}).`,
         );
       }
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      const bytes = response.body;
       if (bytes.byteLength > PLUGIN_PACKAGE_LIMITS.maxZipBytes) {
         throw new ValidationError("Package exceeds the download size limit.");
       }
@@ -364,6 +397,7 @@ pluginsStoreApi.delete("/:id", async (c) => {
       enabledPlugins: current.enabledPlugins.filter((entry) => entry !== id),
       disabledPlugins: current.disabledPlugins.filter((entry) => entry !== id),
     });
+    invalidatePluginSettingsCache(db);
     return c.json({ removed: true, id, installed: settings.installed });
   } catch (error) {
     return jsonError(c, error);

@@ -1,6 +1,7 @@
 import type { FlareMoDb, ReactionRow, UserRow } from "@flaremo/db";
 import { memos, reactions } from "@flaremo/db";
 import { and, asc, count, eq, gt, inArray, or } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { ForbiddenError, NotFoundError, ValidationError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
@@ -225,15 +226,27 @@ export async function listReactionsForMemosForViewer(
   memoIds: string[],
 ) {
   if (memoIds.length === 0) return [];
-  const allowedMemoIds = db
-    .select({ id: memos.id })
-    .from(memos)
-    .where(and(memoReadScope(user), inArray(memos.id, memoIds)));
-  return db
-    .select()
-    .from(reactions)
-    .where(inArray(reactions.contentId, allowedMemoIds))
-    .orderBy(asc(reactions.createdAt), asc(reactions.id));
+  // Same 100-parameter ceiling as the attachment hydration: one binding per
+  // requested memo id inside the readability subquery.
+  const rows: Array<typeof reactions.$inferSelect> = [];
+  for (const idChunk of chunkForD1(memoIds, d1IdsPerStatement(12))) {
+    const allowedMemoIds = db
+      .select({ id: memos.id })
+      .from(memos)
+      .where(and(memoReadScope(user), inArray(memos.id, idChunk)));
+    rows.push(
+      ...(await db
+        .select()
+        .from(reactions)
+        .where(inArray(reactions.contentId, allowedMemoIds))
+        .orderBy(asc(reactions.createdAt), asc(reactions.id))),
+    );
+  }
+  rows.sort(
+    (a, b) =>
+      a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+  );
+  return rows;
 }
 
 export function deleteMemoReaction(

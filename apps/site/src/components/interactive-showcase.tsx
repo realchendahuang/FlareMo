@@ -16,6 +16,8 @@ export function InteractiveShowcase({
   const [memos, setMemos] = useState<Memo[]>(() =>
     createInitialMemos(showcase),
   );
+  const [activeMenu, setActiveMenu] = useState<ShowcaseMenu>("timeline");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
   // 当外部语言切换时，重置并切换默认展示内容
   useEffect(() => {
@@ -23,8 +25,6 @@ export function InteractiveShowcase({
     setActiveTag(null);
   }, [showcase]);
 
-  const [activeMenu, setActiveMenu] = useState<ShowcaseMenu>("timeline");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [timeViewTab, setTimeViewTab] = useState<"trend" | "calendar">("trend");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);

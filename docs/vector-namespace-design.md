@@ -39,7 +39,6 @@
 - 不改授权模型。`memoReadScope` 复查仍是唯一授权边界，namespace 只是缩小候选面的性能与隔离手段，不是权限判断。
 - 不做 per-user × per-team 的 namespace 乘积。
 - 不引入第二个 Vectorize index；一切分区内嵌在现有 `VECTORIZE_MEMOS` 里。
-- memory 向量维持现有 per-user namespace 不动（`agent-memory.md` 的语义不受影响）。
 
 ## 4. Namespace 布局
 
@@ -101,7 +100,7 @@ dispatch 顺序（`embedding_tasks.id` asc）不保证跨操作类型的业务�
 
 ### 6.4 chunk 计数列
 
-新增 `memos.embedding_chunks`（int nullable）与 `memory_items.embedding_chunks`（迁移编号顺延）：索引成功时记录 chunk 数。用途：
+新增 `memos.embedding_chunks`（int nullable）：索引成功时记录 chunk 数。用途：
 
 - 用量报表按用户精确统计向量数（§8）；
 - 删除/搬迁用精确 chunk id 列表替代现在 `EMBEDDING_MAX_CHUNKS = 256` 的宽扫（列缺失时保留宽扫兜底）。
@@ -136,7 +135,7 @@ FLAREMO_VECTORIZE_TEAM_LAYOUT = "team" | "solo"   # solo：不建团队分区、
 
 ## 8. 用量与配额修正
 
-- `/usage/vector` 的 per-user 口径改为 D1 派生：按用户聚合 `embedding_status = 'indexed'` 且 `embedding_chunks` 非空的 memo 的 chunk 数，加上 memory 分区计数，替代 `index.describe()` 的全实例总数。
+- `/usage/vector` 的 per-user 口径改为 D1 派生：按用户聚合 `embedding_status = 'indexed'` 且 `embedding_chunks` 非空的 memo 的 chunk 数，替代 `index.describe()` 的全实例总数。
 - `describe()` 的全实例数字只保留在部署级运维视图（或单独的管理端点），不再下发到普通用户。
 - per-user 限额（`storedLimit` / `queriedLimit`）改为与上述真实 per-user 口径比较。
 
@@ -164,7 +163,7 @@ FLAREMO_VECTORIZE_TEAM_LAYOUT = "team" | "solo"   # solo：不建团队分区、
 
 数据层：
 
-- 迁移：`memos.embedding_chunks`、`memory_items.embedding_chunks`；
+- 迁移：`memos.embedding_chunks`；
 - schema 类型同步。
 
 应用层（apps/worker）：

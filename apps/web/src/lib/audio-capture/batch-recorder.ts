@@ -1,4 +1,4 @@
-import { CAPTURE_MAX_DURATION_MS } from "@flaremo/contracts";
+import { CAPTURE_MAX_DURATION_MS } from "@flaremo/contracts/constants";
 import type { CaptureError, CaptureSnapshot } from "./controller";
 import type { CaptureAudioSink, CapturedAudio } from "./encoder";
 import type { CaptureSentence, CaptureState } from "./types";

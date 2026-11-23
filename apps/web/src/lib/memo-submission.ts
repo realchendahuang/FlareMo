@@ -11,6 +11,20 @@ import {
   willCompressOnUpload,
 } from "@/lib/upload-compression";
 
+/**
+ * A memo is a short note, not a photo album: nine images at most, laid out
+ * as a grid under the text. More pictures belong in an article.
+ */
+export const MAX_MEMO_IMAGES = 9;
+
+/** Images a capture will attach: picked image files plus pasted ones. */
+export function countMemoImages(input: MemoCaptureInput) {
+  return (
+    input.files.filter((file) => file.type.startsWith("image/")).length +
+    (input.preuploadedAttachmentNames?.length ?? 0)
+  );
+}
+
 export async function createMemoWithAttachments(input: MemoCaptureInput) {
   const memo = await createMemo({
     content: input.content,
@@ -75,6 +89,9 @@ export function validateMemoCaptureSubmission(
   }
   if (input.files.length > 100) {
     return new Error(t("toast.tooManyAttachments"));
+  }
+  if (countMemoImages(input) > MAX_MEMO_IMAGES) {
+    return new Error(t("toast.tooManyMemoImages"));
   }
   // A file over the cap is only rejected when nothing downstream can shrink it:
   // transcode-before-upload exists precisely for oversized photos and

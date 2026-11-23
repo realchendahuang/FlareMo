@@ -47,10 +47,12 @@ export default defineConfig({
       "**/dist/**",
       "**/.wrangler/**",
       "**/Temp/**",
-      // Playwright specs run under their own runner; scripts/*.test.mjs are
-      // node:test files. Both match vitest's glob but are not vitest suites.
+      // Playwright specs run under their own runner; scripts/*.test.mjs and
+      // integrations/** use node:test. Both match vitest's glob but are not
+      // vitest suites.
       "tests/e2e/**",
       "scripts/**",
+      "integrations/**",
     ],
   },
 });

@@ -1,5 +1,6 @@
-import { Loader2Icon, LockIcon, SendIcon, UsersIcon } from "lucide-react";
+import { LockIcon, UsersIcon } from "lucide-react";
 import type { MemoVisibility } from "@/api";
+import { SendButton } from "@/components/composer/send-button";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,6 +10,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
+
+const SUBMIT_HINT =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+    ? "⌘↵"
+    : "Ctrl ↵";
 
 /**
  * The composer's right rail: the personal/team visibility picker (only for
@@ -44,10 +51,10 @@ export function ComposerVisibilityMenu({
               <Button
                 aria-label={t("composer.visibility.aria")}
                 className={cn(
-                  "h-7 gap-1 rounded-full border px-2 text-xs transition-colors",
+                  "h-7 gap-1 rounded-full border px-2.5 text-xs font-normal transition-colors",
                   visibility === "protected"
-                    ? "border-brand-500/40 bg-brand-50/60 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
-                    : "border-border/60 bg-card text-muted-foreground hover:text-foreground",
+                    ? "border-primary/30 bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground",
                 )}
                 disabled={isPending}
                 size="sm"
@@ -91,22 +98,21 @@ export function ComposerVisibilityMenu({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      {/* flomo's round send: the icon is the affordance, the label lives
-          in the aria name. */}
-      <Button
-        aria-label={t("composer.send")}
-        className="size-8 rounded-full"
-        disabled={isPending || isUploadingImages || !canSubmit || voiceActive}
-        size="icon-sm"
-        type="submit"
-        variant="brand"
-      >
-        {isPending ? (
-          <Loader2Icon className="motion-safe:animate-spin" />
-        ) : (
-          <SendIcon className="motion-safe:animate-scale-in" />
-        )}
-      </Button>
+      {/* Shortcut hint, outside the button so its accessible name stays
+          exactly "Send". Appears only once there is something to send. */}
+      {canSubmit && !isPending && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none hidden items-center gap-0.5 font-sans text-xs text-muted-foreground select-none motion-safe:animate-fade md:inline-flex"
+        >
+          {SUBMIT_HINT}
+        </span>
+      )}
+      <SendButton
+        canSubmit={canSubmit}
+        disabled={isUploadingImages || voiceActive}
+        isPending={isPending}
+      />
     </div>
   );
 }

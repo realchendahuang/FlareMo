@@ -1,10 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
+  Link,
   Outlet,
   useRouter,
 } from "@tanstack/react-router";
-import { CircleAlertIcon } from "lucide-react";
+import { CircleAlertIcon, CompassIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -15,6 +16,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { useI18n } from "@/i18n";
+import { TIMELINE_SEARCH } from "@/lib/timeline-search";
 
 // TanStack Router's ErrorComponentProps carries `error: unknown`; narrow it
 // defensively instead of assuming an Error instance.
@@ -73,9 +75,39 @@ function RouteErrorPage({ error }: { error: unknown }) {
 
 // Typed context makes every route loader's `context.queryClient` known; the
 // real QueryClient is injected through RouterProvider's context prop.
+/**
+ * Unknown paths used to render the string "Not Found" against a blank page —
+ * the worker returns the app shell with a 404 status, and nothing in the
+ * router claimed the route, so the shell mounted with no content at all. This
+ * keeps the app's own empty-state vocabulary and gives the visitor a way back.
+ */
+function RouteNotFoundPage() {
+  const { t } = useI18n();
+  return (
+    <Empty className="min-h-svh text-muted-foreground">
+      <EmptyHeader>
+        <EmptyMedia className="bg-muted text-muted-foreground" variant="icon">
+          <CompassIcon />
+        </EmptyMedia>
+        <EmptyTitle>{t("notFound.title")}</EmptyTitle>
+        <EmptyDescription>{t("notFound.description")}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button
+          render={<Link search={TIMELINE_SEARCH} to="/" />}
+          variant="outline"
+        >
+          {t("notFound.home")}
+        </Button>
+      </EmptyContent>
+    </Empty>
+  );
+}
+
 export const rootRoute = createRootRouteWithContext<{
   queryClient: QueryClient;
 }>()({
   component: () => <Outlet />,
   errorComponent: RouteErrorPage,
+  notFoundComponent: RouteNotFoundPage,
 });

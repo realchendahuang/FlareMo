@@ -9,9 +9,14 @@ import { expect, type Page } from "@playwright/test";
  * time the shell changes there is one place to update instead of eight.
  */
 
-/** The trigger button that opens the spotlight search dialog. */
+/** The trigger that opens the spotlight search dialog: a field on wide
+ *  screens, an icon on narrow ones. Both stay in the DOM, so pick the one
+ *  the current viewport shows. */
 export function searchTrigger(page: Page) {
-  return page.getByRole("button", { name: /搜索记录|Search notes/i }).first();
+  return page
+    .getByRole("button", { name: /搜索记录|Search notes/i })
+    .filter({ visible: true })
+    .first();
 }
 
 /**
@@ -56,11 +61,10 @@ export async function clearTimelineSearch(page: Page) {
 /**
  * Start the page with an empty local draft store.
  *
- * The composer and the voice-capture page both persist drafts in the same
- * IndexedDB database under the shared browser profile. Because the suite runs
- * serially in one profile, a draft left behind by an earlier test makes the
- * next one open on a restored draft (the composer's Send stays disabled on
- * empty text; /capture opens its recovery screen). Call this at the top of a
+ * The composer persists drafts in IndexedDB under the shared browser profile.
+ * Because the suite runs serially in one profile, a draft left behind by an
+ * earlier test makes the next one open on a restored draft (the composer's
+ * Send stays disabled on empty text). Call this at the top of a
  * test that needs the composer to start blank; tests that exercise draft
  * recovery must NOT call it.
  */
@@ -72,9 +76,8 @@ export async function clearTimelineSearch(page: Page) {
  * order they run in. Two real examples, both of which only reproduce in a full
  * run:
  *
- * - Composer/capture drafts live in IndexedDB. A leftover draft makes the
- *   composer restore it (Send stays disabled on the text the test just typed)
- *   or /capture open its recovery screen (no record button).
+ * - Composer drafts live in IndexedDB. A leftover draft makes the
+ *   composer restore it (Send stays disabled on the text the test just typed).
  * - The composer's send target is remembered per space in localStorage
  *   (`flaremo.composer.visibility`). A previously-remembered `private` for the
  *   personal space overrides the team space's `protected` default, so a memo
@@ -145,40 +148,9 @@ export async function startWithCleanClientState(page: Page) {
  * IME-composition and request-cancellation guards apply.
  */
 export function mobileSearchInput(page: Page) {
-  return page.getByRole("textbox", { name: /^搜索$|^Search$/i });
-}
-
-/**
- * Create a memory from the /memory page.
- *
- * The page used to open a modal with a textarea; it now grows an inline quick
- * composer. The composer defaults to the "Iron rule" tier, which locks the
- * memory on creation, so `tier` picks the starting state: "ironRule" keeps the
- * default, "preference" toggles down first so the memory is created unlocked.
- */
-export async function createMemoryViaComposer(
-  page: Page,
-  content: string,
-  tier: "ironRule" | "preference" = "ironRule",
-) {
-  const composer = page
-    .getByPlaceholder(
-      /给 AI 立一条规则或习惯|记下一条偏好或认知|Set a new rule or preference|Set a rule or habit|Note a preference or insight/i,
-    )
-    .first();
-  await expect(composer).toBeVisible();
-  if (tier === "preference") {
-    await page
-      .getByRole("button", { name: /^铁律$|^Iron rule$/i })
-      .first()
-      .click();
-  }
-  await composer.fill(content);
-  await page
-    .getByRole("button", { name: /^发送$|^Send$/i })
-    .locator("visible=true")
-    .first()
-    .click();
+  // Narrow layouts expose a trigger that opens the spotlight palette; the
+  // input inside is identified by its placeholder, not an aria-label.
+  return page.getByPlaceholder(/搜索记录|Search notes/i);
 }
 
 /**

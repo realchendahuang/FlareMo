@@ -18,10 +18,6 @@ const agentIngestion: RawDocLoader = () =>
   import("../../../../docs/agent-ingestion.md?raw").then(
     (module) => module.default,
   );
-const agentMemory: RawDocLoader = () =>
-  import("../../../../docs/agent-memory.md?raw").then(
-    (module) => module.default,
-  );
 const architectureNotes: RawDocLoader = () =>
   import("../../../../docs/architecture-notes.md?raw").then(
     (module) => module.default,
@@ -36,14 +32,14 @@ const enAgentDeploy: RawDocLoader = () =>
   import("../../../../docs/en/agent-deploy.md?raw").then(
     (module) => module.default,
   );
-const enAgentMemory: RawDocLoader = () =>
-  import("../../../../docs/en/agent-memory.md?raw").then(
-    (module) => module.default,
-  );
 const enDeploy: RawDocLoader = () =>
   import("../../../../docs/en/deploy.md?raw").then((module) => module.default);
 const enGithubActionDeploy: RawDocLoader = () =>
   import("../../../../docs/en/github-action-deploy.md?raw").then(
+    (module) => module.default,
+  );
+const enImportFromMemos: RawDocLoader = () =>
+  import("../../../../docs/en/import-from-memos.md?raw").then(
     (module) => module.default,
   );
 const enMemosCompatibility: RawDocLoader = () =>
@@ -60,6 +56,10 @@ const enUpdate: RawDocLoader = () =>
   import("../../../../docs/en/update.md?raw").then((module) => module.default);
 const githubActionDeploy: RawDocLoader = () =>
   import("../../../../docs/github-action-deploy.md?raw").then(
+    (module) => module.default,
+  );
+const importFromMemos: RawDocLoader = () =>
+  import("../../../../docs/import-from-memos.md?raw").then(
     (module) => module.default,
   );
 const maintenance: RawDocLoader = () =>
@@ -137,11 +137,6 @@ const ZH_DOCS: Record<
     group: "agent",
     body: agentIngestion,
   },
-  "agent-memory": {
-    title: "Agent Memory：AI 长期记忆中枢",
-    group: "agent",
-    body: agentMemory,
-  },
   "architecture-notes": {
     title: "FlareMo 架构设计",
     group: "concept",
@@ -161,6 +156,11 @@ const ZH_DOCS: Record<
     title: "用 GitHub Action 部署",
     group: "start",
     body: githubActionDeploy,
+  },
+  "import-from-memos": {
+    title: "从 Memos 迁移到 FlareMo",
+    group: "start",
+    body: importFromMemos,
   },
   maintenance: {
     title: "维护手册",
@@ -233,6 +233,11 @@ const EN_DOCS: Record<
     group: "start",
     body: enGithubActionDeploy,
   },
+  "import-from-memos": {
+    title: "Moving from Memos to FlareMo",
+    group: "start",
+    body: enImportFromMemos,
+  },
   "agent-deploy": {
     title: "Agent Deployment Runbook",
     group: "agent",
@@ -266,11 +271,6 @@ const EN_DOCS: Record<
     group: "agent",
     body: agentIngestion,
     fallbackFromZh: true,
-  },
-  "agent-memory": {
-    title: "Agent Memory",
-    group: "agent",
-    body: enAgentMemory,
   },
   "architecture-notes": {
     title: "FlareMo Architecture",
@@ -327,8 +327,6 @@ const DESCRIPTIONS_ZH: Record<string, string> = {
     "写给 Codex / Claude Code / Cursor Agent 等可执行命令的 Agent 用的部署 runbook。",
   "agent-ingestion":
     "让 Agent、Telegram、IM 渠道直接写入 FlareMo 的设计、字段与冲突策略。",
-  "agent-memory":
-    "AI 跨 session 长期记忆：六工具、权限层级、与 memo 的双向连接。",
   "architecture-notes":
     "事实源、兼容层、认证边界、Worker 与 D1 / R2 / Vectorize 的职责划分。",
   deploy: "Agent 部署、手动部署两种路径，以及预部署清单。",
@@ -336,6 +334,8 @@ const DESCRIPTIONS_ZH: Record<string, string> = {
     "Ember 设计语言：暖调中性 + 火焰品牌色，圆角、阴影与文案规则。",
   "github-action-deploy":
     "用自建部署仓库的受控 workflow_dispatch 发布，只应手动触发。",
+  "import-from-memos":
+    "把 Memos 0.31 的导出包转换成 FlareMo 可导入的 JSON，含附件与可见性映射。",
   maintenance: "运维手册：备份、灾备演练、迁移、回滚。",
   "memos-compatibility": "/api/v1 子集与四类 memo 事件的 webhook outbox 边界。",
   "memos-ecosystem": "已验证的 Memos 第三方客户端与配置示例。",
@@ -358,6 +358,8 @@ const DESCRIPTIONS_EN: Record<string, string> = {
     "Runbook for command-capable agents (Codex, Claude Code, Cursor, ...).",
   "github-action-deploy":
     "Publishing from your own deployment repository via a manually triggered workflow_dispatch.",
+  "import-from-memos":
+    "Convert a Memos 0.31 export into FlareMo's import bundle, with attachments and visibility mapping.",
   "memos-compatibility":
     "The /api/v1 subset and the four memo-event webhook outbox boundaries.",
   update: "Upgrading FlareMo: upstream sync workflow, PR flow, and rollbacks.",
@@ -367,8 +369,6 @@ const DESCRIPTIONS_EN: Record<string, string> = {
     "Team collaboration model: owner/admin/member roles, 3-tier visibility, time-boxed reader seats, and the machine provisioning API.",
   "agent-ingestion":
     "Designing Agent, Telegram, and IM capture paths and conflict policies. (Chinese source; English translation pending.)",
-  "agent-memory":
-    "Long-term AI memory across sessions: CLI + Skills integration, seven tools, permission tiers, memo links.",
   "architecture-notes":
     "Source of truth, compatibility layer, auth boundary. (Chinese source; English translation pending.)",
   "design-system":

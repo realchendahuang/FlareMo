@@ -7,6 +7,7 @@ import { Markdown } from "@tiptap/markdown";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
+import { useMemo } from "react";
 import { RichComposerEditor } from "@/components/rich-composer-editor";
 import { UploadPlaceholder } from "@/components/upload-placeholder-extension";
 import { extractImageFiles } from "@/lib/image-insert";
@@ -47,13 +48,15 @@ export type ArticleEditorProps = {
   onContentChange: (markdown: string) => void;
   onImageFiles: (files: File[], position: number) => void;
   editorRef: React.RefObject<Editor | null>;
+  /** Fires on every editor transaction (selection moves included). */
+  onTransaction?: (editor: Editor) => void;
 };
 
 /**
  * Long-form TipTap body of the article editor. Storage stays plain markdown
  * via the official Markdown extension, exactly like the memo composer; the
- * differences are the extension set above, the taller unclipped body, and no
- * submit-on-Enter (articles are not notes).
+ * differences are the extension set above, the taller unclipped body, and a
+ * no-op Cmd/Ctrl+Enter (articles are saved by the page, not sent).
  */
 export function ArticleEditor({
   content,
@@ -62,7 +65,15 @@ export function ArticleEditor({
   onContentChange,
   onImageFiles,
   editorRef,
+  onTransaction,
 }: ArticleEditorProps) {
+  // Stable across renders: a fresh extension array makes TipTap re-sync its
+  // options, which fires a transaction, which (with an onTransaction that
+  // sets state) renders again.
+  const extensions = useMemo(
+    () => buildArticleExtensions(placeholder),
+    [placeholder],
+  );
   return (
     <RichComposerEditor
       ariaLabel={placeholder}
@@ -71,12 +82,12 @@ export function ArticleEditor({
       disabled={disabled}
       editorRef={editorRef}
       inputId="flaremo-article-editor"
-      extensions={buildArticleExtensions(placeholder)}
+      extensions={extensions}
       onContentChange={onContentChange}
       onImageFiles={onImageFiles}
+      onTransaction={onTransaction}
       onSubmitRequest={() => undefined}
       placeholder={placeholder}
-      submitOnEnter={false}
     />
   );
 }

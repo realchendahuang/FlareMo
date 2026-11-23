@@ -1,3 +1,7 @@
+import {
+  memosPatScopesAllowPath,
+  memosPatScopesFromPermissions,
+} from "@flaremo/contracts";
 import { createDb } from "@flaremo/db";
 import {
   ForbiddenError,
@@ -261,6 +265,17 @@ export async function getRequestContext(c: Context<HonoBindings>) {
     if (!user) throw new UnauthorizedError();
     assertActiveMember(user);
 
+    // A PAT only reaches the surfaces its scopes cover. Migration 0050 narrows
+    // legacy rows to notes; null remains unrestricted for an un-migrated row.
+    const patScopes = memosPatScopesFromPermissions(
+      verification.key.permissions,
+    );
+    if (!memosPatScopesAllowPath(patScopes, c.req.path)) {
+      throw new ForbiddenError(
+        "This personal access token is not allowed to use this endpoint.",
+      );
+    }
+
     return {
       db,
       user,
@@ -330,19 +345,63 @@ export async function getOptionalRequestContext(c: Context<HonoBindings>) {
   }
 }
 
+/**
+ * Better Auth's session cookie names (the `advanced.cookiePrefix` is
+ * `flaremo` and secure deployments add the `__Secure-` prefix). Reading the
+ * cookie header is enough to tell a browser-session request from an
+ * unauthenticated one, without touching the session store.
+ */
+const SESSION_COOKIE_NAMES = [
+  "flaremo.session_token",
+  "__Secure-flaremo.session_token",
+];
+
+function hasBrowserSessionCookie(headers: Headers): boolean {
+  const cookie = headers.get("cookie");
+  if (!cookie) return false;
+  return SESSION_COOKIE_NAMES.some((name) => cookie.includes(`${name}=`));
+}
+
+/**
+ * Context for endpoints that are safe for a `notes`-scoped machine credential:
+ * the reader settings that describe what the client may use (voice, email,
+ * OAuth availability), the capture status probe, and the insight queue that the
+ * DSH executor drives.
+ *
+ * The browser path is unchanged. A bearer credential takes the same route as
+ * every other data endpoint (`getRequestContext`: PAT or device token, exact
+ * Origin when one is supplied), so the scope check already applied there
+ * remains the only authority. Nothing here widens what a `notes` token can do:
+ * account, token management and connected-app revocation stay on
+ * {@link getBrowserRequestContext}, which still refuses every bearer.
+ */
+export async function getClientRequestContext(c: Context<HonoBindings>) {
+  if (!c.req.raw.headers.has("authorization")) {
+    return getBrowserRequestContext(c);
+  }
+  return getRequestContext(c);
+}
+
 export async function getBrowserRequestContext(c: Context<HonoBindings>) {
   if (c.req.raw.headers.has("authorization")) {
     throw new UnauthorizedError();
   }
 
   const db = getFlareMoDb(c.env);
+  // Requests with no session cookie are unauthenticated, full stop: answer 401
+  // before the origin contract so the "no credentials → 401" behavior stays
+  // stable on every route. Only an actual cookie attempt pays for the origin
+  // check, and an unsafe cookie request from the wrong origin is rejected
+  // before the session lookup (and its metadata refresh) runs.
+  if (!hasBrowserSessionCookie(c.req.raw.headers)) {
+    throw new UnauthorizedError();
+  }
+  assertTrustedCookieMutation(c);
   const auth = await getFlareMoAuth(c.env);
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
   if (!session) throw new UnauthorizedError();
-
-  assertTrustedCookieMutation(c);
 
   const user = await getFlaremoUserByAuthUserId(db, session.user.id);
   if (!user) throw new UnauthorizedError();

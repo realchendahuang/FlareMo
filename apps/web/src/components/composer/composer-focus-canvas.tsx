@@ -1,8 +1,14 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { Editor } from "@tiptap/react";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { MemoVisibility } from "@/api";
 import { buildArticleExtensions } from "@/components/article-editor";
+import {
+  extractNonImageFiles,
+  filterAcceptedComposerFiles,
+  hasFileTransfer,
+} from "@/components/composer/attachment-upload-helpers";
 import { ComposerCanvasActions } from "@/components/composer/composer-canvas-actions";
 import { ComposerCanvasHeader } from "@/components/composer/composer-canvas-header";
 import {
@@ -14,7 +20,6 @@ import {
   ComposerTagSuggestions,
   ComposerWikiSuggestions,
 } from "@/components/composer/composer-suggestion-lists";
-import type { ComposerPublishType } from "@/components/composer/composer-type-menu";
 import { VoiceCaptureBar } from "@/components/composer/voice-capture-bar";
 import { RichComposerEditor } from "@/components/rich-composer-editor";
 import { Dialog, DialogPortal } from "@/components/ui/dialog";
@@ -24,6 +29,7 @@ import { useInlineImageUploads } from "@/hooks/use-inline-image-uploads";
 import { useI18n } from "@/i18n";
 import type { MemoCaptureInput } from "@/lib/local-memo-capture";
 import { extractTags } from "@/lib/memo";
+import { countMemoImages } from "@/lib/memo-submission";
 import type { TagSuggestion } from "@/lib/tag-autocomplete";
 
 export type ComposerFocusCanvasProps = {
@@ -36,16 +42,14 @@ export type ComposerFocusCanvasProps = {
   captureAvailable?: boolean;
   onDraftChange: (draft: MemoCaptureInput) => void;
   onSubmitMemo: (input: MemoCaptureInput) => Promise<void>;
-  onSubmitArticle: (input: MemoCaptureInput) => Promise<void>;
   onVisibilityChange?: (visibility: MemoVisibility) => void;
 };
 
 /**
- * Fullscreen Focus Canvas (专注画布 - 自适应信纸模式):
- * Smooth, 60fps hardware-accelerated full-viewport writing environment.
- * Features a dedicated title header and an extensive professional writing
- * toolbar (headings, code blocks, tables, lists, text formatting).
- * Automatically adapts publish target based on title presence or user choice.
+ * Focus canvas: the inline composer opened to the full viewport, for a note
+ * that needs room (headings, tables, code). It sends a note to the timeline
+ * like the inline box does; articles are started from the Articles page,
+ * so the canvas has one destination and no title field.
  */
 export function ComposerFocusCanvas({
   open,
@@ -57,15 +61,11 @@ export function ComposerFocusCanvas({
   captureAvailable = false,
   onDraftChange,
   onSubmitMemo,
-  onSubmitArticle,
   onVisibilityChange,
 }: ComposerFocusCanvasProps) {
   const { t } = useI18n();
   const canvasEditorRef = useRef<Editor | null>(null);
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const [manualType, setManualType] = useState<ComposerPublishType | null>(
-    null,
-  );
+  const editorBoxRef = useRef<HTMLDivElement | null>(null);
   const [activeFormats, setActiveFormats] = useState<CanvasActiveFormats>({
     h2: false,
     h3: false,
@@ -79,8 +79,12 @@ export function ComposerFocusCanvas({
     taskList: false,
   });
 
+  // Every transaction (selection moves included) reports the marks under the
+  // caret. Bail out when nothing changed: a fresh object per transaction
+  // re-renders the canvas, which re-runs the editor's option sync, which
+  // fires another transaction, a render loop React aborts after 50 rounds.
   const handleTransaction = (editor: Editor) => {
-    setActiveFormats({
+    const next: CanvasActiveFormats = {
       h2: editor.isActive("heading", { level: 2 }),
       h3: editor.isActive("heading", { level: 3 }),
       bold: editor.isActive("bold"),
@@ -91,14 +95,21 @@ export function ComposerFocusCanvas({
       bulletList: editor.isActive("bulletList"),
       orderedList: editor.isActive("orderedList"),
       taskList: editor.isActive("taskList"),
-    });
+    };
+    setActiveFormats((prev) =>
+      (Object.keys(next) as (keyof CanvasActiveFormats)[]).every(
+        (key) => prev[key] === next[key],
+      )
+        ? prev
+        : next,
+    );
   };
 
-  // Option A (自适应信纸法):
-  // If title is entered, automatically treated as article unless user manually set type.
-  const hasTitle = Boolean(draft.title?.trim());
-  const publishType: ComposerPublishType =
-    manualType ?? (hasTitle ? "article" : "memo");
+  const placeholder = t("composer.placeholder");
+  const extensions = useMemo(
+    () => buildArticleExtensions(placeholder),
+    [placeholder],
+  );
 
   const canSubmit = Boolean(draft.content.trim() || draft.files.length > 0);
   const draftRef = useRef(draft);
@@ -116,6 +127,36 @@ export function ComposerFocusCanvas({
       draftRef,
       commitDraft,
     });
+
+  const appendDraftFiles = (incoming: File[]) => {
+    if (incoming.length === 0 || isPending) return;
+    const current = draftRef.current;
+    const { accepted, errorKeys } = filterAcceptedComposerFiles({
+      incoming,
+      existingFileCount:
+        current.files.length +
+        (current.preuploadedAttachmentNames?.length ?? 0),
+      existingImageCount: countMemoImages(current),
+    });
+    for (const key of errorKeys) toast.error(t(key));
+    if (accepted.length === 0) return;
+    commitDraft({ files: [...current.files, ...accepted] });
+  };
+
+  const handleInlineImageFiles = (files: File[], position: number) => {
+    if (files.length === 0 || isPending) return;
+    const current = draftRef.current;
+    const { accepted, errorKeys } = filterAcceptedComposerFiles({
+      incoming: files,
+      existingFileCount:
+        current.files.length +
+        (current.preuploadedAttachmentNames?.length ?? 0),
+      existingImageCount: countMemoImages(current),
+    });
+    for (const key of errorKeys) toast.error(t(key));
+    if (accepted.length === 0) return;
+    enqueueInlineUploads(accepted, position);
+  };
 
   const updateContent = (content: string) => {
     const kept = draftRef.current.preuploadedAttachmentNames?.filter((name) => {
@@ -135,13 +176,22 @@ export function ComposerFocusCanvas({
   const {
     setActiveTagToken,
     setActiveWikiToken,
+    handleSuggestionKeyDown,
+    activeIndex: suggestionIndex,
+    setActiveIndex: setSuggestionIndex,
+    anchor: suggestionAnchor,
     tagSuggestions,
     showTagSuggestions,
     acceptTagSuggestion,
     wikiSuggestions,
     showWikiSuggestions,
     acceptWikiSuggestion,
-  } = useComposerSuggestions({ editorRef: canvasEditorRef, isPending, tags });
+  } = useComposerSuggestions({
+    editorRef: canvasEditorRef,
+    containerRef: editorBoxRef,
+    isPending,
+    tags,
+  });
 
   const { capture, captureController, voiceActive, now } = useComposerVoice({
     draftRef,
@@ -151,16 +201,23 @@ export function ComposerFocusCanvas({
   const submit = async () => {
     if (isPending || isUploadingImages || voiceActive) return;
 
-    if (publishType === "article") {
-      await onSubmitArticle(draftRef.current);
-    } else {
-      if (!canSubmit) return;
-      try {
-        await onSubmitMemo(draftRef.current);
-        onOpenChange(false);
-      } catch {
-        // Mutation handles error feedback
-      }
+    if (!canSubmit) return;
+    // A draft saved while the canvas still had a title field keeps it; it
+    // goes out as the note's heading instead of being silently dropped.
+    const current = draftRef.current;
+    const title = current.title?.trim();
+    const input = title
+      ? {
+          ...current,
+          title: undefined,
+          content: `# ${title}\n\n${current.content}`,
+        }
+      : current;
+    try {
+      await onSubmitMemo(input);
+      onOpenChange(false);
+    } catch {
+      // Mutation handles error feedback
     }
   };
 
@@ -183,10 +240,32 @@ export function ComposerFocusCanvas({
         />
         <DialogPrimitive.Popup
           data-slot="composer-canvas-popup"
-          className="fixed inset-0 isolate z-50 flex flex-col bg-background text-foreground outline-none will-change-transform will-change-opacity duration-200 ease-signal data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:fill-mode-forwards"
+          className="fixed inset-0 isolate z-50 flex flex-col bg-background text-foreground outline-none will-change-transform will-change-opacity duration-200 ease-signal data-open:animate-in data-open:fade-in-0 data-open:zoom-in-98 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-98 data-closed:fill-mode-forwards"
         >
           <form
             className="flex h-full flex-col"
+            onPaste={(event) => {
+              const nonImages = extractNonImageFiles(
+                event.clipboardData?.files ?? [],
+              );
+              if (nonImages.length === 0) return;
+              event.preventDefault();
+              appendDraftFiles(nonImages);
+            }}
+            onDragOver={(event) => {
+              if (!hasFileTransfer(event.dataTransfer)) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+            }}
+            onDrop={(event) => {
+              const allFiles = Array.from(event.dataTransfer?.files ?? []);
+              if (allFiles.length === 0) return;
+              const filesToAttach = event.defaultPrevented
+                ? extractNonImageFiles(allFiles)
+                : allFiles;
+              event.preventDefault();
+              appendDraftFiles(filesToAttach);
+            }}
             onSubmit={(event) => {
               event.preventDefault();
               void submit();
@@ -195,14 +274,13 @@ export function ComposerFocusCanvas({
             {/* Header: Title accessibility, Save status, Word count, Reading time & minimize */}
             <ComposerCanvasHeader
               charCount={charCount}
-              publishType={publishType}
               readingTimeMinutes={readingTimeMinutes}
             />
 
             {/* Main Canvas Area */}
             {/* biome-ignore lint/a11y/noStaticElementInteractions: Focus editor when clicking blank paper area */}
             <div
-              className="relative mx-auto flex w-full max-w-3xl flex-1 cursor-text flex-col min-h-0 overflow-y-auto px-4 sm:px-6 py-5"
+              className="relative mx-auto flex w-full max-w-2xl flex-1 cursor-text flex-col min-h-0 overflow-y-auto px-5 pt-8 pb-5 sm:px-8 sm:pt-14"
               onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
                   event.preventDefault();
@@ -210,40 +288,11 @@ export function ComposerFocusCanvas({
                 }
               }}
             >
-              {/* Adaptive Title Header */}
-              <div className="mb-3 shrink-0">
-                <input
-                  ref={titleInputRef}
-                  type="text"
-                  value={draft.title ?? ""}
-                  onChange={(event) => {
-                    commitDraft({ title: event.target.value });
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      if (event.metaKey || event.ctrlKey) {
-                        void submit();
-                      } else {
-                        canvasEditorRef.current?.commands.focus("start");
-                      }
-                    } else if (event.key === "ArrowDown") {
-                      const input = event.currentTarget;
-                      if (input.selectionStart === input.value.length) {
-                        canvasEditorRef.current?.commands.focus("start");
-                      }
-                    }
-                  }}
-                  placeholder={t("composer.fullscreen.articleTitlePlaceholder")}
-                  disabled={isPending}
-                  className="w-full border-b border-border/40 bg-transparent px-0 pb-3 text-xl font-bold tracking-tight text-foreground placeholder:text-muted-foreground/30 focus-visible:outline-none sm:text-2xl"
-                />
-              </div>
-
               {/* TipTap Fullscreen Editor */}
               {/* biome-ignore lint/a11y/noStaticElementInteractions: Focus editor when clicking blank paper area */}
               <div
-                className="flex flex-1 cursor-text flex-col min-h-0"
+                className="relative flex flex-1 cursor-text flex-col min-h-0"
+                ref={editorBoxRef}
                 onMouseDown={(event) => {
                   if (event.target === event.currentTarget) {
                     event.preventDefault();
@@ -255,39 +304,24 @@ export function ComposerFocusCanvas({
                   fallback={<div className="flex-1 rounded-lg bg-muted/20" />}
                 >
                   <RichComposerEditor
-                    ariaLabel={
-                      publishType === "article"
-                        ? t("composer.type.article")
-                        : t("composer.ariaLabel")
-                    }
+                    ariaLabel={t("composer.ariaLabel")}
                     content={draft.content}
                     disabled={isPending}
                     editorRef={canvasEditorRef}
-                    extensions={buildArticleExtensions(
-                      t("composer.placeholder"),
-                    )}
+                    extensions={extensions}
                     inputId="flaremo-fullscreen-composer-input"
                     onContentChange={updateContent}
-                    onImageFiles={enqueueInlineUploads}
+                    onImageFiles={handleInlineImageFiles}
                     onTagTokenChange={tags ? setActiveTagToken : undefined}
                     onWikiLinkTokenChange={setActiveWikiToken}
+                    onSuggestionKeyDown={handleSuggestionKeyDown}
                     onSubmitRequest={() => {
                       if (!isUploadingImages && !voiceActive) void submit();
                     }}
                     onTransaction={handleTransaction}
-                    onBackspaceAtStart={() => {
-                      if (!draft.content.trim() && titleInputRef.current) {
-                        titleInputRef.current.focus();
-                        const len = titleInputRef.current.value.length;
-                        titleInputRef.current.setSelectionRange(len, len);
-                        return true;
-                      }
-                      return false;
-                    }}
                     placeholder={t("composer.placeholder")}
-                    submitOnEnter={false}
                     autoFocus={true}
-                    contentClassName="article-editor-content flex-1 outline-none text-base leading-relaxed py-2"
+                    contentClassName="article-editor-content flex-1 outline-none text-base leading-[1.85] py-0"
                   />
                 </Suspense>
                 {voiceActive && (
@@ -301,14 +335,23 @@ export function ComposerFocusCanvas({
                 <ComposerTagSuggestions
                   visible={showTagSuggestions}
                   suggestions={tagSuggestions}
+                  activeIndex={suggestionIndex}
+                  anchor={suggestionAnchor}
                   onAccept={acceptTagSuggestion}
+                  onHighlight={setSuggestionIndex}
                 />
                 <ComposerWikiSuggestions
                   visible={showWikiSuggestions}
                   suggestions={wikiSuggestions}
+                  activeIndex={suggestionIndex}
+                  anchor={suggestionAnchor}
                   onAccept={acceptWikiSuggestion}
+                  onHighlight={setSuggestionIndex}
                 />
+                {/* Pending attachments sit at the foot of the paper, a tray
+                    above the toolbar, aligned with the text column. */}
                 <ComposerFileChips
+                  className="mt-auto px-1 pt-3"
                   files={draft.files}
                   isPending={isPending}
                   onRemoveFile={(file) =>
@@ -322,33 +365,32 @@ export function ComposerFocusCanvas({
               </div>
             </div>
 
-            {/* Bottom Action Bar: Professional Tools + Destination Controller */}
-            <div className="flex min-h-12 shrink-0 items-center justify-between gap-2 border-t border-border/40 bg-card/60 px-4 sm:px-6 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
-              <ComposerCanvasToolbar
-                activeFormats={activeFormats}
-                captureAvailable={captureAvailable}
-                isPending={isPending}
-                voiceActive={voiceActive}
-                withEditor={withEditor}
-                onAddFiles={(files) =>
-                  commitDraft({ files: [...draftRef.current.files, ...files] })
-                }
-                onStartVoice={() => void captureController.start()}
-              />
-              <ComposerCanvasActions
-                canSubmit={canSubmit}
-                isPending={isPending}
-                isUploadingImages={isUploadingImages}
-                publishType={publishType}
-                showVisibility={Boolean(showVisibility)}
-                voiceActive={voiceActive}
-                visibility={draft.visibility}
-                onTypeChange={(nextType) => setManualType(nextType)}
-                onVisibilityChange={(visibility) => {
-                  commitDraft({ visibility });
-                  onVisibilityChange?.(visibility);
-                }}
-              />
+            {/* Bottom bar: the tools and the send control sit on the text
+                column's edges, so the eye never leaves the measure. */}
+            <div className="shrink-0 border-t border-border/50 bg-card/60 pb-[env(safe-area-inset-bottom,0px)]">
+              <div className="mx-auto flex min-h-12 w-full max-w-2xl items-center justify-between gap-2 px-3 py-2 sm:px-6">
+                <ComposerCanvasToolbar
+                  activeFormats={activeFormats}
+                  captureAvailable={captureAvailable}
+                  isPending={isPending}
+                  voiceActive={voiceActive}
+                  withEditor={withEditor}
+                  onAddFiles={appendDraftFiles}
+                  onStartVoice={() => void captureController.start()}
+                />
+                <ComposerCanvasActions
+                  canSubmit={canSubmit}
+                  isPending={isPending}
+                  isUploadingImages={isUploadingImages}
+                  showVisibility={Boolean(showVisibility)}
+                  voiceActive={voiceActive}
+                  visibility={draft.visibility}
+                  onVisibilityChange={(visibility) => {
+                    commitDraft({ visibility });
+                    onVisibilityChange?.(visibility);
+                  }}
+                />
+              </div>
             </div>
           </form>
         </DialogPrimitive.Popup>

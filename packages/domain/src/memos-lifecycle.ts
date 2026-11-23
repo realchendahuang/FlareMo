@@ -1,7 +1,9 @@
 import type { FlareMoDb, MemoRow } from "@flaremo/db";
-import { attachments, memos } from "@flaremo/db";
-import { and, eq, lt } from "drizzle-orm";
+import { attachments, memoRelations, memos } from "@flaremo/db";
+import { and, eq, inArray, lt } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { insertEmbeddingTask } from "./embedding-outbox";
+import { isCommentMemo } from "./memo-comment-filter";
 import {
   adjustmentForMemoTransition,
   hourlyCountStatements,
@@ -29,6 +31,47 @@ export async function listExpiredTrashedMemos(
     .limit(limit);
 }
 
+/**
+ * Comment memos are ordinary `memos` rows; the only thing that marks them as
+ * comments is their `memo_relations` row, which cascades with either side.
+ * Hard-deleting a parent therefore used to leave its replies behind as normal
+ * records on the timeline. Walk the reply tree (comments can themselves be
+ * replied to through the Connect API) so the same delete removes it.
+ */
+async function listCommentDescendantIds(
+  db: FlareMoDb,
+  rootId: string,
+): Promise<string[]> {
+  const seen = new Set([rootId]);
+  const descendants: string[] = [];
+  let frontier = [rootId];
+  // A hard cap keeps a pathological reply chain from turning one delete into
+  // an unbounded batch; any remainder is still deleted by the caller's root
+  // statement only when it is a direct reply, so keep the cap generous.
+  while (frontier.length > 0 && descendants.length < 2000) {
+    const next: string[] = [];
+    for (const chunk of chunkForD1(frontier, d1IdsPerStatement())) {
+      const rows = await db
+        .select({ memoId: memoRelations.memoId })
+        .from(memoRelations)
+        .where(
+          and(
+            inArray(memoRelations.relatedMemoId, chunk),
+            eq(memoRelations.type, "comment"),
+          ),
+        );
+      for (const row of rows) {
+        if (seen.has(row.memoId)) continue;
+        seen.add(row.memoId);
+        next.push(row.memoId);
+      }
+    }
+    descendants.push(...next);
+    frontier = next;
+  }
+  return descendants;
+}
+
 export async function moveMemoToTrash(
   db: FlareMoDb,
   user: TeamViewer,
@@ -44,6 +87,7 @@ export async function hardDeleteMemo(
 ): Promise<void> {
   const existing = await getMemoById(db, user, id, { includeDeleted: true });
   assertCanDeleteMemo(user, existing);
+  const existingIsComment = await isCommentMemo(db, existing.id);
   const now = new Date().toISOString();
   const eventStatement = insertMemosSseEvent(db, {
     type: "memo.deleted",
@@ -67,6 +111,11 @@ export async function hardDeleteMemo(
     operation: "delete",
     createdAt: now,
   });
+  const commentIds = await listCommentDescendantIds(db, existing.id);
+  const attachmentTargets = [existing.id, ...commentIds];
+  const attachmentChunks = chunkForD1(attachmentTargets, d1IdsPerStatement());
+  const firstAttachmentTargets = attachmentChunks[0] ?? [existing.id];
+  const restAttachmentTargets = attachmentChunks.slice(1);
   // Attachment rows are only marked `deleting`, never dropped here: the daily
   // GC removes the binary from R2 and then deletes the rows. This way even a
   // hard-delete path that skips `markMemoAttachmentsDeleting` cannot orphan
@@ -75,7 +124,13 @@ export async function hardDeleteMemo(
     db
       .update(attachments)
       .set({ state: "deleting", updatedAt: now })
-      .where(eq(attachments.memoId, id)),
+      .where(inArray(attachments.memoId, firstAttachmentTargets)),
+    ...restAttachmentTargets.map((chunk) =>
+      db
+        .update(attachments)
+        .set({ state: "deleting", updatedAt: now })
+        .where(inArray(attachments.memoId, chunk)),
+    ),
     eventStatement,
     webhookEventStatement,
     embeddingTaskStatement,
@@ -83,14 +138,22 @@ export async function hardDeleteMemo(
     // stop being counted, and `existing` is the only record of which UTC hour
     // and status bucket it occupied. The "deleted" state is terminal and has
     // no counter column, so this debits without crediting a new bucket.
-    ...hourlyCountStatements(
-      db,
-      adjustmentForMemoTransition(existing, {
-        userId: existing.userId,
-        createdAt: existing.createdAt,
-        status: "deleted",
-      }),
-      now,
+    // Comments were never counted (see createMemoComment).
+    ...(existingIsComment
+      ? []
+      : hourlyCountStatements(
+          db,
+          adjustmentForMemoTransition(existing, {
+            userId: existing.userId,
+            createdAt: existing.createdAt,
+            status: "deleted",
+          }),
+          now,
+        )),
+    // Replies belong to the parent's lifecycle, not to their authors' own
+    // timelines, so they go in the same batch without a user filter.
+    ...chunkForD1(commentIds, d1IdsPerStatement()).map((chunk) =>
+      db.delete(memos).where(inArray(memos.id, chunk)),
     ),
     db
       .delete(memos)

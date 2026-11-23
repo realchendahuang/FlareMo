@@ -57,9 +57,11 @@ export function useAccountSettingsMutations({
   setTokenError,
   setTokenExpiryDays,
   setTokenName,
+  setTokenScopes,
   t,
   tokenExpiryDays,
   tokenName,
+  tokenScopes,
   username,
 }: {
   username: string;
@@ -71,6 +73,8 @@ export function useAccountSettingsMutations({
   emailCurrentPassword: string;
   tokenName: string;
   tokenExpiryDays: string;
+  tokenScopes: import("@flaremo/contracts").MemosPatScope[];
+  setTokenScopes: (value: import("@flaremo/contracts").MemosPatScope[]) => void;
   createdToken: string | null;
   deletePassword: string;
   session: ReturnType<typeof authClient.useSession>;
@@ -140,7 +144,7 @@ export function useAccountSettingsMutations({
   const retryExportMutation = useMutation({
     mutationFn: createExportTask,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["data-tasks"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dataTasks });
     },
     onError: (error) =>
       toast.error(errorMessage(error, t("transfer.retryFailed"))),
@@ -189,8 +193,9 @@ export function useAccountSettingsMutations({
       resetCopied();
       setTokenName("");
       setTokenExpiryDays("");
+      setTokenScopes(["notes"]);
       await queryClient.invalidateQueries({
-        queryKey: ["personal-access-tokens"],
+        queryKey: queryKeys.personalAccessTokens,
       });
     },
   });
@@ -199,7 +204,7 @@ export function useAccountSettingsMutations({
     mutationFn: revokePersonalAccessToken,
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["personal-access-tokens"],
+        queryKey: queryKeys.personalAccessTokens,
       });
     },
   });
@@ -208,7 +213,7 @@ export function useAccountSettingsMutations({
     mutationFn: deletePersonalAccessToken,
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["personal-access-tokens"],
+        queryKey: queryKeys.personalAccessTokens,
       });
     },
   });
@@ -303,9 +308,12 @@ export function useAccountSettingsMutations({
   const handleCreateToken = async () => {
     const normalizedDays = tokenExpiryDays.trim();
     const expiresInDays = Number(normalizedDays);
+    const permanent = expiresInDays === 0 && normalizedDays !== "";
     if (
       !tokenName.trim() ||
+      (permanent && tokenScopes.includes("admin")) ||
       (normalizedDays &&
+        !permanent &&
         (!Number.isInteger(expiresInDays) ||
           expiresInDays < 1 ||
           expiresInDays > 365))
@@ -316,8 +324,9 @@ export function useAccountSettingsMutations({
     setTokenError(null);
     try {
       await createTokenMutation.mutateAsync({
-        expires_in_days: normalizedDays ? expiresInDays : null,
+        expires_in_days: normalizedDays ? expiresInDays : undefined,
         name: tokenName.trim(),
+        scopes: tokenScopes,
       });
     } catch (error) {
       setTokenError(errorMessage(error, t("auth.tokenCreateFailed")));

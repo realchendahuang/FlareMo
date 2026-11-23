@@ -46,6 +46,12 @@ export type MemosApiKey = {
   rateLimitEnabled: boolean;
   rateLimitMax: number | null;
   rateLimitTimeWindow: number | null;
+  /**
+   * Better Auth api-key permission statements, parsed from the stored JSON.
+   * Missing/null means a legacy token created before scopes existed, which
+   * keeps unrestricted access.
+   */
+  permissions: unknown;
 };
 
 export type FlareMoAuth = {
@@ -122,6 +128,7 @@ export type FlareMoAuth = {
         userId: string;
         name: string;
         expiresIn: number | null;
+        permissions?: Record<string, string[]>;
       };
     }) => Promise<MemosApiKey & { key: string }>;
     getSession: (input: {
@@ -176,7 +183,10 @@ export type FlareMoAuth = {
         configId: string;
         key: string;
       };
-    }) => Promise<{ valid: boolean; key: { referenceId: string } | null }>;
+    }) => Promise<{
+      valid: boolean;
+      key: { referenceId: string; permissions?: unknown } | null;
+    }>;
   };
 };
 export function getPublicUrl(env: FlareMoEnv): string {
@@ -242,6 +252,11 @@ export function getTrustedOrigins(
     ) {
       throw new AuthConfigurationError(
         "FLAREMO_TRUSTED_ORIGINS entries must be origins without paths.",
+      );
+    }
+    if (url.protocol === "http:" && !isLocalDevelopmentHostname(url.hostname)) {
+      throw new AuthConfigurationError(
+        "FLAREMO_TRUSTED_ORIGINS must use HTTPS outside local development.",
       );
     }
     origins.add(url.origin);

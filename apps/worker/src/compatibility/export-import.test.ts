@@ -102,10 +102,11 @@ describe("Memos-compatible export and import roundtrip", () => {
     });
 
     const restoredMemos = await listMemos("include_deleted=true&page_size=100");
-    expect(restoredMemos.memos.map((item) => item.content).sort()).toEqual([
-      "exportable memo #bundle",
-      "related memo #bundle",
-    ]);
+    expect(
+      restoredMemos.memos
+        .map((item: { content: string }) => item.content)
+        .toSorted(),
+    ).toEqual(["exportable memo #bundle", "related memo #bundle"]);
     const restoredMemo = restoredMemos.memos.find(
       (item) => item.content === "exportable memo #bundle",
     );

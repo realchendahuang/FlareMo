@@ -1,3 +1,7 @@
+import {
+  extractReferencedAttachmentIds,
+  injectShareTokenIntoFileUrls,
+} from "@flaremo/contracts";
 import { getBranding, getPublicShareByToken } from "@flaremo/domain";
 import type { Context, Hono } from "hono";
 import { SitemapIndexStream, streamToPromise } from "sitemap";
@@ -9,6 +13,14 @@ import {
   escapeHtml,
   truncate,
 } from "./markdown-render";
+import {
+  PAPER_PAGE_STYLES,
+  PAPER_THEME_COLOR,
+  PAPER_UNAVAILABLE_STYLES,
+  paperDateZh,
+  paperPostmark,
+} from "./paper-page-styles";
+import { PUBLIC_PAGE_SECURITY_HEADERS } from "./public-page-security";
 
 /**
  * Public memo share pages (`/share/:token`) as standalone lightweight HTML
@@ -43,10 +55,6 @@ function publicOrigin(env: SharePageEnv, request: Request): string {
   return new URL(request.url).origin;
 }
 
-function utcDate(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
-}
-
 function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
@@ -57,43 +65,10 @@ type SharePageData = Awaited<ReturnType<typeof getPublicShareByToken>>;
 type ShareAttachment = SharePageData["attachments"][number];
 
 // ---------------------------------------------------------------------------
-// Attachment references. Mirrors apps/web/src/lib/attachment-refs.ts — the
-// worker cannot import from the web app, so keep the two in sync (a parity
-// case lives in share-page.test.ts).
+// Attachment references (shared with the web app and article renderer).
 // ---------------------------------------------------------------------------
 
-const ATTACHMENT_REF = /\/file\/attachments\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
-
-export function extractReferencedAttachmentIds(content: string): Set<string> {
-  const ids = new Set<string>();
-  for (const match of content.matchAll(ATTACHMENT_REF)) {
-    ids.add(match[1] ?? "");
-  }
-  return ids;
-}
-
-/** Mirrors the web helper: only markdown link destinations, fences skipped. */
-export function injectShareTokenIntoFileUrls(
-  content: string,
-  token: string,
-): string {
-  let inFence = false;
-  return content
-    .split("\n")
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) {
-        inFence = !inFence;
-        return line;
-      }
-      if (inFence) return line;
-      return line.replace(/(\]\(\/file\/attachments\/[^\s)]*)/g, (target) =>
-        target.includes("?")
-          ? `${target}&share_token=${token}`
-          : `${target}?share_token=${token}`,
-      );
-    })
-    .join("\n");
-}
+export { extractReferencedAttachmentIds, injectShareTokenIntoFileUrls };
 
 // ---------------------------------------------------------------------------
 // Markdown rendering (shared sanitized pipeline in markdown-render.ts).
@@ -119,7 +94,10 @@ function renderMarkdown(input: {
 
 function publicBlobUrl(token: string, attachment: ShareAttachment): string {
   const id = attachment.id.replace(/^attachments\//, "");
-  return `/api/public/shares/${token}/attachments/${id}/blob`;
+  // Attachment ids come from user data (imports included). Encode both
+  // segments so a quote or slash can never break out of the HTML attribute
+  // this URL is written into.
+  return `/api/public/shares/${encodeURIComponent(token)}/attachments/${encodeURIComponent(id)}/blob`;
 }
 
 function renderUnreferencedAttachments(
@@ -141,12 +119,12 @@ function renderUnreferencedAttachments(
       const sizeAttributes = dimensions
         ? ` width="${dimensions.width}" height="${dimensions.height}"`
         : ' loading="lazy" decoding="async"';
-      return `<figure class="gallery-item"><img src="${url}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
+      return `<figure class="gallery-item"><img src="${escapeHtml(url)}?preview=1" alt="${escapedName}"${sizeAttributes} /><figcaption>${escapedName}</figcaption></figure>`;
     }
     if (attachment.contentType?.startsWith("audio/")) {
-      return `<audio controls preload="none" src="${url}"></audio>`;
+      return `<audio controls preload="none" src="${escapeHtml(url)}"></audio>`;
     }
-    return `<p><a href="${url}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
+    return `<p><a href="${escapeHtml(url)}" download>${escapedName}</a><span class="muted"> ${formatBytes(attachment.size)}</span></p>`;
   });
   return `<hr />${items.join("\n")}`;
 }
@@ -177,7 +155,7 @@ function firstImageAttachment(
 function buildHeadTags(input: ShareMetaInput): string {
   const { origin, token, product, data } = input;
   const plainText = contentToPlainText(data.memo.content);
-  const canonical = `${origin}/share/${token}`;
+  const canonical = `${origin}/share/${encodeURIComponent(token)}`;
   const headline =
     truncate(plainText, HEADLINE_MAX_CHARS) || `${product} 记录分享`;
   const description = truncate(plainText, DESCRIPTION_MAX_CHARS) || product;
@@ -188,6 +166,7 @@ function buildHeadTags(input: ShareMetaInput): string {
   const imageDimensions = image
     ? attachmentImageDimensions(image.payload)
     : undefined;
+  const imageAlt = image?.filename?.trim() || headline;
 
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -226,6 +205,12 @@ function buildHeadTags(input: ShareMetaInput): string {
       ogLocaleFor(detectShareLang(data.memo.content)),
     ),
     metaTag("property", "article:published_time", data.memo.createdAt),
+    ...(data.memo.updatedAt
+      ? [metaTag("property", "article:modified_time", data.memo.updatedAt)]
+      : []),
+    ...(data.user?.name
+      ? [metaTag("property", "article:author", data.user.name)]
+      : []),
     metaTag(
       "name",
       "twitter:card",
@@ -246,7 +231,8 @@ function buildHeadTags(input: ShareMetaInput): string {
         metaTag("property", "og:image:height", String(imageDimensions.height)),
       );
     }
-    tags.push(metaTag("property", "og:image:alt", image?.filename ?? ""));
+    tags.push(metaTag("property", "og:image:alt", imageAlt));
+    tags.push(metaTag("name", "twitter:image:alt", imageAlt));
   }
   return tags.join("\n    ");
 }
@@ -278,53 +264,6 @@ export function detectShareLang(content: string): string {
   return "zh-CN";
 }
 
-const SHARE_PAGE_STYLES = `
-:root { color-scheme: light dark; --bg: #faf9f7; --fg: #1c1917; --muted: #78716c; --border: #e7e5e4; --accent: #c2410c; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0d0c0b; --fg: #e7e5e4; --muted: #a8a29e; --border: #292524; --accent: #fb923c; }
-}
-* { box-sizing: border-box; }
-/* Han fallbacks are keyed off the <html lang> this document emits (see
-   detectShareLang): font matching walks the list per character, so one shared
-   Chinese-first list would paint Japanese kana/kanji with Chinese glyph forms
-   and drop Korean to a last-resort face. */
-:root { --font-cjk: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei"; }
-:root:lang(ja) { --font-cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP", "Noto Sans CJK JP", "PingFang SC", "Microsoft YaHei"; }
-:root:lang(ko) { --font-cjk: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans CJK KR", "PingFang SC", "Microsoft YaHei"; }
-/* The variables sit on :root, so a subtree declaring another language (the
-   Chinese-only chrome inside a Japanese note's page) would inherit the page
-   list. Matching :lang() on the element lets that subtree switch back. */
-:lang(zh) { --font-cjk: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei"; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", var(--font-cjk), system-ui, sans-serif; }
-main { max-width: 42rem; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
-header, footer { max-width: 42rem; margin: 0 auto; padding: 1rem 1.25rem; }
-header { border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-footer { border-top: 1px solid var(--border); color: var(--muted); font-size: .875rem; }
-header a { color: var(--fg); font-weight: 600; text-decoration: none; }
-header time { color: var(--muted); font-size: .875rem; }
-footer a { color: var(--muted); }
-article { overflow-wrap: break-word; }
-article h1, article h2, article h3, article h4, article h5, article h6 { line-height: 1.3; margin: 1.6em 0 .6em; }
-article h1 { font-size: 1.5rem; } article h2 { font-size: 1.3rem; } article h3 { font-size: 1.15rem; }
-article p { margin: 1em 0; }
-article a { color: var(--accent); }
-article img { max-width: 100%; height: auto; border-radius: .5rem; }
-article blockquote { margin: 1em 0; padding: 0 1em; border-left: 3px solid var(--border); color: var(--muted); }
-article pre { background: rgba(127,127,127,.12); padding: .9em 1em; border-radius: .5rem; overflow-x: auto; font-size: .875rem; line-height: 1.6; }
-article code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .875em; background: rgba(127,127,127,.12); padding: .15em .35em; border-radius: .25rem; }
-article pre code { background: transparent; padding: 0; }
-article table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .925rem; }
-article th, article td { border: 1px solid var(--border); padding: .4em .7em; text-align: left; }
-article hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
-article ul, article ol { padding-left: 1.5em; }
-article li input[type=checkbox] { margin-right: .4em; }
-.gallery-item { margin: 1em 0; }
-.gallery-item img { max-width: 100%; height: auto; border-radius: .5rem; }
-.gallery-item figcaption { color: var(--muted); font-size: .8rem; margin-top: .3rem; }
-audio { width: 100%; }
-.muted { color: var(--muted); }
-`;
-
 export function renderShareDocument(input: ShareMetaInput): string {
   const { origin, token, product, data } = input;
   const dimensionsByAttachmentId = new Map<
@@ -350,7 +289,6 @@ export function renderShareDocument(input: ShareMetaInput): string {
     data.attachments,
     data.memo.content,
   );
-  const publishedDate = utcDate(data.memo.createdAt);
 
   // Derived from the note's own script so its Han text selects the right face
   // (see detectShareLang). The surrounding chrome is Chinese-only, so an RTL
@@ -363,28 +301,34 @@ export function renderShareDocument(input: ShareMetaInput): string {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0d0c0b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.light}" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.dark}" media="(prefers-color-scheme: dark)" />
     ${buildHeadTags(input)}
     <link
       rel="icon"
       href="${escapeHtml(input.faviconUrl ?? "/brand/flaremo-mark-light-300.png")}"
       type="${escapeHtml(input.faviconType ?? "image/png")}"
     />
-    <style>${SHARE_PAGE_STYLES}</style>
+    <style>${PAPER_PAGE_STYLES}</style>
   </head>
   <body>
-    <header>
-      <a href="${escapeHtml(origin)}/">${escapeHtml(product)}</a>
-      <time datetime="${escapeHtml(data.memo.createdAt)}">${escapeHtml(publishedDate)}</time>
-    </header>
-    <main>
-      <article data-flaremo-share-article>${bodyHtml}</article>
-      ${galleryHtml}
-    </main>
-    <!-- The page declares the note's language; this chrome is Chinese-only
-         copy, so it carries its own lang to keep Chinese glyph forms. -->
-    <footer lang="zh-CN">发布于 ${escapeHtml(publishedDate)} · 作者 ${escapeHtml(data.user.name)} · <a href="${escapeHtml(origin)}">用 ${escapeHtml(product)} 打开</a></footer>
+    <div class="desk">
+      <main class="sheet">
+        <header class="masthead ui" lang="zh-CN">
+          <a href="${escapeHtml(origin)}/"><span class="seal" aria-hidden="true"></span>${escapeHtml(product)}</a>
+          <time class="postmark" datetime="${escapeHtml(data.memo.createdAt)}">${escapeHtml(paperPostmark(data.memo.createdAt))}</time>
+        </header>
+        <article data-flaremo-share-article${lang === "ar" ? ' dir="rtl"' : ""}>${bodyHtml}</article>
+        ${galleryHtml ? `<section class="gallery">${galleryHtml}</section>` : ""}
+        <!-- The page declares the note's language; this chrome is Chinese-only
+             copy, so it carries its own lang to keep Chinese glyph forms. -->
+        <footer lang="zh-CN">
+          <span class="author">${escapeHtml(data.user.name)}</span>
+          <time datetime="${escapeHtml(data.memo.createdAt)}">写于 ${escapeHtml(paperDateZh(data.memo.createdAt))}</time>
+        </footer>
+      </main>
+      <p class="colophon ui" lang="zh-CN"><a href="${escapeHtml(origin)}">在 ${escapeHtml(product)} 里，安静地记下想法</a></p>
+    </div>
   </body>
 </html>`;
 }
@@ -395,12 +339,19 @@ function renderShareUnavailableDocument(product: string): string {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.light}" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="${PAPER_THEME_COLOR.dark}" media="(prefers-color-scheme: dark)" />
     <title>${escapeHtml(product)}</title>
     <meta name="robots" content="noindex, nofollow" />
-    <style>body{margin:0;min-height:100svh;display:grid;place-items:center;background:#faf9f7;color:#1c1917;font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}@media (prefers-color-scheme:dark){body{background:#0d0c0b;color:#e7e5e4}}p{color:#78716c}</style>
+    <style>${PAPER_UNAVAILABLE_STYLES}</style>
   </head>
   <body>
-    <div><strong>${escapeHtml(product)}</strong><p>该分享链接不可用或已失效。</p></div>
+    <div class="note">
+      <span class="seal" aria-hidden="true"></span>
+      <p>这张纸条已经被收回，或从未寄出。</p>
+      <p class="ui">${escapeHtml(product)}</p>
+    </div>
   </body>
 </html>`;
 }
@@ -409,6 +360,7 @@ const SHARE_RESPONSE_INIT = {
   headers: {
     "content-type": "text/html; charset=utf-8",
     "cache-control": SHARE_HTML_CACHE_CONTROL,
+    ...PUBLIC_PAGE_SECURITY_HEADERS,
   },
 } as const;
 

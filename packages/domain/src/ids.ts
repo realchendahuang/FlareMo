@@ -2,8 +2,8 @@ export function createResourceId(
   prefix:
     | "articles"
     | "attachments"
+    | "insights"
     | "memos"
-    | "memories"
     | "projects"
     | "revisions"
     | "shares"
@@ -17,8 +17,8 @@ export function parseResourceName(
   prefix:
     | "articles"
     | "attachments"
+    | "insights"
     | "memos"
-    | "memories"
     | "projects"
     | "revisions"
     | "shares"

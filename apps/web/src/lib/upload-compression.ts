@@ -27,10 +27,7 @@ import {
   getImageCompressionEnabled,
 } from "./upload-settings";
 
-export {
-  compressAudio,
-  shouldCompressAudio,
-} from "./upload/audio-compression";
+export { compressAudio, shouldCompressAudio } from "./upload/audio-compression";
 export {
   compressImage,
   type ImageCompressionOptions,

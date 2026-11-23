@@ -2,6 +2,12 @@ import type { PatchMemoRelationsInput } from "@flaremo/contracts";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { memoRelations, memos } from "@flaremo/db";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
+import {
+  chunkForD1,
+  d1IdsPerRepeatedBinding,
+  d1IdsPerStatement,
+  d1RowsPerStatement,
+} from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
 import { parseResourceName } from "./ids";
 import { getMemoById, getMemoByIdForViewer } from "./memos";
@@ -69,35 +75,61 @@ export async function listMemoRelationsForMemosForViewer(
   if (requested.length === 0) return grouped;
 
   const requestedIds = new Set(requested);
-  const rows = await db
-    .select()
-    .from(memoRelations)
-    .where(
-      or(
-        inArray(memoRelations.memoId, requested),
-        inArray(memoRelations.relatedMemoId, requested),
-      ),
-    )
-    .orderBy(asc(memoRelations.createdAt), asc(memoRelations.memoId));
-  if (rows.length === 0) return grouped;
+  // Two bindings per id (one for each side of the relation), so the page's
+  // memo ids have to be chunked before they reach D1's 100-parameter cap.
+  const rows: Array<typeof memoRelations.$inferSelect> = [];
+  for (const idChunk of chunkForD1(requested, d1IdsPerRepeatedBinding(2))) {
+    rows.push(
+      ...(await db
+        .select()
+        .from(memoRelations)
+        .where(
+          or(
+            inArray(memoRelations.memoId, idChunk),
+            inArray(memoRelations.relatedMemoId, idChunk),
+          ),
+        )
+        .orderBy(asc(memoRelations.createdAt), asc(memoRelations.memoId))),
+    );
+  }
+  // A relation whose two endpoints fall into different chunks matches the
+  // `OR` in both chunk queries, so chunking can return the same row twice.
+  const seen = new Set<string>();
+  const uniqueRows = rows.filter((row) => {
+    const key = `${row.memoId}\u0000${row.relatedMemoId}\u0000${row.type}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  uniqueRows.sort(
+    (a, b) =>
+      a.createdAt.localeCompare(b.createdAt) ||
+      a.memoId.localeCompare(b.memoId),
+  );
+  if (uniqueRows.length === 0) return grouped;
 
   // Every id that can appear on the far side of a relation for a requested
   // memo; one probe answers readability for all of them.
   const farIds = new Set<string>();
-  for (const row of rows) {
+  for (const row of uniqueRows) {
     if (requestedIds.has(row.memoId)) farIds.add(row.relatedMemoId);
     if (requestedIds.has(row.relatedMemoId)) farIds.add(row.memoId);
   }
   const readableIds = new Set<string>();
   if (farIds.size > 0) {
-    const readable = await db
-      .select({ id: memos.id })
-      .from(memos)
-      .where(and(memoReadScope(user), inArray(memos.id, [...farIds])));
+    const readable: Array<{ id: string }> = [];
+    for (const idChunk of chunkForD1([...farIds], d1IdsPerStatement())) {
+      readable.push(
+        ...(await db
+          .select({ id: memos.id })
+          .from(memos)
+          .where(and(memoReadScope(user), inArray(memos.id, idChunk)))),
+      );
+    }
     for (const row of readable) readableIds.add(row.id);
   }
 
-  for (const row of rows) {
+  for (const row of uniqueRows) {
     if (requestedIds.has(row.memoId) && readableIds.has(row.relatedMemoId)) {
       grouped.get(row.memoId)?.push(row);
     }
@@ -154,11 +186,17 @@ export async function replaceMemoRelations(
 
   if (rows.length > 0) {
     const relatedIds = [...new Set(rows.map((row) => row.relatedMemoId))];
-    const relatedRows = await db
-      .select({ id: memos.id })
-      .from(memos)
-      .where(and(memoReadScope(user), inArray(memos.id, relatedIds)));
-    if (relatedRows.length !== relatedIds.length) {
+    // `memoReadScope` adds its own bindings, and 200 relations would otherwise
+    // blow the 100-parameter cap before the write is even attempted.
+    const foundIds = new Set<string>();
+    for (const idChunk of chunkForD1(relatedIds, d1IdsPerStatement())) {
+      const relatedRows = await db
+        .select({ id: memos.id })
+        .from(memos)
+        .where(and(memoReadScope(user), inArray(memos.id, idChunk)));
+      for (const row of relatedRows) foundIds.add(row.id);
+    }
+    if (foundIds.size !== relatedIds.length) {
       throw new NotFoundError("One or more related memos were not found");
     }
   }
@@ -180,9 +218,13 @@ export async function replaceMemoRelations(
     createdAt: now,
   });
   if (rows.length > 0) {
+    // Four columns per relation row: 25 rows is the D1 ceiling. The delete and
+    // the event stay in the same batch as the first insert slice so the write
+    // remains one transaction.
+    const insertSlices = chunkForD1(rows, d1RowsPerStatement(4));
     await db.batch([
       deleteStatement,
-      db.insert(memoRelations).values(rows),
+      ...insertSlices.map((slice) => db.insert(memoRelations).values(slice)),
       eventStatement,
     ]);
   } else {
@@ -253,11 +295,16 @@ export async function deleteMemoRelationsForMemo(
 
 async function getRelatedMemos(db: FlareMoDb, user: UserRow, ids: string[]) {
   if (ids.length === 0) return new Map();
-  const rows = await db
-    .select()
-    .from(memos)
-    .where(and(memoReadScope(user), inArray(memos.id, ids)));
-  return new Map(rows.map((memo) => [memo.id, memo] as const));
+  // A popular memo can accumulate more relations than D1 will bind at once.
+  const result = new Map<string, typeof memos.$inferSelect>();
+  for (const idChunk of chunkForD1(ids, d1IdsPerStatement())) {
+    const rows = await db
+      .select()
+      .from(memos)
+      .where(and(memoReadScope(user), inArray(memos.id, idChunk)));
+    for (const memo of rows) result.set(memo.id, memo);
+  }
+  return result;
 }
 
 async function filterReadableRelations(
@@ -274,11 +321,15 @@ async function filterReadableRelations(
     ),
   ];
   if (relatedIds.length === 0) return [];
-  const readable = await db
-    .select({ id: memos.id })
-    .from(memos)
-    .where(and(memoReadScope(user), inArray(memos.id, relatedIds)));
-  const readableIds = new Set(readable.map((row) => row.id));
+  // Comments are relations, so a popular thread puts every comment id here.
+  const readableIds = new Set<string>();
+  for (const idChunk of chunkForD1(relatedIds, d1IdsPerStatement())) {
+    const readable = await db
+      .select({ id: memos.id })
+      .from(memos)
+      .where(and(memoReadScope(user), inArray(memos.id, idChunk)));
+    for (const row of readable) readableIds.add(row.id);
+  }
   return rows.filter((row) =>
     readableIds.has(row.memoId === memoId ? row.relatedMemoId : row.memoId),
   );

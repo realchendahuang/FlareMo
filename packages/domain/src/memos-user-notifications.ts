@@ -1,4 +1,6 @@
 import {
+  authMembers,
+  authOrganizations,
   authUserLinks,
   authUsers,
   type FlareMoDb,
@@ -9,9 +11,16 @@ import {
   users,
 } from "@flaremo/db";
 import { and, desc, eq, inArray, lt, notInArray, or } from "drizzle-orm";
+import { isMembershipActive } from "./auth";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
 import { parseUserChildResourceName } from "./memos-user-shared";
-import { canReadMemo } from "./team-permissions";
+import {
+  canReadMemo,
+  type TeamRole,
+  type TeamViewer,
+} from "./team-permissions";
+import { DEFAULT_TEAM_SLUG } from "./users";
 
 const MAX_NOTIFICATION_PAGE_SIZE = 1_000;
 
@@ -19,7 +28,8 @@ export type UserNotificationType =
   | "memo_comment"
   | "memo_mention"
   | "daily_review"
-  | "task_overdue";
+  | "task_overdue"
+  | "task_due";
 export type UserNotificationStatus = "unread" | "archived";
 
 export type UserNotificationDto = {
@@ -111,23 +121,21 @@ export async function listUserNotifications(
 
   // Batch-prefetch every memo the page may reference (one query instead of
   // up to two point lookups per row), then build DTOs from the map.
-  const rows = await selectNotifications(db, and(...filters));
-  const memoIdSet = new Set<string>();
-  for (const row of rows) {
-    if (row.notification.memoId) memoIdSet.add(row.notification.memoId);
-    if (row.notification.relatedMemoId) {
-      memoIdSet.add(row.notification.relatedMemoId);
-    }
-  }
-  const memoById = new Map(
-    memoIdSet.size
-      ? (
-          await db
-            .select()
-            .from(memos)
-            .where(inArray(memos.id, [...memoIdSet]))
-        ).map((memo) => [memo.id, memo] as const)
-      : [],
+  //
+  // The window does not have to be the whole 1000-row maximum: the page is
+  // usually 50 rows, and joining senders for 1001 rows to render 50 was the
+  // dominant cost of opening the inbox. Four rows per requested row leaves
+  // headroom for DTO-level filtering without re-reading the deep history.
+  const windowSize = Math.min(
+    MAX_NOTIFICATION_PAGE_SIZE + 1,
+    Math.max(limit * 4, 60) + 1,
+  );
+  const rows = await selectNotifications(db, and(...filters), windowSize);
+  const memoById = new Map<string, typeof memos.$inferSelect>();
+  await prefetchNotificationMemos(
+    db,
+    memoById,
+    rows.map((row) => row.notification),
   );
 
   const page: UserNotificationDto[] = [];
@@ -148,7 +156,7 @@ export async function listUserNotifications(
   while (
     page.length < limit &&
     scanned >= rows.length &&
-    rows.length === MAX_NOTIFICATION_PAGE_SIZE + 1 &&
+    rows.length === windowSize &&
     lastScanned
   ) {
     cursorState = {
@@ -170,23 +178,16 @@ export async function listUserNotifications(
         ),
       ),
     ];
-    const more = await selectNotifications(db, and(...windowFilters));
-    const memoIdWindow = new Set<string>();
-    for (const row of more) {
-      if (row.notification.memoId) memoIdWindow.add(row.notification.memoId);
-      if (row.notification.relatedMemoId) {
-        memoIdWindow.add(row.notification.relatedMemoId);
-      }
-    }
-    const missing = [...memoIdWindow].filter((id) => !memoById.has(id));
-    if (missing.length > 0) {
-      for (const memo of await db
-        .select()
-        .from(memos)
-        .where(inArray(memos.id, missing))) {
-        memoById.set(memo.id, memo);
-      }
-    }
+    const more = await selectNotifications(
+      db,
+      and(...windowFilters),
+      windowSize,
+    );
+    await prefetchNotificationMemos(
+      db,
+      memoById,
+      more.map((row) => row.notification),
+    );
     for (const row of more) {
       scanned += 1;
       lastScanned = row;
@@ -315,7 +316,7 @@ export async function findMentionedUsers(
   db: FlareMoDb,
   content: string,
   excludedUserIds: string[] = [],
-): Promise<UserRow[]> {
+): Promise<TeamViewer[]> {
   const usernames = [
     ...new Set(
       [
@@ -334,10 +335,30 @@ export async function findMentionedUsers(
   for (let offset = 0; offset < usernames.length; offset += 90) {
     rows.push(
       ...(await db
-        .select({ user: users, username: authUsers.username })
+        .select({
+          user: users,
+          username: authUsers.username,
+          role: authMembers.role,
+          expiresAt: authMembers.expiresAt,
+          organizationId: authOrganizations.id,
+        })
         .from(authUsers)
         .innerJoin(authUserLinks, eq(authUserLinks.authUserId, authUsers.id))
         .innerJoin(users, eq(users.id, authUserLinks.flaremoUserId))
+        // The team membership travels with the user: the caller checks read
+        // access on a team memo, and a bare user row reads as "not a member",
+        // which silently dropped every team mention.
+        .leftJoin(
+          authOrganizations,
+          eq(authOrganizations.slug, DEFAULT_TEAM_SLUG),
+        )
+        .leftJoin(
+          authMembers,
+          and(
+            eq(authMembers.userId, authUsers.id),
+            eq(authMembers.organizationId, authOrganizations.id),
+          ),
+        )
         .where(
           inArray(authUsers.username, usernames.slice(offset, offset + 90)),
         )),
@@ -349,7 +370,13 @@ export async function findMentionedUsers(
     if (!row.username || excludedUserIds.includes(row.user.id)) continue;
     if (seen.has(row.user.id)) continue;
     seen.add(row.user.id);
-    result.push(row.user);
+    const role = (row.role ?? null) as TeamRole | null;
+    const active = role && isMembershipActive(role, row.expiresAt ?? null);
+    result.push({
+      ...row.user,
+      teamRole: active ? role : null,
+      teamOrganizationId: active ? (row.organizationId ?? null) : null,
+    });
   }
   return result;
 }
@@ -357,6 +384,7 @@ export async function findMentionedUsers(
 async function selectNotifications(
   db: FlareMoDb,
   where: ReturnType<typeof and>,
+  windowSize: number = MAX_NOTIFICATION_PAGE_SIZE + 1,
 ): Promise<NotificationWithSender[]> {
   return db
     .select({
@@ -371,7 +399,38 @@ async function selectNotifications(
     .leftJoin(authUsers, eq(authUsers.id, authUserLinks.authUserId))
     .where(where)
     .orderBy(desc(memosNotifications.createdAt), desc(memosNotifications.id))
-    .limit(MAX_NOTIFICATION_PAGE_SIZE + 1);
+    .limit(windowSize);
+}
+
+/**
+ * Fill `memoById` with every memo a notification window points at. The window
+ * can carry two ids per row (up to 2000 bindings if the inbox window is at its
+ * maximum), so the ids are chunked before they reach D1.
+ */
+async function prefetchNotificationMemos(
+  db: FlareMoDb,
+  memoById: Map<string, typeof memos.$inferSelect>,
+  notifications: readonly MemosNotificationRow[],
+) {
+  const missing = new Set<string>();
+  for (const notification of notifications) {
+    if (notification.memoId && !memoById.has(notification.memoId)) {
+      missing.add(notification.memoId);
+    }
+    if (
+      notification.relatedMemoId &&
+      !memoById.has(notification.relatedMemoId)
+    ) {
+      missing.add(notification.relatedMemoId);
+    }
+  }
+  for (const idChunk of chunkForD1([...missing], d1IdsPerStatement())) {
+    const rows = await db
+      .select()
+      .from(memos)
+      .where(inArray(memos.id, idChunk));
+    for (const memo of rows) memoById.set(memo.id, memo);
+  }
 }
 
 async function getNotification(
@@ -399,7 +458,10 @@ function notificationToDto(
 ): UserNotificationDto | undefined {
   const notification = row.notification;
   // Task-overdue rows carry a title snippet instead of a memo anchor.
-  if (notification.type === "task_overdue") {
+  if (
+    notification.type === "task_overdue" ||
+    notification.type === "task_due"
+  ) {
     return {
       name: `${notification.receiverId}/notifications/${notification.id}`,
       sender: row.sender.id,
@@ -571,4 +633,48 @@ function normalizeNotificationUpdateMask(value: string[] | undefined) {
       );
     return normalized;
   });
+}
+
+/**
+ * The people a team member can @mention: active members of the deployment
+ * team, as username and display name only (never emails). Empty for a
+ * viewer outside the team, since a mention can only reach someone who reads
+ * the same team space.
+ */
+export async function listMentionableTeamMembers(
+  db: FlareMoDb,
+  viewer: TeamViewer,
+): Promise<{ username: string; displayName: string }[]> {
+  if (!viewer.teamRole) return [];
+  const rows = await db
+    .select({
+      userId: users.id,
+      username: authUsers.username,
+      name: authUsers.name,
+      role: authMembers.role,
+      expiresAt: authMembers.expiresAt,
+    })
+    .from(authMembers)
+    .innerJoin(
+      authOrganizations,
+      and(
+        eq(authOrganizations.id, authMembers.organizationId),
+        eq(authOrganizations.slug, DEFAULT_TEAM_SLUG),
+      ),
+    )
+    .innerJoin(authUsers, eq(authUsers.id, authMembers.userId))
+    .innerJoin(authUserLinks, eq(authUserLinks.authUserId, authUsers.id))
+    .innerJoin(users, eq(users.id, authUserLinks.flaremoUserId));
+  return rows
+    .filter(
+      (row) =>
+        row.username &&
+        row.userId !== viewer.id &&
+        isMembershipActive(row.role as TeamRole, row.expiresAt ?? null),
+    )
+    .map((row) => ({
+      username: row.username as string,
+      displayName: row.name || (row.username as string),
+    }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }

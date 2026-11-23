@@ -22,6 +22,27 @@ describe("composer markdown round-trip", () => {
     return editor.getMarkdown();
   };
 
+  // The "[[" autocomplete inserts a link mark. Inserting the markdown as
+  // literal text instead used to save `\[title\](/memo/id)`: a dead link.
+  it("stores an accepted wikilink as a real markdown link", () => {
+    editor.commands.setContent("看 [[周", { contentType: "markdown" });
+    const end = editor.state.doc.content.size - 1;
+    editor
+      .chain()
+      .insertContentAt({ from: end - 3, to: end }, [
+        {
+          type: "text",
+          text: "周报",
+          marks: [{ type: "link", attrs: { href: "/memo/abc" } }],
+        },
+        { type: "text", text: " " },
+      ])
+      .unsetMark("link")
+      .insertContent("续写")
+      .run();
+    expect(editor.getMarkdown()).toBe("看 [周报](/memo/abc) 续写");
+  });
+
   // Every element on the composer whitelist, plus the classic stress cases
   // (nested quotes, CJK, hard breaks, characters markdown likes to escape).
   const samples: string[] = [
@@ -61,6 +82,21 @@ describe("composer markdown round-trip", () => {
     );
     expect(round("看 #标签")).toContain("#标签");
     expect(round("```\nconst x = 1;\n```")).toContain("const x = 1;");
+  });
+
+  it("keeps runs of spaces and hash marks through a round trip", () => {
+    // What the card shows is rendered from this stored text, so the editor
+    // must not eat the spaces or the `#` someone typed.
+    for (const sample of [
+      "hello  world",
+      "a    b",
+      "#tag",
+      "text #tag",
+      "C# 语言",
+      "价格是 #1 元",
+    ]) {
+      expect(round(sample)).toBe(sample);
+    }
   });
 
   it("does not resurrect underline or introduce HTML", () => {

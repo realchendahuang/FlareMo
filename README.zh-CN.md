@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>0 服务器 · 0 维护成本 · 24 小时全球边缘在线 · 数据绝对自主掌控</b><br>
-  一个人用，是安静专注的私人灵感速记与第二大脑；一个团队用，是具备多级权限的共享知识库。
+  一个人用，是 AI 原生的第二大脑；一个团队用，是共享的知识库。
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/官网-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -31,6 +30,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="FlareMo 桌面端浅色界面" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="FlareMo 桌面端深色界面" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="FlareMo 移动端界面" /> |
 
+| ✅ 待办、项目与回顾 | 📄 文章与发布 |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="待办、项目与回顾" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="文章与发布" /> |
+
 <sub>真实运行界面：支持深浅主题无缝切换与全功能移动端自适应。所有展示功能均已稳定接入后端，不放未实现的占位按钮。</sub>
 
 </div>
@@ -39,15 +42,15 @@
 
 ## 💡 为什么选择 FlareMo
 
-Flomo 和 Memos 证明了「快速捕捉 + 流式时间线」这种无压力记录体验的巨大价值。但自部署传统的笔记系统通常意味着：你需要一台按月付费的 VPS、安装并配置 Docker / Postgres、编写定时备份脚本，还要时刻提防硬盘损坏或硬件故障导致的数据损失。
+第二大脑一直是有门槛的：一台按月续费的 VPS、Docker、PostgreSQL、定时备份脚本，还有随时可能坏掉的那块硬盘。
 
-FlareMo 回答了一个更简单的问题：**仅凭一个免费的 Cloudflare 账号、零服务器维护，你能拥有一个 7×24 小时在线、有韧性、全球加速的知识库吗？**
+FlareMo 想回答的是另一个问题：**如果第二大脑根本不需要服务器，而且你的 AI Agent 可以直接在你的笔记上工作呢？**
 
-- **真正的 Serverless**：代码与静态前端直接部署在离你最近的 Cloudflare Workers 边缘节点，毫秒级响应。
-- **开箱即用的企业级持久化**：Cloudflare D1 承载笔记与元数据，Cloudflare R2 存储媒体附件，自带多地域副本。
-- **AI 原生第二大脑**：Agent Memory 记忆中枢自带 CLI 与跨 Agent Skill，AI Agent（Claude、Cursor、Codex、ChatGPT、ZCode）可以读取并更新你的长期偏好与记忆范围；同时保留 MCP 端点。
-- **一人安静，多人强大**：默认是私密加密的单人 sanctuary；开启团队模式后，即刻变身为具备角色与三级可见性的协作工作台。
-- **简约不简单**：界面安静，每个控件都各有其位——没有抢眼装饰，也没有缺失的功能。
+- **AI 原生，不是事后外挂**：提供笔记 MCP 端点与 `flaremo-notes` Skill，Claude、Cursor、Codex、ChatGPT、ZCode 可以搜索、读取和写入你自己的笔记。没有独立的 AI 记忆库，也没有第二本需要你打理的笔记本。
+- **真正的 Serverless**：代码与静态前端跑在离你最近的 Cloudflare Workers 边缘节点；D1 与 R2 承载记录、任务、文章与媒体，自带多地域持久化。
+- **知识会生长**：一条速记长成任务，任务长成文章，最后沉淀成可搜索、可关联的知识库。
+- **一人安静，多人有用**：默认私密；开启团队模式后多一个带角色与三级可见性的共享空间。
+- **简约不简单**：界面安静，每个控件都各有其位。
 
 ---
 
@@ -55,28 +58,31 @@ FlareMo 回答了一个更简单的问题：**仅凭一个免费的 Cloudflare �
 
 ### 1. 极速速记与沉浸式回顾
 - **毫秒级捕捉**：卡片式时间线，支持标签、Markdown/GFM，以及图片与音频附件预览。
+- **记录与文章**：输入框始终是一条快速记录（标签、最多 9 张图片、加粗、列表、待办）；点「全屏书写」可以在全屏画布里继续写同一条记录。文章从「文章」页开始写。
+- **笔记下的评论**：类似微博，个人空间与团队空间的任意笔记都可评论。评论挂在原笔记下方，不进入时间线、搜索、统计、标签与回顾。
 - **极速搜索**：SQLite FTS5 全文索引，支持查询操作符（`has:attachment`、`is:pinned`、`before:YYYY-MM-DD`、`after:YYYY-MM-DD`、`in:timeline|archive|trash`）。
 - **语义「找一找」（向量搜索）**：Workers AI embedding 搭配 Vectorize 派生向量索引，按上下文语义召回；结果会对照 D1 二次校验权限，并无缝降级到 FTS5。
 - **灵感激活**：内置**每日回顾**（那年今日）、**随机漫步**（在标签与反向链接图中游走，附明信片式总结）和相关笔记推荐。
 - **版本回溯**：完整的版本差异对比，一键还原历史版本。
 
-### 2. AI 长期记忆（CLI + Skills）
-- **Agent Memory**：自带 `flaremo` CLI 与 `flaremo-memory` Skill——AI Agent 通过同一 REST 基底记录并更新跨会话的长期记忆（偏好、项目决策、约束、教训）。
-- **人机协同**：在 `/memory` 界面审阅、确认、锁定或纠正 AI 沉淀的记忆。
-- **开放生态**：推荐路径是 CLI + Skills；同时提供 `/memory/mcp`（Streamable HTTP MCP）与 `/mcp` 端点，兼容既有 MCP 客户端。
+### 2. AI 读写你的笔记（MCP + Skill）
+- **笔记 MCP**：`/mcp` 提供笔记的列表、搜索、读取、创建、修改与删除，使用可撤销的 `memos_pat_` 令牌鉴权。
+- **一个 Skill**：`skills/flaremo-notes` 教会每个 Agent 先搜索再写入、保留你的原文，并返回它改动的笔记 ID。
+- **没有独立记忆**：Agent 按需读取你的笔记，不会在后台把内容抽取成第二个账本。
 
-### 3. 项目与任务
-- **按项目归拢工作**：把笔记与待办收进项目统一管理，看板支持跨状态列拖拽，配优先级、手动排序与截止日。
+### 3. 待办与项目
+- **给笔记排期**：为笔记选定日期与项目，其中每条未勾选的待办都会成为一项任务。在笔记里或待办页勾选完成，两边双向同步。
+- **一个待办页**：`/projects` 以按天分组的列表呈现**今天**、**未来 7 天**与**全部任务**，你的项目则以看板呈现（跨状态列拖拽、优先级、手动排序）。每个列表都有快速添加行。
 - **个人私有、可撤销删除**：任务为单人私有资源；删除先进回收站，可随时还原，到期后自动清理。
 
-### 4. 任务管理与提醒
-- **任务住在项目里**：`/projects` 看板（跨状态列拖拽）、优先级、手动排序与截止日，让项目页成为排期工作的唯一归宿。
+### 4. 提醒与时间维度
+- **在阅读处显示角标**：已排期的笔记在卡片上显示「待办 n/m · 日期 · 项目」，每日回顾开头即列出今天的待办。
 - **时间维度一目了然**：explorer 首页将迷你月历与逾期/今日提醒并排呈现，到期事项不会藏在看板后面。
-- **逾期提醒**：逾期任务触发站内通知，并可选开启浏览器 Web Push。
+- **到期与逾期提醒**：每日任务在站内发出「今天到期」与逾期通知，并可选开启浏览器 Web Push。排期精确到天，不提供按钟点的闹钟提醒。
 
-### 5. 团队协作与三级可见性
+### 5. 团队空间与三级可见性
+- **分享，而非协作**：团队空间是成员之间互相发布笔记并评论的地方。在团队输入框中输入 `@username` 会自动补全并通知被提及的人；点开通知直接跳到原笔记的评论处。
 - **角色治理**：`owner`、`admin`、`member` 三种角色。管理员通过一次性激活链接邀请成员（成员自主设置密码；管理员经手不到任何明文凭据）。
-- **团队项目工作台**：`/team-projects` 把团队项目集中到一个视图——负责人、状态、当前进展、下一步与跟进日期——并可进入详情维护概况、记录进展与会议结论、上传查看资料。项目本身就是普通团队 memo，靠正文里的 `kosx-pm` 元数据块识别，不是项目的笔记在时间线上不受影响。
 - **三档可见性**：
   - 🔒 **私密**：仅作者本人可见。
   - 👥 **团队可见**：对有效团队成员只读共享。
@@ -87,16 +93,17 @@ FlareMo 回答了一个更简单的问题：**仅凭一个免费的 Cloudflare �
 ### 6. 离线优先与 PWA 体验
 - **可安装 PWA**：一键安装到 macOS、Windows、iOS 或 Android 主屏幕，原生 App 级体验。
 - **可靠的离线同步**：草稿即刻本地保存。离线提交与上传进入待同步队列，恢复网络后自动重放。
-- **实时语音捕捉**：访问 `/capture` 即可获得实时流式语音转文字（ASR）。
+- **实时语音输入**：点输入框的麦克风按钮，边说边把语音实时转成文字（ASR）写进草稿。
 
 ### 7. 坚固的 Better Auth 应用安全
-- **Better Auth 驱动**：浏览器使用 HttpOnly、`SameSite=Lax` Cookie 会话；脚本、CLI 与 MCP 使用可撤销的 `memos_pat_` 个人访问令牌。
+- **Better Auth 驱动**：浏览器使用 HttpOnly、`SameSite=Lax` Cookie 会话；脚本与 MCP 使用可撤销的 `memos_pat_` 个人访问令牌。
 - **严格的 Origin 防护**：状态变更请求强制精确校验 Origin 白名单。Cloudflare Access 仍可作为可选的外层防线。
 
-### 8. Memos 兼容与无缝迁移
-- **Memos `/api/v1` 兼容**：提供核心 Memos API 端点（默认 camelCase，经请求头可切换 legacy snake_case）与 OpenAPI 契约。
-- **第三方客户端开箱即用**：直接兼容 Moe Memos 等移动端客户端。
-- **双向导入导出**：从 Memos / flomo 一键导入（带冲突处理策略），并支持全量原始数据导出包。
+### 8. 数据永远是你的
+- **一键全量导出**：记录、附件、任务、项目、文章与分享关系打包成一份文件，随时离线归档。
+- **导入不留半截数据**：支持跳过与复制两种冲突策略；导入失败整批回滚，不会留下残缺数据集。
+- **从别的工具搬过来**：自带转换脚本，把旧工具的导出包转成 FlareMo 导入包，时间戳、标签、置顶与可见性保留（[迁移指南](./docs/import-from-memos.md)）。
+- **按协议开放**：`/api/v1` 兼容层 + 可撤销 Personal Access Token，另有 MCP 端点接入 AI 工具链；具体覆盖范围以[兼容矩阵](./docs/memos-compatibility.md)为准。
 
 ---
 
@@ -141,7 +148,7 @@ FlareMo 回答了一个更简单的问题：**仅凭一个免费的 Cloudflare �
 
 ### 方式二：GitHub Action（自托管 fork）
 
-在自己的 fork 上，于 Actions 里手动运行 **Deploy to Cloudflare**：创建 Cloudflare 资源、发布 Worker、同步认证密钥。push 不会自动发布。步骤见 [docs/github-action-deploy.md](./docs/github-action-deploy.md)。
+先把 [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) 复制到 fork 的 `.github/workflows/`，再到 Actions 里手动运行 **Deploy to Cloudflare**：创建 Cloudflare 资源、发布 Worker、同步认证密钥。push 不会自动发布。步骤见 [docs/github-action-deploy.md](./docs/github-action-deploy.md)。
 
 ### 方式三：让 AI Agent 替你部署（推荐）
 
@@ -189,10 +196,10 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

@@ -7,8 +7,8 @@ import {
   shares,
 } from "@flaremo/db";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { parseResourceName } from "./ids";
-import { listMemoriesForMemo } from "./memory";
 import { getMemoById } from "./memos";
 import {
   canEditMemo,
@@ -54,25 +54,24 @@ export async function getMemoContextData(
       db.select().from(memoRevisions).where(eq(memoRevisions.memoId, id)),
     ]);
 
-  const relatedMemoIds = [
-    ...relations.map((relation) => relation.relatedMemoId),
-    ...backlinks.map((relation) => relation.memoId),
+  const uniqueRelatedIds = [
+    ...new Set([
+      ...relations.map((relation) => relation.relatedMemoId),
+      ...backlinks.map((relation) => relation.memoId),
+    ]),
   ];
-  const relatedMemos =
-    relatedMemoIds.length > 0
-      ? await db
-          .select()
-          .from(memos)
-          .where(
-            and(
-              memoReadScope(user),
-              inArray(memos.id, [...new Set(relatedMemoIds)]),
-            ),
-          )
-      : [];
+  const relatedMemos: (typeof memos.$inferSelect)[] = [];
+  // memoReadScope binds up to ~6 viewer/team parameters; reserve 12 so hub
+  // memos with >100 relations + backlinks stay safely under D1's 100-param cap.
+  for (const chunk of chunkForD1(uniqueRelatedIds, d1IdsPerStatement(12))) {
+    const rows = await db
+      .select()
+      .from(memos)
+      .where(and(memoReadScope(user), inArray(memos.id, chunk)));
+    relatedMemos.push(...rows);
+  }
   const memoById = new Map(relatedMemos.map((item) => [item.id, item]));
   const now = Date.now();
-  const memories = await listMemoriesForMemo(db, user, id);
   const revisions =
     memo.userId === user.id
       ? revisionRows
@@ -102,6 +101,5 @@ export async function getMemoContextData(
     revisions: [...revisions].sort((a, b) =>
       b.createdAt.localeCompare(a.createdAt),
     ),
-    memories,
   };
 }

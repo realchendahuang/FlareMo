@@ -1,7 +1,5 @@
-import {
-  createCurrentOpenApiDocument,
-  createOpenApiDocument,
-} from "@flaremo/contracts";
+import { createOpenApiDocument } from "@flaremo/contracts/openapi";
+import { createCurrentOpenApiDocument } from "@flaremo/contracts/openapi-current";
 import { createDb } from "@flaremo/db";
 import {
   dispatchEmbeddingOutbox,
@@ -14,6 +12,7 @@ import {
 } from "@flaremo/domain";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { getTrustedOrigins } from "./auth-env";
 import {
   assertTrustedCookieMutation,
@@ -38,8 +37,10 @@ import { adminApi } from "./routes/admin-api";
 import { appApi } from "./routes/app-api";
 import { authApi } from "./routes/auth-api";
 import { brandingApi } from "./routes/branding-api";
+import { connectApi } from "./routes/connect-api";
+import { connectAppsApi } from "./routes/connect-apps-api";
 import { emailSettingsApi } from "./routes/email-settings-api";
-import { memoryApi } from "./routes/memory-api";
+import { insightApi } from "./routes/insight-api";
 import { memosApi } from "./routes/memos-api";
 import { memosConnectApi } from "./routes/memos-connect";
 import { isLegacyWireRequest, memosCurrentApi } from "./routes/memos-current";
@@ -92,12 +93,42 @@ function resolveFlareMoOptions(
   };
 }
 
+// The documents are pure data built from literals; caching them keeps
+// /openapi.json from re-allocating a few thousand objects per request.
+let legacyOpenApiDocument: ReturnType<typeof createOpenApiDocument> | undefined;
+let currentOpenApiDocument:
+  | ReturnType<typeof createCurrentOpenApiDocument>
+  | undefined;
+
+function getLegacyOpenApiDocument() {
+  legacyOpenApiDocument ??= createOpenApiDocument();
+  return legacyOpenApiDocument;
+}
+
+function getCurrentOpenApiDocument() {
+  currentOpenApiDocument ??= createCurrentOpenApiDocument();
+  return currentOpenApiDocument;
+}
+
 export function createFlareMoApp(
   options: FlareMoAppOptions = {},
 ): Hono<HonoBindings> {
   const { resolvePlanLimits, resolveUserPlanLimits } =
     resolveFlareMoOptions(options);
   const app = new Hono<HonoBindings>();
+
+  // Last-resort handler: routes that forgot a try/catch (or middleware that
+  // throws) must still answer JSON, not Hono's text/plain default. HTTPException
+  // keeps its own status; everything else goes through the shared error shape.
+  app.onError((error, c) => {
+    if (error instanceof HTTPException) {
+      return c.json(
+        { error: { message: error.message || "Request failed" } },
+        error.status,
+      );
+    }
+    return jsonError(c, error);
+  });
 
   app.use("*", async (c, next) => {
     c.set("planLimits", await resolvePlanLimits(c.env));
@@ -233,13 +264,13 @@ export function createFlareMoApp(
     return voiceSettingsApi;
   });
   app.route("/api/app/account", accountApi);
+  app.route("/api/app/connect", connectAppsApi);
   // Registered before adminApi so these owner settings routes win; paths
   // adminApi owns (/plugins GET/PUT) still fall through to it.
   app.route("/api/app/admin/plugins", pluginsStoreApi);
   app.route("/api/app/admin/email-settings", emailSettingsApi);
   app.route("/api/app/admin/oauth-settings", oauthSettingsApi);
   app.route("/api/app/admin", adminApi);
-  app.route("/api/app/memory", memoryApi);
   app.route("/api/app/projects", projectsApi);
   // The articles API is a low-traffic tree with real sub-paths (`/:id`,
   // `/:id/publish`, …), so the wildcard registration is required. Lazy mounting
@@ -251,6 +282,9 @@ export function createFlareMoApp(
     return articlesApi;
   });
   app.route("/api/app/tasks", tasksApi);
+  // Registered before the catch-all `/api/app` tree: Hono matches in
+  // registration order, and the insights contract is its own namespace.
+  app.route("/api/app/insights", insightApi);
   app.route("/api/app", appApi);
   app.route("/api/public", publicApi);
   // SSR public pages (share/article + sitemap/feed): the largest lazy win —
@@ -286,16 +320,13 @@ export function createFlareMoApp(
     return c.redirect("/brand/flaremo-mark-light-300.png", 302);
   });
   app.route("/file", memosFileApi);
-  // MCP surfaces + memory MCP: low-traffic tooling endpoints; the route trees
-  // (and their module graphs) load on first MCP request instead of startup.
+  // MCP surfaces are low-traffic tooling endpoints; the route trees (and their
+  // module graphs) load on first MCP request instead of startup.
   mountLazyRoute(app, "/mcp", async () => {
     const { mcpStreamableApi } = await import("./routes/mcp");
     return mcpStreamableApi;
   });
-  mountLazyRoute(app, "/memory/mcp", async () => {
-    const { memoryMcpApi } = await import("./routes/memory-mcp");
-    return memoryMcpApi;
-  });
+  app.route("/", connectApi);
   app.route("/", memosConnectApi);
   app.route("/", memosSseApi);
   app.route("/api/v1", memosSocialApi);
@@ -328,8 +359,8 @@ export function createFlareMoApp(
   app.get("/openapi.json", (c) =>
     c.json(
       isLegacyWireRequest(c)
-        ? createOpenApiDocument()
-        : createCurrentOpenApiDocument(),
+        ? getLegacyOpenApiDocument()
+        : getCurrentOpenApiDocument(),
     ),
   );
   app.get("/api/v1/openapi.json", async (c) => {
@@ -337,8 +368,8 @@ export function createFlareMoApp(
       await getRequestContext(c);
       return c.json(
         isLegacyWireRequest(c)
-          ? createOpenApiDocument()
-          : createCurrentOpenApiDocument(),
+          ? getLegacyOpenApiDocument()
+          : getCurrentOpenApiDocument(),
       );
     } catch (error) {
       return jsonError(c, error);
@@ -349,7 +380,36 @@ export function createFlareMoApp(
     if (c.req.path.startsWith("/api/")) {
       return c.json({ error: { message: "Not found" } }, 404);
     }
-    return c.env.ASSETS.fetch(c.req.raw).then((response) => {
+    return c.env.ASSETS.fetch(c.req.raw).then(async (response) => {
+      // `not_found_handling: "none"` (the default config since v0.23):
+      // navigations that match no asset file reach this handler and the
+      // ASSETS binding answers 404 with no body. Serve the SPA shell here —
+      // 200 for known frontend routes, 404 for everything else — so unknown
+      // URLs stop being soft-404s. Configs still on
+      // "single-page-application" never get here for navigations and keep
+      // the old behavior. Paths with a file extension stay plain 404s: a
+      // missing script or image must not come back as HTML.
+      if (
+        response.status === 404 &&
+        (c.req.method === "GET" || c.req.method === "HEAD") &&
+        !/\.[A-Za-z0-9]+$/.test(c.req.path)
+      ) {
+        // Conditional headers would let ASSETS answer 304 for the shell,
+        // which cannot carry the 404 status this path needs.
+        const headers = new Headers(c.req.raw.headers);
+        headers.delete("if-none-match");
+        headers.delete("if-modified-since");
+        const shell = await c.env.ASSETS.fetch(
+          new Request(new URL("/", c.req.url), { headers }),
+        );
+        if (shell.ok) {
+          return new Response(shell.body, {
+            status: isKnownFrontendPath(c.req.path) ? 200 : 404,
+            statusText: isKnownFrontendPath(c.req.path) ? "OK" : "Not Found",
+            headers: shell.headers,
+          });
+        }
+      }
       // Vite asset filenames contain a content hash. They are safe to cache
       // for a year; HTML and application routes remain revalidated normally.
       if (/^\/assets\/[A-Za-z0-9._-]+-[A-Za-z0-9]{8,}\./.test(c.req.path)) {
@@ -393,8 +453,7 @@ async function dispatchRequestEmbeddingOutbox(
 ) {
   await dispatchEmbeddingOutbox(createDb(env.DB), {
     provider: createEmbeddingProvider(env),
-    memosIndex: createVectorIndex(env, "memo"),
-    memoriesIndex: createVectorIndex(env, "memory"),
+    memosIndex: createVectorIndex(env),
     limits: await options.resolvePlanLimits(env),
     userLimits: hasCustomUserPlanLimits
       ? null
@@ -511,11 +570,41 @@ export function createFlareMoWorker(
       return response;
     },
     async scheduled(controller, env) {
-      await runScheduledMaintenance(
-        env,
-        controller.scheduledTime,
-        await maintenanceOptions(env, resolvedOptions, hasCustomUserPlanLimits),
-      );
+      const startedAt = Date.now();
+      try {
+        await runScheduledMaintenance(
+          env,
+          controller.scheduledTime,
+          await maintenanceOptions(
+            env,
+            resolvedOptions,
+            hasCustomUserPlanLimits,
+          ),
+        );
+        console.log(
+          JSON.stringify({
+            message: "scheduled maintenance finished",
+            scheduledTime: controller.scheduledTime,
+            durationMs: Date.now() - startedAt,
+          }),
+        );
+      } catch (error) {
+        // Individual passes are already isolated inside
+        // runScheduledMaintenance; reaching this branch means the whole run
+        // could not start (or the summary itself failed). Log it and rethrow
+        // so the platform records a failed cron invocation instead of a
+        // silent no-op.
+        console.error(
+          JSON.stringify({
+            level: "error",
+            message: "scheduled maintenance failed",
+            scheduledTime: controller.scheduledTime,
+            durationMs: Date.now() - startedAt,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+        throw error;
+      }
     },
     async queue(batch, env) {
       // Two message shapes share the consumer: {jobId} (member removal) and

@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>サーバー不要 · 運用コストゼロ · 24時間グローバル常時稼働 · データの完全な自己所有</b><br>
-  個人では静かで集中できる思考記録スペース＆第2の脳として、チームではきめ細やかな権限を持つ共有ナレッジベースとして。
+  個人では AI ネイティブな第 2 の脳。チームでは共有ナレッジベース。
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -31,6 +30,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="FlareMo デスクトップ ライト画面" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="FlareMo デスクトップ ダーク画面" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="FlareMo モバイル画面" /> |
 
+| ✅ タスク・プロジェクト・振り返り | 📄 記事と公開 |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="タスク・プロジェクト・振り返り" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="記事と公開" /> |
+
 <sub>実際の稼働画面：ライト・ダークテーマのシームレスな切り替えと、フル機能のモバイルレスポンシブ表示。表示されている機能はすべて、実際に動作するバックエンド機能に接続されています。</sub>
 
 </div>
@@ -39,14 +42,14 @@
 
 ## 💡 FlareMoを選ぶ理由
 
-FlomoやMemosといったツールは、摩擦の少ないメモ記録と邪魔の入らないタイムラインが持つ大きな価値を証明しました。しかし、従来型のノート環境をセルフホストするには、VPSを契約し、DockerとPostgreSQLを構成し、自動バックアップをスクリプトで組み、ディスクやハードウェアの故障に怯え続けることが普通でした。
+摩擦の少ないメモ記録と邪魔の入らないタイムラインの価値は、すでに確かめられています。しかし、従来型のノート環境をセルフホストするには、VPSを契約し、DockerとPostgreSQLを構成し、自動バックアップをスクリプトで組み、ディスクやハードウェアの故障に怯え続けることが普通でした。
 
 FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloudflareアカウント1つだけで、サーバー保守ゼロで、24時間365日オンラインで耐障害性が高く、世界中から高速にアクセスできるナレッジベースを持てるのか？**
 
 - **真のサーバーレス**：コードも静的アセットも、ユーザーの近くにあるCloudflare Workersのエッジノード上でミリ秒応答。
 - **最初からエンタープライズ級の耐久性**：ノートとメタデータはCloudflare D1が担当し、メディア添付ファイルはマルチリージョンレプリケーション付きのCloudflare R2に保存。
-- **AIネイティブな第2の脳**：Agent MemoryハブにCLIとクロスエージェントSkillを同梱。AIエージェント（Claude、Cursor、Codex、ChatGPT、ZCode）が長期的な好みや記憶スコープを読み取り・更新できます。MCPエンドポイントも利用可能です。
-- **一人には静かに、大勢には強力に**：デフォルトは暗号化された一人用のプライベートな空間。チームモードを有効にすると、ロールと3段階の公開範囲を備えた共同作業スペースに即座に変わります。
+- **AIネイティブな第2の脳**：ノートMCPエンドポイントと `flaremo-notes` Skillを同梱。Claude、Cursor、Codex、ChatGPT、ZCodeがあなた自身のノートを検索・読み取り・書き込みできます。独立したAIメモリや、管理すべき2冊目のノートはありません。
+- **一人には静かに、大勢には強力に**：デフォルトは暗号化された一人用のプライベートな空間。チームモードを有効にすると、ロールと3段階の公開範囲を備えたチーム共有スペースが加わります — ノートを共有するための場所であり、プロジェクトを共同で進めるためのものではありません。
 - **シンプル、でも粗削りではない**：インターフェースは静かに保たれ、すべての操作に存在する理由がある — 見せびらかす装飾はなく、役に立つものの欠落もありません。
 
 ---
@@ -55,28 +58,31 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 
 ### 1. 瞬時のメモ作成とインスピレーションの振り返り
 - **ミリ秒でキャプチャ**：カード型タイムライン、タグ、Markdown/GFM、画像・音声添付のプレビューに対応。
+- **メモと記事**：入力欄はいつでも素早く書けるメモ（タグ、最大9枚の画像、太字、リスト、TODO）。「全画面で書く」で同じメモを全画面キャンバスで書けます。記事は「記事」ページから書き始めます。
+- **ノートの下にコメント**：Weiboのように、個人スペースでもチームスペースでも任意のノートにコメントできます。コメントは元のノートの下にまとまり、タイムライン、検索、統計、タグ、振り返りには表示されません。
 - **高速検索**：SQLite FTS5による全文インデックスとクエリ演算子（`has:attachment`、`is:pinned`、`before:YYYY-MM-DD`、`after:YYYY-MM-DD`、`in:timeline|archive|trash`）。
 - **セマンティックな「探す」（ベクトル検索）**：Workers AIの埋め込みとVectorizeの派生ベクトルインデックスを組み合わせ、文脈に応じた呼び出しを実現。D1で権限を再検証し、必要時はFTS5へシームレスにフォールバック。
 - **思考を呼び起こす**：内蔵の**デイリーレビュー**（この日の記録）、**ランダムウォーク**（タグやバックリンクのグラフをポストカード風の要約とともに散策）、関連ノートのおすすめ。
 - **改訂履歴**：全バージョンの差分表示とワンクリックでの過去バージョン復元。
 
-### 2. AI長期記憶（CLI + Skills）
-- **Agent Memory**：`flaremo` CLIと`flaremo-memory` Skillを同梱。AIエージェントが共通のREST基盤を通じてセッションを跨いだ長期記憶（好み、プロジェクトの決定事項、制約、教訓）を記録・更新できます。
-- **人間が最終確認**：`/memory` 画面でAIが記録した記憶を確認・検証・ロック・修正できます。
-- **オープンなエコシステム**：推奨パスはCLI + Skills。既存のMCPクライアント向けに `/memory/mcp`（Streamable HTTP MCP）と `/mcp` エンドポイントも提供。
+### 2. AIがあなたのノートを読み書き（MCP + Skill）
+- **ノートMCP**：`/mcp` でノートの一覧・検索・取得・作成・更新・削除を提供。失効可能な `memos_pat_` トークンで認証します。
+- **1つのSkill**：`skills/flaremo-notes` が、書く前に検索する・原文を保つ・変更したノートIDを返す、という規約を各エージェントに教えます。
+- **独立メモリなし**：エージェントは必要なときにノートを読むだけで、バックグラウンドで第2の台帳に抽出することはありません。
 
-### 3. プロジェクトとタスク
-- **プロジェクトで作業をまとめる**：ノートとTODOをプロジェクトに整理。ステータス列間をドラッグできるカンバンボード、優先度、手動並べ替え、期日に対応。
+### 3. TODOとプロジェクト
+- **ノートに日付を入れる**：ノートに日付とプロジェクトを設定すると、その中の未完了のTODOがそれぞれタスクになります。ノート上でもTODOページでも、チェックを入れると双方向に同期します。
+- **TODOページはひとつ**：`/projects` は**今日**、**次の7日間**、**すべてのタスク**を日付ごとのリストで表示し、プロジェクトはカンバンボード（ステータス列間のドラッグ、優先度、手動並べ替え）として表示します。どのリストにもクイック追加行があります。
 - **個人専用設計・取り消せる削除**：タスクは単一のオーナーに帰属。削除するとゴミ箱に移動し、復元するか自動消去されるまで保持されます。
 
-### 4. タスク管理とリマインダー
-- **タスクはプロジェクトに住む**：`/projects` ボード（ステータス列間のドラッグ）、優先度、手動並べ替え、期日により、プロジェクトページが作業スケジュールの一元的な住処になります。
+### 4. リマインダーと時間の全体像
+- **読む場所にバッジを表示**：日付を設定したノートはカードに「TODO n/m · 日付 · プロジェクト」を表示し、デイリーレビューは今日のTODOから始まります。
 - **時間の全体像をひと目で把握**：explorerホーム画面はミニ月カレンダーと期限超過・今日のリマインダーを並べて表示。期日がボードの裏に隠れることはありません。
-- **期限超過リマインダー**：期限を過ぎたタスクはアプリ内通知で知らせ、任意でブラウザのWeb Pushにも対応。
+- **期日・期限超過リマインダー**：毎日のジョブが「今日が期日」と期限超過の通知をアプリ内に出し、任意でブラウザのWeb Pushにも対応。スケジュールは日単位で、時刻指定のアラームはありません。
 
-### 5. チームコラボレーションと3段階の公開範囲
+### 5. チームスペースと3段階の公開範囲
+- **共同作業ではなく共有**：チームスペースは、メンバー同士がノートを公開し合い、コメントする場所です。チームの入力欄では `@username` のメンションが補完され、メンションされた人に通知が届きます。通知を開くと元のノートのコメント欄に移動します。
 - **ロールガバナンス**：`owner`、`admin`、`member` の3ロール。管理者はワンタイムアクティベーションリンクでメンバーを招待します（パスワードはメンバー自身が設定し、管理者が平文の認証情報に触れることはありません）。
-- **チームプロジェクト作業台**：`/team-projects` はチームプロジェクトを一覧にまとめます — 担当者、ステータス、現在の進捗、次のステップ、フォロアップ日 — 詳細画面から概要の整備、進捗や会議結論の記録、参考資料のアップロードができます。プロジェクトは本文の `kosx-pm` メタデータブロックで識別される通常のチームメモであり、プロジェクトでないノートはタイムライン上でそのまま扱われます。
 - **3段階の公開範囲**：
   - 🔒 **プライベート**：作成者本人のみ閲覧可能。
   - 👥 **チーム**：アクティブなチームメンバーに読み取り専用で共有。
@@ -87,16 +93,17 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 ### 6. オフラインファースト＆PWA体験
 - **インストール可能なPWA**：macOS、Windows、iOS、Androidのホーム画面に追加でき、ネイティブアプリのような操作感。
 - **信頼性の高いオフライン同期**：下書きは即座にローカル保存。オフライン中の送信やアップロードはキューに積まれ、接続回復時に自動で再生されます。
-- **ライブ音声キャプチャ**：`/capture` にアクセスすると、リアルタイムのストリーミング音声文字起こし（ASR）が利用できます。
+- **ライブ音声入力**：入力欄のマイクボタンを押すと、話した内容がリアルタイムに文字起こし（ASR）され下書きに入ります。
 
 ### 7. Secure Better Authによるアプリケーションセキュリティ
-- **Better Auth基盤**：ブラウザは `HttpOnly`・`SameSite=Lax` のクッキーセッション。スクリプト、CLI、MCP向けには失効可能な `memos_pat_` Personal Access Token を提供。
+- **Better Auth基盤**：ブラウザは `HttpOnly`・`SameSite=Lax` のクッキーセッション。スクリプト、MCP向けには失効可能な `memos_pat_` Personal Access Token を提供。
 - **厳格なOrigin保護**：状態を変更するリクエストには厳密なOriginのホワイトリストを強制。Cloudflare Accessも任意の外層防御として併用できます。
 
-### 8. Memos互換とシームレスな移行
-- **Memos `/api/v1` 互換**：Memosの主要APIエンドポイント（デフォルトはcamelCase、ヘッダーでレガシーのsnake_case）とOpenAPIスキーマを提供。
-- **サードパーティアプリ対応**：Moe Memosなどのモバイルクライアントから直接接続できます。
-- **双方向のインポート＆エクスポート**：Memos / flomoからワンクリックでインポート（競合戦略付き）。生データ一式の完全エクスポートにも対応。
+### 8. データはいつもあなたのもの
+- **ワンクリックで完全エクスポート**：ノート、添付ファイル、タスク、プロジェクト、記事、共有関係を 1 つのファイルにまとめ、いつでもオフライン保管できます。
+- **中途半端なデータを残さないインポート**：スキップと複製の 2 つの競合戦略に対応。失敗したインポートは一括でロールバックされ、欠けたデータセットが残りません。
+- **これまでの履歴を移行**：同梱の変換スクリプトが既存のエクスポートを FlareMo のインポート形式に変換し、日時・タグ・ピン留め・公開範囲を保持します（[移行ガイド](./docs/en/import-from-memos.md)）。
+- **プロトコルで開く**：`/api/v1` 互換レイヤーと失効可能な Personal Access Token、さらに AI ツール向けの MCP。対応範囲は[互換性マトリクス](./docs/en/memos-compatibility.md)に記載しています。
 
 ---
 
@@ -141,7 +148,7 @@ FlareMoが立ち向かう問いはもっとシンプルです：**無料のCloud
 
 ### 方法2：GitHub Action（フォークでのセルフホスト）
 
-フォーク上でActionsの **Deploy to Cloudflare** を実行すると、リソースのプロビジョニング、Workerの公開、認証シークレットの同期が行われます。pushでは公開されません。詳しくは [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md) を参照してください。
+フォークで [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) を `.github/workflows/` にコピーしてから、Actionsの **Deploy to Cloudflare** を実行すると、リソースのプロビジョニング、Workerの公開、認証シークレットの同期が行われます。pushでは公開されません。詳しくは [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md) を参照してください。
 
 ### 方法3：AIエージェントによるデプロイ（推奨）
 
@@ -189,10 +196,10 @@ pnpm deploy
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

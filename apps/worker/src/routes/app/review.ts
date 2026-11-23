@@ -2,21 +2,118 @@ import {
   dailyReviewQuerySchema,
   randomMemoQuerySchema,
   relatedMemosQuerySchema,
+  reviewMarkSchema,
+  reviewSettingsUpdateSchema,
   walkNextQuerySchema,
 } from "@flaremo/contracts";
 import {
+  buildTodayReview,
+  buildTodayReviewSummary,
   getRandomMemo,
+  getReviewSettings,
   getWalkNextMemo,
   listDailyReviewMemos,
   listRelatedMemos,
+  markReviewMemo,
+  type ReviewSettings,
+  updateReviewSettings,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { getRequestContext, type HonoBindings } from "../../context";
 import { jsonError } from "../../http";
+import { zValidator } from "../../validated";
 import { parseExcludeParam, serializeMemosWithAttachments } from "./helpers";
 
+function serializeSettings(settings: ReviewSettings) {
+  return {
+    excluded_tags: settings.excludedTags,
+    muted_count: settings.mutedCount,
+  };
+}
+
 export function registerReviewRoutes(app: Hono<HonoBindings>) {
+  // Count-only variant for the timeline banner: same deck selection, no memo
+  // or attachment serialization.
+  app.get(
+    "/review/today/summary",
+    zValidator("query", dailyReviewQuerySchema),
+    async (c) => {
+      try {
+        const { db, user } = await getRequestContext(c);
+        const query = c.req.valid("query");
+        const summary = await buildTodayReviewSummary(db, user, query);
+        return c.json({ date: query.date, ...summary });
+      } catch (error) {
+        return jsonError(c, error);
+      }
+    },
+  );
+
+  app.get(
+    "/review/today",
+    zValidator("query", dailyReviewQuerySchema),
+    async (c) => {
+      try {
+        const { db, user } = await getRequestContext(c);
+        const query = c.req.valid("query");
+        const entries = await buildTodayReview(db, user, query);
+        const serialized = await serializeMemosWithAttachments(
+          db,
+          user,
+          entries.map((entry) => entry.memo),
+        );
+        const byName = new Map(serialized.map((memo) => [memo.name, memo]));
+        return c.json({
+          date: query.date,
+          items: entries.flatMap((entry) => {
+            const memo = byName.get(entry.memo.id);
+            return memo
+              ? [{ memo, reason: entry.reason, reviewed: entry.reviewed }]
+              : [];
+          }),
+        });
+      } catch (error) {
+        return jsonError(c, error);
+      }
+    },
+  );
+
+  app.post("/review/marks", zValidator("json", reviewMarkSchema), async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      await markReviewMemo(db, user, c.req.valid("json"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  });
+
+  app.get("/review/settings", async (c) => {
+    try {
+      const { db, user } = await getRequestContext(c);
+      return c.json(serializeSettings(await getReviewSettings(db, user)));
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  });
+
+  app.patch(
+    "/review/settings",
+    zValidator("json", reviewSettingsUpdateSchema),
+    async (c) => {
+      try {
+        const { db, user } = await getRequestContext(c);
+        return c.json(
+          serializeSettings(
+            await updateReviewSettings(db, user, c.req.valid("json")),
+          ),
+        );
+      } catch (error) {
+        return jsonError(c, error);
+      }
+    },
+  );
+
   app.get(
     "/review/daily",
     zValidator("query", dailyReviewQuerySchema),

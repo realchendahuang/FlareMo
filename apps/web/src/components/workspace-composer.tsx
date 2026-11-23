@@ -1,5 +1,7 @@
 import type { MemoVisibility } from "@flaremo/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { CloudOffIcon } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { MemoSpace } from "@/api";
@@ -7,10 +9,6 @@ import { MemoComposer } from "@/components/memo-composer";
 import { useMemoMutations } from "@/hooks/use-memo-mutations";
 import { useNewMemoCapture } from "@/hooks/use-new-memo-capture";
 import { useI18n } from "@/i18n";
-import {
-  createArticleWithAttachments,
-  MAX_ARTICLE_CONTENT_LENGTH,
-} from "@/lib/article-submission";
 import { focusComposerInput } from "@/lib/composer-focus";
 import {
   enqueueMemoSubmission,
@@ -18,14 +16,16 @@ import {
   getNewMemoDraftId,
   isBrowserOnline,
   isMemoCaptureEmpty,
+  listQueuedMemoSubmissions,
   type MemoCaptureInput,
 } from "@/lib/local-memo-capture";
+import { fileScheduledTasks } from "@/lib/memo-schedule";
 import {
   shouldContinueQueuedSubmissionAfterFailure,
   shouldQueueAfterFailure,
   validateMemoCaptureSubmission,
 } from "@/lib/memo-submission";
-import { stripResourceName } from "@/lib/utils";
+import { invalidateTaskSurfaces } from "@/lib/query-invalidation";
 
 // The composer's send target defaults to the active space ("归属在创建时决定").
 // An explicit pick is remembered per space so a member who publishes to the
@@ -70,7 +70,7 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
   tags?: Array<{ name: string; count: number }>;
   captureAvailable?: boolean;
 }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate({ from: "/" });
   const [newMemoDraftId] = useState(getNewMemoDraftId);
   const [visibilityPref, setVisibilityPref] =
@@ -84,6 +84,54 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
   });
   const { createMemoAsync, isCreatingMemo, handleMutationError } =
     useMemoMutations();
+  const queryClient = useQueryClient();
+  // A scheduled memo files its to-dos as tasks once the memo exists. The
+  // memo is the durable part: a task failure is reported, never rolled back
+  // into a lost note. Returns the toast the send should show.
+  const createMemoAndSchedule = useCallback(
+    async (submission: MemoCaptureInput) => {
+      const memo = await createMemoAsync(submission);
+      if (!submission.schedule) return { memo, message: t("toast.saved") };
+      try {
+        const count = await fileScheduledTasks(
+          memo.name,
+          submission.content,
+          submission.schedule,
+        );
+        invalidateTaskSurfaces(queryClient);
+        return {
+          memo,
+          message:
+            count > 0 ? t("toast.scheduledTasks", { count }) : t("toast.saved"),
+        };
+      } catch {
+        toast.error(t("toast.scheduleFailed"));
+        return { memo, message: undefined };
+      }
+    },
+    [createMemoAsync, queryClient, t],
+  );
+  // A quiet, persistent notice while offline or while notes wait in the
+  // local queue; the toasts alone vanish and leave the user guessing.
+  const [online, setOnline] = useState(isBrowserOnline);
+  const [queuedCount, setQueuedCount] = useState(0);
+  const refreshQueuedCount = useCallback(async () => {
+    try {
+      setQueuedCount((await listQueuedMemoSubmissions()).length);
+    } catch {
+      setQueuedCount(0);
+    }
+  }, []);
+  useEffect(() => {
+    void refreshQueuedCount();
+    const sync = () => setOnline(isBrowserOnline());
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, [refreshQueuedCount]);
   const isQueueFlushing = useRef(false);
   const isQueueFlushPending = useRef(false);
   const isCaptureSubmitting = useRef(false);
@@ -94,7 +142,6 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
   // Following the space into a different corpus retargets an untouched draft.
   // A draft with content keeps the visibility its author already chose.
   const lastVisibilitySource = useRef(preferredVisibility);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retarget on preference change, not on every draft keystroke; the capture object is stable across renders
   useEffect(() => {
     if (lastVisibilitySource.current === preferredVisibility) return;
     lastVisibilitySource.current = preferredVisibility;
@@ -103,6 +150,7 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
       ...current,
       visibility: preferredVisibility,
     }));
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- retarget on preference change, not on every draft keystroke; the capture object is stable across renders
   }, [preferredVisibility]);
 
   const flushQueuedCaptures = useCallback(async () => {
@@ -121,7 +169,7 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
       do {
         isQueueFlushPending.current = false;
         const result = await flushQueuedMemoSubmissions(
-          (submission) => createMemoAsync(submission),
+          async (submission) => (await createMemoAndSchedule(submission)).memo,
           {
             shouldContinueAfterFailure:
               shouldContinueQueuedSubmissionAfterFailure,
@@ -138,8 +186,9 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
       }
     } finally {
       isQueueFlushing.current = false;
+      void refreshQueuedCount();
     }
-  }, [createMemoAsync, t]);
+  }, [createMemoAndSchedule, refreshQueuedCount, t]);
 
   useEffect(() => {
     void flushQueuedCaptures();
@@ -189,14 +238,15 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
           throw error;
         }
         await capture.discardDraft();
+        void refreshQueuedCount();
         toast.success(t("toast.queuedForSync"));
         return;
       }
 
       try {
-        await createMemoAsync(submission);
+        const { message } = await createMemoAndSchedule(submission);
         await capture.discardDraft();
-        toast.success(t("toast.saved"));
+        if (message) toast.success(message);
       } catch (error) {
         if (!shouldQueueAfterFailure(error)) {
           handleMutationError(error);
@@ -209,6 +259,7 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
           throw error;
         }
         await capture.discardDraft();
+        void refreshQueuedCount();
         toast.success(t("toast.queuedForSync"));
       }
     } finally {
@@ -217,62 +268,37 @@ export const WorkspaceComposer = memo(function WorkspaceComposer({
     }
   };
 
-  const handleArticleSubmit = async (input: MemoCaptureInput) => {
-    if (isCaptureSubmitting.current) return;
-
-    if (!isBrowserOnline()) {
-      toast.error(t("composer.article.offlineBlocked"));
-      return;
-    }
-
-    if (input.content.length > MAX_ARTICLE_CONTENT_LENGTH) {
-      toast.error(t("composer.article.tooLong"));
-      return;
-    }
-
-    isCaptureSubmitting.current = true;
-    setIsCaptureSubmissionPending(true);
-    try {
-      const article = await createArticleWithAttachments(input, {
-        title: input.title,
-        lang: locale,
-      });
-      await capture.discardDraft();
-      toast.success(t("toast.saved"));
-      navigate({
-        to: "/articles/$articleId/edit",
-        params: { articleId: stripResourceName(article.id, "articles") },
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === "article-too-long") {
-        toast.error(t("composer.article.tooLong"));
-      } else {
-        toast.error(t("article.createFailed"));
-      }
-    } finally {
-      isCaptureSubmitting.current = false;
-      setIsCaptureSubmissionPending(false);
-    }
-  };
-
   if (!visible) return null;
+  const showOfflineNotice = !online || queuedCount > 0;
   return (
-    <MemoComposer
-      draft={capture.draft}
-      isPending={isCreatingMemo || isCaptureSubmissionPending}
-      showVisibility={hasTeam}
-      tags={tags}
-      captureAvailable={captureAvailable}
-      onDraftChange={capture.updateDraft}
-      onVisibilityChange={(visibility) => {
-        setVisibilityPref((current) => {
-          const next = { ...current, [space]: visibility };
-          writeVisibilityPref(next);
-          return next;
-        });
-      }}
-      onSubmit={handleCaptureSubmit}
-      onSubmitArticle={handleArticleSubmit}
-    />
+    <>
+      {showOfflineNotice && (
+        <div
+          className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground motion-safe:animate-rise"
+          role="status"
+        >
+          <CloudOffIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          {queuedCount > 0
+            ? t("composer.offlinePending", { count: queuedCount })
+            : t("composer.offlineNotice")}
+        </div>
+      )}
+      <MemoComposer
+        draft={capture.draft}
+        isPending={isCreatingMemo || isCaptureSubmissionPending}
+        showVisibility={hasTeam}
+        tags={tags}
+        captureAvailable={captureAvailable}
+        onDraftChange={capture.updateDraft}
+        onVisibilityChange={(visibility) => {
+          setVisibilityPref((current) => {
+            const next = { ...current, [space]: visibility };
+            writeVisibilityPref(next);
+            return next;
+          });
+        }}
+        onSubmit={handleCaptureSubmit}
+      />
+    </>
   );
 });

@@ -16,7 +16,6 @@ import {
   SELF_HOST_UNLIMITED,
   updateFlaremoUserEmail,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -34,6 +33,7 @@ import {
 } from "../email";
 import { jsonError } from "../http";
 import { rateLimitGuard } from "../rate-limit";
+import { zValidator } from "../validated";
 
 export const authApi = new Hono<HonoBindings>();
 

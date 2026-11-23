@@ -122,6 +122,7 @@ export async function listPersonalAccessTokens() {
 export async function createPersonalAccessToken(input: {
   name: string;
   expires_in_days?: number | null;
+  scopes?: import("@flaremo/contracts").MemosPatScope[];
 }) {
   return apiRequest<{
     personal_access_token: PersonalAccessToken;

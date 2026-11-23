@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -39,6 +38,10 @@ function splitStatements(sql: string): string[] {
 
 async function loadFlaremoMigrations(): Promise<LoadedMigration[]> {
   if (migrationsCache) return migrationsCache;
+  // Imported here rather than at module scope: this barrel is reachable from
+  // the Worker bundle, and a top-level `node:fs` import would pull a
+  // filesystem module into every isolate that only wanted `createDb`.
+  const { readFile } = await import("node:fs/promises");
   const directory = migrationsDirectory();
   const journal = JSON.parse(
     await readFile(`${directory}/meta/_journal.json`, "utf8"),

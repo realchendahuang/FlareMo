@@ -53,6 +53,7 @@ function memo(
     embeddedAt: null,
     embeddingError: null,
     embeddingChunks: null,
+    version: 1,
     ...overrides,
   };
 }

@@ -124,7 +124,7 @@ export function MemoCard({
       {isMobile ? (
         <div className={TITLE_CLASS.mobile}>{memo.title}</div>
       ) : (
-        <h3 className={TITLE_CLASS.desktop}>{memo.title}</h3>
+        <div className={TITLE_CLASS.desktop}>{memo.title}</div>
       )}
 
       {/* 笔记内容 */}

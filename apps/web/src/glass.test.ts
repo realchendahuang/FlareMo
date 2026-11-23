@@ -46,9 +46,11 @@ describe("glass material", () => {
     // after this sheet at the same specificity as a bare attribute+class
     // combo — the glass override must carry the [data-styled=true] key or it
     // silently loses the cascade and toasts render solid.
-    expect(css).toMatch(/\[data-sonner-toast\]\[data-styled=true\]\.glass/);
+    expect(css).toMatch(
+      /\[data-sonner-toast\]\[data-styled=(?:"true"|true)\]\.glass/,
+    );
     expect(
-      css.match(/\[data-sonner-toast\]\[data-styled=true\]\.glass/g),
+      css.match(/\[data-sonner-toast\]\[data-styled=(?:"true"|true)\]\.glass/g),
     ).toHaveLength(3); // boost + reduced-transparency + kill switch
   });
 });

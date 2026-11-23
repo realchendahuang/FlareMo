@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { compareVersions } from "@/lib/version";
 
@@ -23,7 +24,7 @@ import { compareVersions } from "@/lib/version";
 // text + update dot) and the update dialog.
 export function useUpdateStatus() {
   const appInfoQuery = useQuery({
-    queryKey: ["app-info"],
+    queryKey: queryKeys.appInfo,
     queryFn: getAppInfo,
     retry: false,
     staleTime: 30 * 60 * 1_000,
@@ -33,7 +34,9 @@ export function useUpdateStatus() {
   // configured repository behave exactly as before. Gated on app-info so the
   // key doesn't flip mid-flight and hit GitHub twice on every cold boot.
   const releaseQuery = useQuery({
-    queryKey: ["latest-release", appInfoQuery.data?.update_repository ?? null],
+    queryKey: queryKeys.latestRelease(
+      appInfoQuery.data?.update_repository ?? null,
+    ),
     queryFn: () => getLatestRelease(appInfoQuery.data?.update_repository),
     enabled: appInfoQuery.isSuccess,
     retry: false,

@@ -84,7 +84,6 @@ export function useComposerVoice({
   // A finished session flows straight into the draft: review state carries
   // the final sentences, everything else collapses back to idle. The draft
   // writer goes through a ref so the effect never re-runs on every keystroke.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: draftRef/updateContentRef are useRef handles owned by the composer and passed in for exactly this reason — re-running on draft keystrokes would clobber the composed text.
   useEffect(() => {
     if (capture.state === "error") {
       if (capture.error) toast.error(t(`capture.${capture.error}`));
@@ -100,6 +99,7 @@ export function useComposerVoice({
       updateContentRef.current(next);
     }
     captureController.reset();
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- draftRef/updateContentRef are useRef handles owned by the composer and passed in for exactly this reason — re-running on draft keystrokes would clobber the composed text.
   }, [capture.state, capture.sentences, capture.error, captureController, t]);
 
   return { capture, captureController, voiceActive, now };

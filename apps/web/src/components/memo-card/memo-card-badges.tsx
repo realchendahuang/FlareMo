@@ -65,7 +65,7 @@ export function VisibilityBadge({
       aria-label={label}
       title={label}
       className={cn(
-        "flex size-6 items-center justify-center rounded-md text-muted-foreground transition-all duration-150 cursor-pointer motion-safe:hover:-translate-y-px motion-safe:active:scale-95",
+        "flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-all duration-150 cursor-pointer focus-visible:ring-3 focus-visible:ring-ring/25 motion-safe:hover:-translate-y-px motion-safe:active:scale-95",
         visibility === "public"
           ? "hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/15 dark:hover:text-brand-400"
           : "hover:bg-muted hover:text-foreground",

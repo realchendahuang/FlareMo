@@ -16,18 +16,17 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
-import { useMemo } from "react";
+import { ListChecksIcon } from "lucide-react";
+import { type ReactNode, useMemo } from "react";
 import { toast } from "sonner";
 import type { Project, Task, TaskStatus } from "@/api";
 import { reorderTasks, updateTask } from "@/api";
 import { QueryErrorState } from "@/components/query-error-state";
-import { Button } from "@/components/ui/button";
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +40,6 @@ import { SortableTaskCard, StatusIcon, TaskCard } from "./task-card";
 
 export function Board({
   hasError,
-  hasProjects,
   isRetrying,
   loading,
   onRetry,
@@ -49,11 +47,9 @@ export function Board({
   selectedProject,
   tasks,
   onMutated,
-  onCreateProject,
-  onCreateTask,
+  emptyState,
 }: {
   hasError: boolean;
-  hasProjects: boolean;
   isRetrying: boolean;
   loading: boolean;
   onRetry: () => void;
@@ -61,17 +57,19 @@ export function Board({
   selectedProject: Project | null;
   tasks: Task[];
   onMutated: () => void;
-  onCreateProject: () => void;
-  onCreateTask: () => void;
+  /** A smart view's own empty copy; the quick-add line above is its CTA. */
+  emptyState?: { title: string; description: string; icon?: ReactNode };
 }) {
   const { t } = useI18n();
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-3 @min-[380px]:grid-cols-2 @min-[620px]:grid-cols-3">
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -79,38 +77,37 @@ export function Board({
   if (hasError) {
     return (
       <QueryErrorState
-        className="min-h-56"
+        className="min-h-56 border border-border/60 text-muted-foreground"
         isRetrying={isRetrying}
         onRetry={onRetry}
       />
     );
   }
 
-  if (tasks.length === 0 && !hasProjects) {
+  if (tasks.length === 0 && emptyState) {
     return (
-      <Empty className="min-h-56 border">
+      <Empty className="min-h-56 border border-border/60 bg-card/50 motion-safe:animate-rise">
         <EmptyHeader>
-          <EmptyTitle>{t("projects.emptyTitle")}</EmptyTitle>
-          <EmptyDescription>{t("projects.emptyDescription")}</EmptyDescription>
+          <EmptyMedia variant="icon">
+            {emptyState.icon ?? <ListChecksIcon />}
+          </EmptyMedia>
+          <EmptyTitle>{emptyState.title}</EmptyTitle>
+          <EmptyDescription>{emptyState.description}</EmptyDescription>
         </EmptyHeader>
-        <EmptyContent className="flex items-center gap-2">
-          <Button size="sm" onClick={onCreateProject}>
-            <PlusIcon data-icon="inline-start" />
-            {t("projects.newProject")}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onCreateTask}>
-            {t("projects.newTask")}
-          </Button>
-        </EmptyContent>
       </Empty>
     );
   }
 
+  // The quick-add row sits right above the board, so empty states only
+  // explain; they do not repeat the create buttons.
   if (tasks.length === 0) {
     const inProject = Boolean(selectedProject);
     return (
-      <Empty className="min-h-56 border">
+      <Empty className="min-h-56 border border-border/60 bg-card/50 motion-safe:animate-rise">
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ListChecksIcon />
+          </EmptyMedia>
           <EmptyTitle>
             {inProject
               ? t("projects.tasksEmptyTitle")
@@ -122,12 +119,6 @@ export function Board({
               : t("projects.allTasksEmptyDescription")}
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent>
-          <Button size="sm" variant="outline" onClick={onCreateTask}>
-            <PlusIcon data-icon="inline-start" />
-            {t("projects.newTask")}
-          </Button>
-        </EmptyContent>
       </Empty>
     );
   }
@@ -325,18 +316,23 @@ function TaskBoard({
       sensors={sensors}
       onDragEnd={onDragEnd}
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        {STATUS_COLUMNS.map((status) => (
-          <TaskColumn
-            interactive={interactive}
-            key={status}
-            projectById={projectById}
-            selectedProjectId={selectedProject?.id ?? null}
-            status={status}
-            tasks={tasks.filter((task) => task.status === status)}
-            onMutated={onMutated}
-          />
-        ))}
+      {/* Column count follows the space the board actually gets, not the
+          viewport: the sidebar eats 312px, so a 1024px window leaves 416px
+          for three columns (130px each, titles breaking every word). */}
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-3 @min-[380px]:grid-cols-2 @min-[620px]:grid-cols-3">
+          {STATUS_COLUMNS.map((status) => (
+            <TaskColumn
+              interactive={interactive}
+              key={status}
+              projectById={projectById}
+              selectedProjectId={selectedProject?.id ?? null}
+              status={status}
+              tasks={tasks.filter((task) => task.status === status)}
+              onMutated={onMutated}
+            />
+          ))}
+        </div>
       </div>
     </DndContext>
   );
@@ -370,7 +366,9 @@ function TaskColumn({
         <span className="text-sm font-medium">
           {t(`projects.status.${status}`)}
         </span>
-        <span className="text-xs text-muted-foreground">{tasks.length}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {tasks.length}
+        </span>
       </div>
       <div
         className={cn(

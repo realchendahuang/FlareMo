@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Cero Servidores · Cero Costes de Mantenimiento · Disponibilidad Global 24/7 en el Edge · Control Absoluto de tus Datos</b><br>
-  Para personas: un espacio íntimo de captura de ideas y segundo cerebro con IA. Para equipos: una base de conocimiento compartida con roles detallados.
+  Un segundo cerebro nativo de IA para ti. Una base de conocimiento compartida para tu equipo.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -31,6 +30,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="Interfaz de escritorio de FlareMo en modo claro" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="Interfaz de escritorio de FlareMo en modo oscuro" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="Interfaz móvil de FlareMo" /> |
 
+| ✅ Tareas, proyectos y repaso | 📄 Artículos y publicación |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="Tareas, proyectos y repaso" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="Artículos y publicación" /> |
+
 <sub>Capturas reales de la aplicación: alternancia fluida entre temas claro y oscuro y diseño móvil completamente adaptable. Cada funcionalidad mostrada está conectada al backend.</sub>
 
 </div>
@@ -39,14 +42,14 @@
 
 ## 💡 ¿Por qué elegir FlareMo?
 
-Herramientas como Flomo y Memos han demostrado el inmenso valor de registrar notas sin fricción en una línea de tiempo limpia. Sin embargo, autohospedar un sistema de notas tradicional suele significar pagar un VPS, configurar Docker y PostgreSQL, mantener scripts de respaldo y vivir con el miedo a un fallo de disco o de hardware.
+Registrar notas sin fricción en una línea de tiempo limpia ya ha demostrado su valor. Sin embargo, autohospedar un sistema de notas tradicional suele significar pagar un VPS, configurar Docker y PostgreSQL, mantener scripts de respaldo y vivir con el miedo a un fallo de disco o de hardware.
 
 FlareMo responde a una pregunta más simple: **¿Es posible tener una base de conocimiento en línea las 24 horas, resiliente, con aceleración global y sin mantenimiento de servidores, usando solo una cuenta gratuita de Cloudflare?**
 
 - **Auténtico serverless**: El código y los archivos estáticos se ejecutan en los nodos perimetrales (edge) de Cloudflare Workers más cercanos a ti, con latencia de milisegundos.
 - **Durabilidad de nivel empresarial desde el primer minuto**: Cloudflare D1 almacena notas y metadatos; Cloudflare R2 guarda los archivos adjuntos con replicación multirregional.
-- **Segundo cerebro nativo de IA**: El centro «Agent Memory» incluye un CLI y un skill multiagente para que los agentes de IA (Claude, Cursor, Codex, ChatGPT, ZCode) lean y actualicen tus preferencias y ámbitos de memoria a largo plazo; también hay endpoints MCP disponibles.
-- **Silencioso para uno, potente para muchos**: Por defecto es un santuario privado y cifrado de usuario único. Activa el modo de equipo y se transforma al instante en un espacio de trabajo colaborativo con roles y tres niveles de visibilidad.
+- **Segundo cerebro nativo de IA**: un endpoint MCP de notas y el skill `flaremo-notes` permiten a Claude, Cursor, Codex, ChatGPT y ZCode buscar, leer y escribir tus propias notas. Sin almacén de memoria de IA ni un segundo cuaderno que mantener.
+- **Silencioso para uno, potente para muchos**: Por defecto es un santuario privado y cifrado de usuario único. Activa el modo de equipo para añadir un espacio de equipo compartido con roles y tres niveles de visibilidad — pensado para compartir notas, no para gestionar proyectos en conjunto.
 - **Mínimo, no simplificado**: La interfaz serena y cada control se gana su lugar — nada de decoración estridente, ninguna función útil ausente.
 
 ---
@@ -55,28 +58,31 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 
 ### 1. Captura instantánea y revisión que inspira
 - **Captura en milisegundos**: Línea de tiempo en tarjetas, etiquetas, Markdown/GFM y vista previa de imágenes y audios adjuntos.
+- **Notas y artículos**: El editor sigue siendo una nota rápida (etiquetas, hasta 9 imágenes, negrita, listas, pendientes); «Escribir a pantalla completa» abre la misma nota en un lienzo a pantalla completa. Los artículos se escriben desde la página Artículos.
+- **Comentarios bajo la nota**: Comenta cualquier nota, en tu espacio personal o en el del equipo, como en Weibo. Los comentarios viven bajo la nota original y quedan fuera de la línea de tiempo, la búsqueda, las estadísticas, las etiquetas y la revisión.
 - **Búsqueda ultrarrápida**: Indexación de texto completo SQLite FTS5 con operadores de consulta (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Búsqueda semántica («Find» vectorial)**: Embeddings de Workers AI combinados con índices vectoriales derivados de Vectorize para recordar por contexto; revalida permisos contra D1 y degrada con elegancia a FTS5.
 - **Reactivación de ideas**: **Revisión diaria** (un día como hoy), **Paseo aleatorio** (deambular por los grafos de etiquetas y enlaces con resúmenes tipo postal) y sugerencias de notas relacionadas.
 - **Historial de versiones**: Comparación completa de versiones y restauración histórica con un solo clic.
 
-### 2. Memoria de IA a largo plazo (CLI + Skills)
-- **Agent Memory**: Incluye el CLI `flaremo` y el skill `flaremo-memory` — los agentes de IA registran y actualizan memoria a largo plazo entre sesiones (preferencias, decisiones de proyecto, restricciones, lecciones) sobre una base REST común.
-- **Humano en el bucle**: En `/memory` puedes revisar, verificar, fijar o corregir las memorias registradas por la IA.
-- **Ecosistema abierto**: La vía recomendada es CLI + Skills; los endpoints `/memory/mcp` (MCP por HTTP en streaming) y `/mcp` siguen disponibles para clientes MCP existentes.
+### 2. La IA trabaja sobre tus notas (MCP + Skill)
+- **MCP de notas**: `/mcp` expone listar, buscar, leer, crear, actualizar y eliminar tus notas, con autenticación mediante un token revocable `memos_pat_`.
+- **Un skill**: `skills/flaremo-notes` enseña a cada agente a buscar antes de escribir, respetar tu redacción y devolver el ID de la nota que tocó.
+- **Sin memoria aparte**: los agentes leen tus notas cuando hace falta; nada se extrae en segundo plano a un segundo registro.
 
-### 3. Proyectos y tareas
-- **Agrupa el trabajo por proyectos**: Organiza notas y pendientes en proyectos, con tablero kanban (arrastrar entre columnas de estado), prioridades, orden manual y fechas límite.
+### 3. Pendientes y proyectos
+- **Programa una nota**: Elige un día y un proyecto para una nota; cada pendiente sin marcar se convierte en una tarea. Marcarlo en la nota o en la página de pendientes se sincroniza en ambos sentidos.
+- **Una sola página de pendientes**: `/projects` muestra **Hoy**, **Próximos 7 días** y **Todas las tareas** como listas agrupadas por día, además de tus proyectos como tableros kanban (arrastrar entre columnas de estado, prioridades, orden manual). Cada lista tiene una fila para añadir rápidamente.
 - **Privado por diseño, borrado reversible**: Las tareas pertenecen a un solo propietario; al eliminarlas van a la papelera hasta que se restauren o se purguen automáticamente.
 
-### 4. Gestión de tareas y recordatorios
-- **Las tareas viven en los proyectos**: El tablero de `/projects` (arrastrar entre columnas de estado), las prioridades, el orden manual y las fechas límite convierten las páginas de proyecto en el único hogar para planificar el trabajo.
+### 4. Recordatorios y horizontes temporales
+- **Indicadores donde lees**: Las notas programadas muestran «pendientes n/m · fecha · proyecto» en la tarjeta, y la Revisión diaria se abre con los pendientes de hoy.
 - **Horizontes temporales de un vistazo**: La vista de inicio del explorador combina un mini calendario mensual con recordatorios de vencidos y de hoy, para que lo que vence nunca se esconda tras el tablero.
-- **Recordatorios de vencidos**: Las tareas atrasadas generan notificaciones dentro de la app, con Web Push opcional en el navegador.
+- **Recordatorios de vencimiento y atraso**: Un proceso diario genera notificaciones de «vence hoy» y de vencidos dentro de la app, con Web Push opcional en el navegador. Las programaciones son por día; no hay alarmas a una hora concreta.
 
-### 5. Colaboración en equipo y visibilidad en 3 niveles
+### 5. Espacio de equipo y visibilidad en 3 niveles
+- **Compartir, no colaborar**: El espacio de equipo es donde los miembros se publican notas entre sí y las comentan. Las menciones `@username` se autocompletan en el editor del equipo y notifican a la persona mencionada; las notificaciones abren la nota original en sus comentarios.
 - **Gobernanza por roles**: Roles `owner`, `admin` y `member`. Los administradores invitan a los miembros mediante enlaces de activación de un solo uso (cada miembro elige su propia contraseña; los administradores nunca manejan credenciales en texto plano).
-- **Banco de proyectos del equipo**: `/team-projects` reúne todos los proyectos del equipo en una sola vista — responsable, estado, avance actual, siguiente paso y fecha de seguimiento — y abre una página de detalle para mantener el resumen, registrar avances y conclusiones de reuniones, y subir archivos de referencia. Un proyecto es un memo del equipo normal reconocido por un bloque de metadatos `kosx-pm` en su cuerpo, así que las notas que no son proyectos quedan intactas en la línea de tiempo.
 - **3 niveles de visibilidad**:
   - 🔒 **Privado**: Solo visible para el autor.
   - 👥 **Equipo**: Lectura compartida con los miembros activos del equipo.
@@ -87,16 +93,17 @@ FlareMo responde a una pregunta más simple: **¿Es posible tener una base de co
 ### 6. Sin conexión primero y experiencia PWA
 - **PWA instalable**: Instala FlareMo en la pantalla de inicio de macOS, Windows, iOS o Android con tacto de app nativa.
 - **Sincronización offline fiable**: Los borradores se guardan al instante en local; los envíos y las subidas sin conexión se ponen en cola y se reproducen automáticamente al recuperar la red.
-- **Captura de voz en vivo**: Accede a `/capture` para transcripción de voz a texto en streaming en tiempo real (ASR).
+- **Dictado por voz en vivo**: El botón de micrófono del editor transcribe la voz en tiempo real (ASR) directamente en el borrador.
 
 ### 7. Seguridad robusta con Better Auth
-- **Impulsado por Better Auth**: Sesiones por cookie de navegador `HttpOnly` y `SameSite=Lax`; tokens de acceso personal `memos_pat_` revocables para scripts, CLI y MCP.
+- **Impulsado por Better Auth**: Sesiones por cookie de navegador `HttpOnly` y `SameSite=Lax`; tokens de acceso personal `memos_pat_` revocables para scripts y MCP.
 - **Protección estricta de Origin**: Las peticiones con cambio de estado exigen una lista blanca de origen exacta. Cloudflare Access sigue disponible como perímetro defensivo exterior opcional.
 
-### 8. Compatibilidad con Memos y migración sin costuras
-- **Compatibilidad con la API `/api/v1` de Memos**: Proporciona los endpoints principales de la API de Memos (camelCase por defecto, snake_case heredado vía cabecera) y el esquema OpenAPI.
-- **Listo para apps de terceros**: Funciona directamente con clientes móviles como Moe Memos.
-- **Importación y exportación bidireccionales**: Importación en un clic desde Memos / flomo con estrategias de conflicto y paquetes de exportación completos en formato original.
+### 8. Tus datos, siempre tuyos
+- **Exportación completa en un clic**: notas, adjuntos, tareas, proyectos, artículos y relaciones de compartición en un solo archivo que puedes archivar sin conexión cuando quieras.
+- **Importaciones sin datos a medias**: estrategias de conflicto «omitir» o «duplicar»; una importación fallida se revierte por completo y no deja un conjunto incompleto.
+- **Trae tu historial**: un conversor incluido transforma una exportación existente en un paquete de importación de FlareMo, conservando fechas, etiquetas, fijados y visibilidad ([guía de migración](./docs/en/import-from-memos.md)).
+- **Abierto por protocolo**: una capa de compatibilidad `/api/v1` con tokens personales revocables, más MCP para herramientas de IA; el alcance exacto está en la [matriz de compatibilidad](./docs/en/memos-compatibility.md).
 
 ---
 
@@ -141,7 +148,7 @@ Clona el repositorio en tu cuenta de GitHub y aprovisiona automáticamente D1, R
 
 ### Método 2: GitHub Action (fork autohospedado)
 
-En tu fork, ejecuta **Deploy to Cloudflare** desde Actions para aprovisionar los recursos, publicar el Worker y sincronizar los secretos de autenticación. Los push no publican. Ver [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
+Copia [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) en `.github/workflows/` de tu fork y luego ejecuta **Deploy to Cloudflare** desde Actions para aprovisionar los recursos, publicar el Worker y sincronizar los secretos de autenticación. Los push no publican. Ver [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
 
 ### Método 3: Despliegue con un agente IA (recomendado)
 
@@ -189,10 +196,10 @@ Guías detalladas: [Guía de despliegue](./docs/en/deploy.md) · [Despliegue con
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

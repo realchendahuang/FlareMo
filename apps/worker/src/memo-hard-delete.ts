@@ -1,3 +1,4 @@
+import { thumbnailKeyFor } from "@flaremo/contracts/constants";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { hardDeleteMemo, markMemoAttachmentsDeleting } from "@flaremo/domain";
 import type { FlareMoEnv } from "./env";
@@ -15,9 +16,16 @@ export async function hardDeleteMemoWithAttachments(
   memoId: string,
 ) {
   const attachments = await markMemoAttachmentsDeleting(db, user, memoId);
+  // Each attachment owns two objects: the original and, when one was
+  // generated at upload, a derived `.thumb.webp` neighbour. Deleting only the
+  // original would leak the preview forever.
   const objectKeys = attachments
     .filter((attachment) => attachment.state !== "missing")
-    .map((attachment) => attachment.r2Key);
+    .flatMap((attachment) =>
+      attachment.payload?.thumbnail === true
+        ? [attachment.r2Key, thumbnailKeyFor(attachment.r2Key)]
+        : [attachment.r2Key],
+    );
   if (objectKeys.length > 0) {
     await env.ATTACHMENTS.delete(objectKeys);
   }

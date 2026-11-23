@@ -8,6 +8,7 @@ import type {
 import type { ArticleRow, FlareMoDb, UserRow } from "@flaremo/db";
 import { articles, attachments, users } from "@flaremo/db";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, ne } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { createResourceId, createToken, parseResourceName } from "./ids";
 
@@ -162,19 +163,30 @@ export async function createArticle(
   );
   // The claim preflight runs before the insert so a bad id cannot leave a
   // half-created article behind (same checks bindMemoAttachments applies).
-  if (attachmentIds.length > 0) {
-    const claimable = await db
-      .select({ id: attachments.id })
-      .from(attachments)
-      .where(
-        and(
-          eq(attachments.userId, user.id),
-          inArray(attachments.id, attachmentIds),
-          isNull(attachments.deletedAt),
-          eq(attachments.state, "ready"),
-        ),
-      );
-    const claimableIds = new Set(claimable.map((row) => row.id));
+  // The contract allows 100 attachment names, which is already past D1's
+  // 100-parameter cap once predicates/SET values are added. The claim UPDATE
+  // binds two SET values + userId + ids, so reserve four parameters and use the
+  // same chunks for the preflight (which needs fewer).
+  const attachmentIdChunks =
+    attachmentIds.length > 0
+      ? chunkForD1(attachmentIds, d1IdsPerStatement(4))
+      : [];
+  if (attachmentIdChunks.length > 0) {
+    const claimableIds = new Set<string>();
+    for (const idChunk of attachmentIdChunks) {
+      const claimable = await db
+        .select({ id: attachments.id })
+        .from(attachments)
+        .where(
+          and(
+            eq(attachments.userId, user.id),
+            inArray(attachments.id, idChunk),
+            isNull(attachments.deletedAt),
+            eq(attachments.state, "ready"),
+          ),
+        );
+      for (const row of claimable) claimableIds.add(row.id);
+    }
     const missing = attachmentIds.find((id) => !claimableIds.has(id));
     if (missing) {
       throw new NotFoundError(`Attachment not found: ${missing}`);
@@ -197,16 +209,22 @@ export async function createArticle(
     })
     .returning()
     .get();
-  if (attachmentIds.length > 0) {
-    await db
-      .update(attachments)
-      .set({ articleId: row.id, updatedAt: now })
-      .where(
-        and(
-          eq(attachments.userId, user.id),
-          inArray(attachments.id, attachmentIds),
-        ),
-      );
+  if (attachmentIdChunks.length > 0) {
+    // Keep all claim statements in one batch so the article cannot end up with
+    // only the first chunk of its attachment set bound.
+    await db.batch(
+      attachmentIdChunks.map((idChunk) =>
+        db
+          .update(attachments)
+          .set({ articleId: row.id, updatedAt: now })
+          .where(
+            and(
+              eq(attachments.userId, user.id),
+              inArray(attachments.id, idChunk),
+            ),
+          ),
+      ) as unknown as Parameters<FlareMoDb["batch"]>[0],
+    );
   }
   return articleToDto(row);
 }
@@ -292,12 +310,41 @@ export async function listArticles(
   const filters = [eq(articles.userId, user.id)];
   if (!input.includeDeleted) filters.push(isNull(articles.deletedAt));
   if (input.status) filters.push(eq(articles.status, input.status));
+  // Summary rows never carry `content`, but `select()` read it anyway — up to
+  // 200 KB per article, then discarded by articleToSummaryDto. Naming the
+  // columns keeps the list endpoint proportional to metadata size.
   const rows = await db
-    .select()
+    .select({
+      id: articles.id,
+      userId: articles.userId,
+      slug: articles.slug,
+      title: articles.title,
+      description: articles.description,
+      status: articles.status,
+      coverAttachmentId: articles.coverAttachmentId,
+      lang: articles.lang,
+      publishedAt: articles.publishedAt,
+      deletedAt: articles.deletedAt,
+      createdAt: articles.createdAt,
+      updatedAt: articles.updatedAt,
+    })
     .from(articles)
     .where(and(...filters))
     .orderBy(desc(articles.updatedAt), desc(articles.id));
-  return rows.map(articleToSummaryDto);
+  return rows.map((row) => ({
+    id: row.id,
+    user_id: row.userId,
+    slug: row.slug,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    cover_attachment_id: row.coverAttachmentId,
+    lang: row.lang,
+    published_at: row.publishedAt,
+    deleted_at: row.deletedAt,
+    created_at: row.createdAt,
+    updated_at: row.updatedAt,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -534,4 +581,44 @@ export async function getPublicArticleAttachment(
   });
   if (!attachment) throw new NotFoundError("Attachment not found");
   return { article, attachment };
+}
+
+/** Published, not deleted: the one visibility rule shared by page/sitemap/feed. */
+function publishedArticlesFilter() {
+  return and(
+    eq(articles.status, "published"),
+    isNull(articles.deletedAt),
+    isNotNull(articles.publishedAt),
+  );
+}
+
+/**
+ * Enumerable article surface for the sitemap. Route code used to hand-write
+ * the published filter, which meant a future visibility change had to be
+ * mirrored in three places.
+ */
+export async function listPublishedArticlesForSitemap(
+  db: FlareMoDb,
+  limit = 2000,
+) {
+  return db
+    .select({ slug: articles.slug, updatedAt: articles.updatedAt })
+    .from(articles)
+    .where(publishedArticlesFilter())
+    .orderBy(desc(articles.publishedAt))
+    .limit(limit);
+}
+
+/** Published articles with their author name, for the RSS feed. */
+export async function listPublishedArticlesForFeed(
+  db: FlareMoDb,
+  limit: number,
+) {
+  return db
+    .select({ article: articles, authorName: users.name })
+    .from(articles)
+    .innerJoin(users, eq(articles.userId, users.id))
+    .where(publishedArticlesFilter())
+    .orderBy(desc(articles.publishedAt))
+    .limit(limit);
 }

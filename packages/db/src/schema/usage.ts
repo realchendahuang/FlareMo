@@ -18,7 +18,7 @@ export const embeddingTasks = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    resourceType: text("resource_type", { enum: ["memo", "memory"] }).notNull(),
+    resourceType: text("resource_type", { enum: ["memo"] }).notNull(),
     resourceId: text("resource_id").notNull(),
     operation: text("operation", {
       enum: ["index", "reindex", "relocate", "delete"],

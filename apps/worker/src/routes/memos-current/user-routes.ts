@@ -19,7 +19,10 @@ import {
 import { getFlaremoUserCached } from "../../identity-cache";
 import { currentJsonError } from "../../memos-compat/current-errors";
 import { registerCompatMember } from "../../memos-compat/member-service";
-import { personalAccessTokenToDto } from "../../memos-compat/pat";
+import {
+  createMemosPersonalAccessToken,
+  personalAccessTokenToDto,
+} from "../../memos-compat/pat";
 import { memosCompatUserDto } from "../../memos-compat/user-dto";
 import { userStatsFromMemoStats } from "../memos-connect/user-methods/users";
 import {
@@ -112,16 +115,12 @@ export function registerUserRoutes(app: Hono<HonoBindings>) {
       const body = currentPatBodySchema.parse(await readCurrentJsonObject(c));
       const { createFlareMoAuth } = await loadAuthFactory();
       const auth = createFlareMoAuth(c.env, context.db);
-      const created = await auth.api.createApiKey({
-        body: {
-          configId: "memos",
-          userId: context.authUserId,
-          name: body.description ?? "Memos API token",
-          expiresIn:
-            body.expiresInDays === 0 || body.expiresInDays === undefined
-              ? null
-              : body.expiresInDays * 24 * 60 * 60,
-        },
+      const created = await createMemosPersonalAccessToken(auth, {
+        userId: context.authUserId,
+        name: body.description,
+        // Omitted means the 365-day server default. Explicit 0 is the
+        // compatibility wire spelling for a permanent notes-only token.
+        expiresInDays: body.expiresInDays,
       });
       return noStoreResponse(
         c.json({

@@ -19,6 +19,7 @@ import {
   lte,
   or,
 } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 
 export const MEMOS_WEBHOOK_ACTIVITY_TYPES = [
   "memos.memo.created",
@@ -61,7 +62,359 @@ const MAX_EVENTS_PER_SWEEP = 16;
 const MAX_DELIVERIES_PER_SWEEP = 16;
 const DELIVERY_LEASE_MS = 60_000;
 const DELIVERY_TIMEOUT_MS = 10_000;
+const MAX_WEBHOOK_RESPONSE_BYTES = 64 * 1024;
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
+
+// ---------------------------------------------------------------------------
+// Shared safe outbound fetch
+// ---------------------------------------------------------------------------
+//
+// Webhook destinations, plugin directory/artifact URLs and link metadata all
+// originate outside the trusted deployment. Keep one implementation for the
+// protocol, credential, literal-address, redirect, timeout and body-size rules
+// so a future caller cannot accidentally ship a weaker copy.
+//
+// The Worker runtime has no synchronous DNS resolver, so hostnames cannot be
+// pinned to an IP here. Literal and well-known reserved hosts are rejected on
+// every hop; deployments should additionally keep an outbound egress policy at
+// the Cloudflare boundary.
+const OUTBOUND_MAX_URL_LENGTH = 2_048;
+
+export const OUTBOUND_DEFAULT_TIMEOUT_MS = 10_000;
+export const OUTBOUND_DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024;
+export const OUTBOUND_DEFAULT_MAX_REDIRECTS = 5;
+
+export type OutboundFetchErrorCode =
+  | "invalid_url"
+  | "unsupported_protocol"
+  | "insecure_protocol"
+  | "blocked_host"
+  | "too_many_redirects"
+  | "invalid_redirect"
+  | "timeout"
+  | "network_error"
+  | "response_too_large";
+
+export class OutboundFetchError extends Error {
+  constructor(
+    readonly code: OutboundFetchErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "OutboundFetchError";
+  }
+}
+
+export type OutboundUrlValidationOptions = {
+  allowFragment?: boolean;
+  maxUrlLength?: number;
+  /** Reject both the initial URL and every redirect that is not HTTPS. */
+  requireHttps?: boolean;
+};
+
+export type OutboundFetcher = (
+  input: string,
+  init: RequestInit,
+) => Promise<Response>;
+
+export type SafeOutboundFetchOptions = OutboundUrlValidationOptions & {
+  fetcher?: OutboundFetcher;
+  method?: string;
+  headers?: HeadersInit;
+  body?: BodyInit | null;
+  timeoutMs?: number;
+  maxResponseBytes?: number;
+  maxRedirects?: number;
+};
+
+export type SafeOutboundResponse = {
+  /** Final URL after manually followed redirects. */
+  url: string;
+  status: number;
+  ok: boolean;
+  headers: Headers;
+  body: Uint8Array;
+};
+
+/**
+ * Validate an outbound URL before any request is sent. Redirect targets must go
+ * through this same function too.
+ */
+export function validateOutboundUrl(
+  value: string | URL,
+  options: OutboundUrlValidationOptions = {},
+): URL {
+  let url: URL;
+  try {
+    url = value instanceof URL ? new URL(value.href) : new URL(value.trim());
+  } catch {
+    throw new OutboundFetchError("invalid_url", "invalid URL format");
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new OutboundFetchError(
+      "unsupported_protocol",
+      "only http/https protocols are allowed",
+    );
+  }
+  if (options.requireHttps && url.protocol !== "https:") {
+    throw new OutboundFetchError(
+      "insecure_protocol",
+      "only https protocol is allowed",
+    );
+  }
+  if (!url.hostname || url.username || url.password) {
+    throw new OutboundFetchError("invalid_url", "invalid URL format");
+  }
+  if (!options.allowFragment && url.hash) {
+    throw new OutboundFetchError(
+      "invalid_url",
+      "URL fragments are not allowed",
+    );
+  }
+  const maxUrlLength = Math.max(
+    1,
+    options.maxUrlLength ?? OUTBOUND_MAX_URL_LENGTH,
+  );
+  if (url.href.length > maxUrlLength) {
+    throw new OutboundFetchError("invalid_url", "URL is too long");
+  }
+  if (isBlockedOutboundHostname(url.hostname)) {
+    throw new OutboundFetchError(
+      "blocked_host",
+      "internal IP addresses are not allowed",
+    );
+  }
+  return url;
+}
+
+/** Fetch a URL without ever following a redirect the caller cannot inspect. */
+export async function safeOutboundFetch(
+  input: string | URL,
+  options: SafeOutboundFetchOptions = {},
+): Promise<SafeOutboundResponse> {
+  const timeoutMs = Math.max(
+    1,
+    options.timeoutMs ?? OUTBOUND_DEFAULT_TIMEOUT_MS,
+  );
+  const maxResponseBytes = Math.max(
+    0,
+    Math.floor(options.maxResponseBytes ?? OUTBOUND_DEFAULT_MAX_RESPONSE_BYTES),
+  );
+  const maxRedirects = Math.max(
+    0,
+    Math.floor(options.maxRedirects ?? OUTBOUND_DEFAULT_MAX_REDIRECTS),
+  );
+  const fetcher = options.fetcher ?? (globalThis.fetch as OutboundFetcher);
+  if (typeof fetcher !== "function") {
+    throw new OutboundFetchError("network_error", "fetch is not available");
+  }
+
+  let currentUrl = validateOutboundUrl(input, options);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    for (let redirect = 0; ; redirect += 1) {
+      const response = await fetcher(currentUrl.href, {
+        method: options.method,
+        headers: options.headers,
+        body: options.body,
+        redirect: "manual",
+        signal: controller.signal,
+      });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        await response.body?.cancel().catch(() => undefined);
+        if (!location) {
+          throw new OutboundFetchError(
+            "invalid_redirect",
+            "redirect is missing a location",
+          );
+        }
+        if (redirect >= maxRedirects) {
+          throw new OutboundFetchError(
+            "too_many_redirects",
+            "too many redirects",
+          );
+        }
+        let nextUrl: URL;
+        try {
+          nextUrl = new URL(location, currentUrl);
+        } catch {
+          throw new OutboundFetchError(
+            "invalid_redirect",
+            "redirect target is invalid",
+          );
+        }
+        currentUrl = validateOutboundUrl(nextUrl.href, options);
+        continue;
+      }
+
+      // `redirect: manual` should make response.url equal the requested URL.
+      // Validate it anyway so a custom/mock fetch implementation cannot turn
+      // an apparently safe request into an internal response hop.
+      const finalUrl = response.url
+        ? validateOutboundUrl(response.url, options)
+        : currentUrl;
+      const declaredLength = Number(
+        response.headers.get("content-length") ?? "",
+      );
+      if (
+        Number.isFinite(declaredLength) &&
+        declaredLength > maxResponseBytes
+      ) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new OutboundFetchError(
+          "response_too_large",
+          "remote response is too large",
+        );
+      }
+      const body = await readLimitedResponseBody(
+        response,
+        controller,
+        maxResponseBytes,
+      );
+      return {
+        url: finalUrl.href,
+        status: response.status,
+        ok: response.ok,
+        headers: response.headers,
+        body,
+      };
+    }
+  } catch (error) {
+    if (error instanceof OutboundFetchError) throw error;
+    if (controller.signal.aborted) {
+      throw new OutboundFetchError("timeout", "outbound request timed out");
+    }
+    throw new OutboundFetchError("network_error", "failed to fetch remote URL");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function readLimitedResponseBody(
+  response: Response,
+  controller: AbortController,
+  maxBytes: number,
+): Promise<Uint8Array> {
+  if (!response.body) return new Uint8Array(0);
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      total += chunk.value.byteLength;
+      if (total > maxBytes) {
+        controller.abort();
+        await reader.cancel().catch(() => undefined);
+        throw new OutboundFetchError(
+          "response_too_large",
+          "remote response is too large",
+        );
+      }
+      chunks.push(chunk.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+function isBlockedOutboundHostname(rawHostname: string): boolean {
+  // URL.hostname preserves brackets for IPv6 while many test fakes use the
+  // canonical unbracketed form. Normalize both, including the single trailing
+  // dot that means the same DNS name (`localhost.`).
+  const hostname = rawHostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.+$/, "");
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".localdomain") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".home.arpa")
+  ) {
+    return true;
+  }
+
+  const ipv4 = parseIpv4Literal(hostname);
+  if (ipv4) return isBlockedIpv4(ipv4);
+  if (!hostname.includes(":")) return false;
+
+  // Loopback, link-local, unique-local and multicast IPv6.
+  if (
+    hostname === "::" ||
+    hostname === "::1" ||
+    hostname.startsWith("fc") ||
+    hostname.startsWith("fd") ||
+    hostname.startsWith("fe8") ||
+    hostname.startsWith("fe9") ||
+    hostname.startsWith("fea") ||
+    hostname.startsWith("feb") ||
+    hostname.startsWith("ff") ||
+    // Well-known translation/transition prefixes can embed a private IPv4
+    // address; reject them conservatively.
+    hostname.startsWith("64:ff9b:") ||
+    hostname.startsWith("2001:db8:")
+  ) {
+    return true;
+  }
+
+  // IPv4-mapped or IPv4-compatible forms are normalized by WHATWG URL into
+  // hexadecimal groups, e.g. `::ffff:127.0.0.1` -> `::ffff:7f00:1`.
+  const embedded =
+    /^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/u.exec(hostname) ??
+    /^0{1,4}:0{1,4}:0{1,4}:0{1,4}:0{1,4}:(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/u.exec(
+      hostname,
+    );
+  if (embedded?.[1] && embedded[2]) {
+    const high = Number.parseInt(embedded[1], 16);
+    const low = Number.parseInt(embedded[2], 16);
+    return isBlockedIpv4([high >> 8, high & 0xff, low >> 8, low & 0xff]);
+  }
+  return false;
+}
+
+function parseIpv4Literal(hostname: string): number[] | null {
+  const parts = hostname.split(".");
+  if (parts.length !== 4 || parts.some((part) => !/^\d+$/u.test(part))) {
+    return null;
+  }
+  const octets = parts.map(Number);
+  if (
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return null;
+  }
+  return octets;
+}
+
+function isBlockedIpv4([first = -1, second = -1]: number[]): boolean {
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && (second === 0 || second === 168)) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    (first === 203 && second === 0) ||
+    first >= 224
+  );
+}
 
 /**
  * Add a durable webhook outbox row to the caller's D1 batch. The event body is
@@ -149,21 +502,28 @@ export async function pruneMemosWebhookOutbox(db: FlareMoDb, before: Date) {
   const eventIds = events.map((event) => event.id);
   // One lookup for every event that still owns a live delivery, instead of a
   // LIMIT 1 probe per event. Only events absent from this set are prunable.
-  const unfinished = await db
-    .select({ eventId: memosWebhookDeliveries.eventId })
-    .from(memosWebhookDeliveries)
-    .where(
-      and(
-        inArray(memosWebhookDeliveries.eventId, eventIds),
-        inArray(memosWebhookDeliveries.status, ["pending", "sending"]),
-      ),
-    );
-  const blocked = new Set(unfinished.map((row) => row.eventId));
+  // D1 caps a statement at 100 bound parameters; the status predicate adds two,
+  // so a literal 100-id inArray would fail at exactly the prune page boundary.
+  const blocked = new Set<number>();
+  for (const eventIdChunk of chunkForD1(eventIds, d1IdsPerStatement(2))) {
+    const unfinished = await db
+      .select({ eventId: memosWebhookDeliveries.eventId })
+      .from(memosWebhookDeliveries)
+      .where(
+        and(
+          inArray(memosWebhookDeliveries.eventId, eventIdChunk),
+          inArray(memosWebhookDeliveries.status, ["pending", "sending"]),
+        ),
+      );
+    for (const row of unfinished) blocked.add(row.eventId);
+  }
   const prunableIds = eventIds.filter((id) => !blocked.has(id));
   if (prunableIds.length === 0) return;
-  await db
-    .delete(memosWebhookEvents)
-    .where(inArray(memosWebhookEvents.id, prunableIds));
+  for (const idChunk of chunkForD1(prunableIds, d1IdsPerStatement())) {
+    await db
+      .delete(memosWebhookEvents)
+      .where(inArray(memosWebhookEvents.id, idChunk));
+  }
 }
 
 async function expandPendingEvents(db: FlareMoDb, nowIso: string) {
@@ -323,41 +683,33 @@ async function postWebhook(
     item.webhook.signingSecret,
     `${messageId}.${timestamp}.${body}`,
   );
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS);
-  try {
-    const response = await fetch(item.webhook.url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "webhook-id": messageId,
-        "webhook-timestamp": timestamp,
-        "webhook-signature": `v1,${signature}`,
-      },
-      body,
-      signal: controller.signal,
-    });
-    if (!response.ok) throw new Error(`http_${response.status}`);
-    const text = await response.text();
-    if (text.trim()) {
-      try {
-        const value = JSON.parse(text) as { code?: unknown };
-        if (value.code !== undefined && value.code !== 0) {
-          throw new Error("remote_code_not_zero");
-        }
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message === "remote_code_not_zero"
-        ) {
-          throw error;
-        }
-        // Standard webhook receivers commonly return an empty body or any
-        // successful JSON. Do not require Memos' legacy {code:0} envelope.
+  const response = await safeOutboundFetch(item.webhook.url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "webhook-id": messageId,
+      "webhook-timestamp": timestamp,
+      "webhook-signature": `v1,${signature}`,
+    },
+    body,
+    timeoutMs: DELIVERY_TIMEOUT_MS,
+    maxResponseBytes: MAX_WEBHOOK_RESPONSE_BYTES,
+  });
+  if (!response.ok) throw new Error(`http_${response.status}`);
+  const text = new TextDecoder().decode(response.body).trim();
+  if (text) {
+    try {
+      const value = JSON.parse(text) as { code?: unknown };
+      if (value.code !== undefined && value.code !== 0) {
+        throw new Error("remote_code_not_zero");
       }
+    } catch (error) {
+      if (error instanceof Error && error.message === "remote_code_not_zero") {
+        throw error;
+      }
+      // Standard webhook receivers commonly return an empty body or any
+      // successful JSON. Do not require Memos' legacy {code:0} envelope.
     }
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -471,6 +823,10 @@ async function hydrateWebhookReactions(
 }
 
 function webhookFailureMessage(error: unknown) {
+  if (error instanceof OutboundFetchError) {
+    if (error.code === "timeout") return "timeout";
+    return `outbound_${error.code}`;
+  }
   if (error instanceof DOMException && error.name === "AbortError") {
     return "timeout";
   }

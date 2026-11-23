@@ -15,6 +15,44 @@ const { fetchApp, createMemo, bootstrapAndSignIn } = createAppTestHarness(
   }),
 );
 
+async function seedReadyAttachments(count: number, withObjects: boolean) {
+  const owner = await env.DB.prepare(
+    "SELECT id FROM users ORDER BY created_at LIMIT 1",
+  ).first<{ id: string }>();
+  expect(owner?.id).toBeTruthy();
+  const now = new Date().toISOString();
+  const rows = Array.from({ length: count }, (_, index) => ({
+    id: `attachments/export-many-${index}`,
+    r2Key: `export-test/object-${index}.bin`,
+    size: 2,
+  }));
+  const statements = rows.map((row) =>
+    env.DB.prepare(
+      `INSERT INTO attachments
+        (id, user_id, r2_key, filename, content_type, size, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      row.id,
+      owner?.id,
+      row.r2Key,
+      `export-${row.id.split("-").at(-1)}.bin`,
+      "application/octet-stream",
+      row.size,
+      now,
+      now,
+    ),
+  );
+  await env.DB.batch(statements);
+  if (withObjects) {
+    await Promise.all(
+      rows.map((row) =>
+        env.ATTACHMENTS.put(row.r2Key, new Uint8Array([row.size, row.size])),
+      ),
+    );
+  }
+  return rows;
+}
+
 describe("FlareMo export and import tasks", () => {
   beforeEach(async () => {
     ({ runtime: mf, env } = await createTestRuntime({
@@ -243,5 +281,114 @@ describe("FlareMo export and import tasks", () => {
     }>(await fetchApp("http://flaremo.test/api/v1/memos?q=imported+via+task"));
     expect(listed.memos).toHaveLength(1);
     expect(listed.memos[0].name).toBe("memos/import-task-memo");
+  });
+
+  it("rolls a failed import back and retries it from the stored bundle", async () => {
+    const now = "2023-11-14T22:13:20Z";
+    const memo = {
+      name: "memos/retry-import",
+      content: "retry import",
+      visibility: "private" as const,
+      state: "normal" as const,
+      pinned: false,
+      payload: {},
+      create_time: now,
+      update_time: now,
+    };
+    const taskId = crypto.randomUUID();
+    const bundleKey = `imports/${taskId}/bundle.json`;
+    const userId = (
+      await env.DB.prepare("SELECT id FROM users LIMIT 1").first<{
+        id: string;
+      }>()
+    )?.id;
+    expect(userId).toBeTruthy();
+    // Simulate the state a killed Worker leaves behind: a failed task, the
+    // original bundle in R2, one committed memo, and its ledger row.
+    await env.DB.prepare(
+      `INSERT INTO data_tasks
+        (id, user_id, kind, status, phase, attempts, manifest_key, options,
+         progress_done, progress_total, created_at, updated_at)
+       VALUES (?, ?, 'import', 'failed', 'importing', 1, ?, ?, 0, 0, ?, ?)`,
+    )
+      .bind(
+        taskId,
+        userId,
+        bundleKey,
+        JSON.stringify({ conflict: "skip" }),
+        now,
+        now,
+      )
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO memos
+        (id, user_id, content, created_at, updated_at)
+       VALUES ('memos/retry-import', ?, 'partial attempt', ?, ?)`,
+    )
+      .bind(userId, now, now)
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO import_task_rows (task_id, table_name, row_id) VALUES (?, 'memos', 'memos/retry-import')",
+    )
+      .bind(taskId)
+      .run();
+    await env.ATTACHMENTS.put(
+      bundleKey,
+      JSON.stringify({
+        version: 6,
+        memos: [memo],
+        attachments: [],
+        relations: [],
+        shares: [],
+      }),
+    );
+
+    const retried = await fetchApp(
+      `http://flaremo.test/api/v1/import/tasks/${taskId}/retry`,
+      { method: "POST" },
+    );
+    expect(retried.status).toBe(202);
+    const body = await retried.json<{
+      task: { status: string };
+      result: { imported_memos: number };
+    }>();
+    expect(body.task.status).toBe("succeeded");
+    expect(body.result.imported_memos).toBe(1);
+    const restored = await env.DB.prepare(
+      "SELECT content FROM memos WHERE id = 'memos/retry-import'",
+    ).first<{ content: string }>();
+    expect(restored?.content).toBe("retry import");
+    const remaining = await env.DB.prepare(
+      "SELECT count(*) AS n FROM memos WHERE id = 'memos/retry-import'",
+    ).first<{ n: number }>();
+    expect(remaining?.n).toBe(1);
+  });
+
+  it("metadata-only inline export skips the R2 key lookup past 100 attachments", async () => {
+    const rows = await seedReadyAttachments(100, false);
+    const response = await fetchApp(
+      "http://flaremo.test/api/v1/export?include_binary=false",
+    );
+    expect(response.status).toBe(200);
+    const bundle = (await response.json()) as {
+      attachments: Array<{ name: string; data_base64?: string }>;
+    };
+    expect(bundle.attachments.map((row) => row.name).sort()).toEqual(
+      rows.map((row) => row.id).sort(),
+    );
+    expect(bundle.attachments.every((row) => !row.data_base64)).toBe(true);
+  });
+
+  it("inline binary export chunks the ready-attachment R2 key lookup", async () => {
+    // 99 ids + userId/state is 101 D1 parameters in one statement. The export
+    // path must chunk the lookup to return all binaries.
+    const rows = await seedReadyAttachments(99, true);
+    const response = await fetchApp("http://flaremo.test/api/v1/export");
+    expect(response.status).toBe(200);
+    const bundle = (await response.json()) as {
+      attachments: Array<{ name: string; data_base64?: string }>;
+    };
+    expect(bundle.attachments).toHaveLength(rows.length);
+    expect(bundle.attachments.every((row) => row.data_base64)).toBe(true);
   });
 });

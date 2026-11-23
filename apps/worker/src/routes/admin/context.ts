@@ -47,6 +47,22 @@ export async function teamAdminContext(
   return context;
 }
 
+/**
+ * Credential-minting endpoints (creating a member, issuing an activation or
+ * password-reset link) are browser-only. A leaked PAT must not be able to take
+ * over a member account, even when its owner is an administrator. The rest of
+ * the admin surface keeps the PAT path for machine provisioning.
+ */
+export async function teamAdminSessionContext(
+  c: Parameters<typeof getBrowserRequestContext>[0],
+) {
+  const context = await getBrowserRequestContext(c);
+  if (!isTeamAdmin(context.user)) {
+    throw new ForbiddenError("Team administrator access is required.");
+  }
+  return context;
+}
+
 export async function ownerContext(
   c: Parameters<typeof getBrowserRequestContext>[0],
 ) {

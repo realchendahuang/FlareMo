@@ -3,12 +3,14 @@ import { Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { bootstrapOwner, getBootstrapStatus } from "@/api";
 import { AuthPageFrame } from "@/components/auth-page-frame";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
+import { queryKeys } from "@/lib/query-keys";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -17,7 +19,7 @@ export function SetupPage() {
   const navigate = useNavigate({ from: "/setup" });
   const queryClient = useQueryClient();
   const bootstrapQuery = useQuery({
-    queryKey: ["auth-bootstrap-status"],
+    queryKey: queryKeys.authBootstrapStatus,
     queryFn: getBootstrapStatus,
     retry: false,
   });
@@ -56,7 +58,7 @@ export function SetupPage() {
       setPassword("");
       setPasswordConfirmation("");
       await queryClient.invalidateQueries({
-        queryKey: ["auth-bootstrap-status"],
+        queryKey: queryKeys.authBootstrapStatus,
       });
       await navigate({ replace: true, to: "/login" });
     } catch (error) {
@@ -87,18 +89,16 @@ export function SetupPage() {
         </div>
       )}
       {bootstrapQuery.isError && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-          {t("auth.statusUnavailable")}
-        </p>
+        <Alert variant="destructive">{t("auth.statusUnavailable")}</Alert>
       )}
       {!bootstrapQuery.isPending &&
         !bootstrapQuery.isError &&
         !setupAvailable && (
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+          <Alert role="status" variant="warning">
             {bootstrapQuery.data?.state === "recovery_required"
               ? t("auth.recoveryRequired")
               : t("auth.setupUnavailable")}
-          </p>
+          </Alert>
         )}
       {setupAvailable && (
         <form
@@ -116,16 +116,15 @@ export function SetupPage() {
             htmlFor="setup-bootstrap-secret"
           >
             {t("auth.bootstrapSecret")}
-            <Input
+            <PasswordInput
               autoComplete="off"
               disabled={isSubmitting}
               id="setup-bootstrap-secret"
               name="bootstrap-secret"
               required
-              type="password"
               value={bootstrapSecret}
               onChange={(event) => setBootstrapSecret(event.target.value)}
-            />{" "}
+            />
           </label>
           <label
             className="flex flex-col gap-1.5 text-sm font-medium"
@@ -196,11 +195,7 @@ export function SetupPage() {
               />
             </label>
           </div>
-          {formError && (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-              {formError}
-            </p>
-          )}
+          {formError && <Alert variant="destructive">{formError}</Alert>}
           <Button disabled={isSubmitting} type="submit" variant="brand">
             {isSubmitting ? t("auth.settingUp") : t("auth.completeSetup")}
           </Button>

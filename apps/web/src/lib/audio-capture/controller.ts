@@ -1,4 +1,4 @@
-import { CAPTURE_MAX_TEXT } from "@flaremo/contracts";
+import { CAPTURE_MAX_TEXT } from "@flaremo/contracts/constants";
 import { BatchRecorder } from "./batch-recorder";
 import type { CaptureAudioSink, CapturedAudio } from "./encoder";
 import type { Microphone } from "./microphone";

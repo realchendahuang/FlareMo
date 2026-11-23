@@ -31,8 +31,8 @@ const WORKER_PROXY = {
 // trailing `*` dropped: Vite matches these as path prefixes while Cloudflare
 // matches its entries as globs, and the trailing slash is what keeps a prefix
 // from over-reaching. Without it `/article` would also swallow the SPA's
-// `/articles` route, and `/memory` its `/memory` route, serving both from the
-// stale build this dev server exists to replace. A parity test in
+// `/articles` route, serving both from the stale build this dev server exists
+// to replace. A parity test in
 // src/dev-proxy-parity.test.ts fails if the two lists drift.
 
 // https://vite.dev/config/
@@ -55,6 +55,15 @@ export default defineConfig({
             // TipTap + ProseMirror: only the lazy rich composer chunk needs
             // it; keeping it in its own chunk keeps the initial load free of
             // the editor.
+            // Floating UI is shared by Base UI (eager: tooltips, menus) and
+            // the TipTap bubble menu (lazy). Without its own group it joins
+            // vendor-tiptap through the lazy dependency and drags the whole
+            // editor chunk into the first screen's preload list.
+            {
+              name: "vendor-floating",
+              test: /node_modules[\\/]@floating-ui[\\/]/,
+              priority: 5,
+            },
             {
               name: "vendor-tiptap",
               test: /node_modules[\\/]@tiptap[\\/]/,
@@ -78,7 +87,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   server: {
@@ -94,7 +103,6 @@ export default defineConfig({
       "/feed.xml": WORKER_PROXY,
       "/file/": WORKER_PROXY,
       "/mcp": WORKER_PROXY,
-      "/memory/": WORKER_PROXY,
       "/memos.api.v1.": WORKER_PROXY,
       "/openapi.json": WORKER_PROXY,
       "/share/": WORKER_PROXY,

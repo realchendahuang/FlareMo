@@ -1,6 +1,10 @@
+import { thumbnailKeyFor } from "@flaremo/contracts/constants";
 import type { AttachmentRow } from "@flaremo/db";
 
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+// The client renders a 640px WebP preview (tens of KB); 1 MiB is a generous
+// ceiling that still bounds what a crafted request can add to storage.
+export const MAX_THUMBNAIL_BYTES = 1 * 1024 * 1024;
 export const MAX_INLINE_EXPORT_BYTES = 32 * 1024 * 1024;
 
 const INLINE_CONTENT_TYPES = new Set([
@@ -23,10 +27,44 @@ export async function attachmentObjectResponse(input: {
   bucket: R2Bucket;
   cacheControl: string;
   inlineRequested: boolean;
+  /** Serve the derived card preview when one exists. */
+  thumbnailRequested?: boolean;
   request: Request;
 }) {
   const range = input.request.headers.get("range");
   const r2Range = range ? parseRangeHeader(range) : undefined;
+
+  // A thumbnail request serves the derived preview object when one exists and
+  // silently falls back to the original otherwise, so a client that always
+  // asks for `?thumbnail=true` keeps working for every attachment uploaded
+  // before previews existed. Ranges are not negotiable against the preview:
+  // it is a small complete image, and video/audio scrub paths never take this
+  // branch.
+  const wantsThumbnail = input.thumbnailRequested === true;
+  if (wantsThumbnail && !r2Range) {
+    const preview = await input.bucket.get(
+      thumbnailKeyFor(input.attachment.r2Key),
+    );
+    if (preview) {
+      const headers = new Headers({
+        "content-type": preview.httpMetadata?.contentType ?? "image/webp",
+        etag: preview.httpEtag,
+        "cache-control": input.cacheControl,
+        // Immutable-by-derivation: the preview is written once with the
+        // original and never rewritten.
+        "content-disposition": contentDisposition(
+          input.attachment.filename,
+          "inline",
+        ),
+      });
+      if (input.request.headers.get("if-none-match") === preview.httpEtag) {
+        return new Response(null, { status: 304, headers });
+      }
+      headers.set("content-length", String(preview.size));
+      return new Response(preview.body, { headers });
+    }
+  }
+
   const object = await input.bucket.get(
     input.attachment.r2Key,
     r2Range ? { range: r2Range } : undefined,
@@ -124,7 +162,7 @@ function contentDisposition(
   filename: string,
   disposition: "attachment" | "inline",
 ) {
-  const safeFilename = [...filename.replaceAll(/["\\]/g, "_")]
+  const safeFilename = Array.from(filename.replaceAll(/["\\]/g, "_"))
     .map((character) => {
       const code = character.charCodeAt(0);
       return code < 32 || code === 127 ? "_" : character;

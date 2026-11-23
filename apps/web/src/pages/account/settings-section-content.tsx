@@ -12,6 +12,7 @@ import { PluginsCard } from "../admin/plugins-card";
 import { AdminPanel, BrandingCard } from "../admin-page";
 import { AccountPanel, type AccountPanelProps } from "./account-panel";
 import { AppearancePanel } from "./appearance-panel";
+import { ConnectedAppsPanel } from "./connected-apps-panel";
 import { EmailSettingsCard, OauthSettingsCard } from "./integrations-card";
 import { PushPanel } from "./push-panel";
 import type { SettingsSection } from "./settings-nav";
@@ -125,5 +126,7 @@ export function SettingsSectionContent({
           <OauthSettingsCard />
         </div>
       ) : null;
+    case "connectedApps":
+      return <ConnectedAppsPanel />;
   }
 }

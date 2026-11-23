@@ -1,7 +1,9 @@
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
 import { memos } from "@flaremo/db";
 import { and, inArray } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import type { EmbeddingProvider, VectorIndex } from "./embedding";
+import { notComment } from "./memo-comment-filter";
 import { memoReadScope } from "./team-permissions";
 
 export type SemanticSearchDeps = {
@@ -49,10 +51,8 @@ export async function semanticSearchMemos(
   // plus one shared team namespace), so each query only scans the partitions
   // the caller is entitled to search — no pool dilution from other tenants.
   // Vectorize only supplies candidates; the D1 scope below remains the
-  // authorization boundary and drops anything else. (Memory embeddings keep
-  // per-user namespaces because memory recall is scoped to the caller's own
-  // items.) The top-K budget is split across buckets; matches are merged by
-  // best chunk score per memo.
+  // authorization boundary and drops anything else. The top-K budget is split
+  // across buckets; matches are merged by best chunk score per memo.
   const namespaces = deps.namespaces?.length ? deps.namespaces : [undefined];
   const bucketTopK = Math.min(
     Math.ceil(Math.min(limit * 5, 100) / namespaces.length),
@@ -72,18 +72,25 @@ export async function semanticSearchMemos(
   // The probe exists only to drop ids the caller may not read (the D1 scope is
   // the authorization boundary; Vectorize candidates are untrusted). Selecting
   // the id alone keeps the dropped rows — content and payload blobs — out of
-  // the read.
-  const rows = await db
-    .select({ id: memos.id })
-    .from(memos)
-    .where(
-      and(
-        memoReadScope(user),
-        inArray(memos.id, candidateIds),
-        inArray(memos.status, ["normal", "archived"]),
-      ),
-    );
-  const allowed = new Set(rows.map((row) => row.id));
+  // the read. Candidate ids come from every queried namespace, so the list can
+  // exceed D1's per-statement binding cap and has to be chunked.
+  const allowed = new Set<string>();
+  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(12))) {
+    const rows = await db
+      .select({ id: memos.id })
+      .from(memos)
+      .where(
+        and(
+          memoReadScope(user),
+          inArray(memos.id, idChunk),
+          inArray(memos.status, ["normal", "archived"]),
+          // Comments live under their parent; filtered before the top-N cut
+          // so they never take a result slot.
+          notComment(),
+        ),
+      );
+    for (const row of rows) allowed.add(row.id);
+  }
 
   // Aggregate the best chunk score per memo, preserving vector order relevance.
   const scored = new Map<string, number>();
@@ -114,17 +121,23 @@ export async function getSemanticSearchMemos(
   candidateIds: string[],
 ): Promise<MemoRow[]> {
   if (candidateIds.length === 0) return [];
-  const rows = await db
-    .select()
-    .from(memos)
-    .where(
-      and(
-        memoReadScope(user),
-        inArray(memos.id, candidateIds),
-        inArray(memos.status, ["normal", "archived"]),
-      ),
-    );
-  const byId = new Map(rows.map((row) => [row.id, row]));
+  const byId = new Map<string, MemoRow>();
+  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(12))) {
+    const rows = await db
+      .select()
+      .from(memos)
+      .where(
+        and(
+          memoReadScope(user),
+          inArray(memos.id, idChunk),
+          inArray(memos.status, ["normal", "archived"]),
+          // Comments live under their parent; filtered before the top-N cut
+          // so they never take a result slot.
+          notComment(),
+        ),
+      );
+    for (const row of rows) byId.set(row.id, row);
+  }
   return candidateIds
     .map((id) => byId.get(id))
     .filter((row): row is MemoRow => row !== undefined);

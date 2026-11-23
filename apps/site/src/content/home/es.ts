@@ -1,18 +1,27 @@
 import type { HomeContent } from "../copy";
 
 export const ES_HOME: HomeContent = {
-  heroEyebrow:
-    "Cero servidores · Borde global sub-100ms · Autohospedaje gratuito",
-  heroTitleLine1: "Cero servidores. Tuyo para siempre.",
-  heroTitleLine2: "Tu segundo cerebro en el Edge.",
+  heroEyebrow: "Código abierto · Cloudflare nativo · Gestión del conocimiento",
+  heroTitleLine1: "Sin servidores que mantener.",
+  heroTitleLine2: "Un segundo cerebro nativo de IA.",
   heroSubtitle:
-    "Mínimo, nunca superficial. Sereno, nunca estridente. Sistema de gestión del conocimiento basado en Cloudflare (Workers, D1, R2). Sin mantenimiento de VPS, compatible con Memos API y memoria duradera para IA.",
+    "Escribe en el edge de Cloudflare: tus notas se convierten en tareas, artículos y una base de conocimiento con búsqueda, las mismas que tus agentes de IA pueden leer y escribir por MCP.",
   primaryCta: "Guía de despliegue",
   secondaryCta: "Código en GitHub",
-  statMemos: "~2,5 millones de notas",
-  statPhotos: "10.000 fotos · 0$ tráfico",
-  statServers: "Latencia ultrabaja 24/7",
-  statUptime: "Replicación multirregional",
+  heroFacts: [
+    {
+      label: "Almacenamiento D1",
+      value: "5 GB",
+      detail: "~2,5 millones de notas",
+    },
+    {
+      label: "Almacenamiento R2",
+      value: "10 GB",
+      detail: "~10.000 fotos · 0 $ de tráfico",
+    },
+    { label: "Red edge", value: "300+", detail: "ubicaciones, < 100 ms" },
+    { label: "Despliegue", value: "5 min", detail: "del clon a producción" },
+  ],
   featuresBadge: "Funciones clave",
   featuresHeading: "¿Por qué elegir FlareMo?",
   featuresSubtitle:
@@ -21,12 +30,12 @@ export const ES_HOME: HomeContent = {
     {
       title: "Durabilidad por diseño",
       description:
-        "Tus notas viven en Cloudflare D1 y R2 con persistencia multirregional. Fallos de disco o cortes de luz jamás tocarán tus datos.",
+        "Tus notas viven en Cloudflare D1 y R2 con replicación multirregional. Un disco roto o una migración no se las llevan.",
     },
     {
-      title: "Plan gratuito sin letra pequeña",
+      title: "Plan gratuito, límites claros",
       description:
-        "El plan gratuito alberga 2,5 millones de notas y 10.000 fotos. R2 no cobra por transferencia saliente, sin sorpresas en tu factura.",
+        "El plan gratuito incluye 5 GB en D1 (~2,5 millones de notas) y 10 GB en R2 (~10.000 fotos). R2 no cobra tráfico saliente mientras sigas dentro de esas cuotas.",
     },
     {
       title: "Funciona sin conexión y PWA",
@@ -34,24 +43,24 @@ export const ES_HOME: HomeContent = {
         "PWA instalable. Escribe en aviones o el metro. Tus borradores se guardan en local y se sincronizan al recuperar la red.",
     },
     {
-      title: "Memoria de IA a largo plazo",
+      title: "La IA trabaja sobre tus notas",
       description:
-        "Mediante /memory/mcp, agentes de IA (Claude, Cursor) leen y actualizan tu contexto y preferencias persistentes de forma auditada.",
+        "Un endpoint MCP integrado permite a los agentes de IA (Claude, Cursor, Codex) buscar, leer y escribir tus propias notas. Nada se resume automáticamente en un almacén de memoria aparte.",
     },
     {
-      title: "Colaboración de equipo y roles",
+      title: "Un espacio de equipo para compartir",
       description:
-        "Roles de Propietario, Administrador y Miembro con 3 niveles de visibilidad (privado, equipo, público) y borrado seguro de datos.",
+        "Publica notas para tu equipo, comenta debajo de ellas y menciónense con @: para compartir, no para gestionar proyectos. Roles de Propietario, Administrador, Miembro y Lector con 3 niveles de visibilidad (privado, equipo, público); al salir un miembro, sus datos privados se borran de forma segura.",
     },
     {
-      title: "Compatibilidad con Memos",
+      title: "Tus datos, siempre tuyos",
       description:
-        "Compatibilidad total con la API /api/v1 de Memos y OpenAPI. Conexión directa con clientes como Moe Memos e importación/exportación.",
+        "Exporta notas, tareas, artículos y adjuntos en un solo paquete; la importación admite estrategias de conflicto y revierte limpiamente si algo falla.",
     },
     {
-      title: "Proyectos, tareas y calendario",
+      title: "Notas, pendientes y proyectos",
       description:
-        "Organiza notas y pendientes en proyectos con tablero kanban, prioridades y fechas límite. El calendario mensual convierte las tareas en la fuente del calendario, con recordatorios de vencidos y Web Push opcional.",
+        "Las notas rápidas siguen siendo rápidas; los textos largos tienen un lienzo a pantalla completa. Programa una nota para un día y sus pendientes se convierten en tareas, sincronizadas en ambos sentidos. Consulta Hoy, Próximos 7 días o el tablero de un proyecto, con recordatorios el día del vencimiento y Web Push opcional.",
     },
   ],
   comparisonBadge: "Comparativa",
@@ -61,13 +70,13 @@ export const ES_HOME: HomeContent = {
   comparisonRows: [
     {
       label: "Ubicación de datos",
-      cloudflare: "Almacenamiento distribuido multirregional Cloudflare",
+      cloudflare: "Almacenamiento multirregional de Cloudflare",
       nas: "Disco duro único o RAID en tu propia casa",
       vps: "Disco virtual en un centro de datos único",
     },
     {
       label: "Riesgo de hardware",
-      cloudflare: "Conmutación por error automática, cero riesgo",
+      cloudflare: "Replicado entre regiones, sin discos que gestionar",
       nas: "Fallo de disco o corte eléctrico = pérdida total",
       vps: "Caída del hipervisor o error de configuración",
     },
@@ -79,7 +88,7 @@ export const ES_HOME: HomeContent = {
     },
     {
       label: "Mantenimiento diario",
-      cloudflare: "Cero: sin parches de sistema ni Docker",
+      cloudflare: "Sin parches de sistema ni Docker que mantener",
       nas: "Actualizaciones de SO y revisión de discos SMART",
       vps: "Parches de seguridad y configuración de cortafuegos",
     },
@@ -91,15 +100,14 @@ export const ES_HOME: HomeContent = {
     },
     {
       label: "Coste recurrente",
-      cloudflare: "0 $ / mes en el generoso plan gratuito",
+      cloudflare: "0 $ dentro del plan gratuito (con límites)",
       nas: "Alto coste de hardware inicial + gasto de electricidad",
       vps: "Facturas mensuales o anuales de alojamiento",
     },
   ],
-  screenshotsHeading: "Experiencia visual refinada",
+  screenshotsHeading: "Un vistazo por dentro",
   screenshotsSubtitle:
-    "Modo claro, modo oscuro y diseño adaptable para móviles. Todo en producción y funcionando.",
-  faqBadge: "Conviene saber",
+    "Claro, oscuro y móvil: capturas reales de la app publicada, no un mockup.",
   faqHeading: "Preguntas Frecuentes",
   faqItems: [
     {
@@ -108,23 +116,22 @@ export const ES_HOME: HomeContent = {
     },
     {
       q: "¿Están seguros mis datos?",
-      a: "Están almacenados en la infraestructura global de Cloudflare. Además, puedes exportar una copia completa en formato Memos cuando desees.",
+      a: "Las notas viven en la infraestructura distribuida de Cloudflare, con réplica en varias regiones. FlareMo también puede exportarlo todo —notas, tareas, artículos y adjuntos— en un paquete para archivar sin conexión, así siempre conservas una segunda copia.",
     },
     {
-      q: "¿Puedo migrar desde Memos o flomo?",
-      a: "Sí, sube tu archivo ZIP o JSON de exportación para importar todo conservando fechas, etiquetas y contenido.",
+      q: "¿Puedo migrar mis notas existentes?",
+      a: "Sí. Un conversor incluido transforma la exportación de otra herramienta en un paquete de importación de FlareMo, conservando fechas, etiquetas, fijados y visibilidad. Límites conocidos: los comentarios pasan a ser registros independientes y los adjuntos enlazados externamente no se migran.",
     },
     {
-      q: "¿Funcionan las apps móviles existentes?",
-      a: "Sí, FlareMo implementa los endpoints /api/v1 y tokens PAT de Memos para enlazar con clientes como Moe Memos.",
+      q: "¿Puedo conectar mis propios scripts y herramientas?",
+      a: "Sí. Una API abierta con tokens personales revocables cubre la automatización; para IA, el endpoint `/mcp` expone listar, buscar, leer, crear, actualizar y eliminar tus notas, y el skill `flaremo-notes` cubre las reglas de uso. El alcance exacto está en la matriz de compatibilidad.",
     },
     {
       q: "¿Qué diferencia hay entre modo personal y equipo?",
-      a: "Por defecto es un diario personal cifrado. Al activar el modo de equipo, puedes invitar a colegas y compartir notas de manera selectiva.",
+      a: "Por defecto es un diario personal cifrado. Al activar el modo de equipo, invitas a colegas con enlaces de un solo uso; cada nota puede ser privada (solo tú), visible para el equipo (lectura y comentarios) o pública.",
     },
   ],
-  ctaBadge: "Empieza ahora",
-  ctaHeading: "Cinco minutos para desplegar. Tuyo para siempre.",
+  ctaHeading: "Cinco minutos para desplegar. Y es tuyo.",
   ctaSubtitle:
     "Sin servidores, sin tarjeta de crédito. Despliega en Cloudflare en 5 minutos.",
   ctaButton: "Ver guía de despliegue en 5 minutos",

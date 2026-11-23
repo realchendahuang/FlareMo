@@ -7,9 +7,25 @@ import type {
 } from "@flaremo/contracts";
 import type { FlareMoDb, TaskActivityRow, TaskRow, UserRow } from "@flaremo/db";
 import { taskActivity, tasks } from "@flaremo/db";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
+import { setMemoTaskLineState } from "./memo-task-sync";
+import { getMemoById } from "./memos-read";
+import { updateMemo } from "./memos-write";
 import { requireProject } from "./projects";
 
 // D1 caps bound parameters per statement at 100. Leave room for the cutoff
@@ -32,6 +48,8 @@ export type ListTasksOptions = {
   dueFrom?: string | null;
   /** Inclusive upper bound on `due_at` (YYYY-MM-DD). */
   dueTo?: string | null;
+  /** Only tasks scheduled from this memo (`memos/<id>` or a bare id). */
+  sourceMemoId?: string | null;
   /** Recycle bin: include soft-deleted tasks. */
   includeDeleted?: boolean;
   pageSize?: number;
@@ -224,6 +242,11 @@ export async function listTasks(
   if (input.priority) filters.push(eq(tasks.priority, input.priority));
   if (input.dueFrom) filters.push(gte(tasks.dueAt, input.dueFrom));
   if (input.dueTo) filters.push(lt(tasks.dueAt, nextDayKey(input.dueTo)));
+  if (input.sourceMemoId) {
+    filters.push(
+      eq(tasks.sourceMemoId, normalizeSourceMemoId(input.sourceMemoId) ?? ""),
+    );
+  }
   const cursor = input.pageToken
     ? decodeTaskPageToken(input.pageToken)
     : undefined;
@@ -263,6 +286,75 @@ export async function listTasks(
         })
       : undefined,
   };
+}
+
+/**
+ * Counts for the sidebar reminder strip. One grouped query instead of
+ * hydrating every open task: the strip only renders two integers.
+ */
+export async function getTaskReminderCounts(
+  db: FlareMoDb,
+  user: UserRow,
+  date: string,
+): Promise<{ due_today: number; overdue: number }> {
+  const next = nextDayKey(date);
+  const row = await db
+    .select({
+      due_today: sql<number>`coalesce(sum(case when ${tasks.dueAt} >= ${date} and ${tasks.dueAt} < ${next} then 1 else 0 end), 0)`,
+      overdue: sql<number>`coalesce(sum(case when ${tasks.dueAt} < ${date} then 1 else 0 end), 0)`,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, user.id),
+        isNull(tasks.deletedAt),
+        isNotNull(tasks.dueAt),
+        // `done` is the only closed state; todo/in_progress both count.
+        inArray(tasks.status, ["todo", "in_progress"]),
+      ),
+    )
+    .get();
+  return {
+    due_today: Number(row?.due_today ?? 0),
+    overdue: Number(row?.overdue ?? 0),
+  };
+}
+
+/**
+ * Tasks linked to a page of memos, fetched once for the whole page instead of
+ * every card subscribing to the all-tasks cache. Chunked because the memo
+ * page can be 100 ids and D1 binds 100 parameters per statement.
+ */
+export async function listTasksForSourceMemos(
+  db: FlareMoDb,
+  user: UserRow,
+  memoIds: readonly string[],
+): Promise<TaskDto[]> {
+  const ids = [
+    ...new Set(
+      memoIds
+        .map((memoId) => normalizeSourceMemoId(memoId))
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+  if (ids.length === 0) return [];
+  const rows: TaskRow[] = [];
+  for (const chunk of chunkForD1(ids, d1IdsPerStatement(2))) {
+    rows.push(
+      ...(await db
+        .select()
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.userId, user.id),
+            isNull(tasks.deletedAt),
+            inArray(tasks.sourceMemoId, chunk),
+          ),
+        )
+        .orderBy(asc(tasks.sortOrder), asc(tasks.createdAt), asc(tasks.id))),
+    );
+  }
+  return rows.map(taskToDto);
 }
 
 // A reorder is a project-scoped event and is the only writer that shifts many
@@ -389,7 +481,36 @@ export async function updateTask(
     : "updated";
   await appendActivity(db, user, actor, id, action, changes);
 
+  const wasDone = existing.status === "done";
+  const isDone = next.status === "done";
+  if (statusChanged && wasDone !== isDone && next.sourceMemoId) {
+    await syncSourceMemoLine(db, user, next.sourceMemoId, next.title, isDone);
+  }
+
   return taskToDto(await requireTask(db, user, id));
+}
+
+/**
+ * Completing (or reopening) a task ticks the matching to-do line in the memo
+ * it came from. Best effort: a memo that is gone, no longer the caller's to
+ * edit, or no longer carries the line simply stays as it is.
+ */
+async function syncSourceMemoLine(
+  db: FlareMoDb,
+  user: UserRow,
+  memoId: string,
+  title: string,
+  checked: boolean,
+) {
+  try {
+    const memo = await getMemoById(db, user, memoId);
+    if (memo.userId !== user.id || memo.status === "trashed") return;
+    const content = setMemoTaskLineState(memo.content, title, checked);
+    if (content === null) return;
+    await updateMemo(db, user, memoId, { content });
+  } catch {
+    // The task update stands on its own.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -424,18 +545,24 @@ export async function reorderTasks(
   await requireProject(db, user, normalizedProjectId);
 
   if (taskIds.length > 0) {
-    const owned = await db
-      .select({ id: tasks.id })
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.userId, user.id),
-          eq(tasks.projectId, normalizedProjectId),
-          isNull(tasks.deletedAt),
-          inArray(tasks.id, taskIds),
-        ),
-      );
-    const ownedIds = new Set(owned.map((row) => row.id));
+    // The ownership probe carries `userId` and `projectId` on top of the id
+    // list, so it must be chunked as N + 2 bound parameters. The contract allows
+    // 200 ids; one unbounded `inArray` would fail at 99.
+    const ownedIds = new Set<string>();
+    for (const idChunk of chunkForD1(taskIds, d1IdsPerStatement(2))) {
+      const owned = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.userId, user.id),
+            eq(tasks.projectId, normalizedProjectId),
+            isNull(tasks.deletedAt),
+            inArray(tasks.id, idChunk),
+          ),
+        );
+      for (const row of owned) ownedIds.add(row.id);
+    }
     const stray = taskIds.filter((id) => !ownedIds.has(id));
     if (stray.length > 0) {
       throw new ValidationError(

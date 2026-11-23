@@ -59,6 +59,7 @@ async function serveAttachment(
       c.req.query("thumbnail") === "true" ||
       c.req.query("preview") === "1" ||
       c.req.query("disposition") === "inline",
+    thumbnailRequested: c.req.query("thumbnail") === "true",
     request: c.req.raw,
   });
   if (!response) {

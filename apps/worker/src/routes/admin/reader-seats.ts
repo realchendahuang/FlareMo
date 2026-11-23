@@ -12,11 +12,11 @@ import {
   updateTeamMemberRole,
   ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { getFlareMoAuth, type HonoBindings } from "../../context";
 import { jsonError } from "../../http";
+import { zValidator } from "../../validated";
 import {
   readerExpiresAt,
   teamAdminContext,

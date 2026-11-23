@@ -1,4 +1,4 @@
-import { CAPTURE_MAX_TEXT } from "@flaremo/contracts";
+import { CAPTURE_MAX_TEXT } from "@flaremo/contracts/constants";
 import { transcribeCaptureChunk } from "../../api";
 import type { CapturedAudio } from "./encoder";
 import type { CaptureSentence } from "./types";

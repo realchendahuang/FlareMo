@@ -12,7 +12,6 @@
  * list changes. `node scripts/generate-accent-brand.mjs` from apps/web.
  */
 import { createRequire } from "node:module";
-import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import mkdirp from "node:fs/promises";
 
@@ -23,7 +22,10 @@ const sharp = await (async () => {
   } catch {
     // pnpm hoists sharp somewhere in the workspace store; find it.
     const { readdirSync } = await import("node:fs");
-    const pnpmDir = path.resolve(import.meta.dirname, "../../../node_modules/.pnpm");
+    const pnpmDir = path.resolve(
+      import.meta.dirname,
+      "../../../node_modules/.pnpm",
+    );
     const dir = readdirSync(pnpmDir).find((name) => name.startsWith("sharp@"));
     if (!dir) throw new Error("sharp not found in workspace store");
     return require(path.join(pnpmDir, dir, "node_modules", "sharp"));
@@ -104,9 +106,7 @@ async function recolor(sourcePath, outPath, deltaHue, chromaScale) {
     data[i + 2] = b;
   }
   await mkdirp.mkdir(path.dirname(outPath), { recursive: true });
-  await sharp(data, { raw: info })
-    .png({ compressionLevel: 9 })
-    .toFile(outPath);
+  await sharp(data, { raw: info }).png({ compressionLevel: 9 }).toFile(outPath);
 }
 
 const brandDir = path.resolve(import.meta.dirname, "../public/brand");

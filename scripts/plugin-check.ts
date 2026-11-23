@@ -35,11 +35,13 @@ const PROBLEM_CODES: Record<string, string> = {
   "manifest/missing-author": "add an author object",
   "manifest/unknown-field": "remove the unknown field",
   "manifest/extra-field": "remove the field that belongs to the other kind",
-  "card/missing-file": "create the referenced file (paths are relative to plugin.json)",
+  "card/missing-file":
+    "create the referenced file (paths are relative to plugin.json)",
   "card/unknown-node": "see plugins/README.md for the node list",
   "card/invalid-json": "fix the JSON syntax",
   "card/spec-version": "set specVersion to the current document spec (1)",
-  "color/unknown-token": "use a brand step from the spec (brand.50 … brand.700, brand.coral)",
+  "color/unknown-token":
+    "use a brand step from the spec (brand.50 … brand.700, brand.coral)",
   "color/unsafe": "remove url()/javascript: from the value",
   "svg/unknown-tag": "see plugins/README.md for the SVG whitelist",
   "svg/event-handler": "remove the on* attribute",
@@ -173,7 +175,9 @@ async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
   console.log("");
   if (args.length === 0) {
-    console.log(`${DIM}Checking every plugin in plugins/{official,community}…${RESET}`);
+    console.log(
+      `${DIM}Checking every plugin in plugins/{official,community}…${RESET}`,
+    );
     const ok = await checkRepo();
     console.log("");
     if (!ok) throw new CliError("some plugins failed validation");

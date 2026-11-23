@@ -2,10 +2,10 @@ import {
   getUserRegistrationAllowed,
   setUserRegistrationAllowed,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import type { HonoBindings } from "../../context";
 import { jsonError } from "../../http";
+import { zValidator } from "../../validated";
 import { ownerContext, updateSettingsSchema } from "./context";
 
 export function registerSettingsRoutes(app: Hono<HonoBindings>) {

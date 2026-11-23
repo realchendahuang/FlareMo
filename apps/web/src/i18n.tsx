@@ -106,6 +106,11 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => getInitialLocale());
+  // The first paint may beat the locale catalog (main.tsx caps the gate at
+  // 1.5s and then renders with the English fallback). Bumping this counter
+  // when a late pack lands makes `t` switch to the real language instead of
+  // leaving the page English until an unrelated state change re-renders it.
+  const [packVersion, setPackVersion] = useState(0);
   // Monotonic request id: when several switches race, only the newest one may
   // commit — a slow pack can never resurrect an older language.
   const requestRef = useRef(0);
@@ -116,7 +121,23 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.dir = isRtlLocale(locale) ? "rtl" : "ltr";
   }, [locale]);
 
+  useEffect(() => {
+    const alreadyLoaded = Boolean(messages[locale]);
+    const requestId = ++requestRef.current;
+    let cancelled = false;
+    void loadLocaleMessages(locale).then(() => {
+      if (cancelled || requestRef.current !== requestId) return;
+      if (!alreadyLoaded) setPackVersion((version) => version + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [locale]);
+
   const value = useMemo<I18nContextValue>(() => {
+    // Referenced so a late-arriving catalog busts this memo; `t` itself reads
+    // the module-level registry directly.
+    void packVersion;
     const setLocale = (next: Locale) => {
       const requestId = ++requestRef.current;
       void loadLocaleMessages(next).then(() => {
@@ -129,7 +150,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       const template =
         messages[locale]?.[key] ??
         messages["en-US"]?.[key] ??
-        // Dynamic keys built from server enums (e.g. memory.type.*) can point
+        // Dynamic keys built from server enums (e.g. task.status.*) can point
         // at values added server-side after this client shipped. A readable
         // fallback keeps the page alive; a throw would crash the route.
         key.split(".").at(-1) ??
@@ -137,7 +158,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       return interpolate(template, params);
     };
     return { locale, setLocale, t };
-  }, [locale]);
+  }, [locale, packVersion]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

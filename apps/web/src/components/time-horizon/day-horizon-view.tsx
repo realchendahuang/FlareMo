@@ -177,7 +177,7 @@ export function DayHorizonPureView({
   const minuteRad = (minuteDeg * Math.PI) / 180;
 
   return (
-    <div className="flex h-full min-h-[210px] items-center justify-center px-1 py-1 select-none">
+    <div className="flex h-full min-h-[180px] items-center justify-center px-1 py-1 select-none">
       <button
         type="button"
         className="relative flex items-center justify-center p-1 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
@@ -187,8 +187,8 @@ export function DayHorizonPureView({
         <svg
           viewBox="0 0 210 210"
           className={cn(
-            "w-[190px] h-[190px] sm:w-[204px] sm:h-[204px] select-none",
-            isLoading && "animate-pulse",
+            "w-[190px] h-[190px] sm:w-[204px] sm:h-[204px] select-none transition-opacity duration-200",
+            isLoading && "opacity-50",
           )}
           aria-hidden="true"
         >
@@ -277,7 +277,7 @@ export function DayHorizonPureView({
                         fill="none"
                         stroke="var(--brand-500)"
                         strokeWidth="1.5"
-                        className="animate-pulse opacity-90"
+                        className="opacity-60"
                       />
                     )}
                     {/* Luminous Core Gem */}
@@ -428,7 +428,7 @@ export function DayHorizonPureView({
                 cx={cx}
                 cy={cy - rOrbit}
                 r="6"
-                className="fill-brand-500/25 dark:fill-brand-400/30 animate-pulse"
+                className="fill-brand-500/20 dark:fill-brand-400/25"
               />
 
               {/* Core Photon: High-Energy Brilliant Star */}

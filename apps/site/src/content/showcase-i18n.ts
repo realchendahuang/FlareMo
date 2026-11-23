@@ -31,7 +31,6 @@ export type ShowcaseContent = {
     trash: string;
     dailyReview: string;
     randomWalk: string;
-    memory: string;
     calendarView: string;
     projects: string;
     tagIndex: string;

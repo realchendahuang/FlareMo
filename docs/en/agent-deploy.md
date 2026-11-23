@@ -14,8 +14,8 @@ This runbook is for Codex, Claude Code, Cursor Agent, and other command-capable 
 
 ## Do Not
 
-- Do not add new CI workflows or deployment automation. The existing `.github/workflows/deploy-cloudflare.yml` is a controlled exception for self-hosted fork/deployment repositories: it is `workflow_dispatch` only, never deploys on push, and does not run in the upstream `realchendahuang/FlareMo` repository. `ci.yml` is the check workflow (format / lint / typecheck / unit tests); `flaremo-update.yml` only prepares upstream update pull requests in user deployment repositories. Do not turn the upstream or a regular repository into a push/CI production deployer.
-- Do not deploy before `pnpm verify`.
+- Do not add new CI workflows or deployment automation. The upstream repository has no `.github/workflows` directory and no CI. A self-hosted deployment repository may keep `workflow_dispatch`-only deploy/update workflows, but nothing may deploy on push, and neither the upstream nor a regular repository should become a push/CI production deployer.
+- The full `pnpm verify` gate is opt-in: run it only when the maintainer asks. Everyday deploys run targeted Vitest files, `pnpm format:check`, and `pnpm deploy:dry-run`.
 - Do not commit `Temp/`, `node_modules/`, `dist/`, `.wrangler/`, `.dev.vars`, `backups/`, `test-results/`, or `playwright-report/`.
 - Do not add a second authentication system, shared password, or standalone bearer-token table outside Better Auth. Machine access uses the revocable `memos_pat_` PAT boundary.
 - Do not move canonical note data from D1 to KV, R2, or Vectorize.
@@ -25,7 +25,8 @@ This runbook is for Codex, Claude Code, Cursor Agent, and other command-capable 
 ```bash
 git status --short
 pnpm install
-pnpm verify
+pnpm format:check
+# Run only the Vitest files affected by your change; `pnpm verify` is opt-in.
 pnpm deploy:dry-run
 pnpm deploy
 ```

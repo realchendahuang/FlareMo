@@ -44,7 +44,7 @@
 
 1. **Hero**：标题「一个免费 Cloudflare 账号就能 24 小时在线的个人笔记系统」+ 单 CTA（部署指南入口）
 2. **三列 Hero stat**：D1 5GB / R2 10GB / 0 服务器
-3. **Why FlareMo**：6 张 feature 卡片（D1+R2 / Better Auth + Memos / PWA / Agent Memory / 语义搜索 / 公开分享）
+3. **Why FlareMo**：6 张 feature 卡片（D1+R2 / Better Auth + Memos / PWA / 笔记 MCP / 语义搜索 / 公开分享）
 4. **为什么 Cloudflare 比 NAS 更稳**：7 行对比表
 5. **看一眼产品**：两张截图（desktop + mobile）
 6. **定价**：Free 档卡片
@@ -109,7 +109,7 @@
 ```
 apps/site/
 ├── index.html              ← dev 壳（vite）；生产由 SSG 覆盖
-├── public/                 ← 静态资源：robots.txt、favicon、og-image.svg、品牌 PNG
+├── public/                 ← 静态资源：robots.txt、favicon、og-image.png、品牌 PNG
 ├── scripts/
 │   └── build.mjs           ← SSG 构建脚本（vite build + renderRoute 每个路径）
 ├── src/
@@ -150,7 +150,7 @@ apps/site/
 | canonical | 每个路由独立，路径含 locale 前缀 |
 | hreflang | `zh-CN`、`en-US`、`x-default` 三条 |
 | JSON-LD | `SoftwareApplication`（首页）、`Product`（pricing）、`Article`（docs）、`FAQPage`（FAQ） |
-| 结构化 OG image | `public/og-image.svg` 1200×630，含 logo + 标题 + 副标 |
+| 结构化 OG image | `public/og-image.png` 1200×630，含 logo + 标题 + 应用截图（`pnpm og:image` 生成） |
 | 性能预算 | 首屏 JS < 30KB gzipped；prerender 静态 HTML，Lighthouse ≥ 95 |
 
 ## 部署

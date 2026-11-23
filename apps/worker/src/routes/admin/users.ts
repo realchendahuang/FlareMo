@@ -4,7 +4,6 @@ import {
   deriveUniqueUsername,
   listFlaremoUsersWithMemberships,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import {
   type getBrowserRequestContext,
@@ -12,7 +11,13 @@ import {
   loadAuthFactory,
 } from "../../context";
 import { jsonError } from "../../http";
-import { createUserSchema, readerExpiresAt, teamAdminContext } from "./context";
+import { zValidator } from "../../validated";
+import {
+  createUserSchema,
+  readerExpiresAt,
+  teamAdminContext,
+  teamAdminSessionContext,
+} from "./context";
 
 /**
  * Create a Better Auth identity, the domain user, the link, and the default
@@ -72,6 +77,10 @@ export function registerUsersRoutes(app: Hono<HonoBindings>) {
         email: authUser?.email ?? member.email,
         name: member.name,
         username: authUser?.username ?? member.id.replace(/^users\//, ""),
+        // The uploaded avatar, so a member's row shows the face they see on
+        // their own sidebar; without one both fall back to the same
+        // name-seeded generated avatar.
+        avatar_url: member.avatarUrl ?? null,
         role: membership?.role ?? null,
         reader_expires_at: membership
           ? readerExpiresAt(membership.expiresAt)
@@ -87,7 +96,8 @@ export function registerUsersRoutes(app: Hono<HonoBindings>) {
 
   app.post("/users", zValidator("json", createUserSchema), async (c) => {
     try {
-      const context = await teamAdminContext(c);
+      // Returns an activation link, so a browser session is required.
+      const context = await teamAdminSessionContext(c);
       const input = c.req.valid("json");
       const { member, username, activationToken } = await createMemberAccount(
         c,

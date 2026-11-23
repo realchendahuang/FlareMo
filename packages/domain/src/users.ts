@@ -11,11 +11,8 @@ import {
   dataTasks,
   embeddingTasks,
   memoRelations,
+  memoReviewMarks,
   memoRevisions,
-  memoryItems,
-  memoryRelations,
-  memoryResourceLinks,
-  memoryRevisions,
   memos,
   memosNotifications,
   memosSseEvents,
@@ -44,6 +41,11 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import {
+  chunkForD1,
+  d1IdsPerRepeatedBinding,
+  d1IdsPerStatement,
+} from "./d1-limits";
 import {
   ConflictError,
   ForbiddenError,
@@ -193,6 +195,25 @@ export async function getFlaremoUserById(
 }
 
 /**
+ * Batch variant of `getFlaremoUserById` for maintenance sweeps: one query per
+ * D1 statement budget instead of one query per row. The trash purge used to
+ * look up an owner for every expired memo/article, which turns a large recycle
+ * bin into hundreds of serialized point reads.
+ */
+export async function getFlaremoUsersByIds(
+  db: FlareMoDb,
+  ids: readonly string[],
+): Promise<Map<string, UserRow>> {
+  const unique = [...new Set(ids)].filter((id) => id.length > 0);
+  const byId = new Map<string, UserRow>();
+  for (const chunk of chunkForD1(unique, d1IdsPerStatement())) {
+    const rows = await db.select().from(users).where(inArray(users.id, chunk));
+    for (const row of rows) byId.set(row.id, row);
+  }
+  return byId;
+}
+
+/**
  * Create a non-owner domain user for multi-user signups and admin-created
  * accounts. IDs are `users/<uuid>`: `memosSubjectForFlaremoUserId` already
  * hashes non-numeric ids deterministically and the link table keeps the
@@ -275,12 +296,16 @@ export async function getFlaremoUserNames(
   db: FlareMoDb,
   userIds: string[],
 ): Promise<Map<string, string>> {
-  if (userIds.length === 0) return new Map();
-  const rows = await db
-    .select({ id: users.id, name: users.name })
-    .from(users)
-    .where(inArray(users.id, [...new Set(userIds)]));
-  return new Map(rows.map((row) => [row.id, row.name]));
+  const unique = [...new Set(userIds)].filter((id) => id.length > 0);
+  const byId = new Map<string, string>();
+  for (const chunk of chunkForD1(unique, d1IdsPerStatement())) {
+    const rows = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(inArray(users.id, chunk));
+    for (const row of rows) byId.set(row.id, row.name);
+  }
+  return byId;
 }
 
 /**
@@ -449,7 +474,6 @@ export async function deriveUniqueUsername(
  */
 export type FlaremoAccountArtifacts = {
   memoIds: string[];
-  memoryIds: string[];
   attachmentR2Keys: string[];
 };
 
@@ -518,10 +542,6 @@ export async function beginFlaremoMemberRemoval(
     .from(memos)
     .where(and(eq(memos.userId, userId), eq(memos.visibility, "private")));
   const privateMemoIds = privateMemoRows.map((row) => row.id);
-  const memoryRows = await db
-    .select({ id: memoryItems.id })
-    .from(memoryItems)
-    .where(eq(memoryItems.userId, userId));
   const attachmentRows = await db
     .select({
       id: attachments.id,
@@ -538,7 +558,6 @@ export async function beginFlaremoMemberRemoval(
 
   return {
     memoIds: privateMemoIds,
-    memoryIds: memoryRows.map((row) => row.id),
     attachmentIds: privateAttachments.map((attachment) => attachment.id),
     attachmentR2Keys: privateAttachments.map((attachment) => attachment.key),
   };
@@ -602,52 +621,52 @@ export async function finalizeFlaremoMemberRemoval(
         ),
       ),
     db.delete(shortcuts).where(eq(shortcuts.userId, userId)),
-    db
-      .delete(memoryResourceLinks)
-      .where(eq(memoryResourceLinks.userId, userId)),
-    db.delete(memoryRelations).where(eq(memoryRelations.userId, userId)),
-    db.delete(memoryRevisions).where(eq(memoryRevisions.userId, userId)),
-    db.delete(memoryItems).where(eq(memoryItems.userId, userId)),
+    db.delete(memoReviewMarks).where(eq(memoReviewMarks.userId, userId)),
   ]);
 
   if (privateMemoIds.length > 0) {
-    await db.batch([
-      db
-        .delete(embeddingTasks)
-        .where(
-          and(
-            eq(embeddingTasks.userId, userId),
-            inArray(embeddingTasks.resourceId, privateMemoIds),
+    // Every statement here binds the member's whole private-memo id list, and
+    // D1 stops at 100 parameters. Deleting an active member used to fail
+    // outright past that count — the whole removal is one transaction body, so
+    // there was no partial state to recover from either. Chunks are safe to
+    // run sequentially because each one only ever narrows the same row set.
+    // The relation delete below binds both `memo_id` and `related_memo_id`,
+    // so every id costs two parameters instead of one.
+    for (const idChunk of chunkForD1(
+      privateMemoIds,
+      d1IdsPerRepeatedBinding(2),
+    )) {
+      await db.batch([
+        db
+          .delete(embeddingTasks)
+          .where(
+            and(
+              eq(embeddingTasks.userId, userId),
+              inArray(embeddingTasks.resourceId, idChunk),
+            ),
           ),
-        ),
-      db
-        .delete(memoRelations)
-        .where(
-          or(
-            inArray(memoRelations.memoId, privateMemoIds),
-            inArray(memoRelations.relatedMemoId, privateMemoIds),
+        db
+          .delete(memoRelations)
+          .where(
+            or(
+              inArray(memoRelations.memoId, idChunk),
+              inArray(memoRelations.relatedMemoId, idChunk),
+            ),
           ),
-        ),
-      db
-        .delete(memoRevisions)
-        .where(inArray(memoRevisions.memoId, privateMemoIds)),
-      db.delete(memoTags).where(inArray(memoTags.memoId, privateMemoIds)),
-      db.delete(memos).where(inArray(memos.id, privateMemoIds)),
-    ]);
+        db.delete(memoRevisions).where(inArray(memoRevisions.memoId, idChunk)),
+        db.delete(memoTags).where(inArray(memoTags.memoId, idChunk)),
+        db.delete(memos).where(inArray(memos.id, idChunk)),
+      ]);
+    }
   }
   if (privateAttachmentIds.length > 0) {
-    await db
-      .delete(attachments)
-      .where(inArray(attachments.id, privateAttachmentIds));
+    for (const idChunk of chunkForD1(
+      privateAttachmentIds,
+      d1IdsPerStatement(),
+    )) {
+      await db.delete(attachments).where(inArray(attachments.id, idChunk));
+    }
   }
-  await db
-    .delete(embeddingTasks)
-    .where(
-      and(
-        eq(embeddingTasks.userId, userId),
-        eq(embeddingTasks.resourceType, "memory"),
-      ),
-    );
 
   // Adopt the removed member's team/public memos. The client id is dropped
   // with the old owner so the owner's `(user_id, client_id)` idempotency
@@ -670,16 +689,18 @@ export async function finalizeFlaremoMemberRemoval(
   // `memo_tags_user_tag_memo_idx` both start with `user_id`, so the migration
   // keeps the index usable.
   if (adoptedMemoIds.length > 0) {
-    await db.batch([
-      db
-        .update(memos)
-        .set({ userId: "users/owner", clientId: null })
-        .where(inArray(memos.id, adoptedMemoIds)),
-      db
-        .update(memoTags)
-        .set({ userId: "users/owner" })
-        .where(inArray(memoTags.memoId, adoptedMemoIds)),
-    ]);
+    for (const idChunk of chunkForD1(adoptedMemoIds, d1IdsPerStatement())) {
+      await db.batch([
+        db
+          .update(memos)
+          .set({ userId: "users/owner", clientId: null })
+          .where(inArray(memos.id, idChunk)),
+        db
+          .update(memoTags)
+          .set({ userId: "users/owner" })
+          .where(inArray(memoTags.memoId, idChunk)),
+      ]);
+    }
   }
 
   // Both halves above move memos without touching `memo_hourly_counts`: the

@@ -32,7 +32,7 @@ octocat/flaremo
 
 ## 日常更新
 
-仓库中的 `Prepare FlareMo update` workflow 每天检查一次最新稳定 Release。发现新版后会创建一个升级 pull request。
+部署仓库中的 `Prepare FlareMo update` workflow 每天检查一次最新稳定 Release。发现新版后会创建一个升级 pull request。这个 workflow 是模板 [`docs/templates/workflows/flaremo-update.yml`](./templates/workflows/flaremo-update.yml)，复制到部署仓库的 `.github/workflows/` 即可启用。
 
 你也可以在 FlareMo 左下角打开“系统更新”，点击“前往更新”，然后在 GitHub 手动运行 workflow：
 
@@ -40,9 +40,9 @@ octocat/flaremo
 2. 点击 `Run workflow`；版本留空表示使用最新稳定版。
 3. 等待升级 pull request 创建。
 4. 查看版本说明和文件变化，然后合并 pull request。
-5. Cloudflare Workers Builds 会自动构建前端、执行尚未应用的 D1 migrations，并发布新的 Worker 版本。若未接入 Workers Builds、而是使用 [GitHub Action 手动部署](./github-action-deploy.md)，合并 PR 后再运行 `Deploy to Cloudflare`。
+5. Cloudflare Workers Builds 会自动构建前端、执行尚未应用的 D1 migrations，并发布新的 Worker 版本；本地 `pnpm deploy` 会先做一次 Worker bundle dry-run。若未接入 Workers Builds、而是使用 [GitHub Action 手动部署](./github-action-deploy.md)，合并 PR 后再运行 `Deploy to Cloudflare`。
 
-更新 PR 可以生成 preview version，但不会执行生产 D1 migration。合并到 production branch 后，生产部署才会先执行 migration 再发布 Worker；期间旧版本继续服务。如果构建或 migration 失败，新 Worker 不会发布；到 GitHub 的 Cloudflare check 或 Cloudflare Dashboard 的 Build history 查看错误。
+更新 PR 可以生成 preview version，但不会执行生产 D1 migration。合并到 production branch 后，生产部署才会先执行 migration 再发布 Worker（本地 CLI 路径会先做 bundle dry-run）；期间旧版本继续服务。如果构建或 migration 失败，新 Worker 不会发布；到 GitHub 的 Cloudflare check 或 Cloudflare Dashboard 的 Build history 查看错误。
 
 ## 自定义代码和冲突
 
@@ -61,7 +61,7 @@ git apply --3way --index flaremo-update.patch
 
 ## 现有实例
 
-从 v0.2.1 或更早版本升级到 v0.3.0 时，需要先按旧的手工流程更新一次。v0.3.0 起，FlareMo 仓库自带更新 workflow（`.github/workflows/flaremo-update.yml`）和应用内版本入口；把它推到你自己的部署仓库即可获得同样的更新流程。
+从 v0.2.1 或更早版本升级到 v0.3.0 时，需要先按旧的手工流程更新一次。v0.3.0 起提供更新 workflow 和应用内版本入口；从 v0.28.0 起上游仓库不再内置 workflow，模板在 [`docs/templates/workflows/flaremo-update.yml`](./templates/workflows/flaremo-update.yml)，复制到自己的部署仓库的 `.github/workflows/` 即可获得同样的更新流程。
 
 GitHub 可能会在公开仓库连续 60 天没有活动后暂停定时 workflow；应用内版本检查不受影响。此时到仓库 Actions 页面重新启用 workflow，再手工运行一次即可。
 

@@ -78,6 +78,6 @@ A brand can ship its cards as a community pack ([`plugins/community/kosx-pack`](
 
 ## Standard and implementation
 
-- Full standard: [`docs/plugin-platform-standard.md`](plugin-platform-standard.md) (slot model, trust tiers, store protocol, roadmap).
+- Full standard: [`docs/plugin-platform-standard.md`](../plugin-platform-standard.md) (slot model, trust tiers, store protocol, roadmap).
 - Contribution guide: [`plugins/README.md`](https://github.com/realchendahuang/FlareMo/blob/main/plugins/README.md).
 - Official directory: [`https://flaremo.app/plugins/registry.json`](https://flaremo.app/plugins/registry.json).

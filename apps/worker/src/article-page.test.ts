@@ -124,6 +124,10 @@ describe("Article page (standalone SEO HTML)", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(response.headers.get("cache-control")).toContain("max-age=300");
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
 
     const html = await response.text();
     expect(html).toContain(
@@ -131,6 +135,9 @@ describe("Article page (standalone SEO HTML)", () => {
     );
     // Title from the article's own field, not body truncation.
     expect(html).toContain("<title>我的第一篇中文文章</title>");
+    // The title field is the visible page heading too (the editor keeps it
+    // outside the body).
+    expect(html).toContain('<h1 class="article-title">我的第一篇中文文章</h1>');
     expect(html).toContain('content="index, follow"');
     expect(html).toContain('<meta property="og:type" content="article" />');
     expect(html).toContain(

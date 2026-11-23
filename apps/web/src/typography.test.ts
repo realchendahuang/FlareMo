@@ -134,7 +134,16 @@ describe("micro text sizes", () => {
       m[2],
     ]),
   );
-  const TOO_SMALL = ["text-[10px]", "text-[11px]", "text-[0.65rem]"];
+  const TOO_SMALL = [
+    "text-[8px]",
+    "text-[8.5px]",
+    "text-[9px]",
+    "text-[10px]",
+    "text-[11px]",
+    "text-[0.6rem]",
+    "text-[0.65rem]",
+    "text-[0.7rem]",
+  ];
 
   /** Resolves `t(x.someKey)` by finding `someKey: "<i18n.key>"` assignments in
    *  the same file and looking those keys up in the catalog. This is the shape
@@ -195,7 +204,9 @@ describe("micro text sizes", () => {
         lines.forEach((line, i) => {
           const size = TOO_SMALL.find((s) => line.includes(s));
           if (!size) return;
-          if (/<kbd\b|font-mono/.test(line)) return;
+          // `font-mono` is no exemption: month and weekday labels were set in
+          // mono at 10px and still rendered Han ("1月", "一").
+          if (/<kbd\b/.test(line)) return;
           const end = tagEnd(lines, i);
           if (!end) return;
           // Children of this element: everything after the opening tag.
@@ -216,6 +227,11 @@ describe("micro text sizes", () => {
           for (const [, , memberName] of varForms) {
             keys.push(...valuesOfMemberKeys(memberName, source));
           }
+          // A key built at runtime (`t(\`status.${s}\`)`, `t(key)`) cannot be
+          // resolved statically, so it counts as translated text: the zh-CN
+          // value of almost every key is Han.
+          const dynamic = /\bt\(\s*(`|[A-Za-z_$][\w$]*\s*[),])/.test(children);
+          if (dynamic) keys.push("（动态 key）");
           const rendered = keys.filter((v) => v && HAN.test(v));
           if (rendered.length > 0) {
             offenders.push(

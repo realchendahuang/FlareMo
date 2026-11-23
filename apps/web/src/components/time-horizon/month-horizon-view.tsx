@@ -12,6 +12,30 @@ import { buildDayQuadrants } from "@/lib/time-horizon";
 import { cn } from "@/lib/utils";
 import type { DisplayMode } from "./shared";
 
+export type HourlyActivityRow = {
+  date: string;
+  hour: number;
+  count: number;
+};
+
+/**
+ * Sum month-scoped hourly rows into per-local-day totals.
+ *
+ * `getHourlyActivity` returns every hour of every day in the requested range
+ * (zero hours included), so summing by `date` yields the day total the heat
+ * grid needs without a second request. Exported so the aggregation can be
+ * unit-tested without rendering the view.
+ */
+export function aggregateHourlyDailyTotals(
+  hours: readonly HourlyActivityRow[] | undefined,
+): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const row of hours ?? []) {
+    totals.set(row.date, (totals.get(row.date) ?? 0) + row.count);
+  }
+  return totals;
+}
+
 export function MonthHorizonPureView({
   monthKey,
   today,
@@ -19,6 +43,7 @@ export function MonthHorizonPureView({
   locale,
   weekStart,
   notesCountMap,
+  preferHourlyHeat,
   hourlyData,
   isLoading: _isLoading,
   displayMode,
@@ -34,6 +59,12 @@ export function MonthHorizonPureView({
   locale: string;
   weekStart: WeekStart;
   notesCountMap: Map<string, number>;
+  /**
+   * Whether the hourly aggregation may drive the heat colors. False while a
+   * space partition is active, because the hourly endpoint is author-scoped
+   * and has no team partition to mirror the space-filtered stats.
+   */
+  preferHourlyHeat: boolean;
   hourlyData?: Array<{ date: string; hour: number; count: number }>;
   isLoading?: boolean;
   displayMode: DisplayMode;
@@ -56,6 +87,17 @@ export function MonthHorizonPureView({
     [hourlyData],
   );
 
+  // Aggregate daily totals from the month-scoped hourly query. This is the
+  // primary source because it's anchored to the exact month from/to via
+  // monthHourlyQuery, so historical months outside the shared stats' trailing
+  // 366-day window (which is anchored to "today" for streak/tags) still render
+  // correct heat colors. Fall back to notesCountMap only while the month
+  // query is still in flight.
+  const hourlyDailyTotals = useMemo(
+    () => aggregateHourlyDailyTotals(hourlyData),
+    [hourlyData],
+  );
+
   return (
     <div className="flex flex-col gap-1.5">
       {/* 7 Weekday Headers: Clear orientation for the 7 columns */}
@@ -64,10 +106,7 @@ export function MonthHorizonPureView({
           (colId, i) => (
             <div
               className={cn(
-                "text-center text-[10px] font-medium font-mono transition-opacity",
-                displayMode === "calendar"
-                  ? "text-foreground/75 dark:text-foreground/70 font-semibold"
-                  : "text-foreground/60 dark:text-foreground/50",
+                "pb-0.5 text-center text-xs font-medium text-muted-foreground",
               )}
               key={colId}
             >
@@ -84,44 +123,48 @@ export function MonthHorizonPureView({
             return (
               <div
                 aria-hidden="true"
-                className="h-8.5 w-full rounded-[5px] border border-dashed border-border/20 bg-muted/10 opacity-30 pointer-events-none"
+                className="pointer-events-none mx-auto aspect-square w-full max-w-8"
                 key={cell.key}
               />
             );
           }
 
-          const totalCount = notesCountMap.get(cell.key) ?? 0;
+          const totalCount = preferHourlyHeat
+            ? (hourlyDailyTotals.get(cell.key) ??
+              notesCountMap.get(cell.key) ??
+              0)
+            : (notesCountMap.get(cell.key) ?? 0);
           const isToday = cell.key === today;
           const isSelected = cell.key === selectedDay;
           const dayNum = Number(cell.key.slice(8));
           const [q0, q1, q2, q3] = dayQuadrants.get(cell.key) ?? [0, 0, 0, 0];
 
           // ── 100% 对齐年视图：统一采用相同的质感与深浅阶梯 ──
+          // Ember 3 heat: the tint carries the activity, the figure stays
+          // ink (red numerals on every busy day read as alarms). Only the
+          // busiest step is solid, with its own foreground.
           const activityStyle =
             totalCount <= 0
-              ? "border-transparent bg-muted-foreground/15 dark:bg-muted/30 text-foreground/75 dark:text-foreground/70 hover:bg-muted-foreground/25 dark:hover:bg-muted/45"
+              ? "text-foreground/70 hover:bg-muted"
               : totalCount === 1
-                ? "border-primary/20 bg-primary/35 dark:border-primary/30 dark:bg-primary/30 text-brand-900 dark:text-white font-semibold shadow-2xs hover:bg-primary/45"
+                ? "bg-primary/10 text-foreground hover:bg-primary/16 dark:bg-primary/14"
                 : totalCount === 2
-                  ? "border-primary/30 bg-primary/55 dark:border-primary/40 dark:bg-primary/50 text-brand-950 dark:text-white font-bold shadow-2xs hover:bg-primary/65"
+                  ? "bg-primary/20 text-foreground hover:bg-primary/26 dark:bg-primary/24"
                   : totalCount <= 4
-                    ? "border-primary/50 bg-primary/75 dark:border-primary/60 dark:bg-primary/75 text-white font-bold shadow-xs hover:bg-primary/85"
-                    : "border-primary bg-primary text-white dark:border-primary dark:bg-primary font-bold shadow-sm hover:brightness-110";
-
+                    ? "bg-primary/36 text-foreground hover:bg-primary/42 dark:bg-primary/40"
+                    : "bg-primary font-medium text-primary-foreground hover:bg-primary/90";
           return (
             <button
               className={cn(
-                "group relative flex h-8.5 w-full items-center justify-center rounded-[5px] border transition-all select-none cursor-pointer active:scale-95",
+                "group relative mx-auto flex aspect-square w-full max-w-8 cursor-pointer items-center justify-center rounded-md outline-none transition-colors select-none focus-visible:ring-3 focus-visible:ring-ring/30",
                 activityStyle,
-                // ── 对齐年视图选中卡片：柔和品牌色微环与微气泡底色 ──
-                isSelected &&
-                  "border-brand-500/70 ring-1.5 ring-brand-500/35 bg-brand-500/15 dark:bg-brand-500/25 z-20 scale-[1.02] shadow-2xs",
-                // ── 今日未选中时的柔和轮廓 ──
-                !isSelected &&
-                  isToday &&
-                  "border-brand-500/40 ring-1 ring-brand-500/20 shadow-2xs font-bold",
-                hoveredDate === cell.key && !isSelected && "scale-105 z-10",
-                !isSelected && "hover:scale-105 hover:z-10",
+                // Selection is an ink ring (works over every heat level);
+                // today is marked by weight + the dot below, not a box.
+                isSelected && "z-10 ring-[1.5px] ring-foreground/75",
+                isToday && "font-semibold",
+                hoveredDate === cell.key &&
+                  !isSelected &&
+                  "ring-1 ring-foreground/25",
               )}
               key={cell.key}
               type="button"
@@ -151,14 +194,10 @@ export function MonthHorizonPureView({
               {displayMode === "calendar" ? (
                 <span
                   className={cn(
-                    "text-[12px] font-mono tabular-nums leading-none transition-opacity group-hover:opacity-0",
-                    totalCount >= 3
-                      ? "text-white font-bold drop-shadow-2xs"
-                      : totalCount === 2
-                        ? "text-brand-950 dark:text-white font-bold"
-                        : totalCount === 1
-                          ? "text-brand-800 dark:text-brand-200 font-semibold"
-                          : "text-foreground/85 font-medium",
+                    "text-xs leading-none tabular-nums transition-opacity group-hover:opacity-0",
+                    totalCount > 0 ? "font-semibold" : "font-normal",
+                    // Room for the today dot underneath, even in a 24px cell.
+                    isToday && "-translate-y-[2px]",
                   )}
                 >
                   {dayNum}
@@ -170,16 +209,14 @@ export function MonthHorizonPureView({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "absolute bottom-1 left-1/2 -translate-x-1/2 size-1 rounded-full transition-colors",
-                    totalCount >= 3
-                      ? "bg-white/80"
-                      : "bg-foreground/50 dark:bg-foreground/60",
+                    "absolute bottom-[2px] left-1/2 -translate-x-1/2 size-[3px] rounded-full transition-colors",
+                    totalCount >= 5 ? "bg-primary-foreground/85" : "bg-primary",
                   )}
                 />
               )}
 
               {/* Hover Stacked Micro-Stripes: Previews the single vertical column of Day view! */}
-              <div className="absolute inset-0 flex flex-col justify-center gap-[1.5px] p-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-background/95 dark:bg-background/95 rounded-[4px] shadow-xs pointer-events-none">
+              <div className="absolute inset-0 flex flex-col justify-center gap-[1.5px] p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded-md bg-card pointer-events-none ring-1 ring-border">
                 <div
                   className={cn(
                     "h-[2px] w-full rounded-[0.5px] transition-colors",

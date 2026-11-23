@@ -69,7 +69,11 @@ export function buildSeoForPath(
   title: string,
   description: string,
   locale: Locale = "en",
-  opts?: { jsonLd?: unknown; ogType?: "website" | "article" },
+  opts?: {
+    jsonLd?: unknown;
+    ogType?: "website" | "article";
+    noindex?: boolean;
+  },
 ) {
   return buildSeoHead({
     path: pathname,
@@ -77,6 +81,7 @@ export function buildSeoForPath(
     title,
     description,
     ogType: opts?.ogType,
+    noindex: opts?.noindex,
     jsonLd: opts?.jsonLd as
       | Record<string, unknown>
       | Record<string, unknown>[]

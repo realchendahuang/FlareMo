@@ -2,6 +2,8 @@ import type { CalendarView, HourlyActivityResponse } from "@flaremo/contracts";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { memos, tasks } from "@flaremo/db";
 import { and, asc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { notComment } from "./memo-comment-filter";
+import { readHourlyCountsInRange } from "./memo-hourly-counts";
 import { nextDayKey, taskToDto } from "./tasks";
 
 // The calendar is a presentation of data that already has a home: notes keep
@@ -45,6 +47,7 @@ export async function getCalendarView(
           inArray(memos.status, ["normal", "archived"]),
           gte(memos.createdAt, startUtc.toISOString()),
           lt(memos.createdAt, endUtc.toISOString()),
+          notComment(),
         ),
       )
       .groupBy(
@@ -66,6 +69,7 @@ export async function getCalendarView(
           inArray(memos.status, ["normal", "archived"]),
           gte(memos.createdAt, startUtc.toISOString()),
           lt(memos.createdAt, endUtc.toISOString()),
+          notComment(),
           sql`(
             json_extract(${memos.payload}, '$.property.has_incomplete_tasks') = 1
             OR (
@@ -137,30 +141,24 @@ export async function getHourlyActivity(
       boundShift,
   );
 
-  const rows = await db
-    .select({
-      date: sql<string>`substr(datetime(${memos.createdAt}, ${`${offsetMinutes} minutes`}), 1, 10)`,
-      hour: sql<number>`CAST(substr(datetime(${memos.createdAt}, ${`${offsetMinutes} minutes`}), 12, 2) AS INTEGER)`.mapWith(
-        Number,
-      ),
-      count: sql<number>`count(*)`.mapWith(Number),
-    })
-    .from(memos)
-    .where(
-      and(
-        eq(memos.userId, user.id),
-        inArray(memos.status, ["normal", "archived"]),
-        gte(memos.createdAt, startUtc.toISOString()),
-        lt(memos.createdAt, endUtc.toISOString()),
-      ),
-    )
-    .groupBy(
-      sql`substr(datetime(${memos.createdAt}, ${`${offsetMinutes} minutes`}), 1, 13)`,
-    );
-
+  // Counts come from the maintained hourly counter, which is bucketed by UTC
+  // hour and kept off the memo table. A local hour spans at most two UTC
+  // hours, so each bucket is split by the minute the local day boundary falls
+  // at; the heatmap only needs the hour, and the same rule attributes a
+  // half-hour zone's boundary bucket to the local hour containing its end.
+  const rows = await readHourlyCountsInRange(
+    db,
+    user.id,
+    startUtc.toISOString().slice(0, 13),
+    new Date(endUtc.getTime() - 1).toISOString().slice(0, 13),
+  );
   const byDateHour = new Map<string, number>();
-  for (const r of rows) {
-    byDateHour.set(`${r.date}_${r.hour}`, r.count);
+  for (const row of rows) {
+    const local = new Date(
+      Date.parse(`${row.utcHour}:00:00.000Z`) + offsetMinutes * 60_000,
+    );
+    const key = `${local.toISOString().slice(0, 10)}_${local.getUTCHours()}`;
+    byDateHour.set(key, (byDateHour.get(key) ?? 0) + row.normal + row.archived);
   }
 
   const result: Array<{ date: string; hour: number; count: number }> = [];

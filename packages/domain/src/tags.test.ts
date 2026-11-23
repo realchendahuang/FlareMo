@@ -51,6 +51,44 @@ describe("extractTags", () => {
   it("handles multiple tags and leading-tag content", () => {
     expect(extractTags("#lead content #a #b/c")).toEqual(["lead", "a", "b/c"]);
   });
+
+  it("ignores tags inside fenced code blocks and inline code (issue #152)", () => {
+    const content = [
+      "前言 #正文",
+      "",
+      "```ts",
+      "// #apple #foobar",
+      "#!/bin/bash",
+      "```",
+      "",
+      "~~~",
+      "#include <stdio.h>",
+      "~~~",
+      "",
+      "行内 `#inline` 保留 #尾部",
+    ].join("\n");
+    expect(extractTags(content)).toEqual(["正文", "尾部"]);
+  });
+
+  it("keeps a tag right before a fence rewritable", () => {
+    expect(extractTags("#正文\n\n```\nconst x = 1;\n```")).toEqual(["正文"]);
+  });
+
+  it("handles unclosed fences, info strings, and multiple blocks", () => {
+    expect(extractTags("#a\n```js\n#b\n#c")).toEqual(["a"]);
+    expect(extractTags("#a\n```\n#b\n```\n#c\n~~~\n#d\n~~~\n#e")).toEqual([
+      "a",
+      "c",
+      "e",
+    ]);
+  });
+
+  it("does not let a ``` fence close a ~~~ block", () => {
+    expect(extractTags("正文 #a\n~~~\n#b\n```\n#c\n~~~\n#d")).toEqual([
+      "a",
+      "d",
+    ]);
+  });
 });
 
 describe("tagPrefixMatches", () => {
@@ -98,6 +136,33 @@ describe("rewriteTagInContent", () => {
       "见 #知识/工作/项目A",
     );
   });
+
+  it("rewrites prose around fenced blocks but never the code", () => {
+    expect(
+      rewriteTagInContent(
+        '#工作 正文\n\n```js\nconst s = "#工作";\n```\n\n行内 `#工作` 结束 #工作',
+        "工作",
+        "知识",
+      ),
+    ).toBe(
+      '#知识 正文\n\n```js\nconst s = "#工作";\n```\n\n行内 `#工作` 结束 #知识',
+    );
+    expect(
+      rewriteTagInContent("~~~\n#工作\n~~~\n正文 #工作", "工作", "知识"),
+    ).toBe("~~~\n#工作\n~~~\n正文 #知识");
+  });
+
+  it("keeps an unclosed fence literal to the end", () => {
+    expect(rewriteTagInContent("正文 #工作\n```\n#工作", "工作", "知识")).toBe(
+      "正文 #知识\n```\n#工作",
+    );
+  });
+
+  it("keeps inline-code literals in reading order", () => {
+    expect(rewriteTagInContent("行内 `#工作` 结束 #工作", "工作", "知识")).toBe(
+      "行内 `#工作` 结束 #知识",
+    );
+  });
 });
 
 describe("removeTagFromContent", () => {
@@ -115,5 +180,11 @@ describe("removeTagFromContent", () => {
     expect(
       removeTagFromContent("写 #知识/工作/项目A 笔记", "知识/工作/项目a"),
     ).toBe("写  笔记");
+  });
+
+  it("removes prose tags but never fenced code", () => {
+    expect(removeTagFromContent("正文 #工作\n\n```\n#工作\n```", "工作")).toBe(
+      "正文 \n\n```\n#工作\n```",
+    );
   });
 });

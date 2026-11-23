@@ -37,6 +37,10 @@ function loadHomeRouteData(locale: SupportedLocale) {
 export function buildRouteTree() {
   const rootRoute = createRootRoute({
     component: RootLayout,
+    // Every unmatched path (client-side navigation and the prerendered 404
+    // shell) resolves through this component; the `*` route alone only
+    // covered the route tree, not the router's own not-found path.
+    notFoundComponent: NotFoundPage,
   });
 
   const indexRoute = createRoute({

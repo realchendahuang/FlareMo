@@ -109,18 +109,15 @@ describe("site tracking resets", () => {
   });
 });
 
-describe("email/HTML surfaces", () => {
-  it("does not name a Han face in the OG image", () => {
-    const svg = readFileSync(
-      new URL("../public/og-image.svg", import.meta.url),
-      "utf8",
+describe("social preview image", () => {
+  it("ships a 1200x630 PNG, not an SVG that scrapers cannot render", () => {
+    const png = readFileSync(
+      new URL("../public/og-image.png", import.meta.url),
     );
-    const families = [...svg.matchAll(/font-family="([^"]+)"/g)].map(
-      (m) => m[1],
-    );
-    for (const family of families) {
-      expect(family).not.toMatch(/PingFang|Hiragino|YaHei|Songti|SimSun/);
-    }
+    // PNG signature: 89 50 4E 47
+    expect(png.subarray(1, 4).toString("ascii")).toBe("PNG");
+    expect(png.readUInt32BE(16)).toBe(1200);
+    expect(png.readUInt32BE(20)).toBe(630);
   });
 });
 

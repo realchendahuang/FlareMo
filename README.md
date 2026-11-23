@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Zero Servers · Zero Upkeep · 24/7 Global Edge Uptime · Absolute Data Ownership</b><br>
-  For individuals: a quiet, focused thought capture space and second brain. For teams: a shared knowledge base with fine-grained roles.
+  An AI-native second brain for you. A shared knowledge base for your team.
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <a href="https://github.com/realchendahuang/FlareMo/stargazers"><img src="https://img.shields.io/github/stars/realchendahuang/FlareMo?style=flat&color=F38020" alt="GitHub stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/realchendahuang/FlareMo?style=flat&color=2563EB" alt="License"></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Runtime-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers"></a>
-  <a href="https://github.com/usememos/memos"><img src="https://img.shields.io/badge/Ecosystem-Memos%20Compatible-0284C7" alt="Memos Compatible"></a>
   <a href="https://www.better-auth.com/"><img src="https://img.shields.io/badge/Auth-Better%20Auth-10B981" alt="Better Auth"></a>
   <a href="https://flaremo.app"><img src="https://img.shields.io/badge/Website-flaremo.app-EA580C" alt="Website"></a>
 </p>
@@ -31,6 +30,10 @@
 | :---: | :---: | :---: |
 | <img src="./docs/assets/flaremo-desktop-light.png" width="360" alt="FlareMo Desktop Light Mode" /> | <img src="./docs/assets/flaremo-desktop-dark.png" width="360" alt="FlareMo Desktop Dark Mode" /> | <img src="./docs/assets/flaremo-mobile.png" width="168" alt="FlareMo Mobile Mode" /> |
 
+| ✅ To-dos, projects and review | 📄 Articles you can publish |
+| :---: | :---: |
+| <img src="./docs/assets/flaremo-tasks.png" width="560" alt="To-dos, projects and review" /> | <img src="./docs/assets/flaremo-articles.png" width="560" alt="Articles you can publish" /> |
+
 <sub>Actual live screenshots: seamless light/dark mode switching and full-featured mobile responsiveness. Every feature shown is wired to working backend capabilities.</sub>
 
 </div>
@@ -39,15 +42,15 @@
 
 ## 💡 Why FlareMo?
 
-Tools like Flomo and Memos proved the immense value of low-friction memo capture and a distraction-free timeline. However, self-hosting a traditional note-taking setup typically means paying for a VPS, configuring Docker and PostgreSQL, scripting automated backups, and dreading disk or hardware failures.
+Second brains have always come with a server: a VPS bill, Docker, PostgreSQL, a backup script, and the quiet dread of a dead disk.
 
-FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, globally accelerated knowledge base with zero server maintenance, using just a free Cloudflare account?**
+FlareMo asks a different question: **what if your second brain needed no server at all — and your AI agents could work directly on your notes?**
 
-- **Truly Serverless**: Both code and static assets run on Cloudflare Workers edge nodes near you with millisecond latency.
-- **Enterprise-grade durability out of the box**: Cloudflare D1 handles notes and metadata; Cloudflare R2 stores media attachments with multi-region replication.
-- **AI-Native Second Brain**: Agent Memory hub ships a CLI and a cross-agent skill so AI agents (Claude, Cursor, Codex, ChatGPT, ZCode) can read and update your long-term preferences and memory scopes; MCP endpoints are also available.
-- **Quiet for one, powerful for many**: Default is an encrypted, private single-user sanctuary. Enable team mode, and it instantly transforms into a collaborative workspace with roles and three-tier visibility.
-- **Minimal, not simplistic**: The interface stays quiet and every control earns its place — nothing decorative shouting for attention, nothing useful missing.
+- **AI-native, not bolted on**: A notes MCP endpoint plus the `flaremo-notes` skill lets Claude, Cursor, Codex, ChatGPT and ZCode search, read and write your own notes. No separate AI memory store, no second notebook to curate.
+- **Truly serverless**: code and static assets run on the Cloudflare Workers edge node nearest you; D1 and R2 hold notes, tasks, articles and media with multi-region durability.
+- **Knowledge that grows**: a quick note becomes a task, a task becomes an article, and the whole thing settles into a searchable, linked knowledge base.
+- **Quiet for one, useful for a team**: private by default; turn on team mode for a shared space with roles and three-tier visibility.
+- **Minimal, never shallow**: the interface stays quiet and every control earns its place.
 
 ---
 
@@ -55,28 +58,31 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 
 ### 1. Instant Capture & Inspiring Review
 - **Capture in milliseconds**: Card-style timeline, tags, Markdown/GFM, and previews for image and audio attachments.
+- **Notes and articles**: The composer stays a quick note (tags, up to 9 images, bold, lists, to-dos); "Write full screen" opens the same note in a full-screen canvas. Articles are written from the Articles page.
+- **Comments under the note**: Comment on any note, in your personal space or the team space, Weibo-style. Comments live under the original note and stay out of the timeline, search, stats, tags, and review.
 - **Lightning-fast search**: SQLite FTS5 full-text indexing with query operators (`has:attachment`, `is:pinned`, `before:YYYY-MM-DD`, `after:YYYY-MM-DD`, `in:timeline|archive|trash`).
 - **Semantic "Find" (Vector Search)**: Workers AI embeddings paired with Vectorize derived vector indexes for contextual recall; re-verifies permissions against D1 and seamlessly falls back to FTS5.
 - **Thought activation**: Built-in **Daily Review** (on this day), **Random Walk** (wandering through tag and backlink graphs with postcard summaries), and related note recommendations.
 - **Revision history**: Full version diffs and one-click historical restore.
 
-### 2. AI Long-term Memory (CLI + Skills)
-- **Agent Memory**: Ships `flaremo` CLI and the `flaremo-memory` skill — agents record and update cross-session long-term memory (preferences, project decisions, constraints, lessons) through a shared REST base.
-- **Human in the loop**: Review, verify, lock, or correct AI-recorded memories at `/memory`.
-- **Open ecosystem**: CLI + Skills are the recommended path; `/memory/mcp` (Streamable HTTP MCP) and `/mcp` endpoints are available for existing MCP clients.
+### 2. AI Works on Your Notes (MCP + Skill)
+- **Notes MCP**: `/mcp` exposes list, search, read, create, update and delete over your memos, authenticated with a revocable `memos_pat_` token.
+- **One skill**: `skills/flaremo-notes` teaches every agent to search before writing, keep your wording, and return the memo ID it touched.
+- **No separate memory**: agents read your notes on demand; nothing is auto-extracted into a second ledger.
 
-### 3. Projects & Tasks
-- **Group work under projects**: Organize notes and to-dos into projects, with a kanban board (drag between status columns), priorities, manual sort order, and due dates.
+### 3. To-dos & Projects
+- **Schedule a note**: Pick a day and a project for a note; each unchecked to-do in it becomes a task. Checking it off in the note or on the to-do page stays in sync both ways.
+- **One to-do page**: `/projects` shows **Today**, **Next 7 days**, and **All tasks** as day-grouped lists, plus your projects as kanban boards (drag between status columns, priorities, manual order). Every list has a quick-add row.
 - **Personal by design, reversible deletion**: Tasks belong to a single owner; deleting moves them to a recycle bin until restored or automatically purged.
 
-### 4. Task Management & Reminders
-- **Tasks live in Projects**: The `/projects` board (drag between status columns), priorities, manual sort order, and due dates make project pages the single home for scheduling work.
+### 4. Reminders & Time Horizons
+- **Badges where you read**: Scheduled notes show "to-dos n/m · date · project" on the card, and Daily Review opens with today's to-dos.
 - **Time horizons at a glance**: The explorer home view pairs a mini month calendar with overdue/today reminders, so what's due never hides behind the board.
-- **Overdue reminders**: Overdue tasks raise in-app notifications, with optional browser Web Push.
+- **Due and overdue reminders**: A daily job raises "due today" and overdue notifications in the app, with optional browser Web Push. Schedules are day-level; there are no clock-time alarms.
 
-### 5. Team Collaboration & 3-Tier Visibility
+### 5. Team Space & 3-Tier Visibility
+- **Sharing, not collaboration**: The team space is where members publish notes to each other and comment on them. `@username` mentions autocomplete in the team composer and notify the person mentioned; notifications open the original note at its comments.
 - **Role governance**: `owner`, `admin`, and `member` roles. Admins invite members via one-time activation links (members choose their own passwords; admins never handle plaintext credentials).
-- **Team project workbench**: `/team-projects` collects every team project into one view — owner, status, current progress, next step, and follow-up date — and opens a detail page to maintain the summary, log progress and meeting outcomes, and upload reference files. A project is an ordinary team memo recognized by a `kosx-pm` metadata block in its body, so notes that are not projects stay untouched in the timeline.
 - **3-tier visibility**:
   - 🔒 **Private**: Only author can view.
   - 👥 **Team**: Shared read-only with active team members.
@@ -87,16 +93,17 @@ FlareMo answers a simpler question: **Can you get a 24/7 online, resilient, glob
 ### 6. Offline First & PWA Experience
 - **Installable PWA**: Install to macOS, Windows, iOS, or Android home screen with native feel.
 - **Reliable offline sync**: Drafts save locally instantly. Offline submissions and uploads queue up and replay automatically when connectivity is restored.
-- **Live voice capture**: Access `/capture` for real-time streaming speech-to-text (ASR) transcription.
+- **Live voice input**: The composer's microphone button streams speech-to-text (ASR) into the draft as you speak.
 
 ### 7. Secure Better Auth Application Security
-- **Better Auth powered**: HttpOnly, `SameSite=Lax` browser cookie sessions; revocable `memos_pat_` Personal Access Tokens for scripts, CLI, and MCP.
+- **Better Auth powered**: HttpOnly, `SameSite=Lax` browser cookie sessions; revocable `memos_pat_` Personal Access Tokens for scripts and MCP.
 - **Strict Origin protection**: State-changing requests enforce exact origin whitelisting. Cloudflare Access remains available as an optional outer defensive perimeter.
 
-### 8. Memos Compatibility & Seamless Migration
-- **Memos `/api/v1` compatibility**: Provides core Memos API endpoints (camelCase default, legacy snake_case via header) and OpenAPI schema.
-- **Third-party apps ready**: Works directly with mobile clients like Moe Memos.
-- **Bi-directional import & export**: One-click import from Memos / flomo with conflict strategies and full raw export bundles.
+### 8. Your Data, Always Yours
+- **One-click full export**: records, attachments, tasks, projects, articles and share relationships in a single bundle you can archive offline whenever you want.
+- **Imports that leave nothing half-written**: choose to skip or duplicate on conflict; a failed import rolls back completely instead of leaving a half-written dataset.
+- **Bring your history with you**: a bundled converter turns an existing export into a FlareMo import bundle, keeping timestamps, tags, pins and visibility ([migration guide](./docs/en/import-from-memos.md)).
+- **Open by protocol**: an `/api/v1` compatibility layer with revocable Personal Access Tokens, plus MCP for AI tooling; the exact supported surface is in the [compatibility matrix](./docs/en/memos-compatibility.md).
 
 ---
 
@@ -141,7 +148,7 @@ Clones the repository into your GitHub account and provisions D1, R2, Queues, an
 
 ### Method 2: GitHub Action (self-hosted fork)
 
-On your fork, run **Deploy to Cloudflare** from Actions to provision resources, publish the Worker, and sync auth secrets. Pushes do not publish. See [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
+On your fork, copy [`docs/templates/workflows/deploy-cloudflare.yml`](./docs/templates/workflows/deploy-cloudflare.yml) into `.github/workflows/`, then run **Deploy to Cloudflare** from Actions to provision resources, publish the Worker, and sync auth secrets. Pushes do not publish. See [docs/en/github-action-deploy.md](./docs/en/github-action-deploy.md).
 
 ### Method 3: Deploy with an AI Agent (Recommended)
 
@@ -189,10 +196,10 @@ Detailed guides: [Deployment Guide](./docs/en/deploy.md) · [GitHub Action deplo
 ```mermaid
 flowchart LR
   Browser["FlareMo Web UI (React 19 / PWA)"] --> Worker["Cloudflare Worker"]
-  Clients["Memos Clients / Scripts / MCP"] --> Worker
+  Clients["Scripts / MCP"] --> Worker
 
   Worker --> Auth["Better Auth (Session / PAT)"]
-  Worker --> D1["Cloudflare D1 (Memos / Relations / Settings)"]
+  Worker --> D1["Cloudflare D1 (Notes / Relations / Settings)"]
   Access["Cloudflare Access (Optional Outer Perimeter)"] -.-> Worker
   Worker --> R2["Cloudflare R2 (Attachments & Exports)"]
   Worker --> Assets["Workers Static Assets"]

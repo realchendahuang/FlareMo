@@ -3,13 +3,15 @@ import Image from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "@tiptap/markdown";
-import type { EditorView } from "@tiptap/pm/view";
 import { type Editor, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
+import { FormatBubbleMenu } from "@/components/composer/format-bubble-menu";
 import { TagHighlight } from "@/components/tag-highlight-extension";
 import { UploadPlaceholder } from "@/components/upload-placeholder-extension";
+import { focusEditorOnNextFrame } from "@/lib/editor-autofocus";
 import { extractImageFiles } from "@/lib/image-insert";
+import { extractActiveMentionToken } from "@/lib/mention-autocomplete";
 import { extractActiveTagToken } from "@/lib/tag-autocomplete";
 import { extractActiveWikiLinkToken } from "@/lib/wikilink-autocomplete";
 
@@ -56,6 +58,8 @@ export type RichComposerEditorProps = {
    * picked tag. Emitted once per token change (including → null).
    */
   onTagTokenChange?: (token: { from: number; text: string } | null) => void;
+  /** The in-progress "@name" under the caret, for the mention autocomplete. */
+  onMentionTokenChange?: (token: { from: number; text: string } | null) => void;
   /**
    * The in-progress "[[" under the caret, if any. `from` is the ProseMirror
    * position of the leading "[[".
@@ -64,11 +68,11 @@ export type RichComposerEditorProps = {
     token: { from: number; query: string } | null,
   ) => void;
   /**
-   * When on (composer behavior) Shift+Enter submits the note — Enter is the
-   * paragraph break, Cmd/Ctrl+Enter works as a fallback. Turn off for the card
-   * inline editor, where Enter keeps editing and Cmd/Ctrl+Enter saves.
+   * Keyboard hook for an open autocomplete list. Runs before every other key
+   * binding; return true to consume the key (↑/↓/Enter/Tab/Esc while a list
+   * is open), false to let the editor handle it.
    */
-  submitOnEnter?: boolean;
+  onSuggestionKeyDown?: (event: KeyboardEvent) => boolean;
   /** Escape exits editing (card inline editor). */
   onEscape?: () => void;
   /** Move the caret to the end right after mount. */
@@ -89,22 +93,15 @@ export type RichComposerEditorProps = {
   contentClassName?: string;
   /** Emitted whenever the editor view undergoes a transaction/selection update. */
   onTransaction?: (editor: Editor) => void;
+  /**
+   * Floating format bar over a text selection. On by default for every
+   * surface; the markdown it writes is the same GFM the toolbar writes.
+   * `"note"` shows the short-note set (bold, strike, link) only.
+   */
+  formatMenu?: boolean | "note";
   /** Emitted when Backspace is pressed at the start of the document (pos 1). */
   onBackspaceAtStart?: () => boolean | undefined;
 };
-
-/**
- * True when the caret sits inside a bullet/ordered/task list item: pressing
- * Enter there grows the list instead of submitting the memo.
- */
-function caretInListItem(view: EditorView): boolean {
-  const { $from } = view.state.selection;
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    const name = $from.node(depth).type.name;
-    if (name === "listItem" || name === "taskItem") return true;
-  }
-  return false;
-}
 
 /**
  * Bear-style WYSIWYG body of the memo composer. Storage stays plain markdown:
@@ -122,8 +119,9 @@ export function RichComposerEditor({
   onImageFiles,
   onSubmitRequest,
   onTagTokenChange,
+  onMentionTokenChange,
   onWikiLinkTokenChange,
-  submitOnEnter = true,
+  onSuggestionKeyDown,
   onEscape,
   autoFocus = false,
   editorRef,
@@ -132,6 +130,7 @@ export function RichComposerEditor({
   contentClassName = "composer-editor-content",
   onTransaction,
   onBackspaceAtStart,
+  formatMenu = true,
 }: RichComposerEditorProps) {
   // Callbacks are read through refs: TipTap captures the options object once,
   // so prop closures would go stale across renders.
@@ -141,11 +140,16 @@ export function RichComposerEditor({
   onImageFilesRef.current = onImageFiles;
   const onSubmitRequestRef = useRef(onSubmitRequest);
   onSubmitRequestRef.current = onSubmitRequest;
+  const onSuggestionKeyDownRef = useRef(onSuggestionKeyDown);
+  onSuggestionKeyDownRef.current = onSuggestionKeyDown;
   const onEscapeRef = useRef(onEscape);
   onEscapeRef.current = onEscape;
   const onTagTokenChangeRef = useRef(onTagTokenChange);
   onTagTokenChangeRef.current = onTagTokenChange;
   const lastTagTokenRef = useRef<string | null>(null);
+  const onMentionTokenChangeRef = useRef(onMentionTokenChange);
+  onMentionTokenChangeRef.current = onMentionTokenChange;
+  const lastMentionTokenRef = useRef<string | null>(null);
   const onWikiLinkTokenChangeRef = useRef(onWikiLinkTokenChange);
   onWikiLinkTokenChangeRef.current = onWikiLinkTokenChange;
   const lastWikiTokenRef = useRef<string | null>(null);
@@ -175,20 +179,21 @@ export function RichComposerEditor({
         class: contentClassName,
       },
       handleKeyDown: (view, event) => {
-        // Enter sends; IME composition and Shift+Enter never submit. Same
-        // contract the textarea era had — except inside a list item, where
-        // Enter must continue the checklist instead of cutting the note off
-        // after its first item.
-        if (
-          event.key !== "Enter" &&
-          event.key !== "Escape" &&
-          event.key !== "Backspace" &&
-          event.keyCode !== 229
-        ) {
-          return false;
+        // Keyboard contract, the same on every surface:
+        //   Enter            new paragraph (or next list item)
+        //   Shift+Enter      soft line break (HardBreak's own binding)
+        //   Cmd/Ctrl+Enter   send / save
+        // An open autocomplete gets first claim on navigation keys, and IME
+        // composition never triggers anything.
+        if (event.isComposing || event.keyCode === 229) return false;
+        if (onSuggestionKeyDownRef.current?.(event)) {
+          // Stop here too: an Esc that closes the list must not also close
+          // the dialog the editor lives in (dismiss listens on document).
+          event.preventDefault();
+          event.stopPropagation();
+          return true;
         }
         if (event.key === "Backspace") {
-          if (event.isComposing) return false;
           const { from, to } = view.state.selection;
           if (from === 1 && to === 1 && onBackspaceAtStartRef.current) {
             const handled = onBackspaceAtStartRef.current();
@@ -197,22 +202,18 @@ export function RichComposerEditor({
           return false;
         }
         if (event.key === "Escape") {
-          if (event.isComposing) return false;
           if (onEscapeRef.current) {
             onEscapeRef.current();
             return true;
           }
           return false;
         }
-        if (event.isComposing || event.keyCode === 229) return false;
-        if (event.metaKey || event.ctrlKey) {
-          onSubmitRequestRef.current();
-          return true;
-        }
-        // Enter keeps editing (the natural paragraph break); Shift+Enter is
-        // the explicit send chord, and Cmd/Ctrl+Enter above still works.
-        // Inside a list item Enter grows the list either way.
-        if (submitOnEnter && event.shiftKey && !caretInListItem(view)) {
+        if (
+          event.key === "Enter" &&
+          (event.metaKey || event.ctrlKey) &&
+          !event.altKey
+        ) {
+          event.preventDefault();
           onSubmitRequestRef.current();
           return true;
         }
@@ -264,6 +265,30 @@ export function RichComposerEditor({
         }
       }
 
+      if (onMentionTokenChangeRef.current) {
+        let mention: { from: number; text: string } | null = null;
+        if ($from.parent.inlineContent && $from.parentOffset > 0) {
+          const before = $from.parent.textBetween(
+            0,
+            $from.parentOffset,
+            undefined,
+            "\ufffc",
+          );
+          const active = extractActiveMentionToken(before, before.length);
+          if (active) {
+            mention = {
+              from: $from.start() + active.start,
+              text: active.token,
+            };
+          }
+        }
+        const key = mention ? `${mention.from}:${mention.text}` : null;
+        if (key !== lastMentionTokenRef.current) {
+          lastMentionTokenRef.current = key;
+          onMentionTokenChangeRef.current(mention);
+        }
+      }
+
       if (onWikiLinkTokenChangeRef.current) {
         let wikiToken: { from: number; query: string } | null = null;
         if ($from.parent.inlineContent && $from.parentOffset >= 2) {
@@ -299,24 +324,51 @@ export function RichComposerEditor({
     };
   }, [editor, editorRef]);
 
+  // `setEditable` emits an `update` by default, which re-serialized the
+  // current document through onContentChange. Run before a loaded draft
+  // reached the editor, it pushed "" upstream and the article page saved
+  // that over the article. Toggling editability never changes content.
   useEffect(() => {
-    if (editor) editor.setEditable(!disabled);
+    if (editor) editor.setEditable(!disabled, false);
   }, [editor, disabled]);
 
   useEffect(() => {
-    if (editor && autoFocus) editor.commands.focus("end");
+    if (!autoFocus) return;
+    return focusEditorOnNextFrame(editor);
   }, [editor, autoFocus]);
 
   // Upstream draft restores (queued capture replay, persisted draft) push
   // markdown in; the editor re-parses only when the change did not originate
   // from its own keystrokes.
+  //
+  // A fresh editor instance is a second case. useEditor rebuilds the editor
+  // (React StrictMode remounts, option changes) from the options it captured
+  // at first render, which predate content that loaded later. Without this,
+  // the article editor came up empty after its draft loaded and then
+  // autosaved the empty document over the article.
+  const syncedEditorRef = useRef<Editor | null>(null);
   useEffect(() => {
-    if (!editor || content === lastEmittedRef.current) return;
+    if (!editor) return;
+    const freshInstance = syncedEditorRef.current !== editor;
+    syncedEditorRef.current = editor;
+    if (content === lastEmittedRef.current) {
+      if (!freshInstance || !content.trim() || !editor.isEmpty) return;
+    }
     lastEmittedRef.current = content;
     editor.commands.setContent(content, { contentType: "markdown" });
   }, [content, editor]);
 
   // The placeholder is captured at editor creation; a locale switch mid-session
   // is rare enough that the fresh wording lands on the next composer mount.
-  return <EditorContent editor={editor} />;
+  return (
+    <>
+      <EditorContent editor={editor} />
+      {editor && formatMenu && (
+        <FormatBubbleMenu
+          editor={editor}
+          variant={formatMenu === "note" ? "note" : "full"}
+        />
+      )}
+    </>
+  );
 }

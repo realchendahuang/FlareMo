@@ -1,4 +1,4 @@
-import { CircleAlertIcon, Loader2Icon } from "lucide-react";
+import { CircleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -8,6 +8,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 
 /**
@@ -43,12 +44,7 @@ export function QueryErrorState({
           variant="outline"
           onClick={onRetry}
         >
-          {isRetrying && (
-            <Loader2Icon
-              className="motion-safe:animate-spin"
-              data-icon="inline-start"
-            />
-          )}
+          {isRetrying && <Spinner data-icon="inline-start" />}
           {t("common.retry")}
         </Button>
       </EmptyContent>

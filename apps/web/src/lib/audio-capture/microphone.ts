@@ -1,4 +1,5 @@
 import { PcmEncoder } from "./pcm";
+// oxlint-disable-next-line import/default -- Vite ?worker&url asset query import
 import workletUrl from "./worklet?worker&url";
 
 export type Microphone = {

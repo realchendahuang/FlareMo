@@ -21,7 +21,9 @@ import {
   updateMemoSchema,
 } from "./memos";
 
-export const FLAREMO_API_VERSION = "0.22.1";
+export { FLAREMO_API_VERSION } from "./constants";
+
+import { FLAREMO_API_VERSION } from "./constants";
 
 type JsonSchema = Record<string, unknown>;
 
@@ -141,47 +143,60 @@ const listMemoParams = [
   { name: "include_deleted", in: "query", schema: { type: "boolean" } },
 ];
 
-const schemas = {
-  Attachment: toJSONSchema(attachmentDtoSchema) as JsonSchema,
-  BindMemoAttachmentsRequest: toJSONSchema(
-    bindMemoAttachmentsSchema,
-  ) as JsonSchema,
-  CreateMemoRequest: toJSONSchema(createMemoSchema) as JsonSchema,
-  CreateShareRequest: toJSONSchema(createShareSchema) as JsonSchema,
-  ImportBundle: toJSONSchema(importBundleSchema) as JsonSchema,
-  ImportResult: toJSONSchema(importResultSchema) as JsonSchema,
-  ListAttachmentsResponse: toJSONSchema(
-    listAttachmentsResponseSchema,
-  ) as JsonSchema,
-  ListMemoRelationsResponse: toJSONSchema(
-    listMemoRelationsResponseSchema,
-  ) as JsonSchema,
-  ListMemoRevisionsResponse: toJSONSchema(
-    listMemoRevisionsResponseSchema,
-  ) as JsonSchema,
-  ListMemoSharesResponse: toJSONSchema(
-    listMemoSharesResponseSchema,
-  ) as JsonSchema,
-  ListMemosResponse: toJSONSchema(listMemosResponseSchema) as JsonSchema,
-  Memo: toJSONSchema(memoDtoSchema) as JsonSchema,
-  MemoContext: toJSONSchema(memoContextResponseSchema) as JsonSchema,
-  MemoRelationContext: toJSONSchema(
-    memoRelationContextResponseSchema,
-  ) as JsonSchema,
-  PatchMemoRelationsRequest: toJSONSchema(
-    patchMemoRelationsSchema,
-  ) as JsonSchema,
-  PublicShare: toJSONSchema(publicShareDtoSchema) as JsonSchema,
-  RestoreMemoRevisionRequest: toJSONSchema(
-    restoreMemoRevisionSchema,
-  ) as JsonSchema,
-  Share: toJSONSchema(shareDtoSchema) as JsonSchema,
-  UpdateMemoRequest: toJSONSchema(updateMemoSchema) as JsonSchema,
-};
+// Built lazily on the first document request and reused afterwards. Running
+// these toJSONSchema conversions at module scope charged every isolate that
+// merely imported the contracts barrel, even when it never served OpenAPI.
+let cachedSchemas: ReturnType<typeof buildSchemas> | undefined;
+
+function buildSchemas() {
+  return {
+    Attachment: toJSONSchema(attachmentDtoSchema) as JsonSchema,
+    BindMemoAttachmentsRequest: toJSONSchema(
+      bindMemoAttachmentsSchema,
+    ) as JsonSchema,
+    CreateMemoRequest: toJSONSchema(createMemoSchema) as JsonSchema,
+    CreateShareRequest: toJSONSchema(createShareSchema) as JsonSchema,
+    ImportBundle: toJSONSchema(importBundleSchema) as JsonSchema,
+    ImportResult: toJSONSchema(importResultSchema) as JsonSchema,
+    ListAttachmentsResponse: toJSONSchema(
+      listAttachmentsResponseSchema,
+    ) as JsonSchema,
+    ListMemoRelationsResponse: toJSONSchema(
+      listMemoRelationsResponseSchema,
+    ) as JsonSchema,
+    ListMemoRevisionsResponse: toJSONSchema(
+      listMemoRevisionsResponseSchema,
+    ) as JsonSchema,
+    ListMemoSharesResponse: toJSONSchema(
+      listMemoSharesResponseSchema,
+    ) as JsonSchema,
+    ListMemosResponse: toJSONSchema(listMemosResponseSchema) as JsonSchema,
+    Memo: toJSONSchema(memoDtoSchema) as JsonSchema,
+    MemoContext: toJSONSchema(memoContextResponseSchema) as JsonSchema,
+    MemoRelationContext: toJSONSchema(
+      memoRelationContextResponseSchema,
+    ) as JsonSchema,
+    PatchMemoRelationsRequest: toJSONSchema(
+      patchMemoRelationsSchema,
+    ) as JsonSchema,
+    PublicShare: toJSONSchema(publicShareDtoSchema) as JsonSchema,
+    RestoreMemoRevisionRequest: toJSONSchema(
+      restoreMemoRevisionSchema,
+    ) as JsonSchema,
+    Share: toJSONSchema(shareDtoSchema) as JsonSchema,
+    UpdateMemoRequest: toJSONSchema(updateMemoSchema) as JsonSchema,
+  };
+}
+
+function getSchemas() {
+  cachedSchemas ??= buildSchemas();
+  return cachedSchemas;
+}
 
 const operation = (input: OpenApiOperation) => input;
 
 export function createOpenApiDocument() {
+  const schemas = getSchemas();
   return {
     openapi: "3.1.0",
     info: {

@@ -7,23 +7,23 @@ import {
 } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import {
-  getDailyReview,
   getMemoContext,
   getRelatedMemos,
+  getTodayReview,
   listArticles,
-  listMemories,
   listProjects,
-  listTasks,
 } from "@/api";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { isRtlLocale, useI18n } from "@/i18n";
 import { todayKey } from "@/lib/calendar-date";
 import { queryKeys } from "@/lib/query-keys";
+import { allTasksQuery, isTaskView, type TaskView } from "@/lib/task-views";
 import { AuthenticatedRoute } from "@/routes/authenticated-route";
 import { indexRoute } from "@/routes/index-route";
 import { rootRoute } from "@/routes/root-route";
 import { RouteLoading } from "@/routes/route-loading";
+import { workspaceRoute } from "@/routes/workspace-route";
 
 /**
  * Route loaders warm query caches without ever blocking navigation: a failed
@@ -89,6 +89,11 @@ const AccountPage = lazy(() =>
     default: module.AccountPage,
   })),
 );
+const ConnectPage = lazy(() =>
+  import("@/pages/connect-page").then((module) => ({
+    default: module.ConnectPage,
+  })),
+);
 const DailyReviewPage = lazy(() =>
   import("@/pages/daily-review-page").then((module) => ({
     default: module.DailyReviewPage,
@@ -99,24 +104,9 @@ const RandomWalkPage = lazy(() =>
     default: module.RandomWalkPage,
   })),
 );
-const MemoryPage = lazy(() =>
-  import("@/pages/memory-page").then((module) => ({
-    default: module.MemoryPage,
-  })),
-);
-const TeamProjectsPage = lazy(() =>
-  import("@/pages/team-projects-page").then((module) => ({
-    default: module.TeamProjectsPage,
-  })),
-);
 const ProjectsPage = lazy(() =>
   import("@/pages/projects-page").then((module) => ({
     default: module.ProjectsPage,
-  })),
-);
-const CapturePage = lazy(() =>
-  import("@/pages/capture-page").then((module) => ({
-    default: module.CapturePage,
   })),
 );
 const ArticlesPage = lazy(() =>
@@ -147,17 +137,11 @@ const shareRoute = createRoute({
 
 function MemoDetailRoutePage() {
   const { memoId } = memoRoute.useParams();
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <MemoDetailPage memoId={memoId} />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
+  return <MemoDetailPage memoId={memoId} />;
 }
 
 const memoRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => workspaceRoute,
   path: "/memo/$memoId",
   component: MemoDetailRoutePage,
   // Intent preload already warms the JS chunk; this warms the data so the
@@ -166,13 +150,13 @@ const memoRoute = createRoute({
   loader: ({ context, params }) => {
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["memo-context", params.memoId],
+        queryKey: queryKeys.memoContext.forMemo(params.memoId),
         queryFn: () => getMemoContext(params.memoId),
       }),
     );
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["memo-related", params.memoId],
+        queryKey: queryKeys.memoRelated.forMemo(params.memoId),
         queryFn: () => getRelatedMemos(params.memoId),
       }),
     );
@@ -336,20 +320,38 @@ const accountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/account",
   component: AccountRoutePage,
+  // Deep links (e.g. the capture page's "enable voice" hint) can open a
+  // specific settings section.
+  validateSearch: (search: Record<string, unknown>): { section?: string } => ({
+    section: typeof search.section === "string" ? search.section : undefined,
+  }),
+});
+
+function ConnectRoutePage() {
+  const { code } = connectRoute.useSearch();
+  return <ConnectPage initialCode={code} />;
+}
+
+// The pairing-code approval page. It sits beside the explorer sidebar like the
+// other workspace pages so the guard (`AuthenticatedRoute`) redirects a signed
+// out visitor to /login and returns them here with `?code=` intact.
+const connectRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/connect",
+  // Clients hand out `verification_uri_complete` with the code prefilled
+  // (`/connect?code=ABCD-EFGH`), so the page opens with it already filled in.
+  validateSearch: (search: Record<string, unknown>): { code?: string } => ({
+    code: typeof search.code === "string" ? search.code : undefined,
+  }),
+  component: ConnectRoutePage,
 });
 
 function DailyReviewRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <DailyReviewPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
+  return <DailyReviewPage />;
 }
 
 const dailyReviewRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => workspaceRoute,
   path: "/review/daily",
   component: DailyReviewRoutePage,
   loader: ({ context }) => {
@@ -357,173 +359,66 @@ const dailyReviewRoute = createRoute({
     const tzOffset = -new Date().getTimezoneOffset();
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["daily-review", today, tzOffset],
-        queryFn: () => getDailyReview(today, tzOffset),
+        queryKey: queryKeys.review.today(today, tzOffset),
+        queryFn: () => getTodayReview(today, tzOffset),
       }),
     );
   },
 });
 
 function RandomWalkRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <RandomWalkPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
+  return <RandomWalkPage />;
 }
 
 const randomWalkRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => workspaceRoute,
   path: "/review/walk",
   component: RandomWalkRoutePage,
 });
 
-function MemoryRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <MemoryPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const memoryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/memory",
-  component: MemoryRoutePage,
-  loader: ({ context }) => {
-    warmQuery(
-      context.queryClient.ensureQueryData({
-        queryKey: ["memories", "list"],
-        queryFn: () => listMemories(),
-      }),
-    );
-  },
-});
-
 function ProjectsRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <ProjectsPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
+  return <ProjectsPage />;
 }
 
 const projectsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => workspaceRoute,
   path: "/projects",
+  // A to-do view (today / upcoming / all) or one project, so reminders and
+  // memo badges can deep-link to the exact list.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { view?: TaskView; project?: string } => ({
+    view: isTaskView(search.view) ? search.view : undefined,
+    project:
+      typeof search.project === "string" && search.project
+        ? search.project
+        : undefined,
+  }),
   component: ProjectsRoutePage,
   loader: ({ context }) => {
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["projects"],
+        queryKey: queryKeys.projects.all,
         queryFn: () => listProjects(),
       }),
     );
     // Same key as the board's default all-tasks view and the mini calendar.
-    warmQuery(
-      context.queryClient.ensureQueryData({
-        queryKey: queryKeys.tasks.all,
-        queryFn: () => listTasks(),
-      }),
-    );
+    warmQuery(context.queryClient.ensureQueryData(allTasksQuery));
   },
-});
-
-function TeamProjectsRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <TeamProjectsPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const teamProjectsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/team-projects",
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): {
-    project?: string;
-    edit?: boolean;
-    new?: string;
-    view?: string;
-    member?: string;
-    phase?: string;
-    q?: string;
-    owner?: string;
-    group?: string;
-  } => {
-    const value = (key: string) => {
-      const raw = search[key];
-      return typeof raw === "string" || typeof raw === "number"
-        ? String(raw)
-        : undefined;
-    };
-    return {
-      project: value("project"),
-      // Only ever emit `edit` when it is on. Writing `false` here made the
-      // router serialize `edit=false` into the URL on every visit, which changed
-      // the address the auth guard had just captured as the post-sign-in
-      // destination (and added noise to otherwise clean deep links).
-      edit: [true, 1, "1", "true"].includes(
-        search.edit as string | number | boolean,
-      )
-        ? true
-        : undefined,
-      new: value("new"),
-      view: value("view"),
-      member: value("member"),
-      phase: value("phase"),
-      q: value("q"),
-      owner: value("owner"),
-      group: value("group"),
-    };
-  },
-  component: TeamProjectsRoutePage,
-});
-
-function CaptureRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <CapturePage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
-}
-
-const captureRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/capture",
-  component: CaptureRoutePage,
 });
 
 function ArticlesRoutePage() {
-  return (
-    <AuthenticatedRoute>
-      <Suspense fallback={<RouteLoading />}>
-        <ArticlesPage />
-      </Suspense>
-    </AuthenticatedRoute>
-  );
+  return <ArticlesPage />;
 }
 
 const articlesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => workspaceRoute,
   path: "/articles",
   component: ArticlesRoutePage,
   loader: ({ context }) => {
     warmQuery(
       context.queryClient.ensureQueryData({
-        queryKey: ["articles"],
+        queryKey: queryKeys.articles.all,
         queryFn: () => listArticles({ include_deleted: true }),
       }),
     );
@@ -554,8 +449,16 @@ const router = createRouter({
   // placeholder keeps route loader signatures aware of it.
   context: { queryClient: undefined as unknown as QueryClient },
   routeTree: rootRoute.addChildren([
-    indexRoute,
-    memoRoute,
+    // Pages beside the explorer sidebar share one persistent shell.
+    workspaceRoute.addChildren([
+      indexRoute,
+      memoRoute,
+      dailyReviewRoute,
+      randomWalkRoute,
+      projectsRoute,
+      articlesRoute,
+      connectRoute,
+    ]),
     shareRoute,
     loginRoute,
     registerRoute,
@@ -566,13 +469,6 @@ const router = createRouter({
     recoverRoute,
     setupRoute,
     accountRoute,
-    dailyReviewRoute,
-    randomWalkRoute,
-    memoryRoute,
-    projectsRoute,
-    teamProjectsRoute,
-    captureRoute,
-    articlesRoute,
     articleEditRoute,
   ]),
   scrollRestoration: true,

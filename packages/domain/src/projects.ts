@@ -6,6 +6,7 @@ import type {
 import type { FlareMoDb, ProjectRow, UserRow } from "@flaremo/db";
 import { projects, tasks } from "@flaremo/db";
 import { and, asc, count, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId } from "./ids";
 
@@ -278,27 +279,31 @@ export async function countTasksByProjects(
   const result = new Map<string, { total: number; open: number }>();
   if (projectIds.length === 0) return result;
 
-  const rows = await db
-    .select({
-      projectId: tasks.projectId,
-      total: count(),
-      open: sql<number>`SUM(CASE WHEN ${tasks.status} != 'done' THEN 1 ELSE 0 END)`.mapWith(
-        Number,
-      ),
-    })
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.userId, user.id),
-        isNull(tasks.deletedAt),
-        inArray(tasks.projectId, projectIds),
-      ),
-    )
-    .groupBy(tasks.projectId);
+  // One id = one bound parameter, plus the user predicate, so an account with
+  // more than ~99 projects would blow D1's per-statement cap here.
+  for (const idChunk of chunkForD1(projectIds, d1IdsPerStatement(2))) {
+    const rows = await db
+      .select({
+        projectId: tasks.projectId,
+        total: count(),
+        open: sql<number>`SUM(CASE WHEN ${tasks.status} != 'done' THEN 1 ELSE 0 END)`.mapWith(
+          Number,
+        ),
+      })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.userId, user.id),
+          isNull(tasks.deletedAt),
+          inArray(tasks.projectId, idChunk),
+        ),
+      )
+      .groupBy(tasks.projectId);
 
-  for (const row of rows) {
-    if (row.projectId) {
-      result.set(row.projectId, { total: row.total, open: row.open ?? 0 });
+    for (const row of rows) {
+      if (row.projectId) {
+        result.set(row.projectId, { total: row.total, open: row.open ?? 0 });
+      }
     }
   }
   return result;

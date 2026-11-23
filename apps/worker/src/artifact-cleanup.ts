@@ -1,8 +1,5 @@
-import {
-  chunkIdsForMemo,
-  type FlaremoAccountArtifacts,
-  memoryIdVector,
-} from "@flaremo/domain";
+import { thumbnailKeyFor } from "@flaremo/contracts/constants";
+import { chunkIdsForMemo, type FlaremoAccountArtifacts } from "@flaremo/domain";
 import type { FlareMoEnv } from "./env";
 
 /** Remove rebuildable objects that live outside D1. */
@@ -11,14 +8,14 @@ export async function cleanupFlaremoArtifacts(
   artifacts: FlaremoAccountArtifacts,
 ): Promise<void> {
   if (env.ATTACHMENTS) {
-    for (
-      let offset = 0;
-      offset < artifacts.attachmentR2Keys.length;
-      offset += 500
-    ) {
-      await env.ATTACHMENTS.delete(
-        artifacts.attachmentR2Keys.slice(offset, offset + 500),
-      );
+    // The artifacts list carries originals only; previews share their key with
+    // a derived suffix, so expand before deleting or they outlive the account.
+    const keys = artifacts.attachmentR2Keys.flatMap((key) => [
+      key,
+      thumbnailKeyFor(key),
+    ]);
+    for (let offset = 0; offset < keys.length; offset += 500) {
+      await env.ATTACHMENTS.delete(keys.slice(offset, offset + 500));
     }
   }
 
@@ -29,10 +26,6 @@ export async function cleanupFlaremoArtifacts(
     {
       index: env.VECTORIZE_MEMOS,
       ids: artifacts.memoIds.flatMap((id) => chunkIdsForMemo(id)),
-    },
-    {
-      index: env.VECTORIZE_MEMORIES,
-      ids: artifacts.memoryIds.map((id) => memoryIdVector(id)),
     },
   ];
   for (const target of targets) {

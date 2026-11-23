@@ -35,8 +35,8 @@ export function DocsIndexPage() {
           </h1>
           <p className="text-sm text-mist max-w-xl">
             {locale === "zh"
-              ? "完整的架构指南、部署手册、生态客户端与 Memos 兼容性参考文档。"
-              : "Comprehensive architecture guides, deployment runbooks, and Memos compatibility matrix."}
+              ? "完整的架构指南、部署手册、开放 API 与兼容性参考文档。"
+              : "Comprehensive architecture guides, deployment runbooks, and open API reference."}
           </p>
         </header>
       </Reveal>

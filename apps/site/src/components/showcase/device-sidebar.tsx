@@ -1,10 +1,9 @@
 import {
   Archive,
-  Brain,
   CalendarDays,
-  FolderKanban,
   Footprints,
   Inbox,
+  ListChecks,
   Trash2,
   Zap,
 } from "lucide-react";
@@ -287,9 +286,8 @@ function QuickViews({
   const items = [
     { icon: Zap, label: showcase.ui.dailyReview },
     { icon: Footprints, label: showcase.ui.randomWalk },
-    { icon: Brain, label: showcase.ui.memory },
     { icon: CalendarDays, label: showcase.ui.calendarView },
-    { icon: FolderKanban, label: showcase.ui.projects },
+    { icon: ListChecks, label: showcase.ui.projects },
   ];
 
   return (

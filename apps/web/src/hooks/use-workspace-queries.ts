@@ -3,12 +3,11 @@ import { useCallback, useMemo, useState } from "react";
 import {
   getCaptureStatus,
   getCurrentFlareMoUser,
-  getDailyReview,
   getMemoStats,
   getTagHierarchy,
+  getTodayReviewSummary,
   getVectorUsage,
   listMemos,
-  listTasks,
   type MemoSpace,
   type MemoStatsResponse,
   semanticSearchMemos,
@@ -19,6 +18,7 @@ import type { ExplorerView as ViewMode } from "@/components/flaremo-explorer";
 import { todayKey } from "@/lib/calendar-date";
 import { viewToMemoState } from "@/lib/memo-cache";
 import { queryKeys } from "@/lib/query-keys";
+import { useAllTasks } from "@/lib/task-views";
 import { ACTIVITY_WINDOW_DAYS } from "@/lib/time-horizon";
 
 const PAGE_SIZE = 30;
@@ -83,7 +83,7 @@ export function useWorkspaceQueries({
   const [semanticMode, setSemanticMode] = useState(false);
 
   const vectorUsageQuery = useQuery({
-    queryKey: ["vector-usage"],
+    queryKey: queryKeys.vectorUsage,
     queryFn: () => getVectorUsage(),
     staleTime: 5 * 60 * 1000,
     retry: false,
@@ -100,7 +100,7 @@ export function useWorkspaceQueries({
     [],
   );
   const semanticResultsQuery = useQuery({
-    queryKey: ["semantic-search", space, searchQuery],
+    queryKey: queryKeys.semanticSearch.forQuery(space, searchQuery),
     enabled: isSemanticSearch,
     queryFn: ({ signal }) =>
       semanticSearchMemos(
@@ -119,11 +119,7 @@ export function useWorkspaceQueries({
   // Plain keyword search rides the memos endpoint; tasks join the results
   // client-side from the shared ["tasks"] cache (title/notes substring match).
   const keywordSearch = isSearching && !dayFilter && !isSemanticSearch;
-  const taskSearchQuery = useQuery({
-    queryKey: queryKeys.tasks.all,
-    queryFn: () => listTasks(),
-    enabled: keywordSearch,
-  });
+  const taskSearchQuery = useAllTasks({ enabled: keywordSearch });
   const matchingTasks = useMemo(() => {
     if (!keywordSearch) return [] as Task[];
     const needle = searchQuery.toLocaleLowerCase();
@@ -137,7 +133,13 @@ export function useWorkspaceQueries({
   }, [keywordSearch, taskSearchQuery.data, searchQuery]);
 
   const memosQuery = useInfiniteQuery({
-    queryKey: ["memos", space, view, searchQuery, activeTag, untagged],
+    queryKey: queryKeys.memos.list(
+      space,
+      view,
+      searchQuery,
+      activeTag,
+      untagged,
+    ),
     initialPageParam: undefined as string | undefined,
     enabled: !isSemanticSearch,
     queryFn: ({ pageParam, signal }) =>
@@ -162,12 +164,16 @@ export function useWorkspaceQueries({
     // and the default 84-day one renders a whole year of zeroes. Both this
     // query and the layout's sidebar query share the key on purpose so the page
     // makes one request; the layout asks for the same window.
-    queryKey: ["memo-stats", space, timeZone, ACTIVITY_WINDOW_DAYS],
+    queryKey: queryKeys.memoStats.forWindow(
+      space,
+      timeZone,
+      ACTIVITY_WINDOW_DAYS,
+    ),
     queryFn: () => getMemoStats(timeZone, space, ACTIVITY_WINDOW_DAYS),
     retry: false,
   });
   const tagHierarchyQuery = useQuery({
-    queryKey: ["tag-hierarchy", space],
+    queryKey: queryKeys.tagHierarchy.forSpace(space),
     queryFn: () => getTagHierarchy(space),
     retry: false,
   });
@@ -178,19 +184,30 @@ export function useWorkspaceQueries({
     retry: false,
   });
   const captureStatusQuery = useQuery({
-    queryKey: queryKeys.captureStatus.forUser(currentUserQuery.data?.id ?? ""),
+    // Gated on a known user: with `?? ""` the query fired once for the empty
+    // key and again for the real id, so every cold start paid two requests for
+    // the same status. The explorer reads through this same key, so both
+    // components share one cache entry.
+    queryKey: queryKeys.captureStatus.forUser(currentUserQuery.data?.id),
     queryFn: getCaptureStatus,
+    enabled: Boolean(currentUserQuery.data?.id),
     staleTime: 30_000,
     retry: false,
   });
   // Readers (time-boxed read-only seats) browse the team space but never
   // publish into it; their composer target stays personal everywhere.
   const isReader = currentUserQuery.data?.role === "reader";
-  const canPublishTeam = Boolean(currentUserQuery.data?.team) && !isReader;
+  // A team the viewer is alone in is not a second space: the personal/team
+  // split (scope menu, composer visibility) only appears once someone else
+  // holds a seat. Older servers omit member_count; keep showing it then.
+  const rawTeam = currentUserQuery.data?.team ?? null;
+  const sharedTeam =
+    rawTeam && (rawTeam.member_count ?? 2) > 1 ? rawTeam : null;
+  const canPublishTeam = Boolean(sharedTeam) && !isReader;
   const teamExpired = Boolean(currentUserQuery.data?.team_expired);
   // "On this day" teaser for the timeline top: notes from past years dated
-  // today. The query shares the daily-review page's cache entry, so landing
-  // on the banner costs nothing extra.
+  // today. Only the remaining count crosses the wire here; the review page
+  // owns the full deck.
   const [today, tzOffset] = useMemo(
     () => [todayKey(), -new Date().getTimezoneOffset()],
     [],
@@ -204,15 +221,17 @@ export function useWorkspaceQueries({
     !activeTag &&
     !untagged &&
     !isSemanticSearch;
+  // The banner counts what is left of today's review stack, so it goes away
+  // once the stack is read (on any device).
   const onThisDayQuery = useQuery({
-    queryKey: ["daily-review", today, tzOffset],
+    queryKey: queryKeys.review.summary(today, tzOffset),
     enabled: onThisDayEnabled,
-    queryFn: () => getDailyReview(today, tzOffset),
+    queryFn: () => getTodayReviewSummary(today, tzOffset),
     staleTime: 60_000,
     retry: false,
   });
-  const showOnThisDayBanner =
-    onThisDayEnabled && (onThisDayQuery.data?.memos.length ?? 0) > 0;
+  const reviewRemaining = onThisDayQuery.data?.remaining ?? 0;
+  const showOnThisDayBanner = onThisDayEnabled && reviewRemaining > 0;
 
   const memos = useMemo(
     () => memosQuery.data?.pages.flatMap((page) => page.memos) ?? [],
@@ -233,6 +252,7 @@ export function useWorkspaceQueries({
   return {
     attachmentsByMemo,
     canPublishTeam,
+    sharedTeam,
     captureStatusQuery,
     currentUserQuery,
     displayedMemos,
@@ -242,6 +262,7 @@ export function useWorkspaceQueries({
     matchingTasks,
     memosQuery,
     onThisDayQuery,
+    reviewRemaining,
     semanticEnabled,
     semanticMode,
     semanticResultsQuery,

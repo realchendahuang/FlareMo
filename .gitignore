@@ -13,6 +13,7 @@ coverage/
 backups/
 .zcode/
 /wrangler.jsonc
+/wrangler.*.jsonc
 .wrangler-shots/
 
 # 杂项兜底（2026-09-17 依赖卫生清理）

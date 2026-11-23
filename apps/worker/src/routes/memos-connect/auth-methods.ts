@@ -171,7 +171,9 @@ export async function connectAuthSignOut(
     if (c.req.raw.headers.get("cookie")) {
       const headers = new Headers(c.req.raw.headers);
       headers.delete("authorization");
-      const authResponse = await (await getFlareMoAuth(c.env)).handler(
+      const authResponse = await (
+        await getFlareMoAuth(c.env)
+      ).handler(
         new Request(new URL("/api/auth/sign-out", c.req.url), {
           method: "POST",
           headers,

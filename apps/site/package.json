@@ -1,15 +1,18 @@
 {
   "name": "@flaremo/site",
-  "license": "AGPL-3.0-only",
+  "version": "0.33.0",
   "private": true,
-  "version": "0.22.1",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "node ./scripts/build.mjs",
-    "check": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
+    "check": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast",
+    "typecheck": "tsrs --noEmit -p tsconfig.app.json --pretty false --fast && tsrs --noEmit -p tsconfig.node.json --pretty false --fast",
+    "typecheck:strict": "tsrs --noEmit -p tsconfig.app.json --pretty false && tsrs --noEmit -p tsconfig.node.json --pretty false",
+    "typecheck:tsc": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "preview": "vite preview",
+    "og:image": "node ./scripts/og-image.mjs",
     "deploy": "pnpm build && wrangler deploy --config ./wrangler.jsonc",
     "deploy:dry-run": "pnpm build && wrangler deploy --config ./wrangler.jsonc --dry-run --outdir=dist",
     "test": "vitest run --config ../../vitest.config.ts --passWithNoTests"
@@ -38,7 +41,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
     "typescript": "^5.9.3",
-    "vite": "^8",
+    "vite": "^8.3.5",
     "wrangler": "^4.114.0"
   }
 }

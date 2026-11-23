@@ -21,7 +21,9 @@ const MEMOS_VISIBILITIES = ["private", "protected", "public"] as const;
 export function parseMemosVisibility(
   value: unknown,
 ): (typeof MEMOS_VISIBILITIES)[number] | null {
-  const normalized = String(value ?? "PRIVATE").toLowerCase();
+  if (value === undefined || value === null) return "private";
+  if (typeof value !== "string") return null;
+  const normalized = value.toLowerCase();
   if (MEMOS_VISIBILITIES.includes(normalized as never)) {
     return normalized as (typeof MEMOS_VISIBILITIES)[number];
   }
@@ -30,7 +32,9 @@ export function parseMemosVisibility(
 
 /** Relation type to the legacy lowercase pair; absent input defaults to REFERENCE. */
 export function parseMemosRelationType(value: unknown) {
-  const normalized = String(value ?? "REFERENCE").toLowerCase();
+  if (value === undefined || value === null) return "reference";
+  if (typeof value !== "string") return null;
+  const normalized = value.toLowerCase();
   if (normalized === "reference" || normalized === "comment") {
     return normalized;
   }
@@ -53,7 +57,8 @@ export function parseMemosPageSize(value: unknown): number | null {
  * means "updateMask is required" to the caller.
  */
 export function splitUpdateMaskFields(value: unknown): string[] {
-  return String(value ?? "")
+  if (typeof value !== "string") return [];
+  return value
     .split(",")
     .map((field) => field.trim())
     .filter(Boolean);
@@ -112,13 +117,28 @@ export function parseMemosState(
   }
 }
 
+function describeUnknown(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value === null || value === undefined) return String(value);
+  try {
+    return JSON.stringify(value) ?? typeof value;
+  } catch {
+    return typeof value;
+  }
+}
+
 /** Visibility to the legacy lowercase triple, failing closed on unknown input. */
 export function compatMemoVisibility(
   value: unknown,
 ): "private" | "protected" | "public" {
   const normalized = parseMemosVisibility(value);
   if (!normalized) {
-    throw new CompatValidationError(`Unsupported memo visibility: ${value}`);
+    throw new CompatValidationError(
+      `Unsupported memo visibility: ${describeUnknown(value)}`,
+    );
   }
   return normalized;
 }
@@ -129,7 +149,9 @@ export function compatMemoRelationType(
 ): "reference" | "comment" {
   const normalized = parseMemosRelationType(value);
   if (!normalized) {
-    throw new CompatValidationError(`Unsupported memo relation type: ${value}`);
+    throw new CompatValidationError(
+      `Unsupported memo relation type: ${describeUnknown(value)}`,
+    );
   }
   return normalized;
 }

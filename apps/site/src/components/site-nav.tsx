@@ -241,103 +241,108 @@ export function SiteNav({ locale, currentPath }: SiteNavProps) {
     { to: docsPath, label: labels.docs },
     { to: deployPath, label: labels.deploy },
   ];
+  // 只让"最具体"的那一项高亮：/docs/deploy 不再同时点亮 Docs 与 Deploy。
+  const activeIndex = resolveActiveNavIndex(items, currentPath, currentHash);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line/60 bg-paper/85 backdrop-blur-md transition-colors duration-200">
-      <div className="container-x relative flex h-14 items-center justify-between gap-4">
-        {/* 左翼：品牌 Logo */}
-        <div className="flex items-center justify-start shrink-0">
-          <Link
-            aria-label="FlareMo home"
-            className="flex items-center gap-2 text-ink transition-opacity hover:opacity-85"
-            to={homePath}
-          >
-            <SiteMark iconSize="size-6" />
-          </Link>
-        </div>
-
-        {/* 中翼：绝对 50% 物理居中，无论左右宽度如何，永远死死居中于视口中心 */}
-        <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 pointer-events-auto">
-          <nav className="flex items-center justify-center gap-0.5 rounded-full border border-line/60 bg-soft-surface/80 p-1 shadow-2xs">
-            {items.map((item) => {
-              const active = isItemActive(currentPath, currentHash, item.to);
-              return (
-                <a
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
-                    active
-                      ? "bg-surface text-ink shadow-[var(--panel-elev)] font-bold"
-                      : "text-mist hover:text-ink hover:bg-wash",
-                  )}
-                  key={item.to}
-                  href={item.to}
-                >
-                  {item.label}
-                </a>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* 右翼：统一右对齐工具集群与动作 */}
-        <div className="flex items-center justify-end gap-2 shrink-0">
-          {/* 联锁工具胶囊：GitHub + 语言切换 + 主题外观，紧凑防溢出 */}
-          <div className="inline-flex h-8 items-center rounded-full border border-line/70 bg-surface/90 shadow-2xs divide-x divide-line/60">
-            {/* GitHub 按钮 */}
-            <a
-              aria-label="GitHub source repository"
-              className="inline-flex h-full items-center justify-center px-2.5 text-xs font-medium text-ink transition-colors hover:bg-wash first:rounded-l-full"
-              href="https://github.com/realchendahuang/FlareMo"
-              rel="noopener noreferrer"
-              target="_blank"
-              title="GitHub 源码仓库 (realchendahuang/FlareMo)"
+    <>
+      {/* 顶栏常驻；移动端二级导航跟随内容滚动，避免吃掉首屏高度 */}
+      <div className="sticky top-0 z-40 border-b border-line/60 bg-paper/85 backdrop-blur-md transition-colors duration-200">
+        <div className="container-x relative flex h-14 items-center justify-between gap-4">
+          {/* 左翼：品牌 Logo */}
+          <div className="flex items-center justify-start shrink-0">
+            <Link
+              aria-label="FlareMo home"
+              className="flex items-center gap-2 text-ink transition-opacity hover:opacity-85"
+              to={homePath}
             >
-              <GithubIcon className="size-3.5" />
-            </a>
-
-            {/* 国际化语言切换 (使用 short 简短标签) */}
-            <LocaleSwitcher
-              locale={norm}
-              path={currentPath}
-              short={true}
-              className="inline-flex h-full items-center gap-1 border-none rounded-none bg-transparent px-2.5 text-xs font-medium text-ink shadow-none transition-colors hover:bg-wash hover:border-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 focus-visible:ring-offset-2 focus-visible:ring-offset-paper cursor-pointer"
-            />
-
-            {/* 外观模式切换 (嵌入胶囊) */}
-            <ThemeToggle className="inline-flex h-full w-8 items-center justify-center border-none rounded-none text-mist transition-colors hover:bg-wash hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 focus-visible:ring-offset-2 focus-visible:ring-offset-paper last:rounded-r-full cursor-pointer" />
+              <SiteMark iconSize="size-6" />
+            </Link>
           </div>
 
-          {/* Cloudflare 注册快捷外链 (超宽屏幕 2xl 上显示，小桌面优雅隐藏防止挤压) */}
-          <a
-            className="hidden 2xl:inline-flex h-8 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 dark:border-amber-400/30 dark:bg-amber-400/10 px-2.5 text-xs font-semibold text-amber-600 dark:text-amber-400 shadow-2xs transition-colors hover:bg-amber-500/20 hover:border-amber-500/50 shrink-0"
-            href="https://dash.cloudflare.com/sign-up?utm_source=flaremo"
-            rel="noopener noreferrer"
-            target="_blank"
-            title="Cloudflare 官方免费注册 / Sign up for free Cloudflare account"
-          >
-            <CloudflareIcon className="size-3.5 text-amber-500" />
-            <span>{labels.cloudflare}</span>
-          </a>
+          {/* 中翼：绝对 50% 物理居中，无论左右宽度如何，永远死死居中于视口中心 */}
+          <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+            <nav className="flex items-center justify-center gap-0.5 rounded-full border border-line/60 bg-soft-surface/80 p-1 shadow-2xs">
+              {items.map((item, index) => {
+                const active = index === activeIndex;
+                return (
+                  <a
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                      active
+                        ? "bg-surface text-ink shadow-[var(--panel-elev)] font-bold"
+                        : "text-mist hover:text-ink hover:bg-wash",
+                    )}
+                    key={item.to}
+                    href={item.to}
+                  >
+                    {item.label}
+                  </a>
+                );
+              })}
+            </nav>
+          </div>
 
-          {/* 快速进入应用主 CTA */}
-          <Button
-            render={
-              <a href="https://app.flaremo.app" rel="noopener noreferrer" />
-            }
-            size="xs"
-            variant="flame"
-            className="h-8 px-3.5 rounded-full shadow-xs shrink-0 font-semibold text-xs"
-          >
-            {labels.signIn}
-          </Button>
+          {/* 右翼：统一右对齐工具集群与动作 */}
+          <div className="flex items-center justify-end gap-2 shrink-0">
+            {/* 联锁工具胶囊：GitHub + 语言切换 + 主题外观，紧凑防溢出 */}
+            <div className="inline-flex h-8 items-center rounded-full border border-line/70 bg-surface/90 shadow-2xs divide-x divide-line/60">
+              {/* GitHub 按钮 */}
+              <a
+                aria-label="GitHub source repository"
+                className="inline-flex h-full items-center justify-center px-2.5 text-xs font-medium text-ink transition-colors hover:bg-wash first:rounded-s-full"
+                href="https://github.com/realchendahuang/FlareMo"
+                rel="noopener noreferrer"
+                target="_blank"
+                title="GitHub 源码仓库 (realchendahuang/FlareMo)"
+              >
+                <GithubIcon className="size-3.5" />
+              </a>
+
+              {/* 国际化语言切换 (使用 short 简短标签) */}
+              <LocaleSwitcher
+                locale={norm}
+                path={currentPath}
+                short={true}
+                className="inline-flex h-full items-center gap-1 border-none rounded-none bg-transparent px-2.5 text-xs font-medium text-ink shadow-none transition-colors hover:bg-wash hover:border-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 focus-visible:ring-offset-2 focus-visible:ring-offset-paper cursor-pointer"
+              />
+
+              {/* 外观模式切换 (嵌入胶囊) */}
+              <ThemeToggle className="inline-flex h-full w-8 items-center justify-center border-none rounded-none text-mist transition-colors hover:bg-wash hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 focus-visible:ring-offset-2 focus-visible:ring-offset-paper last:rounded-e-full cursor-pointer" />
+            </div>
+
+            {/* Cloudflare 注册快捷外链 (超宽屏幕 2xl 上显示，小桌面优雅隐藏防止挤压) */}
+            <a
+              className="hidden 2xl:inline-flex h-8 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 dark:border-amber-400/30 dark:bg-amber-400/10 px-2.5 text-xs font-semibold text-amber-600 dark:text-amber-400 shadow-2xs transition-colors hover:bg-amber-500/20 hover:border-amber-500/50 shrink-0"
+              href="https://dash.cloudflare.com/sign-up?utm_source=flaremo"
+              rel="noopener noreferrer"
+              target="_blank"
+              title="Cloudflare 官方免费注册 / Sign up for free Cloudflare account"
+            >
+              <CloudflareIcon className="size-3.5 text-amber-500" />
+              <span>{labels.cloudflare}</span>
+            </a>
+
+            {/* 快速进入应用主 CTA */}
+            <Button
+              render={
+                <a href="https://app.flaremo.app" rel="noopener noreferrer" />
+              }
+              size="xs"
+              variant="flame"
+              className="h-8 px-3.5 rounded-full shadow-xs shrink-0 font-semibold text-xs"
+            >
+              {labels.signIn}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* 移动端与平板快捷导航横向滚动条 (包含完整导航项) */}
-      <div className="container-x flex gap-1.5 overflow-x-auto pb-2 pt-0.5 lg:hidden no-scrollbar">
-        {items.map((item) => {
-          const active = isItemActive(currentPath, currentHash, item.to);
+      {/* 移动端与平板快捷导航横向滚动条（跟随内容滚动，不常驻） */}
+      <div className="container-x flex gap-1.5 overflow-x-auto border-b border-line/50 bg-paper/70 py-1.5 lg:hidden no-scrollbar">
+        {items.map((item, index) => {
+          const active = index === activeIndex;
           return (
             <a
               aria-current={active ? "page" : undefined}
@@ -355,28 +360,61 @@ export function SiteNav({ locale, currentPath }: SiteNavProps) {
           );
         })}
       </div>
-    </header>
+    </>
   );
 }
 
-function isItemActive(
+/**
+ * Scores every nav item against the current path and returns the index of the
+ * most specific match. Exact paths beat prefixes, and the longest prefix wins,
+ * so `/docs/deploy` activates Deploy alone instead of Docs and Deploy together.
+ */
+function resolveActiveNavIndex(
+  items: NavItem[],
+  currentPath: string,
+  currentHash: string,
+): number {
+  const normCurrent = getPathWithoutLocale(currentPath);
+  let bestIndex = -1;
+  let bestScore = -1;
+
+  items.forEach((item, index) => {
+    const score = navItemScore(normCurrent, currentHash, item.to);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  return bestIndex;
+}
+
+function navItemScore(
   currentPath: string,
   currentHash: string,
   itemTo: string,
-): boolean {
+): number {
   const [itemPath, itemAnchor] = itemTo.split("#");
-  const normCurrent = getPathWithoutLocale(currentPath);
   const normItemPath = getPathWithoutLocale(itemPath || "/");
 
+  // In-page anchors only win when the hash actually matches.
   if (itemAnchor) {
-    return normCurrent === normItemPath && currentHash === `#${itemAnchor}`;
+    return currentPath === normItemPath && currentHash === `#${itemAnchor}`
+      ? 1000 + normItemPath.length
+      : -1;
   }
 
   if (normItemPath === "/") {
-    return normCurrent === "/" && !currentHash;
+    return currentPath === "/" && !currentHash ? 0 : -1;
   }
 
-  return (
-    normCurrent === normItemPath || normCurrent.startsWith(`${normItemPath}/`)
-  );
+  if (currentPath === normItemPath) {
+    return 500 + normItemPath.length;
+  }
+
+  if (currentPath.startsWith(`${normItemPath}/`)) {
+    return 100 + normItemPath.length;
+  }
+
+  return -1;
 }

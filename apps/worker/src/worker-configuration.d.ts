@@ -5,14 +5,11 @@ interface __BaseEnv_Env {
 	ATTACHMENTS: R2Bucket;
 	DB: D1Database;
 	VECTORIZE_MEMOS: VectorizeIndex;
-	VECTORIZE_MEMORIES: VectorizeIndex;
 	AI: Ai;
 	ASSETS: Fetcher;
-	FLAREMO_DEPLOY_REPOSITORY: "";
 	FLAREMO_SINGLE_USER_EMAIL: "owner@flaremo.local";
 	FLAREMO_SINGLE_USER_NAME: "FlareMo Owner";
 	FLAREMO_PUBLIC_URL: "https://flaremo.chendahuang.com";
-	FLAREMO_TRUSTED_ORIGINS: "";
 	FLAREMO_EMBEDDING_PROVIDER: "workers-ai";
 	FLAREMO_EMBEDDING_MODEL: "@cf/qwen/qwen3-embedding-0.6b";
 	FLAREMO_EMBEDDING_DIMENSIONS: "1024";
@@ -30,7 +27,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "FLAREMO_DEPLOY_REPOSITORY" | "FLAREMO_SINGLE_USER_EMAIL" | "FLAREMO_SINGLE_USER_NAME" | "FLAREMO_PUBLIC_URL" | "FLAREMO_TRUSTED_ORIGINS" | "FLAREMO_EMBEDDING_PROVIDER" | "FLAREMO_EMBEDDING_MODEL" | "FLAREMO_EMBEDDING_DIMENSIONS" | "FLAREMO_VECTORIZE_STORED_LIMIT" | "FLAREMO_VECTORIZE_QUERIED_LIMIT">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "FLAREMO_SINGLE_USER_EMAIL" | "FLAREMO_SINGLE_USER_NAME" | "FLAREMO_PUBLIC_URL" | "FLAREMO_EMBEDDING_PROVIDER" | "FLAREMO_EMBEDDING_MODEL" | "FLAREMO_EMBEDDING_DIMENSIONS" | "FLAREMO_VECTORIZE_STORED_LIMIT" | "FLAREMO_VECTORIZE_QUERIED_LIMIT">> {}
 }
 
 // Begin runtime types

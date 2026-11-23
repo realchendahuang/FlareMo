@@ -1,10 +1,5 @@
-import type {
-  EmbeddingTaskRow,
-  FlareMoDb,
-  MemoRow,
-  MemoryItemRow,
-} from "@flaremo/db";
-import { memoryItems, memos } from "@flaremo/db";
+import type { EmbeddingTaskRow, FlareMoDb, MemoRow } from "@flaremo/db";
+import { memos } from "@flaremo/db";
 import { and, eq } from "drizzle-orm";
 import {
   chunkText,
@@ -15,6 +10,7 @@ import {
   type VectorIndex,
 } from "./embedding";
 import type { EmbeddingDispatchDeps } from "./embedding-outbox";
+import { isCommentMemo } from "./memo-comment-filter";
 import { estimateTokenCount } from "./quotas";
 import { incrementUsageCounter } from "./usage";
 
@@ -71,14 +67,6 @@ export async function processEmbeddingTask(
       task,
       nowIso,
     );
-  } else {
-    await processMemoryEmbeddingTask(
-      db,
-      deps.provider,
-      deps.memoriesIndex,
-      task,
-      nowIso,
-    );
   }
 }
 
@@ -99,9 +87,12 @@ async function processMemoEmbeddingTask(
   // complete so it does not accumulate. FTS5 keyword search is unaffected.
   if (!provider || !index) return;
 
+  // Comments are read under their parent, never retrieved on their own, so
+  // they hold no vectors; an edit to one clears any it had.
   const indexing =
     memo !== undefined &&
-    (memo.status === "normal" || memo.status === "archived");
+    (memo.status === "normal" || memo.status === "archived") &&
+    !(await isCommentMemo(db, memo.id));
 
   if (!indexing || !memo) {
     await index.deleteByIds(chunkIdsForMemo(task.resourceId));
@@ -252,61 +243,6 @@ async function processMemoRelocateTask(
     .where(and(eq(memos.id, memo.id), eq(memos.userId, memo.userId)));
 }
 
-async function processMemoryEmbeddingTask(
-  db: FlareMoDb,
-  provider: EmbeddingProvider | null,
-  index: VectorIndex | null,
-  task: EmbeddingTaskRow,
-  nowIso: string,
-) {
-  const memory = await db
-    .select()
-    .from(memoryItems)
-    .where(
-      and(
-        eq(memoryItems.id, task.resourceId),
-        eq(memoryItems.userId, task.userId),
-      ),
-    )
-    .get();
-
-  if (!provider || !index) return;
-
-  const indexing = memory !== undefined && memory.status === "active";
-
-  if (!indexing || !memory) {
-    await index.deleteByIds([memoryIdVector(memory?.id ?? task.resourceId)]);
-    if (memory) {
-      await clearMemoryEmbedding(db, memory);
-    }
-    return;
-  }
-
-  const vectors = await provider.embed([memory.content]);
-  await recordEmbeddingUsage(db, task.userId, [memory.content]);
-  await index.upsert([
-    {
-      id: memoryIdVector(memory.id),
-      values: vectors[0] ?? [],
-      metadata: { memory_id: memory.id, user_id: memory.userId },
-      namespace: task.userId,
-    },
-  ]);
-
-  await db
-    .update(memoryItems)
-    .set({
-      embeddingStatus: "indexed",
-      embeddingVersion: embeddingVersion(provider.model, provider.dimensions),
-      embeddedAt: nowIso,
-      embeddingError: null,
-      embeddingChunks: 1,
-    })
-    .where(
-      and(eq(memoryItems.id, memory.id), eq(memoryItems.userId, memory.userId)),
-    );
-}
-
 async function clearMemoEmbedding(db: FlareMoDb, memo: MemoRow) {
   await db
     .update(memos)
@@ -320,32 +256,10 @@ async function clearMemoEmbedding(db: FlareMoDb, memo: MemoRow) {
     .where(and(eq(memos.id, memo.id), eq(memos.userId, memo.userId)));
 }
 
-async function clearMemoryEmbedding(db: FlareMoDb, memory: MemoryItemRow) {
-  await db
-    .update(memoryItems)
-    .set({
-      embeddingStatus: "not_indexed",
-      embeddingVersion: null,
-      embeddedAt: null,
-      embeddingError: null,
-      embeddingChunks: null,
-    })
-    .where(
-      and(eq(memoryItems.id, memory.id), eq(memoryItems.userId, memory.userId)),
-    );
-}
-
 /** All possible vector ids for a memo (deleteByIds no-ops missing ids). */
 export function chunkIdsForMemo(memoId: string): string[] {
   return Array.from(
     { length: EMBEDDING_MAX_CHUNKS },
     (_, index) => `${memoId}#chunks/${index}`,
   );
-}
-
-/** Memories are atomic conclusions (no chunking): vector id = resource id. */
-export function memoryIdVector(memoryId: string): string {
-  // Memories are atomic conclusions (no chunking), so the vector id is the
-  // resource id itself.
-  return memoryId;
 }

@@ -28,7 +28,13 @@ import { useAccountSettingsMutations } from "./use-account-settings-mutations";
  * assembled `accountPanel` prop bundle. `open` gates every query so a closed
  * dialog costs nothing.
  */
-export function useAccountPageState({ open }: { open: boolean }) {
+export function useAccountPageState({
+  open,
+  initialSection,
+}: {
+  open: boolean;
+  initialSection?: string;
+}) {
   const { locale, t } = useI18n();
   const queryClient = useQueryClient();
   const session = authClient.useSession();
@@ -44,6 +50,9 @@ export function useAccountPageState({ open }: { open: boolean }) {
   const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
   const [tokenName, setTokenName] = useState("");
   const [tokenExpiryDays, setTokenExpiryDays] = useState("");
+  const [tokenScopes, setTokenScopes] = useState<
+    import("@flaremo/contracts").MemosPatScope[]
+  >(["notes"]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -82,7 +91,7 @@ export function useAccountPageState({ open }: { open: boolean }) {
   }, [session.data?.user.username]);
 
   const tokensQuery = useQuery({
-    queryKey: ["personal-access-tokens"],
+    queryKey: queryKeys.personalAccessTokens,
     queryFn: listPersonalAccessTokens,
     retry: false,
     enabled: open,
@@ -158,16 +167,18 @@ export function useAccountPageState({ open }: { open: boolean }) {
     setTokenError,
     setTokenExpiryDays,
     setTokenName,
+    setTokenScopes,
     t,
     tokenExpiryDays,
     tokenName,
+    tokenScopes,
     username,
   });
 
   const showVoiceSettings = meQuery.data?.can_manage_voice_service === true;
 
   const appInfoQuery = useQuery({
-    queryKey: ["app-info"],
+    queryKey: queryKeys.appInfo,
     queryFn: getAppInfo,
     staleTime: 10 * 60 * 1000,
     retry: false,
@@ -175,7 +186,7 @@ export function useAccountPageState({ open }: { open: boolean }) {
   });
 
   const vectorUsageQuery = useQuery({
-    queryKey: ["vector-usage"],
+    queryKey: queryKeys.vectorUsage,
     queryFn: getVectorUsage,
     retry: false,
     enabled: open,
@@ -183,7 +194,7 @@ export function useAccountPageState({ open }: { open: boolean }) {
   });
 
   const cfUsageQuery = useQuery({
-    queryKey: ["cloudflare-usage"],
+    queryKey: queryKeys.cloudflareUsage,
     queryFn: getCloudflareUsage,
     retry: false,
     enabled: open,
@@ -193,7 +204,7 @@ export function useAccountPageState({ open }: { open: boolean }) {
   });
 
   const dataTasksQuery = useQuery({
-    queryKey: ["data-tasks"],
+    queryKey: queryKeys.dataTasks,
     queryFn: listDataTasks,
     retry: false,
     enabled: open,
@@ -218,7 +229,7 @@ export function useAccountPageState({ open }: { open: boolean }) {
       queryFn: getAdminBranding,
     });
     void queryClient.prefetchQuery({
-      queryKey: ["admin-plugins"],
+      queryKey: queryKeys.adminPlugins,
       queryFn: getAdminPluginSettings,
     });
     void queryClient.prefetchQuery({
@@ -233,7 +244,7 @@ export function useAccountPageState({ open }: { open: boolean }) {
       return undefined;
     }
     void queryClient.prefetchQuery({
-      queryKey: ["voice-settings"],
+      queryKey: queryKeys.voiceSettings,
       queryFn: getVoiceSettings,
     });
     return undefined;
@@ -249,6 +260,17 @@ export function useAccountPageState({ open }: { open: boolean }) {
   const allItems = navGroups.flatMap((group) => group.items);
   const activeSection = allItems.find((item) => item.id === section);
   const activeLabel = activeSection?.label ?? t("settings.group.account");
+
+  // A deep link's section applies once it is actually visible to this viewer
+  // (voice/admin entries appear only after `meQuery` resolves).
+  const initialSectionVisible =
+    initialSection === "account" ||
+    allItems.some((item) => item.id === initialSection);
+  useEffect(() => {
+    if (!open || !initialSection || !initialSectionVisible) return;
+    setSection(initialSection as SettingsSection);
+    setMobileView("detail");
+  }, [open, initialSection, initialSectionVisible]);
 
   const accountPanel: AccountPanelProps = {
     currentAvatarUrl:
@@ -311,11 +333,13 @@ export function useAccountPageState({ open }: { open: boolean }) {
     setNewPasswordConfirmation,
     setTokenExpiryDays,
     setTokenName,
+    setTokenScopes,
     setUsername,
     t,
     tokenError,
     tokenExpiryDays,
     tokenName,
+    tokenScopes,
     tokensQuery,
     updateUsernameIsPending: updateUsernameMutation.isPending,
     username,

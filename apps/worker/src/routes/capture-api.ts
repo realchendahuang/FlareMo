@@ -1,4 +1,4 @@
-import { CAPTURE_BATCH_MAX_BYTES } from "@flaremo/contracts";
+import { CAPTURE_BATCH_MAX_BYTES } from "@flaremo/contracts/constants";
 import { incrementUsageCounter } from "@flaremo/domain";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -7,14 +7,18 @@ import { resolveVoiceService } from "../asr/configuration";
 import { sniffAudioMimeType } from "../asr/minimax";
 import { AsrProviderError } from "../asr/types";
 import { getTrustedOrigins } from "../auth-env";
-import { getBrowserRequestContext, type HonoBindings } from "../context";
+import {
+  getBrowserRequestContext,
+  getClientRequestContext,
+  type HonoBindings,
+} from "../context";
 import { jsonError } from "../http";
 import { rateLimitGuard } from "../rate-limit";
 
 export const captureApi = new Hono<HonoBindings>();
 captureApi.get("/status", async (c) => {
   try {
-    const { db } = await getBrowserRequestContext(c);
+    const { db } = await getClientRequestContext(c);
     const configured = await resolveVoiceService(c.env, db);
     const available = Boolean(configured);
     return c.json(
@@ -36,6 +40,9 @@ captureApi.get("/status", async (c) => {
 });
 captureApi.get("/ws", async (c) => {
   try {
+    // Streaming capture: browser-only. It requires the deployment's own Origin
+    // for the socket handshake, which an embedded client cannot supply, so a
+    // bearer here would only widen the surface without ever working.
     const { user, db } = await getBrowserRequestContext(c);
     const origin = c.req.header("origin");
     if (!origin || !getTrustedOrigins(c.env).includes(origin))
@@ -86,9 +93,10 @@ const transcribeQuerySchema = z.object({
 // returned timeline offsets.
 captureApi.post("/transcribe", async (c) => {
   try {
-    // getBrowserRequestContext rejects bearer credentials outright, so this
-    // route is session-cookie-only (no PAT) and enforces the trusted-origin
-    // rule for unsafe methods itself.
+    // Paid provider call: browser-only on purpose, so a `notes` PAT cannot spend
+    // the deployment's transcription budget. Read-only /status above accepts a
+    // bearer because an embedded client needs to know whether a mic button
+    // should appear at all.
     const { user, db } = await getBrowserRequestContext(c);
     const configured = await resolveVoiceService(c.env, db);
     if (configured?.kind !== "batch")

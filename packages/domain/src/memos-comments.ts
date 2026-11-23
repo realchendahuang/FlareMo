@@ -1,6 +1,7 @@
 import type { FlareMoDb, MemoPayload, MemoRow, UserRow } from "@flaremo/db";
 import { memoRelations, memos, memoTags } from "@flaremo/db";
 import { and, asc, count, desc, eq, gt, inArray, lt, or } from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import {
   ConflictError,
   ForbiddenError,
@@ -8,10 +9,6 @@ import {
   ValidationError,
 } from "./errors";
 import { createResourceId, parseResourceName } from "./ids";
-import {
-  adjustmentForNewMemo,
-  hourlyCountStatements,
-} from "./memo-hourly-counts";
 import {
   assertMemoContentSize,
   getMemoById,
@@ -29,7 +26,11 @@ import { findMentionedUsers, insertMemoNotification } from "./memos-user";
 import { insertMemosWebhookEvent } from "./memos-webhooks";
 import { assertMemoCountQuota, type QuotaScope } from "./quotas";
 import { extractTags, normalizeMemoTags } from "./tags";
-import { isActiveTeamMember, memoReadScope } from "./team-permissions";
+import {
+  canPublishTeamMemo,
+  isActiveTeamMember,
+  memoReadScope,
+} from "./team-permissions";
 
 export type CreateMemoCommentInput = {
   parentMemoName?: string;
@@ -94,6 +95,13 @@ export async function createMemoComment(
       : parentMemoOrInput.parentMemoName;
   const parentId = parseResourceName(parentMemoId, "memos");
   const parent = await getMemoById(db, user, parentId);
+  // A comment is a memo and inherits the parent's visibility. When that
+  // visibility is anything but private, the comment lands in the team (or
+  // public) space, so the read-only seat must be denied here too — this path
+  // does not go through resolveMemoTeamId.
+  if (parent.visibility !== "private" && !canPublishTeamMemo(user)) {
+    throw new ForbiddenError("Read-only members cannot publish comments.");
+  }
   const content = effectiveInput.comment?.content ?? effectiveInput.content;
   if (typeof content !== "string" || !content.trim()) {
     throw new ValidationError("Comment content is required");
@@ -152,8 +160,11 @@ export async function createMemoComment(
     id: commentId,
     userId: user.id,
     content: content.trim(),
-    // Memos comments inherit the visibility of the parent memo.
+    // Memos comments inherit the visibility of the parent memo, and with it
+    // the team: a protected row without a team id is readable by its author
+    // only, which hid every team comment from the rest of the team.
     visibility: parent.visibility,
+    teamId: parent.teamId,
     status: "normal" as const,
     pinned: false,
     source: effectiveInput.comment?.source ?? effectiveInput.source ?? "web",
@@ -220,18 +231,11 @@ export async function createMemoComment(
     }
   }
 
-  // A comment is a memo row, so it moves the same activity counter the
-  // timeline counts it in. Without this the counter under-reports every
-  // comment until the nightly recalibration, and a comment that is then
-  // trashed or hard-deleted debits a unit it was never credited — the
-  // `max(0, …)` floor absorbs the debit and silently eats a real memo's
-  // count instead. Same-batch, same reasoning as `createMemo`.
-  const counterStatements = hourlyCountStatements(
-    db,
-    adjustmentForNewMemo(row),
-    now,
-  );
-
+  // Comments stay out of the activity counter: they live under their parent
+  // and are not records of their own in the stats, heatmap or streak. Every
+  // later transition (trash, restore, hard delete) skips the counter for
+  // comments too, and the nightly recalibration leaves them out, so nothing
+  // is ever debited that was not credited.
   try {
     if (tags.length > 0) {
       await db.batch([
@@ -247,7 +251,6 @@ export async function createMemoComment(
         db.insert(memoRelations).values(relation),
         eventStatement,
         webhookEventStatement,
-        ...counterStatements,
         ...notificationStatements,
       ]);
     } else {
@@ -256,7 +259,6 @@ export async function createMemoComment(
         db.insert(memoRelations).values(relation),
         eventStatement,
         webhookEventStatement,
-        ...counterStatements,
         ...notificationStatements,
       ]);
     }
@@ -318,39 +320,58 @@ export async function getMemoParentsForViewer(
   ];
   if (requested.length === 0) return new Map();
 
-  const readable = await db
-    .select({ id: memos.id })
-    .from(memos)
-    .where(and(inArray(memos.id, requested), memoReadScope(user)));
-  if (readable.length !== requested.length) {
+  // Both reads below are fed by Connect `ListMemoComments`, whose page size
+  // reaches 1000 — well past D1's per-statement binding cap.
+  const readableIds = new Set<string>();
+  for (const idChunk of chunkForD1(requested, d1IdsPerStatement())) {
+    const readable = await db
+      .select({ id: memos.id })
+      .from(memos)
+      .where(and(inArray(memos.id, idChunk), memoReadScope(user)));
+    for (const row of readable) readableIds.add(row.id);
+  }
+  if (readableIds.size !== requested.length) {
     throw new NotFoundError("Memo not found");
   }
 
-  const rows = await db
-    .select({
-      memoId: memoRelations.memoId,
-      relatedMemoId: memoRelations.relatedMemoId,
-    })
-    .from(memoRelations)
-    .where(
-      and(
-        inArray(memoRelations.memoId, requested),
-        eq(memoRelations.type, "comment"),
-      ),
+  const relationRows: Array<{
+    memoId: string;
+    relatedMemoId: string;
+  }> = [];
+  for (const idChunk of chunkForD1(requested, d1IdsPerStatement(2))) {
+    relationRows.push(
+      ...(await db
+        .select({
+          memoId: memoRelations.memoId,
+          relatedMemoId: memoRelations.relatedMemoId,
+        })
+        .from(memoRelations)
+        .where(
+          and(
+            inArray(memoRelations.memoId, idChunk),
+            eq(memoRelations.type, "comment"),
+          ),
+        )),
     );
-  if (rows.length === 0) return new Map();
+  }
+  if (relationRows.length === 0) return new Map();
 
-  const parentIds = [...new Set(rows.map((row) => row.relatedMemoId))];
-  const readableParents = await db
-    .select({ id: memos.id })
-    .from(memos)
-    .where(and(inArray(memos.id, parentIds), memoReadScope(user)));
-  const readableParentIds = new Set(readableParents.map((row) => row.id));
+  const parentIds = [...new Set(relationRows.map((row) => row.relatedMemoId))];
+  const readableParentIds = new Set<string>();
+  for (const idChunk of chunkForD1(parentIds, d1IdsPerStatement())) {
+    const readable = await db
+      .select({ id: memos.id })
+      .from(memos)
+      .where(and(inArray(memos.id, idChunk), memoReadScope(user)));
+    for (const row of readable) readableParentIds.add(row.id);
+  }
   if (readableParentIds.size !== parentIds.length) {
     throw new NotFoundError("Memo not found");
   }
 
-  return new Map(rows.map((row) => [row.memoId, row.relatedMemoId] as const));
+  return new Map(
+    relationRows.map((row) => [row.memoId, row.relatedMemoId] as const),
+  );
 }
 
 export function listMemoComments(
@@ -498,4 +519,42 @@ function normalizeCommentOrder(value: string | undefined) {
     throw new ValidationError("Unsupported comment order_by");
   }
   return `${field} ${direction}`;
+}
+
+/**
+ * Live comment counts for a page of parent memos, keyed by parent id
+ * (`memos/<id>`). Only comments the viewer can read are counted, with the
+ * same boundary as {@link listMemoComments}, so the number on a card always
+ * matches the list the detail page shows. Parents without comments are
+ * absent from the map.
+ */
+export async function countMemoComments(
+  db: FlareMoDb,
+  user: UserRow,
+  parentIds: string[],
+): Promise<Map<string, number>> {
+  const ids = [
+    ...new Set(parentIds.map((id) => parseResourceName(id, "memos"))),
+  ];
+  const counts = new Map<string, number>();
+  for (const idChunk of chunkForD1(ids, d1IdsPerStatement(12))) {
+    const rows = await db
+      .select({
+        parentId: memoRelations.relatedMemoId,
+        total: count(memos.id),
+      })
+      .from(memoRelations)
+      .innerJoin(memos, eq(memos.id, memoRelations.memoId))
+      .where(
+        and(
+          inArray(memoRelations.relatedMemoId, idChunk),
+          eq(memoRelations.type, "comment"),
+          inArray(memos.status, ["normal", "archived"]),
+          memoReadScope(user),
+        ),
+      )
+      .groupBy(memoRelations.relatedMemoId);
+    for (const row of rows) counts.set(row.parentId, row.total);
+  }
+  return counts;
 }

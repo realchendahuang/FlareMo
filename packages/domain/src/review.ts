@@ -1,10 +1,25 @@
 import type { FlareMoDb, MemoRow, UserRow } from "@flaremo/db";
 import { memoRelations, memos, memoTags, tasks, users } from "@flaremo/db";
-import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
+import { chunkForD1, d1IdsPerStatement } from "./d1-limits";
 import { ValidationError } from "./errors";
 import { parseResourceName } from "./ids";
+import { notComment } from "./memo-comment-filter";
 import { getMemoById } from "./memos";
 import { insertMemoNotification } from "./memos-user";
+import { nextDayKey } from "./tasks";
 
 export type WalkVia =
   | { type: "tag"; tag: string }
@@ -38,6 +53,7 @@ export async function listDailyReviewMemos(
       and(
         eq(memos.userId, user.id),
         eq(memos.status, "normal"),
+        notComment(),
         sql`substr(datetime(${memos.createdAt}, printf('%+d minutes', ${tzOffset})), 6, 5) = ${monthDay}`,
         sql`substr(datetime(${memos.createdAt}, printf('%+d minutes', ${tzOffset})), 1, 10) != ${date}`,
       ),
@@ -69,6 +85,7 @@ export async function createDailyReviewNotifications(
     .where(
       and(
         eq(memos.status, "normal"),
+        notComment(),
         sql`substr(${memos.createdAt}, 6, 5) = ${monthDay}`,
         sql`substr(${memos.createdAt}, 1, 10) != ${date}`,
       ),
@@ -82,17 +99,39 @@ export async function createDailyReviewNotifications(
   }
   const allUsers = await db.select({ id: users.id }).from(users);
   const activeUserIds = new Set(allUsers.map((user) => user.id));
-  let created = 0;
+  const statements: unknown[] = [];
   for (const [receiverId, anchorId] of anchorByUser) {
     if (!activeUserIds.has(receiverId)) continue;
-    const inserted = await insertMemoNotification(db, {
-      receiverId,
-      senderId: receiverId,
-      type: "daily_review",
-      sourceEventId: `daily-review:${date}`,
-      memoId: anchorId,
-    });
-    if (inserted.meta.changes > 0) created += 1;
+    statements.push(
+      insertMemoNotification(db, {
+        receiverId,
+        senderId: receiverId,
+        type: "daily_review",
+        sourceEventId: `daily-review:${date}`,
+        memoId: anchorId,
+      }),
+    );
+  }
+  return countNotificationInserts(db, statements);
+}
+
+/** Flush notification inserts in batches; the count is the true insert total. */
+async function countNotificationInserts(
+  db: FlareMoDb,
+  statements: unknown[],
+): Promise<number> {
+  let created = 0;
+  for (let offset = 0; offset < statements.length; offset += 90) {
+    const results = await db.batch(
+      statements.slice(offset, offset + 90) as unknown as Parameters<
+        FlareMoDb["batch"]
+      >[0],
+    );
+    for (const result of results as unknown as Array<{
+      meta?: { changes?: number };
+    }>) {
+      if ((result?.meta?.changes ?? 0) > 0) created += 1;
+    }
   }
   return created;
 }
@@ -103,6 +142,8 @@ export async function createDailyReviewNotifications(
  * cannot exceed D1's bound-parameter limit.
  */
 const RANDOM_SAMPLE_WINDOW = 64;
+/** Upper bound on tag-overlap candidates ranked before the final `limit`. */
+const RELATED_TAG_CANDIDATE_LIMIT = 64;
 
 export async function getRandomMemo(
   db: FlareMoDb,
@@ -115,7 +156,9 @@ export async function getRandomMemo(
   const sampled = await db
     .select({ id: memos.id })
     .from(memos)
-    .where(and(eq(memos.userId, user.id), eq(memos.status, "normal")))
+    .where(
+      and(eq(memos.userId, user.id), eq(memos.status, "normal"), notComment()),
+    )
     .orderBy(sql`random()`)
     .limit(RANDOM_SAMPLE_WINDOW);
   const pickedId = sampled.find((row) => !excluded.has(row.id))?.id;
@@ -124,7 +167,13 @@ export async function getRandomMemo(
     const rows = await db
       .select({ id: memos.id })
       .from(memos)
-      .where(and(eq(memos.userId, user.id), eq(memos.status, "normal")));
+      .where(
+        and(
+          eq(memos.userId, user.id),
+          eq(memos.status, "normal"),
+          notComment(),
+        ),
+      );
     const candidates = rows.filter((row) => !excluded.has(row.id));
     if (candidates.length === 0) return null;
     return (
@@ -177,6 +226,7 @@ export async function getWalkNextMemo(
             eq(memoTags.userId, user.id),
             inArray(memoTags.tag, sourceTags),
             eq(memos.status, "normal"),
+            notComment(),
           ),
         )
         .orderBy(sql`random()`)
@@ -200,9 +250,13 @@ export async function getWalkNextMemo(
     })
     .from(memoRelations)
     .where(
-      or(
-        eq(memoRelations.memoId, normalizedMemoId),
-        eq(memoRelations.relatedMemoId, normalizedMemoId),
+      and(
+        // Walk along links, not into a memo's comment thread.
+        eq(memoRelations.type, "reference"),
+        or(
+          eq(memoRelations.memoId, normalizedMemoId),
+          eq(memoRelations.relatedMemoId, normalizedMemoId),
+        ),
       ),
     );
   const relatedIds = [
@@ -215,16 +269,20 @@ export async function getWalkNextMemo(
     ),
   ].filter((id) => !excluded.has(id));
   if (relatedIds.length > 0) {
-    const related = await db
-      .select()
-      .from(memos)
-      .where(
-        and(
-          eq(memos.userId, user.id),
-          eq(memos.status, "normal"),
-          inArray(memos.id, relatedIds),
-        ),
-      );
+    const related: MemoRow[] = [];
+    for (const chunk of chunkForD1(relatedIds, d1IdsPerStatement(4))) {
+      const rows = await db
+        .select()
+        .from(memos)
+        .where(
+          and(
+            eq(memos.userId, user.id),
+            eq(memos.status, "normal"),
+            inArray(memos.id, chunk),
+          ),
+        );
+      related.push(...rows);
+    }
     if (related.length > 0) {
       return { memo: pickRandom(related), via: { type: "relation" } };
     }
@@ -268,8 +326,13 @@ export async function listRelatedMemos(
 
   const sharedTagsByMemo = new Map<string, Set<string>>();
   if (sourceTags.length > 0) {
-    const rows = await db
-      .select({ memoId: memoTags.memoId, tag: memoTags.tag })
+    // Rank by shared-tag count in SQL and keep only a bounded window: reading
+    // every memo that carries any of these tags used to be an unbounded scan,
+    // and its ids then went straight into an `inArray` past D1's binding cap.
+    // The response only ever shows `limit` (max 10) rows, so the tail was
+    // pure waste.
+    const ranked = await db
+      .select({ memoId: memoTags.memoId })
       .from(memoTags)
       .innerJoin(memos, eq(memoTags.memoId, memos.id))
       .where(
@@ -277,13 +340,29 @@ export async function listRelatedMemos(
           eq(memoTags.userId, user.id),
           inArray(memoTags.tag, sourceTags),
           eq(memos.status, "normal"),
+          ne(memoTags.memoId, normalizedMemoId),
         ),
-      );
-    for (const row of rows) {
-      if (row.memoId === normalizedMemoId) continue;
-      const tags = sharedTagsByMemo.get(row.memoId) ?? new Set<string>();
-      tags.add(row.tag);
-      sharedTagsByMemo.set(row.memoId, tags);
+      )
+      .groupBy(memoTags.memoId)
+      .orderBy(desc(sql`count(*)`), desc(memoTags.memoId))
+      .limit(RELATED_TAG_CANDIDATE_LIMIT);
+    const rankedIds = ranked.map((row) => row.memoId);
+    for (const idChunk of chunkForD1(rankedIds, d1IdsPerStatement(4))) {
+      const tagRows = await db
+        .select({ memoId: memoTags.memoId, tag: memoTags.tag })
+        .from(memoTags)
+        .where(
+          and(
+            eq(memoTags.userId, user.id),
+            inArray(memoTags.memoId, idChunk),
+            inArray(memoTags.tag, sourceTags),
+          ),
+        );
+      for (const row of tagRows) {
+        const tags = sharedTagsByMemo.get(row.memoId) ?? new Set<string>();
+        tags.add(row.tag);
+        sharedTagsByMemo.set(row.memoId, tags);
+      }
     }
   }
 
@@ -294,9 +373,13 @@ export async function listRelatedMemos(
     })
     .from(memoRelations)
     .where(
-      or(
-        eq(memoRelations.memoId, normalizedMemoId),
-        eq(memoRelations.relatedMemoId, normalizedMemoId),
+      and(
+        // A comment thread is shown under the memo, not as a related note.
+        eq(memoRelations.type, "reference"),
+        or(
+          eq(memoRelations.memoId, normalizedMemoId),
+          eq(memoRelations.relatedMemoId, normalizedMemoId),
+        ),
       ),
     );
   const relatedIds = new Set(
@@ -311,18 +394,24 @@ export async function listRelatedMemos(
     ...new Set([...sharedTagsByMemo.keys(), ...relatedIds]),
   ];
   if (candidateIds.length === 0) return [];
-  const rows = await db
-    .select()
-    .from(memos)
-    .where(
-      and(
-        eq(memos.userId, user.id),
-        eq(memos.status, "normal"),
-        inArray(memos.id, candidateIds),
-      ),
+  const candidateRows: MemoRow[] = [];
+  for (const idChunk of chunkForD1(candidateIds, d1IdsPerStatement(4))) {
+    candidateRows.push(
+      ...(await db
+        .select()
+        .from(memos)
+        .where(
+          and(
+            eq(memos.userId, user.id),
+            eq(memos.status, "normal"),
+            inArray(memos.id, idChunk),
+            notComment(),
+          ),
+        )),
     );
+  }
 
-  return rows
+  return candidateRows
     .map((memo) => ({
       memo,
       sharedTags: [...(sharedTagsByMemo.get(memo.id) ?? [])].sort(),
@@ -380,16 +469,56 @@ export async function createOverdueTaskNotifications(
       ),
     )
     .limit(500);
-  let created = 0;
+  const statements: unknown[] = [];
   for (const task of overdue) {
-    const inserted = await insertMemoNotification(db, {
+    statements.push(
+      insertMemoNotification(db, {
+        receiverId: task.userId,
+        senderId: task.userId,
+        type: "task_overdue",
+        sourceEventId: `task-overdue:${task.id}:${task.dueAt}`,
+        snippet: task.title,
+      }),
+    );
+  }
+  // Up to 500 overdue tasks used to cost 500 serial round trips per cron run.
+  return countNotificationInserts(db, statements);
+}
+
+/**
+ * File one "due today" inbox row per unfinished task due on `date`. This is
+ * the reminder a dated to-do promises: day-level, delivered with the daily
+ * sweep, never a clock-time alarm. The source event id
+ * (`task-due:<taskId>:<dueDate>`) keeps cron retries idempotent.
+ */
+export async function createDueTodayTaskNotifications(
+  db: FlareMoDb,
+  input: { date: string },
+): Promise<number> {
+  const date = input.date.trim();
+  if (!DAILY_REVIEW_DATE_PATTERN.test(date) || Number.isNaN(Date.parse(date))) {
+    throw new ValidationError("Invalid review date");
+  }
+  const due = await db
+    .select({ id: tasks.id, userId: tasks.userId, title: tasks.title })
+    .from(tasks)
+    .where(
+      and(
+        isNull(tasks.deletedAt),
+        gte(tasks.dueAt, date),
+        lt(tasks.dueAt, nextDayKey(date)),
+        inArray(tasks.status, ["todo", "in_progress"]),
+      ),
+    )
+    .limit(500);
+  const statements: unknown[] = due.map((task) =>
+    insertMemoNotification(db, {
       receiverId: task.userId,
       senderId: task.userId,
-      type: "task_overdue",
-      sourceEventId: `task-overdue:${task.id}:${task.dueAt}`,
+      type: "task_due",
+      sourceEventId: `task-due:${task.id}:${date}`,
       snippet: task.title,
-    });
-    if (inserted.meta.changes > 0) created += 1;
-  }
-  return created;
+    }),
+  );
+  return countNotificationInserts(db, statements);
 }

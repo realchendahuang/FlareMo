@@ -1,6 +1,12 @@
 import type { FlareMoDb, PushSubscriptionRow, UserRow } from "@flaremo/db";
 import { pushSubscriptions } from "@flaremo/db";
 import { and, eq } from "drizzle-orm";
+import { ValidationError } from "./errors";
+import {
+  OutboundFetchError,
+  safeOutboundFetch,
+  validateOutboundUrl,
+} from "./memos-webhooks";
 
 /**
  * Web Push (RFC 8030 / RFC 8291 / RFC 8292) for proactive reminders.
@@ -21,6 +27,61 @@ export type PushPayload = {
   /** App path to open when the notification is clicked. */
   url?: string;
 };
+
+export const PUSH_FAILURE_CATEGORIES = [
+  "endpoint_expired",
+  "http_4xx",
+  "http_5xx",
+  "network_error",
+  "crypto_error",
+  "payload_error",
+  "unsafe_endpoint",
+  "unknown",
+] as const;
+
+export type PushFailureCategory = (typeof PUSH_FAILURE_CATEGORIES)[number];
+
+export type PushDeliveryStats = {
+  /** Subscription deliveries started. */
+  attempted: number;
+  delivered: number;
+  failed: number;
+  /** Per-category failure counters; every category is initialized to zero. */
+  failureCategories: Record<PushFailureCategory, number>;
+};
+
+export function createPushDeliveryStats(): PushDeliveryStats {
+  return {
+    attempted: 0,
+    delivered: 0,
+    failed: 0,
+    failureCategories: {
+      endpoint_expired: 0,
+      http_4xx: 0,
+      http_5xx: 0,
+      network_error: 0,
+      crypto_error: 0,
+      payload_error: 0,
+      unsafe_endpoint: 0,
+      unknown: 0,
+    },
+  };
+}
+
+/** Fold one per-user result into the maintenance run's aggregate counters. */
+export function mergePushDeliveryStats(
+  target: PushDeliveryStats,
+  source: PushDeliveryStats,
+): PushDeliveryStats {
+  target.attempted += source.attempted;
+  target.delivered += source.delivered;
+  target.failed += source.failed;
+  for (const category of PUSH_FAILURE_CATEGORIES) {
+    target.failureCategories[category] +=
+      source.failureCategories[category] ?? 0;
+  }
+  return target;
+}
 
 export function pushKeysConfigured(keys: PushKeys | null): boolean {
   return Boolean(keys?.publicKey && keys?.privateKey);
@@ -68,13 +129,24 @@ export async function savePushSubscription(
   user: UserRow,
   input: { endpoint: string; p256dh: string; auth: string },
 ): Promise<void> {
+  const endpoint = input.endpoint.trim();
+  try {
+    // Push endpoints are user-controlled and later fetched by a Worker, so
+    // they get the same SSRF checks as webhook destinations.
+    validateOutboundUrl(endpoint, { requireHttps: true });
+  } catch (error) {
+    if (error instanceof OutboundFetchError) {
+      throw new ValidationError("Push endpoint must be a public HTTPS URL");
+    }
+    throw error;
+  }
   const now = new Date().toISOString();
   await db
     .insert(pushSubscriptions)
     .values({
       id: `push/${crypto.randomUUID()}`,
       userId: user.id,
-      endpoint: input.endpoint,
+      endpoint,
       p256dh: input.p256dh,
       auth: input.auth,
       createdAt: now,
@@ -107,11 +179,11 @@ export async function pushNotificationToUser(
   keys: PushKeys,
   userId: string,
   payload: PushPayload,
-): Promise<number> {
+): Promise<PushDeliveryStats> {
+  const stats = createPushDeliveryStats();
   const subscriptions = await listPushSubscriptions(db, userId);
-  if (subscriptions.length === 0) return 0;
-  let delivered = 0;
   for (const subscription of subscriptions) {
+    stats.attempted += 1;
     try {
       await sendWebPush(
         keys,
@@ -122,8 +194,11 @@ export async function pushNotificationToUser(
         },
         payload,
       );
-      delivered += 1;
+      stats.delivered += 1;
     } catch (error) {
+      stats.failed += 1;
+      const category = classifyPushFailure(error);
+      stats.failureCategories[category] += 1;
       // 404/410 mean the browser is gone; drop the subscription row.
       if (error instanceof PushEndpointExpiredError) {
         await db
@@ -132,10 +207,48 @@ export async function pushNotificationToUser(
       }
     }
   }
-  return delivered;
+  if (stats.failed > 0) {
+    // Deliberately excludes endpoints and payloads: only bounded counters and
+    // categories are safe to retain in Worker logs.
+    console.warn(
+      JSON.stringify({
+        message: "web push delivery failures",
+        userId,
+        attempted: stats.attempted,
+        delivered: stats.delivered,
+        failed: stats.failed,
+        failureCategories: stats.failureCategories,
+      }),
+    );
+  }
+  return stats;
 }
 
 export class PushEndpointExpiredError extends Error {}
+
+export class PushHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`push delivery failed: http_${status}`);
+    this.name = "PushHttpError";
+  }
+}
+
+export function classifyPushFailure(error: unknown): PushFailureCategory {
+  if (error instanceof PushEndpointExpiredError) return "endpoint_expired";
+  if (error instanceof OutboundFetchError) return "unsafe_endpoint";
+  if (error instanceof PushHttpError) {
+    return error.status >= 500 ? "http_5xx" : "http_4xx";
+  }
+  if (error instanceof TypeError) return "network_error";
+  if (
+    error instanceof DOMException &&
+    (error.name === "OperationError" || error.name === "InvalidAccessError")
+  ) {
+    return "crypto_error";
+  }
+  if (error instanceof RangeError) return "payload_error";
+  return "unknown";
+}
 
 // ---------------------------------------------------------------------------
 // Crypto: VAPID JWT (ES256) + RFC 8291 aes128gcm envelope
@@ -369,7 +482,7 @@ export async function sendWebPush(
     subscription.auth,
     payload,
   );
-  const response = await fetch(subscription.endpoint, {
+  const response = await safeOutboundFetch(subscription.endpoint, {
     method: "POST",
     headers: {
       authorization: `vapid t=${jwt}, k=${keys.publicKey}`,
@@ -378,12 +491,16 @@ export async function sendWebPush(
       urgency: "normal",
     },
     body: body as unknown as BodyInit,
+    maxRedirects: 0,
+    maxResponseBytes: 64 * 1024,
+    requireHttps: true,
+    timeoutMs: 10_000,
   });
   if (response.status === 404 || response.status === 410) {
     throw new PushEndpointExpiredError("push subscription expired");
   }
   if (!response.ok) {
-    throw new Error(`push delivery failed: http_${response.status}`);
+    throw new PushHttpError(response.status);
   }
 }
 
@@ -400,11 +517,26 @@ export async function pushReminders(
   db: FlareMoDb,
   keys: PushKeys,
   entries: Array<{ userId: string; payload: PushPayload }>,
-): Promise<void> {
-  if (!pushKeysConfigured(keys)) return;
+): Promise<PushDeliveryStats> {
+  const totals = createPushDeliveryStats();
+  if (!pushKeysConfigured(keys)) return totals;
   for (const entry of entries) {
-    await pushNotificationToUser(db, keys, entry.userId, entry.payload).catch(
-      () => undefined,
-    );
+    const stats = await pushNotificationToUser(
+      db,
+      keys,
+      entry.userId,
+      entry.payload,
+    ).catch((error) => {
+      console.warn(
+        JSON.stringify({
+          message: "web push dispatch failed",
+          userId: entry.userId,
+          failureCategory: classifyPushFailure(error),
+        }),
+      );
+      return createPushDeliveryStats();
+    });
+    mergePushDeliveryStats(totals, stats);
   }
+  return totals;
 }

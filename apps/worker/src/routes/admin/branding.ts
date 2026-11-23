@@ -22,11 +22,12 @@ import {
   upsertBrandingMark,
   ValidationError,
 } from "@flaremo/domain";
-import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { HonoBindings } from "../../context";
 import { jsonError } from "../../http";
+import { invalidateBrandingCache } from "../../settings-cache";
+import { zValidator } from "../../validated";
 import { ownerContext } from "./context";
 
 const updateBrandingSchema = z.object({
@@ -101,6 +102,7 @@ export function registerBrandingRoutes(app: Hono<HonoBindings>) {
         }
       }
       branding ??= await getBranding(db);
+      invalidateBrandingCache(db);
       return c.json({
         product: branding.product,
         accent: branding.accent,
@@ -142,6 +144,7 @@ export function registerBrandingRoutes(app: Hono<HonoBindings>) {
         httpMetadata: { contentType },
       });
       await upsertBrandingMark(db, variant.data, contentType);
+      invalidateBrandingCache(db);
       return c.json({ saved: true, variant: variant.data });
     } catch (error) {
       return jsonError(c, error);
@@ -161,6 +164,7 @@ export function registerBrandingRoutes(app: Hono<HonoBindings>) {
       if (staleKey) {
         await c.env.ATTACHMENTS.delete(staleKey);
       }
+      invalidateBrandingCache(db);
       return c.json({ removed: true, variant: variant.data });
     } catch (error) {
       return jsonError(c, error);
@@ -191,6 +195,7 @@ export function registerBrandingRoutes(app: Hono<HonoBindings>) {
         httpMetadata: { contentType },
       });
       await upsertBrandingFavicon(db, contentType);
+      invalidateBrandingCache(db);
       return c.json({ saved: true });
     } catch (error) {
       return jsonError(c, error);
@@ -204,6 +209,7 @@ export function registerBrandingRoutes(app: Hono<HonoBindings>) {
       if (staleKey) {
         await c.env.ATTACHMENTS.delete(staleKey);
       }
+      invalidateBrandingCache(db);
       return c.json({ removed: true });
     } catch (error) {
       return jsonError(c, error);

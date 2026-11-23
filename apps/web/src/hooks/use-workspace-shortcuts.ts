@@ -9,11 +9,16 @@ import { focusComposerInput } from "@/lib/composer-focus";
  *
  * The document listener reads the memo list it walks and the card handlers it
  * triggers through refs the render body keeps current, so the effect
- * re-subscribes only when the focused index changes. The refs are returned for
+ * re-subscribes only when the focused id changes. The refs are returned for
  * that assignment.
  */
+const memoKey = (memo: Memo) => memo.id || memo.name;
+
 export function useWorkspaceShortcuts() {
-  const [focusedMemoIndex, setFocusedMemoIndex] = useState<number | null>(null);
+  // Track the id, not the array position: a filter/view change swaps the
+  // list underneath the cursor, and an index would silently point at a
+  // different memo (so `e` could archive the wrong record).
+  const [focusedMemoId, setFocusedMemoId] = useState<string | null>(null);
   const [shortcutsOpen, setShowShortcutsOpen] = useState(false);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const displayedMemosRef = useRef<Memo[]>([]);
@@ -22,15 +27,30 @@ export function useWorkspaceShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       const target = event.target;
+      const element = target instanceof HTMLElement ? target : null;
       const editable =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLElement && target.isContentEditable);
-      // Chorded shortcuts (⌘C copy, ⌘V paste) and shortcuts while a dialog
+        Boolean(element?.isContentEditable);
+      // A focused button / menu item / combobox must keep its own keys: bare
+      // letters and arrows there belong to the control, not to global
+      // navigation (arrow keys used to be hijacked while a toolbar button had
+      // focus, so the page could not be scrolled).
+      const interactive =
+        element?.closest(
+          'button, a, select, [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="switch"], [role="checkbox"], [role="combobox"], [role="slider"], [role="radio"]',
+        ) !== null;
+      const typing = editable || Boolean(interactive);
+      // Chorded shortcuts (⌘C copy, ⌘V paste) and shortcuts while an overlay
       // owns the focus must not steal focus back to the composer/search.
+      // Base UI renders `data-open`, not Radix's `data-state`; menus and
+      // listboxes use their own roles.
       const modalOpen =
-        document.querySelector('[role="dialog"][data-state="open"]') !== null;
+        document.querySelector(
+          '[role="dialog"][data-open], [role="alertdialog"][data-open], [role="menu"][data-open], [role="listbox"][data-open], [role="combobox"][data-open]',
+        ) !== null;
       if (
         (event.metaKey || event.ctrlKey) &&
         event.key.toLocaleLowerCase() === "k"
@@ -39,7 +59,7 @@ export function useWorkspaceShortcuts() {
         setSpotlightOpen(true);
         return;
       }
-      if (event.key === "/" && !editable && !modalOpen) {
+      if (event.key === "/" && !typing && !modalOpen) {
         event.preventDefault();
         setSpotlightOpen(true);
         return;
@@ -47,7 +67,7 @@ export function useWorkspaceShortcuts() {
       // "c" jumps straight into the composer for quick capture.
       if (
         event.key.toLocaleLowerCase() === "c" &&
-        !editable &&
+        !typing &&
         !modalOpen &&
         !event.metaKey &&
         !event.ctrlKey &&
@@ -59,72 +79,67 @@ export function useWorkspaceShortcuts() {
         }
       }
       // "?" lists the available keyboard shortcuts.
-      if (event.key === "?" && !editable && !modalOpen) {
+      if (event.key === "?" && !typing && !modalOpen) {
         event.preventDefault();
         setShowShortcutsOpen(true);
       }
 
       // J/K card keyboard flow when browsing timeline
       if (
-        !editable &&
+        !typing &&
         !modalOpen &&
         !event.metaKey &&
         !event.ctrlKey &&
         !event.altKey
       ) {
         const memosList = displayedMemosRef.current;
+        const currentIndex =
+          focusedMemoId === null
+            ? -1
+            : memosList.findIndex((memo) => memoKey(memo) === focusedMemoId);
+        const focusAt = (index: number) => {
+          const memoItem = memosList[index];
+          if (!memoItem) return;
+          setFocusedMemoId(memoKey(memoItem));
+          document
+            .querySelector(`[data-memo-id="${memoKey(memoItem)}"]`)
+            ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        };
         if (event.key === "j" || event.key === "ArrowDown") {
           if (memosList.length === 0) return;
           event.preventDefault();
-          setFocusedMemoIndex((prev) => {
-            const next =
-              prev === null ? 0 : Math.min(memosList.length - 1, prev + 1);
-            const memoItem = memosList[next];
-            if (memoItem) {
-              const el = document.querySelector(
-                `[data-memo-id="${memoItem.id || memoItem.name}"]`,
-              );
-              el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-            }
-            return next;
-          });
+          focusAt(
+            currentIndex < 0
+              ? 0
+              : Math.min(memosList.length - 1, currentIndex + 1),
+          );
           return;
         }
         if (event.key === "k" || event.key === "ArrowUp") {
           if (memosList.length === 0) return;
           event.preventDefault();
-          setFocusedMemoIndex((prev) => {
-            const next = prev === null ? 0 : Math.max(0, prev - 1);
-            const memoItem = memosList[next];
-            if (memoItem) {
-              const el = document.querySelector(
-                `[data-memo-id="${memoItem.id || memoItem.name}"]`,
-              );
-              el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-            }
-            return next;
-          });
+          focusAt(currentIndex < 0 ? 0 : Math.max(0, currentIndex - 1));
           return;
         }
-        if (event.key === "e" && focusedMemoIndex !== null) {
-          const current = memosList[focusedMemoIndex];
+        if (event.key === "e" && currentIndex >= 0) {
+          const current = memosList[currentIndex];
           if (current) {
             event.preventDefault();
-            handleArchiveRef.current(current.id || current.name);
+            handleArchiveRef.current(memoKey(current));
           }
           return;
         }
-        if (event.key === "p" && focusedMemoIndex !== null) {
-          const current = memosList[focusedMemoIndex];
+        if (event.key === "p" && currentIndex >= 0) {
+          const current = memosList[currentIndex];
           if (current) {
             event.preventDefault();
-            handlePinRef.current(current.id || current.name, !current.pinned);
+            handlePinRef.current(memoKey(current), !current.pinned);
           }
           return;
         }
-        if (event.key === "Escape" && focusedMemoIndex !== null) {
+        if (event.key === "Escape" && focusedMemoId !== null) {
           event.preventDefault();
-          setFocusedMemoIndex(null);
+          setFocusedMemoId(null);
           return;
         }
       }
@@ -132,11 +147,11 @@ export function useWorkspaceShortcuts() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedMemoIndex]);
+  }, [focusedMemoId]);
 
   return {
     displayedMemosRef,
-    focusedMemoIndex,
+    focusedMemoId,
     handleArchiveRef,
     handlePinRef,
     setShowShortcutsOpen,

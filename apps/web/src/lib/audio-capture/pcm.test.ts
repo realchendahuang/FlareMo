@@ -57,17 +57,24 @@ describe("streaming audio PCM", () => {
   // 18000 push/flush cycles are CPU-bound work, not wall-clock I/O; a busy
   // laptop needs well over the 5s default, and the value under test is sample
   // accounting, not speed.
+  //
+  // That budget is why the frame-size check counts violations instead of
+  // asserting inside the callback: 18000 expect() calls cost more than the
+  // whole resampling loop and pushed this test past the 60s timeout on loaded
+  // CI runners (see the lockfile/flake fixes in fix/ci-20261023).
   it("streams 30 minutes into fixed 100 ms frames without sample drift or audio accumulation", () => {
     let bytes = 0;
     let frames = 0;
+    let misSizedFrames = 0;
     const encoder = new PcmEncoder(48000, (frame) => {
-      expect(frame.byteLength).toBe(3200);
+      if (frame.byteLength !== 3200) misSizedFrames++;
       bytes += frame.byteLength;
       frames++;
     });
     const chunk = new Float32Array(4800).fill(0.1);
     for (let i = 0; i < 18000; i++) encoder.push(chunk);
     encoder.flush();
+    expect(misSizedFrames).toBe(0);
     expect(frames).toBe(18000);
     expect(bytes).toBe(1800 * 16000 * 2);
   }, 60_000);

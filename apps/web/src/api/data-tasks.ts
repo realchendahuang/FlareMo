@@ -36,11 +36,18 @@ export async function listDataTasks() {
 
 export async function createImportTask(input: {
   bundle: unknown;
-  conflict?: "skip" | "duplicate" | "overwrite";
+  conflict?: "skip" | "duplicate";
 }) {
   return apiRequest<{ task: DataTaskDto; result: ImportResult }>(
     "/api/v1/import/tasks",
     { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export async function retryImportTask(id: string) {
+  return apiRequest<{ task: DataTaskDto; result: ImportResult }>(
+    `/api/v1/import/tasks/${encodeURIComponent(id)}/retry`,
+    { method: "POST" },
   );
 }
 

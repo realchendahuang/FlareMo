@@ -40,7 +40,7 @@
 
 1. **`#` 标签自动补全**：输入 `#` 或 tag 词中段时弹出补全下拉（来源 `getMemoStats().tags`，含条数），Enter/点击选中补全，Esc/失焦关闭，方向键导航。这是日常输入最高频的缺失项。
    —— 已实施：`lib/tag-autocomplete.ts`（token 提取 + 候选过滤，带单测）+ composer 内嵌候选面板（↑↓ 导航、Enter/Tab 选中、Esc 关闭、IME 安全、点击 # 按钮直接弹候选）。
-2. **语音入口进 composer**：工具条加麦克风按钮，点击展开紧凑录音面板（复用 `lib/audio-capture`），录完转写文本插入草稿光标处；完整录音体验仍归 `/capture`（P2/P3 见 `voice-capture-rollout.md`）。
+2. **语音入口进 composer**：工具条加麦克风按钮，点击展开紧凑录音面板（复用 `lib/audio-capture`），录完转写文本插入草稿光标处；独立的 `/capture` 录音页已在 v0.24.0 删除，语音只走这一个入口。
    —— 已实施：composer 工具条麦克风按钮（仅实例配置了 ASR 时显示），紧凑录音面板（计时 + 实时 partial + 停止并插入/取消），停止后最终句子经 `joinFinalSentences` 追加进草稿；录音中发送按钮禁用。
 3. **任务/日程入口**：清单按钮插入 `- [ ]`；记录里的待办可「转为任务」，任务带日期即上日历。
    —— 已实施（收口）：composer 清单按钮插入 `- [ ] `；卡片 checkbox 对编辑者可点（`lib/memo-tasks.ts` 定位源行改写，走 memo 更新的乐观更新链，点击即时回显）；任务行（对编辑者）悬停出现「转为任务」入口，点击建任务并以 `source_memo_id` 回链原记录（任务卡显示来源入口）。对应关系按 D2 定稿：**勾选 ≠ 建任务**——勾选只改正文，只有显式转化才产生任务；任务侧不回写正文。决策与实施记录见 `projects-tasks-audit.md`（D2）与 [docs/concept-model.md](./concept-model.md)。

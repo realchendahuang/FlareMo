@@ -12,7 +12,7 @@ export const embeddingStatusSchema = z.enum([
   "error",
 ]);
 
-export const embeddingTaskResourceTypeSchema = z.enum(["memo", "memory"]);
+export const embeddingTaskResourceTypeSchema = z.enum(["memo"]);
 export const embeddingTaskOperationSchema = z.enum([
   "index",
   "reindex",
@@ -30,7 +30,7 @@ export const embeddingTaskStatusSchema = z.enum([
 export const semanticSearchHitSchema = z.object({
   id: z.string(),
   score: z.number(),
-  kind: z.enum(["memo", "memory"]),
+  kind: z.enum(["memo"]),
 });
 
 export const semanticSearchResponseSchema = z.object({
@@ -78,14 +78,12 @@ export const planUsageReportSchema = z.object({
         aiEmbeddingTokensPerMonth: planLimitValueSchema,
         semanticSearchQueriesPerMonth: planLimitValueSchema,
         maxMemosPerUser: planLimitValueSchema,
-        maxMemoryItemsPerUser: planLimitValueSchema,
       }),
       usage: z.object({
         attachmentStorageBytes: z.number().int(),
         aiEmbeddingTokensPerMonth: z.number().int(),
         semanticSearchQueriesPerMonth: z.number().int(),
         maxMemosPerUser: z.number().int(),
-        maxMemoryItemsPerUser: z.number().int(),
       }),
     })
     .optional(),
@@ -103,7 +101,7 @@ export const vectorUsageReportSchema = z.object({
   indexes: z.array(
     z.object({
       name: z.string(),
-      kind: z.enum(["memo", "memory"]),
+      kind: z.enum(["memo"]),
       vectors_count: z.number().int(),
       stored_dimensions: z.number().int(),
     }),

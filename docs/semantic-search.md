@@ -48,7 +48,6 @@ memos/{memo_id}#chunks/{chunk_index}
 ```
 
 - **memo 向量按可见性分区写入 namespace**：私密 memo 的向量写在作者的个人 namespace（`user:{userId}`），对团队可见的 memo（`protected` / `public`）写在共享团队 namespace（`team:{teamId}`，当前部署用常量 `default`）。metadata 里的 `user_id` 只是归属标注，不作为 Vectorize 侧的查询预过滤。可见性转换通过 outbox 的 `relocate` 任务把向量搬家到目标 namespace（`getByIds` 原样读回向量值，不重新生成 embedding），写入路径在 upsert 前先做 index 级 `deleteByIds` 清掉旧分区的残留。授权边界是查询时回 D1 的 `memoReadScope` 复查（见「查询流程」），而不是 namespace 或 metadata 过滤。设计见 [vector-namespace-design.md](./vector-namespace-design.md)。
-- **memory 向量保留 per-user namespace**（namespace = 记忆所属用户），因为记忆召回只允许触达调用者自己的条目。
 - metadata 只用于过滤和回查。不要把完整 `content`、附件正文、share token、Access Service Token、用户邮箱或其他凭据放进 Vectorize metadata。
 
 ## 写入流程
@@ -118,9 +117,9 @@ Vectorize V2 的 mutation 可能不是立刻对查询可见，因此查询层始
 
 语义搜索已上线，对应的基础设施：
 
-- `wrangler.jsonc` 的 `VECTORIZE_MEMOS`（flaremo-memos）、`VECTORIZE_MEMORIES`（flaremo-memories）和 Workers AI `AI` binding。
-- D1 的 `embedding_tasks` outbox 表，以及 `memos` / `memory_items` 上的 `embedding_*` 状态字段。
+- `wrangler.jsonc` 的 `VECTORIZE_MEMOS`（flaremo-memos）和 Workers AI `AI` binding。
+- D1 的 `embedding_tasks` outbox 表，以及 `memos` 上的 `embedding_*` 状态字段。
 - 派发通道：请求路径 outbox sweep + 每日 Cron，不依赖 GitHub Actions 或额外队列。
 - API contract：`/api/app/search/semantic`（Zod schema、每月语义搜索配额检查）与前端搜索栏的「语义搜索」入口。
 - D1 回查（`memoReadScope`）、状态过滤、删除同步和降级路径均有 Vitest 覆盖。
-- Agent Memory 的语义召回共用同一套 provider / outbox 基础设施，但向量保留在 per-user namespace，见 [agent-memory.md](./agent-memory.md)。
+- 语义搜索只覆盖 memo；Agent 通过 `/mcp` 读写笔记，不再有独立的记忆向量索引。

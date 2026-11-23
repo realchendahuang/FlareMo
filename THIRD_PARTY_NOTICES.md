@@ -25,3 +25,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Geist (font)
+
+`integrations/dsh-plugin/src/client/assets/geist-latin-wght-normal.woff2` is the latin
+variable-weight subset of Geist, bundled into the DSH plugin's client build.
+
+Copyright (c) 2023 Vercel, in collaboration with basement.studio.
+Licensed under the SIL Open Font License, Version 1.1
+(https://openfontlicense.org). The font is redistributed unmodified as a WOFF2 subset
+produced by @fontsource (https://fontsource.org/fonts/geist).

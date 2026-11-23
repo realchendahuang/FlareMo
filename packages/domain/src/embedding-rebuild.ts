@@ -1,5 +1,5 @@
 import type { FlareMoDb } from "@flaremo/db";
-import { memoryItems, memos } from "@flaremo/db";
+import { memos } from "@flaremo/db";
 import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import {
   chunkText,
@@ -10,6 +10,7 @@ import {
   type VectorIndex,
 } from "./embedding";
 import { recordEmbeddingUsage } from "./embedding-processors";
+import { notComment } from "./memo-comment-filter";
 
 // ---------------------------------------------------------------------------
 // Full rebuild
@@ -20,7 +21,6 @@ const REBUILD_PAGE_SIZE = 200;
 export type RebuildEmbeddingDeps = {
   provider: EmbeddingProvider;
   memosIndex: VectorIndex;
-  memoriesIndex: VectorIndex;
   onProgress?: (done: number, total: number) => void;
 };
 
@@ -79,40 +79,7 @@ export async function rebuildEmbeddingIndexes(
     }
   }
 
-  // Memories: index every active memory as a single atomic vector.
-  const activeMemories = await db
-    .select()
-    .from(memoryItems)
-    .where(eq(memoryItems.status, "active"));
-  for (const memory of activeMemories) {
-    const vectors = await deps.provider.embed([memory.content]);
-    await recordEmbeddingUsage(db, memory.userId, [memory.content]);
-    await deps.memoriesIndex.upsert([
-      {
-        id: memory.id,
-        values: vectors[0] ?? [],
-        metadata: { memory_id: memory.id, user_id: memory.userId },
-        namespace: memory.userId,
-      },
-    ]);
-    await db
-      .update(memoryItems)
-      .set({
-        embeddingStatus: "indexed",
-        embeddingVersion: version,
-        embeddedAt: new Date().toISOString(),
-        embeddingError: null,
-        embeddingChunks: 1,
-      })
-      .where(
-        and(
-          eq(memoryItems.id, memory.id),
-          eq(memoryItems.userId, memory.userId),
-        ),
-      );
-  }
-
-  return { memosIndexed: done, memoriesIndexed: activeMemories.length };
+  return { memosIndexed: done };
 }
 
 async function* paginateMemos(db: FlareMoDb) {
@@ -120,6 +87,8 @@ async function* paginateMemos(db: FlareMoDb) {
   do {
     const filters = [
       inArray(memos.status, ["normal", "archived"]),
+      // Comments hold no vectors; see processMemoEmbeddingTask.
+      notComment(),
       ...(afterId ? [gt(memos.id, afterId)] : []),
     ];
     const page = await db

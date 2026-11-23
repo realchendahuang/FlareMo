@@ -1,12 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
+import { MenuIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import {
-  DownloadIcon,
-  MenuIcon,
-  PanelLeftCloseIcon,
-  UploadIcon,
-} from "lucide-react";
-import { useCallback, useMemo } from "react";
-import { toast } from "sonner";
+  type PointerEvent as ReactPointerEvent,
+  type UIEvent,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import type {
   CurrentFlareMoUser,
   MemoSpace,
@@ -14,15 +14,18 @@ import type {
   TagHierarchyNode,
 } from "@/api";
 import { FlareMoExplorer } from "@/components/flaremo-explorer";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { UserMenu } from "@/components/user-menu";
 import { useI18n } from "@/i18n";
 import { dayFilterQuery } from "@/lib/calendar-date";
@@ -34,6 +37,8 @@ export type WorkspaceSidebarContent = {
   hierarchy: TagHierarchyNode[];
   hierarchyPending: boolean;
   stats: MemoStatsResponse;
+  statsError: boolean;
+  tagsError: boolean;
   /** Viewer's IANA zone + space scope: the year view anchors its own stats
    * query with them (issue #144). */
   timeZone: string;
@@ -45,17 +50,107 @@ export type WorkspaceSidebarContent = {
   onImportFile: (bundle: unknown) => Promise<void>;
   onOpenSettings: () => void;
   onRenameTag: (from: string, to: string) => void;
+  onRetryStats: () => void;
+  onRetryTags: () => void;
   onTagChange: (tag?: string) => void;
   onToggleCollapsed: () => void;
   onUntaggedChange: (untagged: boolean) => void;
 };
 
 type WorkspaceExplorerPanelProps = WorkspaceSidebarContent & {
-  /** Id of this instance's hidden import input (desktop and sheet differ). */
-  importInputId: string;
+  /** Draws the header hairline once the panel has scrolled. */
+  headerScrolled?: boolean;
   onNavigate?: () => void;
-  showCollapse?: boolean;
 };
+
+/** Platform-aware label for the ⌘\ / Ctrl+\ sidebar shortcut. */
+function sidebarShortcutLabel() {
+  if (typeof navigator === "undefined") return "Ctrl \\";
+  return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ \\" : "Ctrl \\";
+}
+
+/** Space the collapsed-state toggle takes at the start of the page header. */
+const TOGGLE_SLOT = 32;
+
+/**
+ * The sidebar toggle: one button that travels with the sidebar's edge.
+ * Expanded, it sits in the sidebar header's trailing corner; collapsing
+ * slides it, together with the shrinking sidebar, to the start of the page
+ * header, where it waits as the expand button. It never disappears and never
+ * jumps, so it can be clicked again at any point, including mid-animation.
+ * It is positioned from the page column's leading edge, which is exactly the
+ * edge the sidebar collapses towards.
+ */
+export function SidebarToggle({
+  animate,
+  collapsed,
+  onToggle,
+}: {
+  animate: boolean;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useI18n();
+  const label = t(collapsed ? "sidebar.expand" : "sidebar.collapse");
+  return (
+    <div
+      className={cn(
+        "absolute top-3.5 z-30 hidden md:block",
+        animate &&
+          "motion-safe:transition-[inset-inline-start] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+      )}
+      // Expanded: 8px resize handle + the sidebar header's 16px padding +
+      // the 28px button to the left of the column. Collapsed: the page
+      // header's 10px padding.
+      style={{ insetInlineStart: collapsed ? 10 : -52 }}
+    >
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-keyshortcuts="Meta+Backslash Control+Backslash"
+              aria-label={label}
+              className="text-muted-foreground hover:text-foreground"
+              data-testid="sidebar-toggle"
+              size="icon-sm"
+              variant="ghost"
+              onClick={onToggle}
+            />
+          }
+        >
+          {collapsed ? (
+            <PanelLeftOpenIcon className="rtl:-scale-x-100" />
+          ) : (
+            <PanelLeftCloseIcon className="rtl:-scale-x-100" />
+          )}
+        </TooltipTrigger>
+        <TooltipContent>
+          {label}
+          <kbd
+            className="rounded-sm bg-background/15 px-1 font-sans text-[11px] tracking-wide"
+            data-slot="kbd"
+          >
+            {sidebarShortcutLabel()}
+          </kbd>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+/**
+ * Keeps the page header's title clear of the toggle while the sidebar is
+ * collapsed; it opens and closes in step with the toggle's travel.
+ */
+export function SidebarToggleSlot({ collapsed }: { collapsed: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="hidden shrink-0 motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-in-out md:block"
+      style={{ width: collapsed ? TOGGLE_SLOT : 0 }}
+    />
+  );
+}
 
 /**
  * One mounted explorer sidebar. Desktop and mobile each render their own, as
@@ -63,26 +158,27 @@ type WorkspaceExplorerPanelProps = WorkspaceSidebarContent & {
  */
 function WorkspaceExplorerPanel({
   activeTag,
+  headerScrolled = false,
   hierarchy,
   hierarchyPending,
-  importInputId,
   onDeleteTag,
   onExport,
   onImportFile,
   onNavigate,
   onOpenSettings,
   onRenameTag,
+  onRetryStats,
+  onRetryTags,
   onTagChange,
-  onToggleCollapsed,
   onUntaggedChange,
-  showCollapse = false,
   space,
   stats,
+  statsError,
+  tagsError,
   timeZone,
   untagged,
   user,
 }: WorkspaceExplorerPanelProps) {
-  const { t } = useI18n();
   const navigate = useNavigate({ from: "/" });
 
   // FlareMoExplorer is memoized but its slots are ReactNodes, so identity is
@@ -112,88 +208,34 @@ function WorkspaceExplorerPanel({
   );
 
   const header = useMemo(
-    () => <UserMenu onOpenSettings={handleOpenSettings} user={user} />,
-    [handleOpenSettings, user],
-  );
-
-  const headerAction = useMemo(
-    () =>
-      showCollapse ? (
-        <Button
-          aria-label={t("sidebar.collapse")}
-          size="icon-sm"
-          title={t("sidebar.collapse")}
-          variant="ghost"
-          onClick={onToggleCollapsed}
-        >
-          <PanelLeftCloseIcon />
-        </Button>
-      ) : undefined,
-    [showCollapse, onToggleCollapsed, t],
-  );
-
-  const footer = useMemo(
     () => (
-      <div className="flex items-center gap-1 text-muted-foreground">
-        <LocaleSwitcher />
-        <Button
-          aria-label={t("common.export")}
-          size="icon-sm"
-          title={t("common.export")}
-          variant="ghost"
-          onClick={() => void onExport()}
-        >
-          <DownloadIcon />
-        </Button>
-        <Button
-          render={
-            <label
-              aria-label={t("common.import")}
-              htmlFor={importInputId}
-              title={t("common.import")}
-            />
-          }
-          size="icon-sm"
-          variant="ghost"
-        >
-          <UploadIcon />
-          <Input
-            accept="application/json"
-            className="hidden"
-            id={importInputId}
-            type="file"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              if (!file) return;
-              try {
-                const text = await file.text();
-                void onImportFile(JSON.parse(text) as unknown);
-              } catch {
-                toast.error(t("toast.invalidImport"));
-              }
-            }}
-          />
-        </Button>
-      </div>
+      <UserMenu
+        onExport={onExport}
+        onImportFile={onImportFile}
+        onOpenSettings={handleOpenSettings}
+        user={user}
+      />
     ),
-    [importInputId, onExport, onImportFile, t],
+    [handleOpenSettings, onExport, onImportFile, user],
   );
 
   return (
     <FlareMoExplorer
       activeTag={activeTag}
       header={header}
-      headerAction={headerAction}
-      footer={footer}
+      headerScrolled={headerScrolled}
       space={space}
       stats={stats}
+      statsError={statsError}
+      tagsError={tagsError}
       timeZone={timeZone}
       hierarchy={hierarchy}
       hierarchyPending={hierarchyPending}
       untagged={untagged}
       onDeleteTag={onDeleteTag}
       onRenameTag={onRenameTag}
+      onRetryStats={onRetryStats}
+      onRetryTags={onRetryTags}
       onTagChange={onTagChange}
       onUntaggedChange={onUntaggedChange}
       onDaySelect={handleDaySelect}
@@ -202,32 +244,83 @@ function WorkspaceExplorerPanel({
   );
 }
 
-/** The desktop sidebar column, collapsing to zero width with the header button. */
+/** Scroll state for a sidebar scroller, driving the header hairline. */
+function useScrolled() {
+  const [scrolled, setScrolled] = useState(false);
+  const onScroll = useCallback((event: UIEvent<HTMLElement>) => {
+    const next = event.currentTarget.scrollTop > 4;
+    setScrolled((prev) => (prev === next ? prev : next));
+  }, []);
+  return [scrolled, onScroll] as const;
+}
+
+/**
+ * The desktop sidebar column plus its resize handle (flomo's rails). Hiding
+ * eases the column's width to zero; the panel inside keeps its width and is
+ * pinned to the column's inner edge, so it slides away under the page rather
+ * than being squeezed. The 8px handle after it resizes the column between
+ * 216px and 312px and shows a hairline while hovered or dragged.
+ */
 export function WorkspaceSidebar({
+  animate,
   collapsed,
   explorer,
+  resizing,
+  width,
+  onResizeStart,
 }: {
+  /** Ease width changes (off on first paint and while dragging). */
+  animate: boolean;
   collapsed: boolean;
   explorer: WorkspaceSidebarContent;
+  resizing: boolean;
+  width: number;
+  onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
+  const { t } = useI18n();
+  const [scrolled, onScroll] = useScrolled();
   return (
-    <aside
-      aria-hidden={collapsed}
-      className={cn(
-        "hidden lg:block h-full shrink-0 overflow-hidden motion-safe:transition-[width,opacity] motion-safe:duration-250 motion-safe:ease-signal",
-        collapsed
-          ? "w-0 opacity-0 pointer-events-none"
-          : "w-[312px] opacity-100",
-      )}
-    >
-      <div className="no-scrollbar h-full w-[312px] overflow-y-auto border-r bg-background">
-        <WorkspaceExplorerPanel
-          {...explorer}
-          importInputId="flaremo-import-file-desktop"
-          showCollapse
+    <>
+      <aside
+        aria-hidden={collapsed || undefined}
+        className={cn(
+          "hidden h-full shrink-0 justify-end overflow-hidden md:flex",
+          animate &&
+            "motion-safe:transition-[width,opacity] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+          collapsed && "opacity-0",
+        )}
+        inert={collapsed}
+        style={{ width: collapsed ? 0 : width }}
+      >
+        <div
+          className="no-scrollbar h-full shrink-0 overflow-y-auto bg-background"
+          style={{ width }}
+          onScroll={onScroll}
+        >
+          <WorkspaceExplorerPanel {...explorer} headerScrolled={scrolled} />
+        </div>
+      </aside>
+      <div
+        aria-hidden="true"
+        className={cn(
+          "group/resizer relative hidden h-full shrink-0 cursor-col-resize md:block",
+          animate &&
+            "motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-in-out",
+          collapsed ? "pointer-events-none w-0" : "w-2",
+        )}
+        data-testid="sidebar-resizer"
+        title={t("sidebar.resize")}
+        onDoubleClick={() => explorer.onToggleCollapsed()}
+        onPointerDown={onResizeStart}
+      >
+        <span
+          className={cn(
+            "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border opacity-0 motion-safe:transition-opacity motion-safe:duration-150 group-hover/resizer:opacity-100",
+            resizing && "opacity-100",
+          )}
         />
       </div>
-    </aside>
+    </>
   );
 }
 
@@ -249,7 +342,7 @@ export function WorkspaceMobileSidebar({
         render={
           <Button
             aria-label={t("sidebar.toggle")}
-            className="lg:hidden"
+            className="text-muted-foreground hover:text-foreground md:hidden"
             size="icon-sm"
             variant="ghost"
           >
@@ -257,7 +350,7 @@ export function WorkspaceMobileSidebar({
           </Button>
         }
       />
-      <SheetContent className="w-[312px] overflow-hidden p-0" side="left">
+      <SheetContent className="w-[300px] overflow-hidden p-0" side="start">
         <SheetTitle className="sr-only">{t("sidebar.title")}</SheetTitle>
         <div
           className="no-scrollbar h-full overflow-y-auto overscroll-contain"
@@ -265,7 +358,6 @@ export function WorkspaceMobileSidebar({
         >
           <WorkspaceExplorerPanel
             {...explorer}
-            importInputId="flaremo-import-file-mobile"
             onNavigate={() => onOpenChange(false)}
           />
         </div>

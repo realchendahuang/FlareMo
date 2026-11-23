@@ -238,9 +238,11 @@ describe("space-scoped stats and tags", () => {
       return tree.map((node) => ({ name: node.name, count: node.count }));
     };
     expect(await tagOf("personal")).toEqual([{ name: "space-tags", count: 1 }]);
-    expect(tagOf("team")).resolves.toEqual([{ name: "space-tags", count: 2 }]);
+    await expect(tagOf("team")).resolves.toEqual([
+      { name: "space-tags", count: 2 },
+    ]);
     // Legacy call (no space) keeps the own-corpus semantics.
-    expect(tagOf(undefined)).resolves.toEqual([
+    await expect(tagOf(undefined)).resolves.toEqual([
       { name: "space-tags", count: 2 },
     ]);
   });
@@ -366,5 +368,58 @@ describe("getMemoStats until anchor", () => {
     expect(anchored.activity.find((d) => d.date === "2019-09-20")?.count).toBe(
       1,
     );
+  });
+});
+
+describe("listTagHierarchy aggregation", () => {
+  it("counts each memo once per ancestor when it carries both parent and child tags", async () => {
+    // The ancestor count is a distinct-memo count, not a sum of leaf counts:
+    // a memo tagged both 工作 and 工作/项目a must contribute 1 to 工作, not 2.
+    await createMemo(db, member, {
+      content: "both levels #工作 #工作/项目a",
+      visibility: "private",
+      source: "web",
+    });
+    await createMemo(db, member, {
+      content: "child only #工作/项目a",
+      visibility: "private",
+      source: "web",
+    });
+    await createMemo(db, member, {
+      content: "grandchild #工作/项目a/子",
+      visibility: "private",
+      source: "web",
+    });
+    await createMemo(db, member, {
+      content: "plain tag #生活",
+      visibility: "private",
+      source: "web",
+    });
+
+    const tree = await listTagHierarchy(db, member, {});
+    const byName = new Map(tree.map((node) => [node.name, node]));
+    expect(byName.get("生活")?.count).toBe(1);
+
+    const work = byName.get("工作");
+    expect(work?.count).toBe(3);
+    const project = work?.children.find((node) => node.name === "工作/项目a");
+    expect(project?.count).toBe(3);
+    expect(project?.children[0]?.name).toBe("工作/项目a/子");
+    expect(project?.children[0]?.count).toBe(1);
+  });
+
+  it("keeps flat tags at their own distinct-memo count", async () => {
+    await createMemo(db, member, {
+      content: "one #平铺",
+      visibility: "private",
+      source: "web",
+    });
+    await createMemo(db, member, {
+      content: "two #平铺",
+      visibility: "private",
+      source: "web",
+    });
+    const tree = await listTagHierarchy(db, member, {});
+    expect(tree.find((node) => node.name === "平铺")?.count).toBe(2);
   });
 });

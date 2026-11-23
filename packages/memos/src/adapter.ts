@@ -60,6 +60,14 @@ export function attachmentToDto(attachment: AttachmentRow): AttachmentDto {
     update_time: attachment.updatedAt,
     download_url: `/api/v1/${attachment.id}/blob`,
     preview_url: `/api/v1/${attachment.id}/blob?disposition=inline`,
+    // Present only when a preview was generated at upload time. Clients use
+    // its absence to fall back to `preview_url` instead of requesting a
+    // thumbnail the server would 404.
+    ...(attachment.payload?.thumbnail === true
+      ? {
+          thumbnail_url: `/api/v1/${attachment.id}/blob?disposition=inline&thumbnail=true`,
+        }
+      : {}),
   };
 }
 

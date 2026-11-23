@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { createProject, type Project, updateProject } from "@/api";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
@@ -32,14 +33,24 @@ export function ProjectFormDialog({
   const [name, setName] = useState(project?.name ?? "");
   const [description, setDescription] = useState(project?.description ?? "");
 
+  useEffect(() => {
+    if (open) {
+      setName(project?.name ?? "");
+      setDescription(project?.description ?? "");
+    }
+  }, [open, project]);
+
   const saveMutation = useMutation({
     mutationFn: () =>
       project
         ? updateProject(stripResourceName(project.id, "projects"), {
-            name,
+            name: name.trim(),
             description: description || null,
           })
-        : createProject({ name, description: description || undefined }),
+        : createProject({
+            name: name.trim(),
+            description: description || undefined,
+          }),
     onSuccess: () => {
       toast.success(
         t(project ? "toast.projectUpdated" : "toast.projectCreated"),
@@ -62,6 +73,8 @@ export function ProjectFormDialog({
       ),
   });
 
+  const canSave = Boolean(name.trim()) && !saveMutation.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -70,7 +83,13 @@ export function ProjectFormDialog({
             {project ? t("projects.editProject") : t("projects.newProject")}
           </DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSave) saveMutation.mutate();
+          }}
+        >
           <Field label={t("projects.field.name")}>
             <Input
               value={name}
@@ -83,17 +102,25 @@ export function ProjectFormDialog({
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  (event.metaKey || event.ctrlKey) &&
+                  canSave
+                ) {
+                  event.preventDefault();
+                  saveMutation.mutate();
+                }
+              }}
             />
           </Field>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!name.trim() || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
-          >
-            {t("common.save")}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button disabled={!canSave} type="submit">
+              {saveMutation.isPending && <Spinner data-icon="inline-start" />}
+              {t("common.save")}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

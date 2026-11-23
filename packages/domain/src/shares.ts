@@ -1,7 +1,7 @@
 import type { CreateShareInput } from "@flaremo/contracts";
 import type { FlareMoDb, UserRow } from "@flaremo/db";
 import { attachments, memos, shares, users } from "@flaremo/db";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "./errors";
 import { createResourceId, createToken, parseResourceName } from "./ids";
 import { getMemoById } from "./memos";
@@ -101,14 +101,16 @@ export async function listMemoShares(
     eq(shares.memoId, normalizedMemoId),
   ];
   if (!options.includeRevoked) filters.push(isNull(shares.revokedAt));
-  const rows = await db
+  // Expiry is a row predicate, not a post-processing step: filtering in JS
+  // meant reading every share the memo ever produced, including expired ones.
+  const now = new Date().toISOString();
+  const unexpired = or(isNull(shares.expiresAt), gt(shares.expiresAt, now));
+  if (unexpired) filters.push(unexpired);
+  return db
     .select()
     .from(shares)
-    .where(and(...filters));
-  return rows.filter(
-    (share) =>
-      !share.expiresAt || new Date(share.expiresAt).getTime() > Date.now(),
-  );
+    .where(and(...filters))
+    .orderBy(desc(shares.createdAt));
 }
 
 export async function revokeMemoShare(

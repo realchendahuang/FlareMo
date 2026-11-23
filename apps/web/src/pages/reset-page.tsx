@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { resetPassword } from "@/api";
 import { AuthPageFrame } from "@/components/auth-page-frame";
@@ -6,6 +6,7 @@ import {
   MIN_PASSWORD_LENGTH,
   NewPasswordFields,
 } from "@/components/new-password-fields";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/error";
@@ -48,9 +49,9 @@ export function ResetPage({ token }: { token: string | undefined }) {
   if (done) {
     return (
       <AuthPageFrame title={t("reset.title")}>
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+        <Alert role="status" variant="success">
           {t("reset.success")}
-        </p>
+        </Alert>
         <Button
           className="mt-4 w-full"
           variant="brand"
@@ -68,9 +69,9 @@ export function ResetPage({ token }: { token: string | undefined }) {
       title={t("reset.title")}
     >
       {!token && (
-        <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
+        <Alert className="mb-4" variant="destructive">
           {t("reset.missingToken")}
-        </p>
+        </Alert>
       )}
       <form
         className="flex flex-col gap-4"
@@ -87,14 +88,18 @@ export function ResetPage({ token }: { token: string | undefined }) {
           onConfirmationChange={setConfirmation}
           onNewPasswordChange={setNewPassword}
         />
-        {formError && (
-          <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
-            {formError}
-          </p>
-        )}
+        {formError && <Alert variant="destructive">{formError}</Alert>}
         <Button disabled={isSubmitting || !token} type="submit" variant="brand">
           {isSubmitting ? t("reset.submitting") : t("reset.submit")}
         </Button>
+        <p className="text-center text-sm">
+          <Link
+            className="text-muted-foreground underline-offset-4 hover:underline"
+            to="/login"
+          >
+            {t("auth.signIn")}
+          </Link>
+        </p>
       </form>
     </AuthPageFrame>
   );

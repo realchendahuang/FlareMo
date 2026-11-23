@@ -1,4 +1,3 @@
-import { Loader2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Article } from "@/api";
@@ -13,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n";
 
@@ -138,7 +138,7 @@ export function ArticlePublishDialog({
             type="button"
             variant={isPublished ? "destructive" : "default"}
           >
-            {pending && <Loader2Icon className="size-4 animate-spin" />}
+            {pending && <Spinner className="size-4" />}
             {isPublished
               ? t("article.unpublishAction")
               : t("article.publishAction")}

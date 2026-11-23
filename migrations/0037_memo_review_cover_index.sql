@@ -1,0 +1,1 @@
+CREATE INDEX `memos_normal_review_cover_idx` ON `memos` (`created_at`,`id`,`user_id`) WHERE status = 'normal';

@@ -45,7 +45,16 @@ void ensurePwaServiceWorkerRegistration();
 // synchronously, and for the other seven this one chunk is the difference
 // between a correct first frame and an English flash. `loadLocaleMessages`
 // never rejects — a failed pack still renders, with per-key English fallback.
-void loadLocaleMessages(getInitialLocale()).then(() => {
+// A cap keeps a stalled catalog request from becoming a permanent blank page:
+// the English fallback is always better than no frame at all.
+const LOCALE_GATE_TIMEOUT_MS = 1_500;
+
+void Promise.race([
+  loadLocaleMessages(getInitialLocale()),
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, LOCALE_GATE_TIMEOUT_MS);
+  }),
+]).then(() => {
   createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>

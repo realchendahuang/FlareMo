@@ -119,7 +119,7 @@ export function chunkText(
   const normalized = text.trim();
   if (!normalized) return [];
   const budget = maxTokens * EMBEDDING_CHARS_PER_TOKEN;
-  if ([...normalized].length <= budget) return [normalized];
+  if (Array.from(normalized).length <= budget) return [normalized];
 
   // Split into candidate blocks on paragraph and sentence boundaries first,
   // then greedily pack them into chunks that stay under the budget.
@@ -131,19 +131,19 @@ export function chunkText(
   const chunks: string[] = [];
   let current = "";
   for (const block of blocks) {
-    if ([...block].length > budget) {
+    if (Array.from(block).length > budget) {
       // A single oversized block (no boundary found): hard-split by budget.
       if (current) {
         chunks.push(current.trim());
         current = "";
       }
-      const runes = [...block];
+      const runes = Array.from(block);
       for (let i = 0; i < runes.length; i += budget) {
         chunks.push(runes.slice(i, i + budget).join(""));
       }
       continue;
     }
-    if ([...current].length + [...block].length + 1 > budget) {
+    if (Array.from(current).length + Array.from(block).length + 1 > budget) {
       chunks.push(current.trim());
       current = block;
     } else {

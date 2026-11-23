@@ -27,12 +27,18 @@
 pnpm --filter @flaremo/site build
 ```
 
-确保新 slug 出现在 `src/lib/docs-source.generated.ts` 的 `ZH_DOCS`/`EN_DOCS` 元数据条目（正文 loader 使用 `?raw`），以及 `scripts/build.mjs` 顶部的 `DOC_SLUGS`。后者是 SSG 的唯一预渲染 slug 清单，`getAllPaths()` 会将 16 个 slug 展开到 8 个 locale，当前总计 162 条路径。英文条目加 `fallbackFromZh: true` 时回退中文正文，详情页顶部显示"翻译待补"提示条（`src/pages/docs-detail-page.tsx`）。
+确保新 slug 出现在 `src/lib/docs-source.generated.ts` 的 `ZH_DOCS`/`EN_DOCS` 元数据条目（正文 loader 使用 `?raw`），以及 `scripts/build.mjs` 顶部的 `DOC_SLUGS`。后者是 SSG 的唯一预渲染 slug 清单，`getAllPaths()` 会将全部 slug 展开到 8 个 locale。英文条目加 `fallbackFromZh: true` 时回退中文正文，详情页顶部显示"翻译待补"提示条（`src/pages/docs-detail-page.tsx`）。
+
+## 社交卡片与「真实界面」素材
+
+- `public/og-image.png`（1200×630）由 `pnpm og:image` 生成：脚本把品牌 mark、Geist 字体与首屏截图内联进 HTML 再截图，素材变化后重跑一次并提交 PNG。不要再改回 SVG——X、Slack、LinkedIn 等抓取器不渲染 SVG 预览。
+- `public/screenshots/` 是首页「A look inside」用的真实界面截图（EN/ZH × 亮/暗/移动端）。来源是本地起 dev server + Playwright 注入 `flaremo.locale`/登录态后截图，然后用 `cwebp -q 82` 转 webp；不要放回模拟图或旧版本截图。
+- `scripts/build.mjs` 会额外产出 `dist/site/404.html`（`wrangler.jsonc` 的 `not_found_handling: "404-page"` 靠它返回带样式的 404，缺了就是白屏）。
 
 ## SEO
 
 - 每个路由的 SEO meta（title / description / og / twitter / canonical / hreflang / JSON-LD）在 `src/content/static-page-meta.ts` 的 `STATIC_PAGE_META` 注册；`src/ssr-render.tsx` 按 pathname 取 meta 交给 `src/lib/html-shell.ts` 的 `buildSeoForPath`（包装 `src/lib/seo.ts` 的 `buildSeoHead`）生成 `<head>` 内容。
-- `src/lib/html-shell.ts` 的 `renderHtmlShell` 生成完整 `<head>`；`src/ssr-render.tsx` 用 `createMemoryHistory` + `router.load()` + `renderToString` 渲染 body。
+- `src/lib/html-shell.ts` 的 `renderHtmlShell` 生成完整 `<head>`；`src/ssr-render.tsx` 用 `createMemoryHistory` + `router.load()` + `renderToString` 渲染 body。404 走 `/__404` 渲染到 `404.html`，meta 带 `noindex`。
 - `scripts/build.mjs` 构建时自动产出 `sitemap.xml` 与 `robots.txt`（后者在 `public/`）。
 
 ## 命令

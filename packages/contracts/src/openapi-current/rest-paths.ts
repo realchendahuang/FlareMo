@@ -72,6 +72,40 @@ export const restPaths = {
       },
     },
   },
+  "/api/v1/auth/signup": {
+    post: {
+      operationId: "signUpCurrent",
+      summary: "Register a compatible member (email provider must be off)",
+      tags: ["Auth"],
+      requestBody: {
+        required: true,
+        content: json({
+          type: "object",
+          required: ["username", "password"],
+          properties: {
+            username: { type: "string" },
+            password: { type: "string" },
+            email: { type: "string", format: "email" },
+            displayName: { type: "string" },
+          },
+        }),
+      },
+      responses: {
+        "201": response("Registered user plus native tokens.", {
+          type: "object",
+          properties: {
+            user: { $ref: "#/components/schemas/User" },
+            accessToken: { type: "string" },
+            accessTokenExpiresAt: { type: "string", format: "date-time" },
+          },
+        }),
+        "403": response(
+          "Registration is closed, or email verification is required.",
+          error,
+        ),
+      },
+    },
+  },
   "/api/v1/auth/refresh": {
     post: secured({
       operationId: "refreshToken",
@@ -519,6 +553,27 @@ export const restPaths = {
       },
     },
   },
+  "/api/v1/shares/{shareToken}/memo": {
+    get: {
+      operationId: "getSharedMemoCurrent",
+      summary: "Get the memo behind a public share token",
+      tags: ["Shares"],
+      parameters: [
+        {
+          name: "shareToken",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+        },
+      ],
+      responses: {
+        "200": response("Shared memo.", {
+          $ref: "#/components/schemas/Memo",
+        }),
+        "404": response("Not found.", error),
+      },
+    },
+  },
   "/api/v1/attachments": {
     get: secured({
       operationId: "listAttachmentsCurrent",
@@ -668,6 +723,28 @@ export const restPaths = {
         }),
       },
     }),
+    post: secured({
+      operationId: "createUserCurrent",
+      summary: "Create a member (instance owner only)",
+      tags: ["Users"],
+      requestBody: {
+        required: true,
+        content: json({
+          type: "object",
+          required: ["username", "password"],
+          properties: {
+            username: { type: "string" },
+            password: { type: "string" },
+            displayName: { type: "string" },
+          },
+        }),
+      },
+      responses: {
+        "201": response("Created user.", { $ref: "#/components/schemas/User" }),
+        "401": response("Unauthenticated.", error),
+        "403": response("Caller is not the instance owner.", error),
+      },
+    }),
   },
   "/api/v1/users/{user}": {
     get: secured({
@@ -677,6 +754,18 @@ export const restPaths = {
       parameters: [userName],
       responses: {
         "200": response("User.", { $ref: "#/components/schemas/User" }),
+      },
+    }),
+    delete: secured({
+      operationId: "deleteUserCurrent",
+      summary: "Remove a member and hand their shared notes to the owner",
+      tags: ["Users"],
+      parameters: [userName],
+      responses: {
+        "200": emptyResponse("Member removed."),
+        "401": response("Unauthenticated.", error),
+        "403": response("Caller is not the instance owner.", error),
+        "404": response("User not found.", error),
       },
     }),
   },
@@ -830,7 +919,13 @@ export const restPaths = {
           type: "object",
           properties: {
             description: { type: "string" },
-            expiresInDays: { type: "integer", minimum: 0, maximum: 365 },
+            expiresInDays: {
+              type: "integer",
+              minimum: 0,
+              maximum: 365,
+              description:
+                "Omitted defaults to 365 days. Explicit 0 creates a non-expiring token; only notes-scoped tokens may use it.",
+            },
           },
         }),
       },
@@ -882,6 +977,153 @@ export const restPaths = {
         "401": response("Unauthenticated.", error),
       },
     }),
+  },
+  "/api/v1/export/tasks": {
+    get: secured({
+      operationId: "listExportTasks",
+      summary: "List chunked export/import tasks",
+      tags: ["ImportExport"],
+      responses: {
+        "200": response("Tasks.", {
+          type: "object",
+          properties: { tasks: { type: "array", items: { type: "object" } } },
+        }),
+        "401": response("Unauthenticated.", error),
+      },
+    }),
+    post: secured({
+      operationId: "createExportTask",
+      summary: "Start a chunked export",
+      tags: ["ImportExport"],
+      responses: {
+        "202": response("Export task accepted.", { type: "object" }),
+        "401": response("Unauthenticated.", error),
+      },
+    }),
+  },
+  "/api/v1/export/tasks/{id}": {
+    get: secured({
+      operationId: "getExportTask",
+      summary: "Poll one export/import task",
+      tags: ["ImportExport"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        "200": response("Task state.", { type: "object" }),
+        "404": response("Not found.", error),
+      },
+    }),
+  },
+  "/api/v1/export/tasks/{id}/manifest": {
+    get: secured({
+      operationId: "getExportTaskManifest",
+      summary: "Download the export manifest",
+      tags: ["ImportExport"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        "200": {
+          description: "NDJSON manifest.",
+          content: { "application/x-ndjson": { schema: { type: "string" } } },
+        },
+        "409": response("Export has not completed yet.", error),
+        "404": response("Artifact missing.", error),
+      },
+    }),
+  },
+  "/api/v1/export/tasks/{id}/data/{chunk}": {
+    get: secured({
+      operationId: "getExportTaskChunk",
+      summary: "Download one NDJSON data chunk",
+      tags: ["ImportExport"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+        {
+          name: "chunk",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+        },
+      ],
+      responses: {
+        "200": {
+          description: "NDJSON chunk.",
+          content: { "application/x-ndjson": { schema: { type: "string" } } },
+        },
+        "409": response("Export has not completed yet.", error),
+        "404": response("Chunk missing.", error),
+      },
+    }),
+  },
+  "/api/v1/export/tasks/{id}/attachments/{attachmentId}": {
+    get: secured({
+      operationId: "getExportTaskAttachment",
+      summary: "Download one attachment from an export",
+      tags: ["ImportExport"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+        {
+          name: "attachmentId",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+        },
+      ],
+      responses: {
+        "200": {
+          description: "Attachment bytes.",
+          content: {
+            "application/octet-stream": { schema: { type: "string" } },
+          },
+        },
+        "404": response("Attachment missing.", error),
+      },
+    }),
+  },
+  "/api/v1/import/tasks": {
+    post: secured({
+      operationId: "createImportTask",
+      summary: "Start a chunked import",
+      tags: ["ImportExport"],
+      requestBody: {
+        required: true,
+        content: json({ type: "object" }),
+      },
+      responses: {
+        "202": response("Import task accepted.", { type: "object" }),
+        "413": response("An attachment exceeds the upload budget.", error),
+      },
+    }),
+  },
+  "/api/v1/import/tasks/{id}/retry": {
+    post: secured({
+      operationId: "retryImportTask",
+      summary: "Retry a failed import from its stored bundle",
+      tags: ["ImportExport"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        "202": response("Import task accepted.", { type: "object" }),
+        "400": response("The task cannot be retried.", error),
+        "404": response("Task not found.", error),
+        "409": response("The task is not in a failed state.", error),
+        "410": response("The stored bundle has expired.", error),
+      },
+    }),
+  },
+  "/api/v1/openapi.json": {
+    get: {
+      operationId: "getCurrentOpenApiDocument",
+      summary: "This document",
+      tags: ["MCP"],
+      responses: {
+        "200": response("OpenAPI document.", { type: "object" }),
+        "401": response("Unauthenticated.", error),
+      },
+    },
   },
 };
 

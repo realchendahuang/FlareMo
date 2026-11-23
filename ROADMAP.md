@@ -5,12 +5,15 @@
 ## 产品主线
 
 - 设计原则：简约不简单，克制不放肆——不为了炫技加装饰，也不为了省事砍掉该有的能力（视觉与交互细节见 `docs/design-system.md`）。
+- AI 原生第二大脑：速记 → 任务 → 文章 → 知识库，Agent 通过 MCP 读写同一份笔记。
 - 快速记录：打开即写、低干扰输入、可靠草稿。
 - 安静时间线：搜索、标签、归档、回收站、活动热力图。
-- Memos 兼容：核心 `/api/v1` 子集稳定，当前包含有限 social、UserService webhook/notification 资源生命周期，以及四类 memo 事件的有界异步 webhook outbox 投递/重试；完整 Memos Server parity、完整上游 webhook 事件语义和完整多用户 ACL 仍未完成。导入导出保持可靠。
+- 兼容层与迁移：`/api/v1` 子集维持现状，不新增 parity；导入导出与迁移脚本保持可靠。
 - Cloudflare 原生部署：示例配置开箱即用、手动/Agent 部署、Access 保护、可审查的升级 PR。
 - 个人知识管理：引用关系、附件、公开分享、语义检索和 AI 工作流。
-- Agent Memory：AI 长期记忆中枢，Agent 通过 `/memory/mcp` 读写跨 session 记忆，用户可查看、确认、锁定、纠正；自动固化作为后续方向。
+- 笔记 MCP：Agent 通过 `/mcp` 搜索、读取、创建和修改用户的 memo；不设独立的 AI 记忆账本。
+- 第三方客户端接入：设备授权（配对码）让本地 Agent、桌面与 CLI 客户端安全接入，设置里可见并可撤销（见 `docs/agent-access-design.md`）。
+- AI 洞察：FlareMo 提供洞察任务的契约、状态与存储，模型执行器外置（DSH 插件、Workers AI 或其他 agent），不内置对话 AI。
 
 ## 工程主线
 
@@ -19,21 +22,21 @@
 - `/api/v1/*` 和 `/api/app/*` 复用同一套 domain services。
 - 每个公开 API 都有测试。
 - 每个 release 都有 tag、CHANGELOG、migration notes 和升级说明。
-- 有一套瘦 CI（format / lint / typecheck / 单元测试）作为 push 与外部 PR 的门禁；全量 `pnpm verify` 只在维护者明确要求时本地执行，发布默认按改动选择定向检查。GitHub Actions 不在上游或 push 流程中做生产部署；现有自托管 fork/deployment repository 仅可通过受控 `workflow_dispatch` 手动部署，用户部署仓库继续只用受限 workflow 准备上游升级 PR。
+- 没有 CI：push 与 PR 不自动跑检查，门禁在维护者本地按改动跑定向测试，全量 `pnpm verify` 只在明确要求时执行。GitHub Actions 不在上游或 push 流程中做生产部署；自托管部署仓库的部署/更新 workflow 以 `docs/templates/workflows/` 的模板形式提供，仅通过 `workflow_dispatch` 手动部署、用受限 workflow 准备上游升级 PR。
 
 ## 公开任务池
 
-> 需求池与对标分析（flomo）见 `docs/product-requirements.md`；具体任务从该文档选定后拆解到 GitHub Issues。
+> 需求池与对标分析见 `docs/product-requirements.md`；具体任务从该文档选定后拆解到 GitHub Issues。
 
-- 扩大真实 Memos 客户端兼容矩阵，并补每个已验证客户端的配置示例。
-- Agent Memory 后续：自动固化（会话/工作完成后 LLM 提炼）。
+- 盘清兼容层的实际支持范围并如实写进文档，不再宣称第三方客户端可用。
+- 笔记 MCP 工具面：按真实客户端反馈补齐搜索、标签与批量读写，不扩张成记忆子系统。
 - 回顾触达渠道：✅ 站内通知已落地（cron 幂等写入 `daily_review` 收件箱，铃铛直达 `/review/daily`）；✅ Web Push 已落地（VAPID 订阅 + 回顾推送，见 docs/deploy.md 配置小节）；AI 洞察类派生能力（Workers AI 或外部模型）仍为后续。
 - 增加附件生命周期观测面：清理计数、缺失对象报告和可控重试。
 - 扩大浏览器 E2E：Markdown、历史恢复、反向链接、分享撤销和附件预览。
 
 ## 不做
 
-- 不复制 Memos Go server。
+- 不复制任何上游实现，内核始终是自己的。
 - 不做 VPS / Docker / Postgres 部署主路径。
 - 不把 KV、R2、Vectorize 当主数据库。
 - 不在应用里重造实例级 Bearer token 登录。

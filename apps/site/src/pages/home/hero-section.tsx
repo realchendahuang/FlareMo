@@ -1,22 +1,6 @@
-import {
-  ArrowRight,
-  Database,
-  ExternalLink,
-  Image as ImageIcon,
-  ServerOff,
-  ShieldCheck,
-} from "lucide-react";
-import {
-  AnimatedNumber,
-  PopIn,
-  Reveal,
-  RevealGroup,
-  RevealItem,
-} from "@/components/motion";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRight, ExternalLink } from "lucide-react";
+import { PopIn, Reveal } from "@/components/motion";
 import { Button } from "@/components/ui/button";
-import { SpotlightCard } from "@/components/ui/spotlight-card";
-import { STAT_TITLES } from "@/content/comparison-i18n";
 import type { HomeContent } from "@/content/copy";
 import { getLocalizedPath, type SupportedLocale } from "@/lib/seo";
 /* ============================================================
@@ -30,13 +14,9 @@ export function Hero({
   locale: SupportedLocale;
   home: HomeContent;
 }) {
-  const titles = STAT_TITLES[locale] || STAT_TITLES.en;
-
   return (
     <section className="relative pt-12 md:pt-20">
-      <div className="container-x space-y-12">
-        {/* 限宽交给各子元素（副标题自带 mx-auto max-w-2xl）；外层不能限宽——
-            EN/ZH 标题锁行 nowrap 后行宽会超过 3xl，行盒溢出会导致 text-center 失效 */}
+      <div className="container-x space-y-10">
         <div className="space-y-6 text-center">
           {/* Eyebrow Pill */}
           <PopIn className="inline-flex">
@@ -45,18 +25,12 @@ export function Hero({
             </div>
           </PopIn>
 
-          {/* Headline */}
+          {/* Headline: 两行都允许自然换行（text-balance 让断行均匀），
+              不再锁 nowrap——EN/FR 等长句在 640px 以上会超出容器被裁切。 */}
           <Reveal delay={0.08}>
-            <h1 className="text-[clamp(1.75rem,5.2vw,4.25rem)] font-extrabold tracking-tight text-ink leading-[1.14]">
-              {/* nowrap 仅对允许整行展示的语言生效（CJK/拉丁）；阿语等长词换行语言不锁行 */}
-              <span
-                className={`block${locale === "en" || locale === "zh" ? " sm:whitespace-nowrap" : ""}`}
-              >
-                {home.heroTitleLine1}
-              </span>
-              <span
-                className={`mt-1.5 block sm:mt-2.5 text-brand-gradient${locale === "en" || locale === "zh" ? " sm:whitespace-nowrap" : ""}`}
-              >
+            <h1 className="mx-auto max-w-4xl text-balance text-[clamp(1.75rem,4.6vw,4.1rem)] font-extrabold tracking-tight text-ink leading-[1.12]">
+              <span className="block">{home.heroTitleLine1}</span>
+              <span className="mt-1.5 block text-brand-gradient sm:mt-2.5">
                 {home.heroTitleLine2}
               </span>
             </h1>
@@ -100,79 +74,25 @@ export function Hero({
           </Reveal>
         </div>
 
-        {/* 4 栏核心指标看板 */}
-        <RevealGroup
-          stagger={0.08}
-          className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
-        >
-          <RevealItem>
-            <SpotlightCard className="p-5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between">
-                <div className="icon-dock flex size-9 items-center justify-center text-signal">
-                  <Database className="size-4" />
-                </div>
-                <Badge variant="flame">D1 Storage</Badge>
+        {/* 事实横条：只报可核对的免费配额与部署耗时，不做百分比承诺 */}
+        <Reveal delay={0.32}>
+          <dl className="mx-auto grid max-w-4xl grid-cols-2 gap-y-7 border-y border-line/70 py-7 text-center sm:grid-cols-4 sm:divide-x sm:divide-line/70">
+            {home.heroFacts.map((fact) => (
+              <div key={fact.label} className="px-2 sm:px-4">
+                <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-fog">
+                  {fact.label}
+                </dt>
+                <dd
+                  className="mt-1.5 text-xl font-semibold tracking-tight text-ink tabular-nums"
+                  dir="ltr"
+                >
+                  {fact.value}
+                </dd>
+                <dd className="mt-0.5 text-xs text-mist">{fact.detail}</dd>
               </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight tabular-nums text-ink">
-                  <AnimatedNumber value={5} suffix=" GB" locale={locale} />
-                </div>
-                <div className="mt-1 text-xs text-mist">{home.statMemos}</div>
-              </div>
-            </SpotlightCard>
-          </RevealItem>
-
-          <RevealItem>
-            <SpotlightCard className="p-5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between">
-                <div className="icon-dock flex size-9 items-center justify-center text-signal">
-                  <ImageIcon className="size-4" />
-                </div>
-                <Badge variant="flame">R2 Free Egress</Badge>
-              </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight tabular-nums text-ink">
-                  <AnimatedNumber value={10} suffix=" GB" locale={locale} />
-                </div>
-                <div className="mt-1 text-xs text-mist">{home.statPhotos}</div>
-              </div>
-            </SpotlightCard>
-          </RevealItem>
-
-          <RevealItem>
-            <SpotlightCard className="p-5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between">
-                <div className="icon-dock flex size-9 items-center justify-center text-signal">
-                  <ServerOff className="size-4" />
-                </div>
-                <Badge variant="secondary">Zero Ops</Badge>
-              </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight tabular-nums text-ink">
-                  {titles.servers}
-                </div>
-                <div className="mt-1 text-xs text-mist">{home.statServers}</div>
-              </div>
-            </SpotlightCard>
-          </RevealItem>
-
-          <RevealItem>
-            <SpotlightCard className="p-5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between">
-                <div className="icon-dock flex size-9 items-center justify-center text-signal">
-                  <ShieldCheck className="size-4" />
-                </div>
-                <Badge variant="success">Your Data</Badge>
-              </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight tabular-nums text-ink">
-                  {titles.ownership}
-                </div>
-                <div className="mt-1 text-xs text-mist">{home.statUptime}</div>
-              </div>
-            </SpotlightCard>
-          </RevealItem>
-        </RevealGroup>
+            ))}
+          </dl>
+        </Reveal>
       </div>
     </section>
   );

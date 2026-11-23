@@ -1,5 +1,5 @@
 /**
- * Shared date formatting for admin / account / memory list surfaces, styled
+ * Shared date formatting for admin / account / task list surfaces, styled
  * after calendar-date.ts's locale-aware Intl helpers (but for timestamps, not
  * calendar-grid keys).
  *
@@ -7,7 +7,7 @@
  * byte-identical to the call sites they replaced:
  * - formatDate: medium date (reader expiry in admin + account profile).
  * - formatDateTime: medium date + short time (token expiry rows).
- * - formatTimestamp: the default `toLocaleString()` of the memory revisions
+ * - formatTimestamp: the default `toLocaleString()` of the task activity
  *   list — intentionally NOT formatDateTime, which would change its visible
  *   output.
  */
@@ -38,8 +38,8 @@ export function formatDateTime(
   }).format(new Date(value));
 }
 
-// Default-locale `toLocaleString()` rendering, kept verbatim from the memory
-// revisions list (memory-revisions.tsx).
+// Default-locale `toLocaleString()` rendering, kept verbatim from the task
+// activity list.
 export function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString();
 }

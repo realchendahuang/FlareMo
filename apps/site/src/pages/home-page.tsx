@@ -18,6 +18,7 @@ import { CtaSection } from "./home/cta-section";
 import { EcosystemSection } from "./home/ecosystem-section";
 import { FaqSection } from "./home/faq-section";
 import { Hero } from "./home/hero-section";
+import { ScreenshotsSection } from "./home/screenshots-section";
 
 const FEATURE_ICONS = [ShieldCheck, Database, WifiOff, Bot, Users, Layers];
 
@@ -40,6 +41,11 @@ export function HomePage() {
         items={home.features}
         subtitle={home.featuresSubtitle}
       />
+      <ScreenshotsSection
+        heading={home.screenshotsHeading}
+        locale={locale}
+        subtitle={home.screenshotsSubtitle}
+      />
       <ComparisonSection
         heading={home.comparisonHeading}
         locale={locale}
@@ -48,13 +54,8 @@ export function HomePage() {
       />
       <EcosystemSection locale={locale} />
       <CardGallerySection locale={locale} />
-      <FaqSection
-        badge={home.faqBadge}
-        heading={home.faqHeading}
-        items={home.faqItems}
-      />
+      <FaqSection heading={home.faqHeading} items={home.faqItems} />
       <CtaSection
-        badge={home.ctaBadge}
         buttonText={home.ctaButton}
         heading={home.ctaHeading}
         locale={locale}

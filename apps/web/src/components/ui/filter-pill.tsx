@@ -32,13 +32,13 @@ export function FilterPill({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-all shrink-0 cursor-pointer select-none",
+        "inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/25",
         active
-          ? "bg-primary text-primary-foreground shadow-xs"
+          ? "border-foreground bg-foreground text-background"
           : variant === "sub"
-            ? "border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
-            : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
-        highlight && !active && "text-brand-500 font-semibold",
+            ? "border-dashed border-border bg-transparent text-muted-foreground hover:border-input hover:text-foreground"
+            : "border-border bg-card text-muted-foreground hover:border-input hover:text-foreground",
+        highlight && !active && "text-primary",
         className,
       )}
     >
